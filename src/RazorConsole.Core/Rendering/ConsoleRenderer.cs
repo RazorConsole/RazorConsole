@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering.ComponentMarkup;
-using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console.Rendering;
 
@@ -19,7 +18,7 @@ namespace RazorConsole.Core.Rendering;
 internal sealed class ConsoleRenderer(
     IServiceProvider services,
     ILoggerFactory loggerFactory,
-    VdomSpectreTranslator translator)
+    Translation.Contexts.TranslationContext translationContext)
     : Renderer(services, loggerFactory),
     IObservable<ConsoleRenderer.RenderSnapshot>
 {
@@ -61,8 +60,6 @@ internal sealed class ConsoleRenderer(
 
     private readonly Dictionary<int, VNode> _componentRoots = [];
     private readonly Stack<VNode> _cursor = new();
-    private readonly VdomSpectreTranslator _translator = translator
-        ?? throw new ArgumentNullException(nameof(translator));
     private readonly ILogger<ConsoleRenderer> _logger = loggerFactory?.CreateLogger<ConsoleRenderer>()
         ?? throw new ArgumentNullException(nameof(loggerFactory));
 #if NET9_0_OR_GREATER
@@ -490,14 +487,9 @@ internal sealed class ConsoleRenderer(
             {
                 return RenderSnapshot.Empty;
             }
-
-            if (!_translator.TryTranslate(vnode, out var renderable, out var animatedRenderables) || renderable is null)
-            {
-                _logger.LogFailedToTranslateVNode();
-                return RenderSnapshot.Empty;
-            }
-
-            return new RenderSnapshot(vnode, renderable, animatedRenderables);
+            var renderable = translationContext.Translate(vnode);
+            // TODO: support for animated rendering
+            return new RenderSnapshot(vnode, renderable, []);
         }
         catch (Exception ex)
         {
