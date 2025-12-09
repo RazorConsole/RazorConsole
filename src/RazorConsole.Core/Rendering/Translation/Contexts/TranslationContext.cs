@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Vdom;
 
 using Spectre.Console.Rendering;
@@ -11,6 +12,8 @@ public sealed class TranslationContext
 {
 
     private readonly TranslationDelegate _pipeline;
+
+    public HashSet<IAnimatedConsoleRenderable> AnimatedRenderables { get; } = [];
 
     public TranslationContext(
         IEnumerable<ITranslationMiddleware> middlewares)

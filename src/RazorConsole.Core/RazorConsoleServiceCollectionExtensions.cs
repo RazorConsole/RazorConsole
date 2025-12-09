@@ -58,6 +58,7 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<MarkdownRenderingService>();
 
         services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.TextElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, SpinerTranslator>();
         services.AddSingleton<ITranslationMiddleware, BackwardCompatabbilityTranslator>();
         services.AddSingleton<ITranslationMiddleware, FallbackTranslator>();
         services.AddSingleton<Rendering.Translation.Contexts.TranslationContext>();

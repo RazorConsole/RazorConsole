@@ -487,9 +487,10 @@ internal sealed class ConsoleRenderer(
             {
                 return RenderSnapshot.Empty;
             }
+
+            translationContext.AnimatedRenderables.Clear();
             var renderable = translationContext.Translate(vnode);
-            // TODO: support for animated rendering
-            return new RenderSnapshot(vnode, renderable, []);
+            return new RenderSnapshot(vnode, renderable, translationContext.AnimatedRenderables);
         }
         catch (Exception ex)
         {
