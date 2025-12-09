@@ -1,42 +1,46 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Abstractions.Rendering;
+
+using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Vdom;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public sealed class HtmlHeadingElementTranslator : IVdomElementTranslator
+public sealed class HtmlHeadingElementTranslator : ITranslationMiddleware
 {
-    public int Priority => 150;
-
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
+        if (!CanHandle(node))
+        {
+            return next(node);
+        }
 
+        var tagName = node.TagName?.ToLowerInvariant();
+        var innerText = VdomSpectreTranslator.CollectInnerText(node);
+        if (string.IsNullOrWhiteSpace(innerText))
+        {
+            return new Markup(string.Empty);
+        }
+
+        var style = GetHeadingStyle(tagName);
+        var prefix = GetHeadingPrefix(tagName);
+        var markup = Markup.Escape($"{prefix}{innerText}");
+        return new Markup(markup, style);
+    }
+
+    private static bool CanHandle(VNode node)
+    {
         if (node.Kind != VNodeKind.Element)
         {
             return false;
         }
 
         var tagName = node.TagName?.ToLowerInvariant();
-        if (!IsHeadingTag(tagName))
-        {
-            return false;
-        }
-
-        var innerText = VdomSpectreTranslator.CollectInnerText(node);
-        if (string.IsNullOrWhiteSpace(innerText))
-        {
-            renderable = new Markup(string.Empty);
-            return true;
-        }
-
-        var style = GetHeadingStyle(tagName);
-        var prefix = GetHeadingPrefix(tagName);
-        var markup = Markup.Escape($"{prefix}{innerText}");
-        renderable = new Markup(markup, style);
-        return true;
+        return IsHeadingTag(tagName);
     }
 
     private static string GetHeadingPrefix(string? tagName)
@@ -76,3 +80,4 @@ public sealed class HtmlHeadingElementTranslator : IVdomElementTranslator
         };
     }
 }
+

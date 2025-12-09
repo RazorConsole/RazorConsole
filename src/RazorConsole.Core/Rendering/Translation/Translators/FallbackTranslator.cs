@@ -1,13 +1,11 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Text;
-
 using RazorConsole.Core.Abstractions.Rendering;
-using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Vdom;
-
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
 namespace RazorConsole.Core.Rendering.Translation.Translators;
 

@@ -1,30 +1,25 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Abstractions.Rendering;
+
+using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Vdom;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public sealed class HtmlListElementTranslator : IVdomElementTranslator
+public sealed class HtmlListElementTranslator : ITranslationMiddleware
 {
-    public int Priority => 180;
-
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-        if (node.Kind != VNodeKind.Element)
+        if (!CanHandle(node))
         {
-            return false;
+            return next(node);
         }
 
         var tagName = node.TagName?.ToLowerInvariant();
-        if (tagName != "ul" && tagName != "ol")
-        {
-            return false;
-        }
-
         var isOrdered = tagName == "ol";
         var startNumber = 1;
 
@@ -45,8 +40,7 @@ public sealed class HtmlListElementTranslator : IVdomElementTranslator
 
         if (listItems.Count == 0)
         {
-            renderable = new Markup(string.Empty);
-            return true;
+            return new Markup(string.Empty);
         }
 
         var itemRenderables = new System.Collections.Generic.List<IRenderable>();
@@ -57,9 +51,9 @@ public sealed class HtmlListElementTranslator : IVdomElementTranslator
             var prefix = isOrdered ? $"{startNumber + i}. " : "• ";
 
             // Convert list item children to renderables
-            if (!VdomSpectreTranslator.TryConvertChildrenToBlockInlineRenderable(listItem.Children, context, out var itemChildRenderable))
+            if (!TranslationHelpers.TryConvertChildrenToBlockInlineRenderable(listItem.Children, context, out var itemChildRenderable))
             {
-                return false;
+                return next(node);
             }
 
             // Create the list item with prefix
@@ -80,11 +74,21 @@ public sealed class HtmlListElementTranslator : IVdomElementTranslator
             itemRenderables.Add(itemContent);
         }
 
-        renderable = new Rows(itemRenderables)
+        return new Rows(itemRenderables)
         {
             Expand = false,
         };
+    }
 
-        return true;
+    private static bool CanHandle(VNode node)
+    {
+        if (node.Kind != VNodeKind.Element)
+        {
+            return false;
+        }
+
+        var tagName = node.TagName?.ToLowerInvariant();
+        return tagName == "ul" || tagName == "ol";
     }
 }
+

@@ -1,16 +1,17 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Rendering.ComponentMarkup;
+using RazorConsole.Core.Rendering.Translation.Contexts;
+using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 
-namespace RazorConsole.Core.Rendering.Vdom;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public sealed class HtmlButtonElementTranslator : IVdomElementTranslator
+public sealed class HtmlButtonElementTranslator : ITranslationMiddleware
 {
-    public int Priority => 80;
-
     private static readonly IReadOnlyDictionary<string, string> VariantMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["btn-primary"] = "primary",
@@ -23,24 +24,25 @@ public sealed class HtmlButtonElementTranslator : IVdomElementTranslator
         ["btn-default"] = "neutral",
     };
 
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-        if (node.Kind != VNodeKind.Element || !string.Equals(node.TagName, "button", StringComparison.OrdinalIgnoreCase))
+        if (!CanHandle(node))
         {
-            return false;
+            return next(node);
         }
 
-        if (!VdomSpectreTranslator.TryConvertChildrenToBlockInlineRenderable(node.Children, context, out var children) || children is null)
+        if (!TranslationHelpers.TryConvertChildrenToBlockInlineRenderable(node.Children, context, out var children) || children is null)
         {
-            return false;
+            return next(node);
         }
 
         var descriptor = CreateDescriptor(node);
-        renderable = ButtonRenderableBuilder.Build(descriptor, children);
-        return true;
+        return ButtonRenderableBuilder.Build(descriptor, children);
     }
+
+    private static bool CanHandle(VNode node)
+        => node.Kind == VNodeKind.Element
+           && string.Equals(node.TagName, "button", StringComparison.OrdinalIgnoreCase);
 
     private static ButtonRenderableDescriptor CreateDescriptor(VNode node)
     {
@@ -202,3 +204,4 @@ public sealed class HtmlButtonElementTranslator : IVdomElementTranslator
         return VdomSpectreTranslator.HasClass(node, "btn-primary") || VdomSpectreTranslator.HasClass(node, "btn-default");
     }
 }
+

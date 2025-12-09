@@ -1,8 +1,11 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Collections.ObjectModel;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Rendering.ComponentMarkup;
+using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Vdom;
 using Spectre.Console.Rendering;
 
@@ -20,6 +23,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
     private readonly object _sync = new();
 #endif
     private readonly VdomDiffService _diffService;
+    private readonly Translation.Contexts.TranslationContext _translationContext;
     private bool _disposed;
     private ConsoleViewResult? _currentView;
     private readonly IDisposable? _snapshotSubscription;
@@ -32,6 +36,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         VdomDiffService? diffService = null)
     {
         _canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
+        _translationContext = renderer.GetTranslationContext();
         if (initialView is not null)
         {
             _currentView = initialView;
@@ -134,9 +139,17 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         ConsoleViewResult? initialView,
         VdomDiffService? diffService)
     {
-        throw new NotImplementedException();
-        //var renderer = CreateRenderer();
-        //return new ConsoleLiveDisplayContext(canvas, renderer, initialView, diffService: diffService);
+        var renderer = CreateTestRenderer();
+        return new ConsoleLiveDisplayContext(canvas, renderer, initialView, diffService: diffService);
+    }
+
+    private static ConsoleRenderer CreateTestRenderer()
+    {
+        var services = new ServiceCollection();
+        RazorConsoleServiceCollectionExtensions.AddRazorConsoleServices(services);
+        var serviceProvider = services.BuildServiceProvider();
+        var translationContext = serviceProvider.GetRequiredService<TranslationContext>();
+        return new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance, translationContext);
     }
 
     public void OnCompleted()
@@ -193,7 +206,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
             return false;
         }
 
-        if (!SpectreRenderableFactory.TryCreateRenderable(mutation.Node, out var renderable, out _) || renderable is null)
+        if (!SpectreRenderableFactory.TryCreateRenderable(mutation.Node, _translationContext, out var renderable, out _) || renderable is null)
         {
             return false;
         }

@@ -1,40 +1,29 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Abstractions.Rendering;
+
+using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Vdom;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-
-public sealed class FigletElementTranslator : IVdomElementTranslator
+public sealed class FigletElementTranslator : ITranslationMiddleware
 {
-    public int Priority => 160;
-
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-        if (node.Kind != VNodeKind.Element)
+        if (!CanHandle(node))
         {
-            return false;
-        }
-
-        if (!node.Attributes.TryGetValue("class", out var value) || !string.Equals(value, "figlet", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (node.Children is not { Count: 0 })
-        {
-            return false;
+            return next(node);
         }
 
         var content = VdomSpectreTranslator.GetAttribute(node, "data-content");
 
         if (string.IsNullOrWhiteSpace(content))
         {
-            return false;
+            return next(node);
         }
 
         var styleAttribute = VdomSpectreTranslator.GetAttribute(node, "data-style");
@@ -58,7 +47,13 @@ public sealed class FigletElementTranslator : IVdomElementTranslator
             Color = style.Foreground
         };
 
-        renderable = figlet;
-        return true;
+        return figlet;
     }
+
+    private static bool CanHandle(VNode node)
+        => node.Kind == VNodeKind.Element
+           && node.Attributes.TryGetValue("class", out var value)
+           && string.Equals(value, "figlet", StringComparison.OrdinalIgnoreCase)
+           && node.Children is { Count: 0 };
 }
+

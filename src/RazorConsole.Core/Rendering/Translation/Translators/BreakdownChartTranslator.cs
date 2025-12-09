@@ -3,29 +3,29 @@
 using System.Globalization;
 using System.Text.Json;
 using RazorConsole.Components;
+using RazorConsole.Core.Abstractions.Rendering;
+
 using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Vdom.Translators;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public class BreakdownChartTranslator : IVdomElementTranslator
+public sealed class BreakdownChartTranslator : ITranslationMiddleware
 {
-    public int Priority => 150;
-
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
         if (!IsBreakdownChart(node))
         {
-            return false;
+            return next(node);
         }
 
         var itemsAttribute = VdomSpectreTranslator.GetAttribute(node, "data-items");
         if (string.IsNullOrEmpty(itemsAttribute))
         {
-            return false;
+            return next(node);
         }
 
         List<JsonElement> rawItems;
@@ -36,7 +36,7 @@ public class BreakdownChartTranslator : IVdomElementTranslator
         }
         catch
         {
-            return false;
+            return next(node);
         }
 
         var breakdownChart = new Spectre.Console.BreakdownChart();
@@ -46,14 +46,13 @@ public class BreakdownChartTranslator : IVdomElementTranslator
         }
         catch
         {
-            return false;
+            return next(node);
         }
 
         if (VdomSpectreTranslator.TryGetBoolAttribute(node, "data-compact", out var compact))
         {
             breakdownChart.Compact = compact;
         }
-
 
         var cultureInfoAttribute = VdomSpectreTranslator.GetAttribute(node, "data-culture");
         CultureInfo cultureInfo;
@@ -65,12 +64,12 @@ public class BreakdownChartTranslator : IVdomElementTranslator
             }
             catch
             {
-                return false;
+                return next(node);
             }
         }
         else
         {
-            return false;
+            return next(node);
         }
         breakdownChart.Culture = cultureInfo;
 
@@ -106,25 +105,12 @@ public class BreakdownChartTranslator : IVdomElementTranslator
             breakdownChart.ValueColor = valueColor;
         }
 
-        renderable = breakdownChart;
-
-        return true;
+        return breakdownChart;
     }
 
     private static bool IsBreakdownChart(VNode node)
-    {
-        if (node.Kind != VNodeKind.Element)
-        {
-            return false;
-        }
-
-        if (!string.Equals(node.TagName, "breakdownchart", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return true;
-    }
+        => node.Kind == VNodeKind.Element
+           && string.Equals(node.TagName, "breakdownchart", StringComparison.OrdinalIgnoreCase);
 
     private void AddBreakdownChartItems(Spectre.Console.BreakdownChart breakdownChart, List<JsonElement> rawItems)
     {
@@ -181,3 +167,4 @@ public class BreakdownChartTranslator : IVdomElementTranslator
         }
     }
 }
+

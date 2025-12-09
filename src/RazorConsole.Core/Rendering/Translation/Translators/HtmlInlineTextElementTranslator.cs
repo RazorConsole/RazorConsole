@@ -1,16 +1,17 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Text;
+using RazorConsole.Core.Abstractions.Rendering;
+
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Vdom;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public sealed class HtmlInlineTextElementTranslator : IVdomElementTranslator
+public sealed class HtmlInlineTextElementTranslator : ITranslationMiddleware
 {
-    public int Priority => 20;
-
     private static readonly IReadOnlyDictionary<string, MarkupEnvelope> StyleEnvelopes =
         new Dictionary<string, MarkupEnvelope>(StringComparer.OrdinalIgnoreCase)
         {
@@ -33,28 +34,24 @@ public sealed class HtmlInlineTextElementTranslator : IVdomElementTranslator
 
     private static readonly HashSet<string> LinkTags = new(StringComparer.OrdinalIgnoreCase) { "a" };
 
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-        if (node.Kind != VNodeKind.Element)
+        if (!CanHandle(node))
         {
-            return false;
-        }
-
-        if (!IsSupportedInlineElement(node.TagName))
-        {
-            return false;
+            return next(node);
         }
 
         if (!TryBuildMarkup(node, out var markup))
         {
-            return false;
+            return next(node);
         }
 
-        renderable = new Markup(markup);
-        return true;
+        return new Markup(markup);
     }
+
+    private static bool CanHandle(VNode node)
+        => node.Kind == VNodeKind.Element
+           && IsSupportedInlineElement(node.TagName);
 
     private static bool IsSupportedInlineElement(string? tagName)
     {
@@ -103,13 +100,13 @@ public sealed class HtmlInlineTextElementTranslator : IVdomElementTranslator
 
         if (QuoteTags.Contains(tagName))
         {
-            builder.Append("“");
+            builder.Append("\u201C");
             if (!TryAppendChildren(node.Children, builder, allowNestedFormatting: true))
             {
                 return false;
             }
 
-            builder.Append("”");
+            builder.Append("\u201D");
             return true;
         }
 

@@ -1,25 +1,26 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Text;
-using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Abstractions.Rendering;
+
+using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Vdom.Translators;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-internal class VDomTreePrinterTranslator : IVdomElementTranslator
+internal sealed class VDomTreePrinterTranslator : ITranslationMiddleware
 {
     private const string ENABLE_COMPONENT_ROOT_FLAG = "RC_PRINT_VDOM_TREE";
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly List<Text> _frames = new List<Text>();
-    public int Priority => 0;
 
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
         if (Environment.GetEnvironmentVariable(ENABLE_COMPONENT_ROOT_FLAG)?.ToLowerInvariant() != "true")
         {
-            renderable = null;
-            return false;
+            return next(node);
         }
 
         _semaphore.Wait();
@@ -46,7 +47,7 @@ internal class VDomTreePrinterTranslator : IVdomElementTranslator
             };
         }));
 
-        renderable = new Panel(row)
+        var result = new Panel(row)
         {
             Border = BoxBorder.None,
             Expand = true
@@ -54,7 +55,7 @@ internal class VDomTreePrinterTranslator : IVdomElementTranslator
 
         _semaphore.Release();
 
-        return true;
+        return result;
     }
 
     private static void AppendNode(VNode node, StringBuilder builder, string indent, bool isLast)
@@ -120,7 +121,7 @@ internal class VDomTreePrinterTranslator : IVdomElementTranslator
 
                 summary.Append(" \"");
                 summary.Append(text);
-                summary.Append('\"');
+                summary.Append('"');
                 break;
             case VNodeKind.Component:
                 if (!string.IsNullOrWhiteSpace(node.Key))
@@ -189,3 +190,4 @@ internal class VDomTreePrinterTranslator : IVdomElementTranslator
         builder.Append(']');
     }
 }
+

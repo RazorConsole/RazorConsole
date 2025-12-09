@@ -1,16 +1,18 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Rendering.ComponentMarkup;
+
+using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Vdom;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public sealed class PanelElementTranslator : IVdomElementTranslator
+public sealed class PanelElementTranslator : ITranslationMiddleware
 {
-    public int Priority => 100;
-
     private static readonly IReadOnlyDictionary<string, BoxBorder> BorderLookup = new Dictionary<string, BoxBorder>(StringComparer.OrdinalIgnoreCase)
         {
             { "square", BoxBorder.Square },
@@ -21,23 +23,16 @@ public sealed class PanelElementTranslator : IVdomElementTranslator
             { "none", BoxBorder.None },
         };
 
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-        if (node.Kind != VNodeKind.Element)
-        {
-            return false;
-        }
-
         if (!IsPanelNode(node))
         {
-            return false;
+            return next(node);
         }
 
-        if (!VdomSpectreTranslator.TryConvertChildrenToRenderables(node.Children, context, out var children))
+        if (!TranslationHelpers.TryConvertChildrenToRenderables(node.Children, context, out var children))
         {
-            return false;
+            return next(node);
         }
 
         var content = VdomSpectreTranslator.ComposeChildContent(children);
@@ -68,24 +63,13 @@ public sealed class PanelElementTranslator : IVdomElementTranslator
         ApplyHeader(node, panel);
         ApplyBorderColor(node, panel);
 
-        renderable = panel;
-        return true;
+        return panel;
     }
 
     private static bool IsPanelNode(VNode node)
-    {
-        if (node.Kind != VNodeKind.Element)
-        {
-            return false;
-        }
-
-        if (node.Attributes.TryGetValue("class", out var value) && string.Equals(value, "panel", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return false;
-    }
+        => node.Kind == VNodeKind.Element
+           && node.Attributes.TryGetValue("class", out var value)
+           && string.Equals(value, "panel", StringComparison.OrdinalIgnoreCase);
 
     private static bool ShouldExpand(VNode node)
     {
@@ -138,3 +122,4 @@ public sealed class PanelElementTranslator : IVdomElementTranslator
         }
     }
 }
+

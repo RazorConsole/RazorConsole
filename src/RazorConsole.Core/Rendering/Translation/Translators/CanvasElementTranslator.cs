@@ -1,51 +1,32 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Abstractions.Rendering;
+
+using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-namespace RazorConsole.Core.Rendering.Vdom;
-
-public sealed class CanvasElementTranslator : IVdomElementTranslator
+public sealed class CanvasElementTranslator : ITranslationMiddleware
 {
-    public int Priority => 100;
-
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-
-        if (node.Kind != VNodeKind.Element)
+        if (!CanHandle(node))
         {
-            return false;
-        }
-
-        if (!string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (!node.Attributes.TryGetValue("data-canvas", out var canvasAttr)
-            || !string.Equals(canvasAttr, "true", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
+            return next(node);
         }
 
         var width = GetIntAttribute(node, "data-width");
-
         var height = GetIntAttribute(node, "data-height");
-
         var pixelWidth = GetIntAttribute(node, "data-pixelwidth", 2);
-
         var scale = GetBoolAttribute(node, "data-scale", false);
-
         var maxWidth = GetNullableIntAttribute(node, "data-maxwidth");
-
         var pixelsDataIdAttribute = VdomSpectreTranslator.GetAttribute(node, "data-canvas-data-id");
 
         var canvas = new Canvas(width, height);
-
 
         if (maxWidth.HasValue)
         {
@@ -53,10 +34,7 @@ public sealed class CanvasElementTranslator : IVdomElementTranslator
         }
 
         canvas.PixelWidth = pixelWidth;
-
-
         canvas.Scale = scale;
-
 
         if (!string.IsNullOrWhiteSpace(pixelsDataIdAttribute) &&
             Guid.TryParse(pixelsDataIdAttribute, out var dataId))
@@ -65,25 +43,27 @@ public sealed class CanvasElementTranslator : IVdomElementTranslator
 
             if (!dataInDictionary)
             {
-                return false;
+                return next(node);
             }
 
             foreach (var p in pixels!)
-
-
             {
                 canvas.SetPixel(p.Item1, p.Item2, p.Item3);
             }
         }
         else
         {
-            return false;
+            return next(node);
         }
 
-        renderable = canvas;
-        return true;
+        return canvas;
     }
 
+    private static bool CanHandle(VNode node)
+        => node.Kind == VNodeKind.Element
+           && string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
+           && node.Attributes.TryGetValue("data-canvas", out var canvasAttr)
+           && string.Equals(canvasAttr, "true", StringComparison.OrdinalIgnoreCase);
 
     private static int GetIntAttribute(VNode node, string name, int? defaultValue = null)
     {
@@ -101,7 +81,6 @@ public sealed class CanvasElementTranslator : IVdomElementTranslator
         throw new InvalidOperationException($"Required canvas attribute '{name}' is missing or has an invalid value.");
     }
 
-
     private static bool GetBoolAttribute(VNode node, string name, bool defaultValue)
     {
         if (node.Attributes.TryGetValue(name, out var value))
@@ -111,7 +90,6 @@ public sealed class CanvasElementTranslator : IVdomElementTranslator
 
         return defaultValue;
     }
-
 
     private static int? GetNullableIntAttribute(VNode node, string name)
     {
@@ -124,3 +102,4 @@ public sealed class CanvasElementTranslator : IVdomElementTranslator
         return null;
     }
 }
+

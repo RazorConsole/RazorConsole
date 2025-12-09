@@ -1,32 +1,27 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Abstractions.Rendering;
+
+using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Vdom;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public sealed class GridElementTranslator : IVdomElementTranslator
+public sealed class GridElementTranslator : ITranslationMiddleware
 {
-    public int Priority => 130;
-
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-        if (node.Kind != VNodeKind.Element)
+        if (!CanHandle(node))
         {
-            return false;
+            return next(node);
         }
 
-        if (!node.Attributes.TryGetValue("class", out var value) || !string.Equals(value, "grid", StringComparison.OrdinalIgnoreCase))
+        if (!TranslationHelpers.TryConvertChildrenToRenderables(node.Children, context, out var children))
         {
-            return false;
-        }
-
-        if (!VdomSpectreTranslator.TryConvertChildrenToRenderables(node.Children, context, out var children))
-        {
-            return false;
+            return next(node);
         }
 
         var columnCount = VdomSpectreTranslator.TryGetIntAttribute(node, "data-columns", 2);
@@ -54,9 +49,13 @@ public sealed class GridElementTranslator : IVdomElementTranslator
             grid.Width = width;
         }
 
-        renderable = grid;
-        return true;
+        return grid;
     }
+
+    private static bool CanHandle(VNode node)
+        => node.Kind == VNodeKind.Element
+           && node.Attributes.TryGetValue("class", out var value)
+           && string.Equals(value, "grid", StringComparison.OrdinalIgnoreCase);
 
     private static IEnumerable<IRenderable[]> Chunk(IReadOnlyList<IRenderable> items, int size)
     {
@@ -82,3 +81,4 @@ public sealed class GridElementTranslator : IVdomElementTranslator
         }
     }
 }
+

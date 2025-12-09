@@ -14,8 +14,6 @@ using RazorConsole.Core.Input;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Rendering.Markdown;
 using RazorConsole.Core.Rendering.Syntax;
-using RazorConsole.Core.Rendering.Translation.Translators;
-using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Utilities;
 using RazorConsole.Core.Vdom;
 
@@ -57,23 +55,63 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<SyntaxHighlightingService>();
         services.TryAddSingleton<MarkdownRenderingService>();
 
+        // Register translation middlewares in order of priority
+        // Text nodes and basic elements first
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.TextNodeTranslator>();
         services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.TextElementTranslator>();
-        services.AddSingleton<ITranslationMiddleware, SpinerTranslator>();
-        services.AddSingleton<ITranslationMiddleware, BackwardCompatabbilityTranslator>();
-        services.AddSingleton<ITranslationMiddleware, FallbackTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.HtmlInlineTextElementTranslator>();
+
+        // Simple elements
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.SpacerElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.NewlineElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.SpinerTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.ButtonElementTranslator>();
+
+        // Code and syntax
+        services.AddSingleton<ITranslationMiddleware>(sp =>
+            new Rendering.Translation.Translators.HtmlCodeBlockElementTranslator(sp.GetRequiredService<SyntaxHighlightingService>()));
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.SyntaxHighlighterElementTranslator>();
+
+        // Charts
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.StepChartTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.BarChartTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.BreakdownChartTranslator>();
+
+        // HTML buttons
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.HtmlButtonElementTranslator>();
+
+        // Layout elements
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.CanvasElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.PanelElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.RowsElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.ColumnsElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.GridElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.PadderElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.AlignElementTranslator>();
+
+        // Special elements (must be before generic HTML elements)
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.FigletElementTranslator>();
+
+        // HTML elements
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.HtmlHeadingElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.HtmlBlockquoteElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.HtmlHrElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.HtmlTableElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.HtmlListElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.HtmlDivElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.HtmlParagraphElementTranslator>();
+
+        // Component and region handling
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.ComponentRegionTranslator>();
+
+        // Debug and fallback
+#if DEBUG
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.VDomTreePrinterTranslator>();
+#endif
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.FallbackTranslator>();
+
         services.AddSingleton<Rendering.Translation.Contexts.TranslationContext>();
 
-        services.AddDefaultVdomTranslators();
-        // Register HtmlCodeBlockElementTranslator with dependency injection
-        services.AddSingleton<IVdomElementTranslator>(sp =>
-            new HtmlCodeBlockElementTranslator(sp.GetRequiredService<SyntaxHighlightingService>()));
-        services.TryAddSingleton(sp =>
-        {
-            var translators = sp.GetServices<IVdomElementTranslator>()
-                .OrderBy(t => t.Priority)
-                .ToList();
-            return new VdomSpectreTranslator(translators);
-        });
 
         // Add ConsoleAppOptions as a singleton by resolving the IOptions value in a factory to avoid IOptions dependency in injecting components.
         services.AddSingleton<ConsoleAppOptions>(resolver => resolver.GetRequiredService<IOptions<ConsoleAppOptions>>().Value);

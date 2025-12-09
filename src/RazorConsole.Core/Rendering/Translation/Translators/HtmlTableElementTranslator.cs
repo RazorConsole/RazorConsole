@@ -1,15 +1,17 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Abstractions.Rendering;
+
+using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Vdom;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public sealed class TableElementTranslator : IVdomElementTranslator
+public sealed class HtmlTableElementTranslator : ITranslationMiddleware
 {
-    public int Priority => 170;
-
     private static readonly IReadOnlyDictionary<string, TableBorder> BorderLookup = new Dictionary<string, TableBorder>(StringComparer.OrdinalIgnoreCase)
     {
         ["none"] = TableBorder.None,
@@ -26,31 +28,29 @@ public sealed class TableElementTranslator : IVdomElementTranslator
         ["ascii"] = TableBorder.Ascii,
     };
 
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
         if (!IsTableNode(node))
         {
-            return false;
+            return next(node);
         }
 
         var headerRows = BuildRows(node, "thead", context, out var headerRowData);
         if (!headerRows)
         {
-            return false;
+            return next(node);
         }
 
         var bodyRows = BuildRows(node, "tbody", context, out var bodyRowData);
         if (!bodyRows)
         {
-            return false;
+            return next(node);
         }
 
         var footerRows = BuildRows(node, "tfoot", context, out var footerRowData);
         if (!footerRows)
         {
-            return false;
+            return next(node);
         }
 
         var looseRowNodes = GetLooseRows(node).ToList();
@@ -59,7 +59,7 @@ public sealed class TableElementTranslator : IVdomElementTranslator
         {
             if (!TryBuildRow(looseRow, context, out var data))
             {
-                return false;
+                return next(node);
             }
 
             looseRowData.Add(data);
@@ -103,8 +103,7 @@ public sealed class TableElementTranslator : IVdomElementTranslator
 
         if (columnCount == 0)
         {
-            renderable = table;
-            return true;
+            return table;
         }
 
         var headerDefinition = headerRowData.FirstOrDefault();
@@ -143,24 +142,12 @@ public sealed class TableElementTranslator : IVdomElementTranslator
             AddRow(table, row, columnCount);
         }
 
-        renderable = table;
-        return true;
+        return table;
     }
 
     private static bool IsTableNode(VNode node)
-    {
-        if (node.Kind != VNodeKind.Element)
-        {
-            return false;
-        }
-
-        if (!string.Equals(node.TagName, "table", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return true;
-    }
+        => node.Kind == VNodeKind.Element
+           && string.Equals(node.TagName, "table", StringComparison.OrdinalIgnoreCase);
 
     private static bool BuildRows(VNode table, string sectionName, TranslationContext context, out List<RowData> rows)
     {
@@ -252,7 +239,7 @@ public sealed class TableElementTranslator : IVdomElementTranslator
                 continue;
             }
 
-            if (!VdomSpectreTranslator.TryConvertChildrenToBlockInlineRenderable(child.Children, context, out var renderable) || renderable is null)
+            if (!TranslationHelpers.TryConvertChildrenToBlockInlineRenderable(child.Children, context, out var renderable) || renderable is null)
             {
                 rowData = default!;
                 return false;
@@ -338,3 +325,4 @@ public sealed class TableElementTranslator : IVdomElementTranslator
         }
     }
 }
+

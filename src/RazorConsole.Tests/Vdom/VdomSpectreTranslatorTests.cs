@@ -4,7 +4,9 @@ using System.Reflection;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Rendering.Syntax;
-using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Rendering.Translation;
+using RazorConsole.Core.Rendering.Translation.Contexts;
+using RazorConsole.Core.Rendering.Translation.Translators;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -13,15 +15,17 @@ namespace RazorConsole.Tests.Vdom;
 
 public class VdomSpectreTranslatorTests
 {
+    private static TranslationContext CreateContext() => RazorConsole.Tests.TestHelpers.CreateTestTranslationContext();
+
     [Fact]
     public void Translate_TextNode_ReturnsTextRenderable()
     {
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
         var node = VNode.CreateText("Hello");
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<Text>();
         animations.ShouldBeEmpty();
     }
@@ -29,6 +33,7 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_TextSpan_UsesVdomTranslator()
     {
+        var context = CreateContext();
         var node = Element("span", span =>
         {
             span.SetAttribute("data-text", "true");
@@ -36,11 +41,9 @@ public class VdomSpectreTranslatorTests
             span.AddChild(Text("Hello"));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<Markup>();
         animations.ShouldBeEmpty();
     }
@@ -48,6 +51,7 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_SyntaxHighlighterNode_ReturnsSyntaxRenderable()
     {
+        var context = CreateContext();
         var model = new SyntaxHighlightRenderModel(new[] { "[blue]Console.WriteLine()[/]" }, false, string.Empty, SyntaxOptions.Default.PlaceholderMarkup);
         var payload = SyntaxHighlightingService.EncodePayload(model);
 
@@ -57,11 +61,9 @@ public class VdomSpectreTranslatorTests
             div.SetAttribute("data-payload", payload);
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<SyntaxRenderable>();
         animations.ShouldBeEmpty();
     }
@@ -69,16 +71,15 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_ParagraphNode_ReturnsRowsRenderable()
     {
+        var context = CreateContext();
         var node = Element("p", paragraph =>
         {
             paragraph.AddChild(Text("Paragraph content"));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<Markup>();
         animations.ShouldBeEmpty();
     }
@@ -86,6 +87,7 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_ParagraphWithInlineElements_ReturnsComposedRenderable()
     {
+        var context = CreateContext();
         var node = Element("p", p =>
         {
             p.AddChild(Text("Visit "));
@@ -97,11 +99,9 @@ public class VdomSpectreTranslatorTests
             p.AddChild(Text(" for more info."));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         renderable.ShouldNotBeNull();
         animations.ShouldBeEmpty();
     }
@@ -109,17 +109,16 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_Spacer_DoesNotUseHtmlFallback()
     {
+        var context = CreateContext();
         var node = Element("div", spacer =>
         {
             spacer.SetAttribute("data-spacer", "true");
             spacer.SetAttribute("data-lines", "2");
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<Markup>();
         animations.ShouldBeEmpty();
     }
@@ -127,6 +126,7 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_PanelNode_ReturnsPanelRenderable()
     {
+        var context = CreateContext();
         var child = Element("span", span =>
         {
             span.SetAttribute("data-text", "true");
@@ -143,11 +143,9 @@ public class VdomSpectreTranslatorTests
             panel.AddChild(child);
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         var panel = renderable.ShouldBeOfType<Panel>();
         panel.Header.ShouldNotBeNull();
         animations.ShouldBeEmpty();
@@ -156,6 +154,7 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_RowsNode_ReturnsRowsRenderable()
     {
+        var context = CreateContext();
         var child = Element("span", span =>
         {
             span.SetAttribute("class", "row");
@@ -170,11 +169,9 @@ public class VdomSpectreTranslatorTests
             rows.AddChild(child);
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<Rows>();
         animations.ShouldBeEmpty();
     }
@@ -182,16 +179,15 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_HtmlButtonNode_ReturnsPanelRenderable()
     {
+        var context = CreateContext();
         var node = Element("button", button =>
         {
             button.AddChild(Text("Click me"));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<Panel>();
         animations.ShouldBeEmpty();
     }
@@ -199,6 +195,7 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_GridNode_ReturnsGridRenderable()
     {
+        var context = CreateContext();
         var nodes = new List<VNode>
         {
             Element("span", span =>
@@ -223,11 +220,9 @@ public class VdomSpectreTranslatorTests
             }
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<Grid>();
         animations.ShouldBeEmpty();
     }
@@ -235,17 +230,16 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_GenericDivNode_ReturnsBlockInlineRenderable()
     {
+        var context = CreateContext();
         var node = Element("div", div =>
         {
             div.AddChild(Text("Line 1"));
             div.AddChild(Text("Line 2"));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<BlockInlineRenderable>();
         animations.ShouldBeEmpty();
     }
@@ -253,6 +247,7 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_PadderNode_ReturnsPadderRenderable()
     {
+        var context = CreateContext();
         var child = Element("span", span =>
         {
             span.SetAttribute("data-text", "true");
@@ -266,11 +261,9 @@ public class VdomSpectreTranslatorTests
             padder.AddChild(child);
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<Padder>();
         animations.ShouldBeEmpty();
     }
@@ -278,17 +271,16 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_NewlineNode_ReturnsMarkup()
     {
+        var context = CreateContext();
         var node = Element("div", newline =>
         {
             newline.SetAttribute("class", "newline");
             newline.SetAttribute("data-count", "2");
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<Markup>();
         animations.ShouldBeEmpty();
     }
@@ -296,6 +288,7 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void Translate_SpinnerNode_ReturnsAnimatedRenderable()
     {
+        var context = CreateContext();
         var node = Element("div", spinner =>
         {
             spinner.SetAttribute("class", "spinner");
@@ -305,11 +298,9 @@ public class VdomSpectreTranslatorTests
             spinner.SetAttribute("data-spinner-type", "Dots");
         });
 
-        var translator = new VdomSpectreTranslator();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
         var animated = renderable.ShouldBeAssignableTo<IAnimatedConsoleRenderable>();
         animations.ShouldHaveSingleItem();
         var registered = animations.Single();
@@ -335,11 +326,10 @@ public class VdomSpectreTranslatorTests
             align.AddChild(child);
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         renderable.ShouldBeOfType<MeasuredAlign>();
         animations.ShouldBeEmpty();
     }
@@ -381,11 +371,10 @@ public class VdomSpectreTranslatorTests
             table.AddChild(tbody);
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(tableNode, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(tableNode);
+        var animations = context.AnimatedRenderables;
         var table = renderable.ShouldBeOfType<Table>();
         table.Expand.ShouldBeTrue();
         table.ShowHeaders.ShouldBeTrue();
@@ -413,11 +402,10 @@ public class VdomSpectreTranslatorTests
             strong.AddChild(Text("Important"));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         var markup = renderable.ShouldBeOfType<Markup>();
         BuildInlineMarkupLiteral(node).ShouldBe("[bold]Important[/]");
         animations.ShouldBeEmpty();
@@ -435,11 +423,10 @@ public class VdomSpectreTranslatorTests
             }));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         var markup = renderable.ShouldBeOfType<Markup>();
         BuildInlineMarkupLiteral(node).ShouldBe("[bold]Hello [italic]world[/][/]");
         animations.ShouldBeEmpty();
@@ -453,11 +440,10 @@ public class VdomSpectreTranslatorTests
             code.AddChild(Text("var value = 42;"));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         var markup = renderable.ShouldBeOfType<Markup>();
         BuildInlineMarkupLiteral(node).ShouldBe("[indianred1 on #1f1f1f]var value = 42;[/]");
         animations.ShouldBeEmpty();
@@ -472,11 +458,10 @@ public class VdomSpectreTranslatorTests
             a.AddChild(Text("Click here"));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         var markup = renderable.ShouldBeOfType<Markup>();
         BuildInlineMarkupLiteral(node).ShouldBe("[link=https://example.com]Click here[/]");
         animations.ShouldBeEmpty();
@@ -490,11 +475,10 @@ public class VdomSpectreTranslatorTests
             a.AddChild(Text("Not a link"));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         var markup = renderable.ShouldBeOfType<Markup>();
         BuildInlineMarkupLiteral(node).ShouldBe("Not a link");
         animations.ShouldBeEmpty();
@@ -509,11 +493,10 @@ public class VdomSpectreTranslatorTests
             a.AddChild(Text("Link"));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         var markup = renderable.ShouldBeOfType<Markup>();
         // Markup.Escape should escape the square brackets
         var expectedMarkup = BuildInlineMarkupLiteral(node);
@@ -535,11 +518,10 @@ public class VdomSpectreTranslatorTests
             }));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         var markup = renderable.ShouldBeOfType<Markup>();
         BuildInlineMarkupLiteral(node).ShouldBe("[link=https://example.com]Click [bold]here[/][/]");
         animations.ShouldBeEmpty();
@@ -548,23 +530,21 @@ public class VdomSpectreTranslatorTests
     [Fact]
     public void ConvertChildren_TextNodes_NormalizeWhitespace()
     {
-        var translator = new VdomSpectreTranslator();
-        var context = new TranslationContext(translator);
+        var context = CreateContext();
         var children = new List<VNode>
         {
             VNode.CreateText("  Hello   world"),
             VNode.CreateText("\n\tand\t friends  "),
         };
 
-        var renderables = InvokeTryConvertChildren(children, context);
+        var renderables = TranslationHelpers.TryConvertChildrenToRenderables(children, context, out var result) ? result : [];
         renderables.Count.ShouldBe(2);
     }
 
     [Fact]
     public void ConvertChildren_WhitespaceBetweenTextNodes_ProducesSingleSpacer()
     {
-        var translator = new VdomSpectreTranslator();
-        var context = new TranslationContext(translator);
+        var context = CreateContext();
         var children = new List<VNode>
         {
             VNode.CreateText("Hello"),
@@ -572,22 +552,22 @@ public class VdomSpectreTranslatorTests
             VNode.CreateText("world"),
         };
 
-        var renderables = InvokeTryConvertChildren(children, context);
+        var renderables = TranslationHelpers.TryConvertChildrenToRenderables(children, context, out var result) ? result : [];
         renderables.Count.ShouldBe(2);
     }
 
     [Fact]
     public void ConvertChildren_TrailingWhitespace_IsDiscarded()
     {
-        var translator = new VdomSpectreTranslator();
-        var context = new TranslationContext(translator);
+        var context = CreateContext();
         var children = new List<VNode>
         {
             VNode.CreateText("Hello "),
         };
 
-        var renderables = InvokeTryConvertChildren(children, context);
+        var success = TranslationHelpers.TryConvertChildrenToRenderables(children, context, out var renderables);
 
+        success.ShouldBeTrue();
         renderables.ShouldHaveSingleItem();
         var markup = renderables.Single();
         AssertMarkupText(markup);
@@ -612,11 +592,10 @@ public class VdomSpectreTranslatorTests
             }));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         renderable.ShouldBeOfType<Rows>();
         animations.ShouldBeEmpty();
     }
@@ -636,11 +615,10 @@ public class VdomSpectreTranslatorTests
             }));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         renderable.ShouldBeOfType<Rows>();
         animations.ShouldBeEmpty();
     }
@@ -665,11 +643,10 @@ public class VdomSpectreTranslatorTests
             }));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         renderable.ShouldBeOfType<Rows>();
         animations.ShouldBeEmpty();
     }
@@ -690,11 +667,10 @@ public class VdomSpectreTranslatorTests
             }));
         });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         renderable.ShouldBeOfType<Rows>();
         animations.ShouldBeEmpty();
     }
@@ -704,11 +680,10 @@ public class VdomSpectreTranslatorTests
     {
         var node = Element("ul", ul => { });
 
-        var translator = new VdomSpectreTranslator();
+        var context = CreateContext();
 
-        var success = translator.TryTranslate(node, out var renderable, out var animations);
-
-        success.ShouldBeTrue();
+        var renderable = context.Translate(node);
+        var animations = context.AnimatedRenderables;
         renderable.ShouldBeOfType<Markup>();
         animations.ShouldBeEmpty();
     }
@@ -737,18 +712,6 @@ public class VdomSpectreTranslatorTests
         return arguments[1].ShouldBeOfType<string>();
     }
 
-    private static List<IRenderable> InvokeTryConvertChildren(IReadOnlyList<VNode> children, TranslationContext context)
-    {
-        var method = typeof(VdomSpectreTranslator).GetMethod("TryConvertChildrenToRenderables", BindingFlags.Static | BindingFlags.Public);
-        method.ShouldNotBeNull();
-
-        var arguments = new object?[] { children, context, null };
-        var success = (bool)method!.Invoke(null, arguments)!;
-        success.ShouldBeTrue();
-
-        var renderables = arguments[2].ShouldBeOfType<List<IRenderable>>();
-        return renderables;
-    }
 
     private static void AssertMarkupText(IRenderable renderable)
     {

@@ -3,29 +3,29 @@
 using System.Globalization;
 using System.Text.Json;
 using RazorConsole.Components;
+using RazorConsole.Core.Abstractions.Rendering;
+
 using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Vdom.Translators;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public class BarChartTranslator : IVdomElementTranslator
+public sealed class BarChartTranslator : ITranslationMiddleware
 {
-    public int Priority => 150;
-
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
         if (!IsBarChart(node))
         {
-            return false;
+            return next(node);
         }
 
         var itemsAttribute = VdomSpectreTranslator.GetAttribute(node, "data-items");
         if (string.IsNullOrEmpty(itemsAttribute))
         {
-            return false;
+            return next(node);
         }
 
         List<JsonElement> rawItems;
@@ -36,7 +36,7 @@ public class BarChartTranslator : IVdomElementTranslator
         }
         catch
         {
-            return false;
+            return next(node);
         }
 
         var barChart = new Spectre.Console.BarChart();
@@ -46,7 +46,7 @@ public class BarChartTranslator : IVdomElementTranslator
         }
         catch
         {
-            return false;
+            return next(node);
         }
 
         if (VdomSpectreTranslator.TryParsePositiveInt(VdomSpectreTranslator.GetAttribute(node, "data-width"),
@@ -94,34 +94,21 @@ public class BarChartTranslator : IVdomElementTranslator
             }
             catch
             {
-                return false;
+                return next(node);
             }
         }
         else
         {
-            return false;
+            return next(node);
         }
         barChart.Culture = cultureInfo;
 
-        renderable = barChart;
-
-        return true;
+        return barChart;
     }
 
     private static bool IsBarChart(VNode node)
-    {
-        if (node.Kind != VNodeKind.Element)
-        {
-            return false;
-        }
-
-        if (!string.Equals(node.TagName, "barchart", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return true;
-    }
+        => node.Kind == VNodeKind.Element
+           && string.Equals(node.TagName, "barchart", StringComparison.OrdinalIgnoreCase);
 
     private void AddBarChartItems(Spectre.Console.BarChart barChart, List<JsonElement> rawItems)
     {
@@ -163,10 +150,10 @@ public class BarChartTranslator : IVdomElementTranslator
                 {
                     color = parsed;
                 }
-
             }
 
             barChart.AddItem(itemLabel, itemValue, color);
         }
     }
 }
+

@@ -1,13 +1,16 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Rendering.Syntax;
+using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Vdom;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public sealed class HtmlCodeBlockElementTranslator : IVdomElementTranslator
+public sealed class HtmlCodeBlockElementTranslator : ITranslationMiddleware
 {
     private readonly SyntaxHighlightingService _syntaxService;
 
@@ -16,21 +19,11 @@ public sealed class HtmlCodeBlockElementTranslator : IVdomElementTranslator
         _syntaxService = syntaxService ?? throw new ArgumentNullException(nameof(syntaxService));
     }
 
-    public int Priority => 85;
-
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-        if (node.Kind != VNodeKind.Element)
+        if (!CanHandle(node))
         {
-            return false;
-        }
-
-        var tagName = node.TagName?.ToLowerInvariant();
-        if (tagName != "pre")
-        {
-            return false;
+            return next(node);
         }
 
         // Look for a code child element
@@ -42,16 +35,14 @@ public sealed class HtmlCodeBlockElementTranslator : IVdomElementTranslator
         {
             // No code element, just render as text
             var text = VdomSpectreTranslator.CollectInnerText(node);
-            renderable = new Markup(Markup.Escape(text ?? string.Empty));
-            return true;
+            return new Markup(Markup.Escape(text ?? string.Empty));
         }
 
         // Extract the code content
         var code = VdomSpectreTranslator.CollectInnerText(codeNode);
         if (string.IsNullOrWhiteSpace(code))
         {
-            renderable = new Markup(string.Empty);
-            return true;
+            return new Markup(string.Empty);
         }
 
         // Try to detect language from class attribute (e.g., "language-csharp")
@@ -72,14 +63,17 @@ public sealed class HtmlCodeBlockElementTranslator : IVdomElementTranslator
             var request = new SyntaxHighlightRequest(code, language, null, true, SyntaxOptions.Default);
             var model = _syntaxService.Highlight(request);
             var body = new SyntaxRenderable(model);
-            renderable = new Rows([new Markup(" "), body, new Markup(" ")]);
-            return true;
+            return new Rows([new Markup(" "), body, new Markup(" ")]);
         }
         catch
         {
             // Fall back to plain text if syntax highlighting fails
-            renderable = new Markup(Markup.Escape(code));
-            return true;
+            return new Markup(Markup.Escape(code));
         }
     }
+
+    private static bool CanHandle(VNode node)
+        => node.Kind == VNodeKind.Element
+           && string.Equals(node.TagName?.ToLowerInvariant(), "pre");
 }
+

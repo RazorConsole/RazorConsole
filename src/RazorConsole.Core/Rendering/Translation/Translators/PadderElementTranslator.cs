@@ -1,44 +1,43 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Globalization;
+using RazorConsole.Core.Abstractions.Rendering;
+
+using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Vdom;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public sealed class PadderElementTranslator : IVdomElementTranslator
+public sealed class PadderElementTranslator : ITranslationMiddleware
 {
-    public int Priority => 140;
-
     private static readonly char[] PaddingSeparators = [',', ' '];
 
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-        if (node.Kind != VNodeKind.Element)
+        if (!CanHandle(node))
         {
-            return false;
+            return next(node);
         }
 
-        if (!node.Attributes.TryGetValue("class", out var value) || !string.Equals(value, "padder", StringComparison.OrdinalIgnoreCase))
+        if (!TranslationHelpers.TryConvertChildrenToRenderables(node.Children, context, out var children))
         {
-            return false;
-        }
-
-        if (!VdomSpectreTranslator.TryConvertChildrenToRenderables(node.Children, context, out var children))
-        {
-            return false;
+            return next(node);
         }
 
         var content = VdomSpectreTranslator.ComposeChildContent(children);
         var padding = ParsePadding(VdomSpectreTranslator.GetAttribute(node, "data-padding"));
         var padder = new Padder(content, padding);
 
-        renderable = padder;
-        return true;
+        return padder;
     }
+
+    private static bool CanHandle(VNode node)
+        => node.Kind == VNodeKind.Element
+           && node.Attributes.TryGetValue("class", out var value)
+           && string.Equals(value, "padder", StringComparison.OrdinalIgnoreCase);
 
     private static Padding ParsePadding(string? raw)
     {
@@ -64,3 +63,4 @@ public sealed class PadderElementTranslator : IVdomElementTranslator
         };
     }
 }
+

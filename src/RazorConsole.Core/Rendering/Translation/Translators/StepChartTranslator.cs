@@ -1,23 +1,23 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Text;
+using RazorConsole.Core.Abstractions.Rendering;
+
 using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Vdom.Translators;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-
-public sealed class StepChartTranslator : IVdomElementTranslator
+public sealed class StepChartTranslator : ITranslationMiddleware
 {
-    public int Priority => 95;
-
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-        if (node.Kind != VNodeKind.Element || node.TagName != "stepchart")
+        if (!CanHandle(node))
         {
-            return false;
+            return next(node);
         }
 
         var width = VdomSpectreTranslator.TryGetIntAttribute(node, "data-width", 60);
@@ -44,13 +44,15 @@ public sealed class StepChartTranslator : IVdomElementTranslator
 
         if (seriesList.Count == 0)
         {
-            return false;
+            return next(node);
         }
 
         var chartText = RenderStepChart(seriesList, width, height, showAxes, axesColor, labelsColor, title, titleColor);
-        renderable = new Markup(chartText);
-        return true;
+        return new Markup(chartText);
     }
+
+    private static bool CanHandle(VNode node)
+        => node.Kind == VNodeKind.Element && node.TagName == "stepchart";
 
     private List<(double X, double Y)> ParsePoints(string data)
     {
@@ -316,3 +318,4 @@ public sealed class StepChartTranslator : IVdomElementTranslator
 
     private record SeriesData(string Color, List<(double X, double Y)> Points);
 }
+

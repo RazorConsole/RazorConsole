@@ -1,7 +1,9 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using Microsoft.Extensions.DependencyInjection;
-using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core;
+using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -15,98 +17,83 @@ public sealed class CustomTranslatorTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddDefaultVdomTranslators();
-        services.AddVdomTranslator<CustomTestTranslator>();
+        services.AddRazorConsoleServices();
+        services.AddSingleton<ITranslationMiddleware, CustomTestTranslator>();
 
         var serviceProvider = services.BuildServiceProvider();
-        var translators = serviceProvider.GetServices<IVdomElementTranslator>();
+        var middlewares = serviceProvider.GetServices<ITranslationMiddleware>();
 
         // Act
-        var translatorList = new List<IVdomElementTranslator>(translators);
+        var middlewareList = new List<ITranslationMiddleware>(middlewares);
 
         // Assert - Custom translator should be in the list
-        // We should have at least one more translator than the default count (20)
-        translatorList.Count.ShouldBeGreaterThan(20);
+        // We should have at least one more translator than the default count
+        middlewareList.Count.ShouldBeGreaterThan(20);
     }
 
     [Fact]
     public void CustomTranslatorWithHighPriority_ProcessedFirst()
     {
-        // Arrange
+        // Arrange - Register custom translator first so it's processed before others
         var services = new ServiceCollection();
-        services.AddDefaultVdomTranslators();
-        services.AddVdomTranslator<CustomTestTranslator>();
+        services.AddSingleton<ITranslationMiddleware, CustomTestTranslator>();
+        services.AddRazorConsoleServices();
 
         var serviceProvider = services.BuildServiceProvider();
-        var translators = serviceProvider.GetServices<IVdomElementTranslator>()
-            .OrderBy(t => t.Priority)
-            .ToList();
-
-        var translator = new VdomSpectreTranslator(translators);
+        var context = serviceProvider.GetRequiredService<TranslationContext>();
 
         var node = VNode.CreateElement("custom-element");
         node.SetAttribute("data-custom", "true");
 
         // Act
-        var success = translator.TryTranslate(node, out var renderable, out _);
+        var renderable = context.Translate(node);
 
         // Assert
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<Text>();
     }
 
     [Fact]
     public void CanRegisterCustomTranslatorInstance()
     {
-        // Arrange
+        // Arrange - Register custom translator first so it's processed before others
         var services = new ServiceCollection();
-        services.AddDefaultVdomTranslators();
-        services.AddVdomTranslator(new CustomTestTranslator());
+        services.AddSingleton<ITranslationMiddleware>(_ => new CustomTestTranslator());
+        services.AddRazorConsoleServices();
 
         var serviceProvider = services.BuildServiceProvider();
-        var translators = serviceProvider.GetServices<IVdomElementTranslator>()
-            .OrderBy(t => t.Priority)
-            .ToList();
-
-        var translator = new VdomSpectreTranslator(translators);
+        var context = serviceProvider.GetRequiredService<TranslationContext>();
 
         var node = VNode.CreateElement("custom-element");
         node.SetAttribute("data-custom", "true");
 
         // Act
-        var success = translator.TryTranslate(node, out var renderable, out _);
+        var renderable = context.Translate(node);
 
         // Assert
-        success.ShouldBeTrue();
         renderable.ShouldBeOfType<Text>();
     }
 
     // Test custom translator
-    private sealed class CustomTestTranslator : IVdomElementTranslator
+    private sealed class CustomTestTranslator : ITranslationMiddleware
     {
-        public int Priority => 1; // High priority
-
-        public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+        public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
         {
-            renderable = null;
-
             if (node.Kind != VNodeKind.Element)
             {
-                return false;
+                return next(node);
             }
 
             if (!string.Equals(node.TagName, "custom-element", StringComparison.OrdinalIgnoreCase))
             {
-                return false;
+                return next(node);
             }
 
             if (!node.Attributes.TryGetValue("data-custom", out var value) || !string.Equals(value, "true", StringComparison.OrdinalIgnoreCase))
             {
-                return false;
+                return next(node);
             }
 
-            renderable = new Text("Custom Translation!");
-            return true;
+            return new Text("Custom Translation!");
         }
     }
 }

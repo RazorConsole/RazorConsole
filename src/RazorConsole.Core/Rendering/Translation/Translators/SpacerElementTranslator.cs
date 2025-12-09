@@ -1,40 +1,29 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Text;
+using RazorConsole.Core.Abstractions.Rendering;
+
+using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
+using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Vdom;
+namespace RazorConsole.Core.Rendering.Translation.Translators;
 
-public sealed class SpacerElementTranslator : IVdomElementTranslator
+public sealed class SpacerElementTranslator : ITranslationMiddleware
 {
-    public int Priority => 40;
-
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-        if (node.Kind != VNodeKind.Element)
+        if (!CanHandle(node))
         {
-            return false;
-        }
-
-        if (!string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (!node.Attributes.ContainsKey("data-spacer"))
-        {
-            return false;
+            return next(node);
         }
 
         var lines = Math.Max(VdomSpectreTranslator.TryGetIntAttribute(node, "data-lines", 1), 0);
         if (lines == 0)
         {
-            renderable = new Markup(string.Empty);
-            return true;
+            return new Markup(string.Empty);
         }
 
         var fill = VdomSpectreTranslator.GetAttribute(node, "data-fill");
@@ -57,7 +46,12 @@ public sealed class SpacerElementTranslator : IVdomElementTranslator
             }
         }
 
-        renderable = new Markup(builder.ToString());
-        return true;
+        return new Markup(builder.ToString());
     }
+
+    private static bool CanHandle(VNode node)
+        => node.Kind == VNodeKind.Element
+           && string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
+           && node.Attributes.ContainsKey("data-spacer");
 }
+
