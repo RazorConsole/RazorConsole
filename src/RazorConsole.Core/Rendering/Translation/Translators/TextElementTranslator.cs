@@ -12,11 +12,11 @@ namespace RazorConsole.Core.Rendering.Translation.Translators;
 
 internal sealed class TextElementTranslator : ITranslationMiddleware
 {
-    public IRenderable Translate(TranslationContext context, Next next, VNode node)
+    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {
         if (!CanHandle(node))
         {
-            return next(context, node);
+            return next(node);
         }
 
         string? text;
@@ -25,7 +25,7 @@ internal sealed class TextElementTranslator : ITranslationMiddleware
             if (node.Children.Any())
             {
                 // Prefer explicit content attribute when present and require no additional children.
-                return next(context, node);
+                return next(node);
             }
 
             text = inlineContent;
@@ -36,7 +36,7 @@ internal sealed class TextElementTranslator : ITranslationMiddleware
             if (string.IsNullOrWhiteSpace(text))
             {
                 // Missing required text content.
-                return next(context, node);
+                return next(node);
             }
         }
 

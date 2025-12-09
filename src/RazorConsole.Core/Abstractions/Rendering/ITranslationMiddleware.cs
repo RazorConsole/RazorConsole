@@ -7,11 +7,11 @@ using Spectre.Console.Rendering;
 
 namespace RazorConsole.Core.Abstractions.Rendering;
 
-public delegate IRenderable Next(TranslationContext context, VNode node);
+public delegate IRenderable TranslationDelegate(VNode node);
 
 public interface ITranslationMiddleware
 {
 
-    IRenderable Translate(TranslationContext context, Next next, VNode node);
+    IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node);
 
 }

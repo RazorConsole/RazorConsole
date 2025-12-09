@@ -30,7 +30,7 @@ public sealed class TranslationContextTests
         var node = VNode.CreateText("test");
         var renderable = Substitute.For<IRenderable>();
 
-        middleware.Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>())
+        middleware.Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>())
             .Returns(renderable);
 
         var context = new TranslationContext([middleware]);
@@ -42,7 +42,7 @@ public sealed class TranslationContextTests
         result.ShouldBe(renderable);
         middleware.Received(1).Translate(
             Arg.Is<TranslationContext>(c => c == context),
-            Arg.Any<Next>(),
+            Arg.Any<TranslationDelegate>(),
             Arg.Is<VNode>(n => n == node));
     }
 
@@ -74,14 +74,14 @@ public sealed class TranslationContextTests
         var node = VNode.CreateText("test");
         var renderable2 = Substitute.For<IRenderable>();
 
-        middleware1.Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>())
+        middleware1.Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>())
             .Returns(callInfo =>
             {
-                var next = callInfo.Arg<Next>();
-                return next(callInfo.Arg<TranslationContext>(), callInfo.Arg<VNode>());
+                var next = callInfo.Arg<TranslationDelegate>();
+                return next(callInfo.Arg<VNode>());
             });
 
-        middleware2.Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>())
+        middleware2.Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>())
             .Returns(renderable2);
 
         var context = new TranslationContext(new[] { middleware1, middleware2 });
@@ -91,8 +91,8 @@ public sealed class TranslationContextTests
 
         // Assert
         result.ShouldBe(renderable2);
-        middleware1.Received(1).Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>());
-        middleware2.Received(1).Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>());
+        middleware1.Received(1).Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>());
+        middleware2.Received(1).Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>());
     }
 
     [Fact]
@@ -102,11 +102,11 @@ public sealed class TranslationContextTests
         var middleware = Substitute.For<ITranslationMiddleware>();
         var node = VNode.CreateText("test");
 
-        middleware.Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>())
+        middleware.Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>())
             .Returns(callInfo =>
             {
-                var next = callInfo.Arg<Next>();
-                return next(callInfo.Arg<TranslationContext>(), callInfo.Arg<VNode>());
+                var next = callInfo.Arg<TranslationDelegate>();
+                return next(callInfo.Arg<VNode>());
             });
 
         var context = new TranslationContext(new[] { middleware });
@@ -126,7 +126,7 @@ public sealed class TranslationContextTests
         var node = VNode.CreateText("test");
         var renderable1 = Substitute.For<IRenderable>();
 
-        middleware1.Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>())
+        middleware1.Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>())
             .Returns(renderable1);
 
         var context = new TranslationContext(new[] { middleware1, middleware2, middleware3 });
@@ -136,9 +136,9 @@ public sealed class TranslationContextTests
 
         // Assert
         result.ShouldBe(renderable1);
-        middleware1.Received(1).Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>());
-        middleware2.DidNotReceive().Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>());
-        middleware3.DidNotReceive().Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>());
+        middleware1.Received(1).Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>());
+        middleware2.DidNotReceive().Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>());
+        middleware3.DidNotReceive().Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>());
     }
 
     [Fact]
@@ -151,14 +151,14 @@ public sealed class TranslationContextTests
         var node = VNode.CreateText("test");
         var renderable2 = Substitute.For<IRenderable>();
 
-        middleware1.Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>())
+        middleware1.Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>())
             .Returns(callInfo =>
             {
-                var next = callInfo.Arg<Next>();
-                return next(callInfo.Arg<TranslationContext>(), callInfo.Arg<VNode>());
+                var next = callInfo.Arg<TranslationDelegate>();
+                return next(callInfo.Arg<VNode>());
             });
 
-        middleware2.Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>())
+        middleware2.Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>())
             .Returns(renderable2);
 
         var context = new TranslationContext(new[] { middleware1, middleware2, middleware3 });
@@ -168,9 +168,9 @@ public sealed class TranslationContextTests
 
         // Assert
         result.ShouldBe(renderable2);
-        middleware1.Received(1).Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>());
-        middleware2.Received(1).Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>());
-        middleware3.DidNotReceive().Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>());
+        middleware1.Received(1).Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>());
+        middleware2.Received(1).Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>());
+        middleware3.DidNotReceive().Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>());
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public sealed class TranslationContextTests
         var renderable = Substitute.For<IRenderable>();
         TranslationContext? receivedContext = null;
 
-        middleware.Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>())
+        middleware.Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>())
             .Returns(callInfo =>
             {
                 receivedContext = callInfo.Arg<TranslationContext>();
@@ -207,7 +207,7 @@ public sealed class TranslationContextTests
         var renderable = Substitute.For<IRenderable>();
         VNode? receivedNode = null;
 
-        middleware.Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>())
+        middleware.Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>())
             .Returns(callInfo =>
             {
                 receivedNode = callInfo.Arg<VNode>();
@@ -226,7 +226,7 @@ public sealed class TranslationContextTests
     private static ITranslationMiddleware CreateTrackingMiddleware(int id, List<int> callOrder, bool returnsResult = false)
     {
         var middleware = Substitute.For<ITranslationMiddleware>();
-        middleware.Translate(Arg.Any<TranslationContext>(), Arg.Any<Next>(), Arg.Any<VNode>())
+        middleware.Translate(Arg.Any<TranslationContext>(), Arg.Any<TranslationDelegate>(), Arg.Any<VNode>())
             .Returns(callInfo =>
             {
                 callOrder.Add(id);
@@ -234,8 +234,8 @@ public sealed class TranslationContextTests
                 {
                     return Substitute.For<IRenderable>();
                 }
-                var next = callInfo.Arg<Next>();
-                return next(callInfo.Arg<TranslationContext>(), callInfo.Arg<VNode>());
+                var next = callInfo.Arg<TranslationDelegate>();
+                return next(callInfo.Arg<VNode>());
             });
         return middleware;
     }

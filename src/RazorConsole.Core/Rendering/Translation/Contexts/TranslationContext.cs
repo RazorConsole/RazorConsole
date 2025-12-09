@@ -9,7 +9,8 @@ namespace RazorConsole.Core.Rendering.Translation.Contexts;
 
 public sealed class TranslationContext
 {
-    private readonly Next _pipeline;
+
+    private readonly TranslationDelegate _pipeline;
 
     public TranslationContext(
         IEnumerable<ITranslationMiddleware> middlewares)
@@ -21,19 +22,19 @@ public sealed class TranslationContext
             throw new InvalidOperationException("No translation middleware registered. At least one ITranslationMiddleware must be registered in the service collection.");
         }
 
-        static IRenderable terminalFallback(TranslationContext _, VNode node)
+        static IRenderable terminalFallback(VNode node)
             => throw new InvalidOperationException($"No translation middleware was able to translate the VNode: {node}");
 
         _pipeline = middlewares
             .Reverse()
             .Aggregate(
-                (Next)terminalFallback,
+                (TranslationDelegate)terminalFallback,
                 (next, current) =>
-                    (context, node) =>
-                        current.Translate(context, next, node));
+                    node =>
+                        current.Translate(this, next, node));
     }
 
     public IRenderable Translate(VNode node)
-        => _pipeline(this, node);
+        => _pipeline(node);
 
 }
