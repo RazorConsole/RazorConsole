@@ -1,8 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Collections.ObjectModel;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
 using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Vdom;
@@ -136,8 +134,9 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         ConsoleViewResult? initialView,
         VdomDiffService? diffService)
     {
-        var renderer = CreateRenderer();
-        return new ConsoleLiveDisplayContext(canvas, renderer, initialView, diffService: diffService);
+        throw new NotImplementedException();
+        //var renderer = CreateRenderer();
+        //return new ConsoleLiveDisplayContext(canvas, renderer, initialView, diffService: diffService);
     }
 
     public void OnCompleted()
@@ -235,21 +234,21 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         _animationSubscriptions = null;
     }
 
-    private static ConsoleRenderer CreateRenderer()
-    {
-        var services = new ServiceCollection();
-        services.AddDefaultVdomTranslators();
-        services.AddSingleton<Rendering.Vdom.VdomSpectreTranslator>(sp =>
-        {
-            var translators = sp.GetServices<Rendering.Vdom.IVdomElementTranslator>()
-                .OrderBy(t => t.Priority)
-                .ToList();
-            return new Rendering.Vdom.VdomSpectreTranslator(translators);
-        });
-        var serviceProvider = services.BuildServiceProvider();
-        var translator = serviceProvider.GetRequiredService<Rendering.Vdom.VdomSpectreTranslator>();
-        return new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance, translator);
-    }
+    //private static ConsoleRenderer CreateRenderer()
+    //{
+    //    var services = new ServiceCollection();
+    //    services.AddDefaultVdomTranslators();
+    //    services.AddSingleton<Rendering.Vdom.VdomSpectreTranslator>(sp =>
+    //    {
+    //        var translators = sp.GetServices<Rendering.Vdom.IVdomElementTranslator>()
+    //            .OrderBy(t => t.Priority)
+    //            .ToList();
+    //        return new Rendering.Vdom.VdomSpectreTranslator(translators);
+    //    });
+    //    var serviceProvider = services.BuildServiceProvider();
+    //    var translator = serviceProvider.GetRequiredService<Rendering.Vdom.VdomSpectreTranslator>();
+    //    return new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance, translator);
+    //}
 
     private static readonly IReadOnlyDictionary<string, string?> EmptyAttributes =
         new ReadOnlyDictionary<string, string?>(new Dictionary<string, string?>(0, StringComparer.Ordinal));

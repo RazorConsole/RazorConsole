@@ -23,4 +23,8 @@
     <Using Include="NSubstitute" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Rendering\Translation\Translators\" />
+  </ItemGroup>
+
 </Project>

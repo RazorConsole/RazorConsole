@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
+using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Focus;
 using RazorConsole.Core.Input;
 using RazorConsole.Core.Rendering;
@@ -16,6 +17,7 @@ using RazorConsole.Core.Rendering.Syntax;
 using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Utilities;
 using RazorConsole.Core.Vdom;
+using RazorConsole.Core.Vdom.Translators;
 
 namespace RazorConsole.Core;
 
@@ -54,7 +56,12 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<SpectreMarkupFormatter>();
         services.TryAddSingleton<SyntaxHighlightingService>();
         services.TryAddSingleton<MarkdownRenderingService>();
+
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.TextElementTranslator>();
+        services.AddSingleton<Rendering.Translation.Contexts.TranslationContext>();
+
         services.AddDefaultVdomTranslators();
+        services.AddSingleton<IVdomElementTranslator, ExperementalTranslator>();
         // Register HtmlCodeBlockElementTranslator with dependency injection
         services.AddSingleton<IVdomElementTranslator>(sp =>
             new HtmlCodeBlockElementTranslator(sp.GetRequiredService<SyntaxHighlightingService>()));
