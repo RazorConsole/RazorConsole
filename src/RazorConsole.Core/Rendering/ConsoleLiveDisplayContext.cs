@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Rendering.ComponentMarkup;
+using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Vdom;
 using Spectre.Console.Rendering;
 
@@ -22,6 +23,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
     private readonly object _sync = new();
 #endif
     private readonly VdomDiffService _diffService;
+    private readonly Translation.Contexts.TranslationContext _translationContext;
     private bool _disposed;
     private ConsoleViewResult? _currentView;
     private readonly IDisposable? _snapshotSubscription;
@@ -34,6 +36,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         VdomDiffService? diffService = null)
     {
         _canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
+        _translationContext = renderer.GetTranslationContext();
         if (initialView is not null)
         {
             _currentView = initialView;
@@ -136,8 +139,17 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         ConsoleViewResult? initialView,
         VdomDiffService? diffService)
     {
-        var renderer = CreateRenderer();
+        var renderer = CreateTestRenderer();
         return new ConsoleLiveDisplayContext(canvas, renderer, initialView, diffService: diffService);
+    }
+
+    private static ConsoleRenderer CreateTestRenderer()
+    {
+        var services = new ServiceCollection();
+        RazorConsoleServiceCollectionExtensions.AddRazorConsoleServices(services);
+        var serviceProvider = services.BuildServiceProvider();
+        var translationContext = serviceProvider.GetRequiredService<TranslationContext>();
+        return new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance, translationContext);
     }
 
     public void OnCompleted()
@@ -194,7 +206,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
             return false;
         }
 
-        if (!SpectreRenderableFactory.TryCreateRenderable(mutation.Node, out var renderable, out _) || renderable is null)
+        if (!SpectreRenderableFactory.TryCreateRenderable(mutation.Node, _translationContext, out var renderable, out _) || renderable is null)
         {
             return false;
         }
@@ -235,21 +247,21 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         _animationSubscriptions = null;
     }
 
-    private static ConsoleRenderer CreateRenderer()
-    {
-        var services = new ServiceCollection();
-        services.AddDefaultVdomTranslators();
-        services.AddSingleton<Rendering.Vdom.VdomSpectreTranslator>(sp =>
-        {
-            var translators = sp.GetServices<Rendering.Vdom.IVdomElementTranslator>()
-                .OrderBy(t => t.Priority)
-                .ToList();
-            return new Rendering.Vdom.VdomSpectreTranslator(translators);
-        });
-        var serviceProvider = services.BuildServiceProvider();
-        var translator = serviceProvider.GetRequiredService<Rendering.Vdom.VdomSpectreTranslator>();
-        return new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance, translator);
-    }
+    //private static ConsoleRenderer CreateRenderer()
+    //{
+    //    var services = new ServiceCollection();
+    //    services.AddDefaultVdomTranslators();
+    //    services.AddSingleton<Rendering.Vdom.VdomSpectreTranslator>(sp =>
+    //    {
+    //        var translators = sp.GetServices<Rendering.Vdom.IVdomElementTranslator>()
+    //            .OrderBy(t => t.Priority)
+    //            .ToList();
+    //        return new Rendering.Vdom.VdomSpectreTranslator(translators);
+    //    });
+    //    var serviceProvider = services.BuildServiceProvider();
+    //    var translator = serviceProvider.GetRequiredService<Rendering.Vdom.VdomSpectreTranslator>();
+    //    return new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance, translator);
+    //}
 
     private static readonly IReadOnlyDictionary<string, string?> EmptyAttributes =
         new ReadOnlyDictionary<string, string?>(new Dictionary<string, string?>(0, StringComparer.Ordinal));

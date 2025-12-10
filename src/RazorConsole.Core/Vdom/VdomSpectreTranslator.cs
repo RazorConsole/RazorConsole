@@ -2,162 +2,17 @@
 
 using System.Globalization;
 using System.Text;
-using RazorConsole.Core.Renderables;
-using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Vdom;
-using RazorConsole.Core.Vdom.Translators;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 
 namespace RazorConsole.Core.Rendering.Vdom;
 
 /// <summary>
-/// Translates VNodes to Spectre.Console renderables.
+/// Static helper methods for translating VNodes to Spectre.Console renderables.
 /// </summary>
-public sealed class VdomSpectreTranslator
+public static class VdomSpectreTranslator
 {
-    private readonly IReadOnlyList<IVdomElementTranslator> _elementTranslators;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="VdomSpectreTranslator"/> class with default translators.
-    /// </summary>
-    public VdomSpectreTranslator()
-        : this(CreateDefaultTranslators())
-    {
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="VdomSpectreTranslator"/> class with custom translators.
-    /// </summary>
-    /// <param name="elementTranslators">The collection of element translators to use.</param>
-    public VdomSpectreTranslator(IReadOnlyList<IVdomElementTranslator> elementTranslators)
-    {
-        _elementTranslators = elementTranslators ?? throw new ArgumentNullException(nameof(elementTranslators));
-    }
-
-    /// <summary>
-    /// Attempts to translate a VNode tree to a Spectre.Console renderable.
-    /// </summary>
-    /// <param name="root">The root VNode to translate.</param>
-    /// <param name="renderable">The resulting renderable if successful.</param>
-    /// <param name="animatedRenderables">Collection of animated renderables discovered during translation.</param>
-    /// <returns>True if translation was successful; otherwise, false.</returns>
-    public bool TryTranslate(
-        VNode root,
-        out IRenderable? renderable,
-        out IReadOnlyCollection<IAnimatedConsoleRenderable> animatedRenderables)
-    {
-        renderable = null;
-        animatedRenderables = Array.Empty<IAnimatedConsoleRenderable>();
-
-        var animations = new List<IAnimatedConsoleRenderable>();
-        using (AnimatedRenderableRegistry.PushScope(animations))
-        {
-            var context = new TranslationContext(this);
-            if (TryTranslateInternal(root, context, out var candidate) && candidate is not null)
-            {
-                renderable = candidate;
-                animatedRenderables = animations;
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    internal bool TryTranslateInternal(VNode node, TranslationContext context, out IRenderable? renderable)
-    {
-        switch (node.Kind)
-        {
-            case VNodeKind.Text:
-                var normalized = NormalizeTextNode(node.Text);
-
-                if (!normalized.HasContent)
-                {
-                    renderable = null;
-                    return false;
-                }
-
-                renderable = new Text($"{(normalized.LeadingWhitespace ? " " : "")}{normalized.Content}{(normalized.TrailingWhitespace ? " " : "")}");
-                return true;
-            case VNodeKind.Element:
-                return TryTranslateElement(node, context, out renderable);
-            case VNodeKind.Component:
-            case VNodeKind.Region:
-                if (TryConvertChildrenToBlockInlineRenderable(node.Children, context, out var children))
-                {
-                    renderable = children;
-                    return true;
-                }
-
-                renderable = null;
-                return false;
-            default:
-                renderable = null;
-                return false;
-        }
-    }
-
-    private bool TryTranslateElement(VNode node, TranslationContext context, out IRenderable? renderable)
-    {
-        foreach (var translator in _elementTranslators)
-        {
-            try
-            {
-                if (translator.TryTranslate(node, context, out var candidate) && candidate is not null)
-                {
-                    renderable = candidate;
-                    return true;
-                }
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-        }
-
-        renderable = null;
-        return false;
-    }
-
-    internal static IReadOnlyList<IVdomElementTranslator> CreateDefaultTranslators()
-    {
-        return new List<IVdomElementTranslator>
-        {
-#if DEBUG
-            new Core.Vdom.Translators.VDomTreePrinterTranslator(),
-#endif
-            new TextElementTranslator(),
-            new HtmlInlineTextElementTranslator(),
-            new SpacerElementTranslator(),
-            new NewlineElementTranslator(),
-            new SpinnerElementTranslator(),
-            new ButtonElementTranslator(),
-            new CanvasElementTranslator(),
-            new BarChartTranslator(),
-            new BreakdownChartTranslator(),
-            new StepChartTranslator(),
-            new HtmlButtonElementTranslator(),
-            new SyntaxHighlighterElementTranslator(),
-            new HtmlHeadingElementTranslator(),
-            new HtmlBlockquoteElementTranslator(),
-            new HtmlHrElementTranslator(),
-            new PanelElementTranslator(),
-            new RowsElementTranslator(),
-            new ColumnsElementTranslator(),
-            new GridElementTranslator(),
-            new PadderElementTranslator(),
-            new AlignElementTranslator(),
-            new FigletElementTranslator(),
-            new TableElementTranslator(),
-            new HtmlListElementTranslator(),
-            new HtmlDivElementTranslator(),
-            new HtmlParagraphElementTranslator(),
-            new FailToRenderElementTranslator(),
-        }
-        .OrderBy(t => t.Priority)
-        .ToList();
-    }
 
     /// <summary>
     /// Gets an attribute value from a VNode.
@@ -176,103 +31,11 @@ public sealed class VdomSpectreTranslator
     }
 
     /// <summary>
-    /// Converts child VNodes to a list of renderables.
+    /// Normalizes a text node by trimming whitespace and collapsing multiple spaces.
     /// </summary>
-    /// <param name="children">The child VNodes to convert.</param>
-    /// <param name="context">The translation context.</param>
-    /// <param name="renderables">The resulting list of renderables if successful.</param>
-    /// <returns>True if all children were successfully converted; otherwise, false.</returns>
-    public static bool TryConvertChildrenToRenderables(IReadOnlyList<VNode> children, TranslationContext context, out List<IRenderable> renderables)
-    {
-        renderables = new List<IRenderable>();
-
-        for (int i = 0; i < children.Count; ++i)
-        {
-            var child = children[i];
-            switch (child.Kind)
-            {
-                case VNodeKind.Text:
-                    var normalized = NormalizeTextNode(child.Text);
-
-                    if (!normalized.HasContent)
-                    {
-                        break;
-                    }
-
-                    renderables.Add(new Markup(Markup.Escape($"{(normalized.LeadingWhitespace && i != 0 ? " " : "")}{normalized.Content}{(normalized.TrailingWhitespace ? " " : "")}")));
-                    break;
-                default:
-                    if (!context.TryTranslate(child, out var childRenderable) || childRenderable is null)
-                    {
-                        renderables = new List<IRenderable>();
-                        return false;
-                    }
-
-                    renderables.Add(childRenderable);
-                    break;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Converts child VNodes to a <see cref="BlockInlineRenderable"/>
-    /// </summary>
-    /// <param name="children">The child VNodes to convert.</param>
-    /// <param name="context">The translation context.</param>
-    /// <param name="renderable">The resulting renderable if successful.</param>
-    /// <returns>True if all children were successfully converted; otherwise, false.</returns>
-    public static bool TryConvertChildrenToBlockInlineRenderable(IReadOnlyList<VNode> children, TranslationContext context, out IRenderable? renderable)
-    {
-        var items = new List<BlockInlineRenderable.RenderableItem>();
-
-        for (int i = 0; i < children.Count; ++i)
-        {
-            var child = children[i];
-            switch (child.Kind)
-            {
-                case VNodeKind.Text:
-                    var normalized = NormalizeTextNode(child.Text);
-
-                    if (!normalized.HasContent)
-                    {
-                        break;
-                    }
-
-                    var r = new Markup(Markup.Escape($"{(normalized.LeadingWhitespace && i != 0 ? " " : "")}{normalized.Content}{(normalized.TrailingWhitespace ? " " : "")}"));
-                    items.Add(BlockInlineRenderable.Inline(r));
-                    break;
-                default:
-                    if (!context.TryTranslate(child, out var childRenderable) || childRenderable is null)
-                    {
-                        continue;
-                    }
-
-                    var isBlock = ShouldBeBlock(child);
-                    if (isBlock)
-                    {
-                        items.Add(BlockInlineRenderable.Block(childRenderable));
-                    }
-                    else
-                    {
-                        items.Add(BlockInlineRenderable.Inline(childRenderable));
-                    }
-                    break;
-            }
-        }
-
-        if (items.Count == 0)
-        {
-            renderable = null;
-            return false;
-        }
-
-        renderable = new BlockInlineRenderable(items);
-        return true;
-    }
-
-    private static NormalizedText NormalizeTextNode(string? raw)
+    /// <param name="raw">The raw text to normalize.</param>
+    /// <returns>A normalized text structure.</returns>
+    public static NormalizedText NormalizeTextNode(string? raw)
     {
         if (string.IsNullOrEmpty(raw))
         {
@@ -336,7 +99,10 @@ public sealed class VdomSpectreTranslator
         return new NormalizedText(content, hasContent, leadingWhitespace, trailingWhitespace);
     }
 
-    private readonly record struct NormalizedText(string Content, bool HasContent, bool LeadingWhitespace, bool TrailingWhitespace);
+    /// <summary>
+    /// Represents normalized text with information about whitespace.
+    /// </summary>
+    public readonly record struct NormalizedText(string Content, bool HasContent, bool LeadingWhitespace, bool TrailingWhitespace);
 
     /// <summary>
     /// Composes multiple child renderables into a single renderable.
@@ -599,7 +365,12 @@ public sealed class VdomSpectreTranslator
         return false;
     }
 
-    private static bool ShouldBeBlock(VNode node)
+    /// <summary>
+    /// Determines if a VNode should be rendered as a block element.
+    /// </summary>
+    /// <param name="node">The VNode to check.</param>
+    /// <returns>True if the node should be rendered as a block element; otherwise, false.</returns>
+    public static bool ShouldBeBlock(VNode node)
     {
         // Check for explicit data-display attribute
         if (node.Attributes.TryGetValue("data-display", out var display))

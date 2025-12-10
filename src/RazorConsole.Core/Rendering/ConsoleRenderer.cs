@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering.ComponentMarkup;
-using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console.Rendering;
 
@@ -19,7 +18,7 @@ namespace RazorConsole.Core.Rendering;
 internal sealed class ConsoleRenderer(
     IServiceProvider services,
     ILoggerFactory loggerFactory,
-    VdomSpectreTranslator translator)
+    Translation.Contexts.TranslationContext translationContext)
     : Renderer(services, loggerFactory),
     IObservable<ConsoleRenderer.RenderSnapshot>
 {
@@ -61,10 +60,9 @@ internal sealed class ConsoleRenderer(
 
     private readonly Dictionary<int, VNode> _componentRoots = [];
     private readonly Stack<VNode> _cursor = new();
-    private readonly VdomSpectreTranslator _translator = translator
-        ?? throw new ArgumentNullException(nameof(translator));
     private readonly ILogger<ConsoleRenderer> _logger = loggerFactory?.CreateLogger<ConsoleRenderer>()
         ?? throw new ArgumentNullException(nameof(loggerFactory));
+    private readonly Translation.Contexts.TranslationContext _translationContext = translationContext;
 #if NET9_0_OR_GREATER
     private readonly Lock _observersSync = new();
 #else
@@ -78,6 +76,8 @@ internal sealed class ConsoleRenderer(
     private bool _disposed;
 
     public override Dispatcher Dispatcher => DispatcherInstance;
+
+    internal Translation.Contexts.TranslationContext GetTranslationContext() => _translationContext;
 
     public Task<RenderSnapshot> MountComponentAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(ParameterView parameters, CancellationToken cancellationToken)
         where TComponent : IComponent
@@ -491,13 +491,9 @@ internal sealed class ConsoleRenderer(
                 return RenderSnapshot.Empty;
             }
 
-            if (!_translator.TryTranslate(vnode, out var renderable, out var animatedRenderables) || renderable is null)
-            {
-                _logger.LogFailedToTranslateVNode();
-                return RenderSnapshot.Empty;
-            }
-
-            return new RenderSnapshot(vnode, renderable, animatedRenderables);
+            _translationContext.AnimatedRenderables.Clear();
+            var renderable = _translationContext.Translate(vnode);
+            return new RenderSnapshot(vnode, renderable, _translationContext.AnimatedRenderables);
         }
         catch (Exception ex)
         {

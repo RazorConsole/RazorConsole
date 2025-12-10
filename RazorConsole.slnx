@@ -12,7 +12,9 @@
   <Folder Name="/src/">
     <Project Path="src/RazorConsole.Core/RazorConsole.Core.csproj" />
     <Project Path="src/RazorConsole.Gallery/RazorConsole.Gallery.csproj" />
-    <Project Path="src/RazorConsole.Tests/RazorConsole.Tests.csproj" />
     <Project Path="src/RazorConsole.Website/RazorConsole.Website.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="src/RazorConsole.Tests/RazorConsole.Tests.csproj" />
   </Folder>
 </Solution>

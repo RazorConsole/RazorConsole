@@ -1,7 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Rendering.ComponentMarkup;
-using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Vdom;
 using Spectre.Console.Rendering;
 
@@ -9,10 +9,9 @@ namespace RazorConsole.Core.Rendering;
 
 public static class SpectreRenderableFactory
 {
-    private static readonly VdomSpectreTranslator Translator = new();
-
     internal static bool TryCreateRenderable(
         VNode? vdomRoot,
+        TranslationContext translationContext,
         out IRenderable? renderable,
         out IReadOnlyCollection<IAnimatedConsoleRenderable> animatedRenderables)
     {
@@ -21,11 +20,23 @@ public static class SpectreRenderableFactory
             throw new InvalidOperationException("A virtual DOM root is required to create Spectre renderables.");
         }
 
-        if (!Translator.TryTranslate(vdomRoot, out renderable, out animatedRenderables) || renderable is null)
+        if (translationContext is null)
         {
-            throw new InvalidOperationException("Unable to translate virtual DOM node into a Spectre.Console renderable.");
+            throw new ArgumentNullException(nameof(translationContext));
         }
 
-        return true;
+        try
+        {
+            translationContext.AnimatedRenderables.Clear();
+            renderable = translationContext.Translate(vdomRoot);
+            animatedRenderables = translationContext.AnimatedRenderables;
+            return renderable is not null;
+        }
+        catch
+        {
+            renderable = null;
+            animatedRenderables = Array.Empty<IAnimatedConsoleRenderable>();
+            return false;
+        }
     }
 }
