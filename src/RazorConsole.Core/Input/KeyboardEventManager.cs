@@ -371,7 +371,6 @@ internal sealed class KeyboardEventManager
 
         // Batch subsequent keys that are immediately available (paste operation)
         int batchCount = 1;
-        ConsoleKeyInfo lastKey = firstKey;
 
         while (Console.KeyAvailable && batchCount < MaxPasteBatchSize)
         {
@@ -394,7 +393,6 @@ internal sealed class KeyboardEventManager
             }
 
             TryApplyKeyToBuffer(target, nextKey, out _);
-            lastKey = nextKey;
             batchCount++;
         }
 
