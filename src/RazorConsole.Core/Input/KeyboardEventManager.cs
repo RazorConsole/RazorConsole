@@ -46,6 +46,8 @@ internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher
 
 internal sealed class KeyboardEventManager
 {
+    private const int MaxPasteBatchSize = 1000;
+
     private readonly FocusManager _focusManager;
     private readonly IKeyboardEventDispatcher _dispatcher;
     private readonly ILogger<KeyboardEventManager> _logger;
@@ -364,24 +366,21 @@ internal sealed class KeyboardEventManager
             return;
         }
 
-        // Dispatch the first keydown event
-        await DispatchKeyboardEventAsync(target, "onkeydown", firstKey, token).ConfigureAwait(false);
-
         // Apply the first key to the buffer
         TryApplyKeyToBuffer(target, firstKey, out _);
 
         // Batch subsequent keys that are immediately available (paste operation)
-        const int maxBatchSize = 1000; // Limit batch size to prevent excessive memory use
         int batchCount = 1;
+        ConsoleKeyInfo lastKey = firstKey;
 
-        while (Console.KeyAvailable && batchCount < maxBatchSize)
+        while (Console.KeyAvailable && batchCount < MaxPasteBatchSize)
         {
             var nextKey = Console.ReadKey(intercept: true);
 
             // If we encounter a special key (Enter, Tab, etc.), stop batching and handle it normally
             if (!ShouldBatchInput(nextKey))
             {
-                // Get current value before handling the special key
+                // Dispatch oninput with current accumulated value
                 var currentValue = GetCurrentValue(target);
                 if (target.Events.TryGetEvent("oninput", out var inputEvent))
                 {
@@ -389,20 +388,17 @@ internal sealed class KeyboardEventManager
                     await DispatchAsync(inputEvent, args, token).ConfigureAwait(false);
                 }
 
-                // Handle the special key normally
+                // Handle the special key normally (Enter, Tab, etc.)
                 await HandleKeyAsync(nextKey, token).ConfigureAwait(false);
                 return;
             }
 
             TryApplyKeyToBuffer(target, nextKey, out _);
+            lastKey = nextKey;
             batchCount++;
         }
 
-        // Dispatch the final onkeyup for the last key in batch
-        var lastKey = firstKey; // We use firstKey as representative for the batch
-        await DispatchKeyboardEventAsync(target, "onkeyup", lastKey, token).ConfigureAwait(false);
-
-        // Now dispatch a single oninput event with the final accumulated value
+        // Dispatch a single oninput event with the final accumulated value
         var finalValue = GetCurrentValue(target);
         if (target.Events.TryGetEvent("oninput", out var finalInputEvent))
         {
