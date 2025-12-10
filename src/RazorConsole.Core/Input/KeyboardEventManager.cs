@@ -77,7 +77,16 @@ internal sealed class KeyboardEventManager
                 }
 
                 var keyInfo = Console.ReadKey(intercept: true);
-                await HandleKeyAsync(keyInfo, token).ConfigureAwait(false);
+
+                // Check if this is a text input character and if more keys are available (paste operation)
+                if (ShouldBatchInput(keyInfo) && Console.KeyAvailable)
+                {
+                    await HandleBatchedTextInputAsync(keyInfo, token).ConfigureAwait(false);
+                }
+                else
+                {
+                    await HandleKeyAsync(keyInfo, token).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -340,6 +349,66 @@ internal sealed class KeyboardEventManager
     private static bool ShouldRaiseKeyPress(ConsoleKeyInfo keyInfo)
     {
         return !char.IsControl(keyInfo.KeyChar) && keyInfo.KeyChar != '\0';
+    }
+
+    private static bool ShouldBatchInput(ConsoleKeyInfo keyInfo)
+    {
+        // Only batch regular text input characters, not special keys
+        return (!char.IsControl(keyInfo.KeyChar) && keyInfo.KeyChar != '\0') || keyInfo.Key == ConsoleKey.Backspace;
+    }
+
+    private async Task HandleBatchedTextInputAsync(ConsoleKeyInfo firstKey, CancellationToken token)
+    {
+        if (!_focusManager.TryGetFocusedTarget(out var target) || target is null)
+        {
+            return;
+        }
+
+        // Dispatch the first keydown event
+        await DispatchKeyboardEventAsync(target, "onkeydown", firstKey, token).ConfigureAwait(false);
+
+        // Apply the first key to the buffer
+        TryApplyKeyToBuffer(target, firstKey, out _);
+
+        // Batch subsequent keys that are immediately available (paste operation)
+        const int maxBatchSize = 1000; // Limit batch size to prevent excessive memory use
+        int batchCount = 1;
+
+        while (Console.KeyAvailable && batchCount < maxBatchSize)
+        {
+            var nextKey = Console.ReadKey(intercept: true);
+
+            // If we encounter a special key (Enter, Tab, etc.), stop batching and handle it normally
+            if (!ShouldBatchInput(nextKey))
+            {
+                // Get current value before handling the special key
+                var currentValue = GetCurrentValue(target);
+                if (target.Events.TryGetEvent("oninput", out var inputEvent))
+                {
+                    var args = new ChangeEventArgs { Value = currentValue };
+                    await DispatchAsync(inputEvent, args, token).ConfigureAwait(false);
+                }
+
+                // Handle the special key normally
+                await HandleKeyAsync(nextKey, token).ConfigureAwait(false);
+                return;
+            }
+
+            TryApplyKeyToBuffer(target, nextKey, out _);
+            batchCount++;
+        }
+
+        // Dispatch the final onkeyup for the last key in batch
+        var lastKey = firstKey; // We use firstKey as representative for the batch
+        await DispatchKeyboardEventAsync(target, "onkeyup", lastKey, token).ConfigureAwait(false);
+
+        // Now dispatch a single oninput event with the final accumulated value
+        var finalValue = GetCurrentValue(target);
+        if (target.Events.TryGetEvent("oninput", out var finalInputEvent))
+        {
+            var finalArgs = new ChangeEventArgs { Value = finalValue };
+            await DispatchAsync(finalInputEvent, finalArgs, token).ConfigureAwait(false);
+        }
     }
 
     private void OnFocusChanged(object? sender, FocusChangedEventArgs e)
