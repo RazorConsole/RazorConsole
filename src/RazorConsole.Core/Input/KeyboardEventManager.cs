@@ -366,7 +366,7 @@ internal sealed class KeyboardEventManager
             return;
         }
 
-        // Apply the first key to the buffer
+        // Apply the first key to the buffer (discard intermediate value, we'll get final value later)
         TryApplyKeyToBuffer(target, firstKey, out _);
 
         // Batch subsequent keys that are immediately available (paste operation)
@@ -392,6 +392,7 @@ internal sealed class KeyboardEventManager
                 return;
             }
 
+            // Apply key to buffer (discard intermediate value, we'll get final value later)
             TryApplyKeyToBuffer(target, nextKey, out _);
             batchCount++;
         }
