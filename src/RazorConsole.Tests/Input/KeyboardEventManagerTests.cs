@@ -189,6 +189,120 @@ public class KeyboardEventManagerTests
         change.Value.ShouldBe("b");
     }
 
+    [Fact]
+    public async Task HandleKeyAsync_MultipleSequentialCharacters_EachTriggersOninput()
+    {
+        // This test demonstrates the behavior when keys are NOT batched (normal typing).
+        // Each character input triggers its own oninput event.
+        // When Console.KeyAvailable is false, HandleKeyAsync processes each key individually.
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec(
+                key: "input",
+                value: string.Empty,
+                events: new Dictionary<string, ulong>
+                {
+                    ["oninput"] = 100,
+                }));
+
+        // Simulate typing "hello" one character at a time (normal typing scenario)
+        var chars = new[] { 'h', 'e', 'l', 'l', 'o' };
+        foreach (var ch in chars)
+        {
+            var key = new ConsoleKeyInfo(ch, (ConsoleKey)char.ToUpper(ch), shift: false, alt: false, control: false);
+            await harness.Manager.HandleKeyAsync(key, CancellationToken.None);
+        }
+
+        // Each character should have triggered an oninput event
+        harness.Dispatcher.Events.Count.ShouldBe(5);
+
+        // Verify each event
+        for (int i = 0; i < 5; i++)
+        {
+            var evt = harness.Dispatcher.Events[i];
+            evt.HandlerId.ShouldBe(100UL);
+            var args = evt.Args.ShouldBeOfType<ChangeEventArgs>();
+            // Each event should contain the accumulated text up to that point
+            args.Value.ShouldBe(new string(chars.Take(i + 1).ToArray()));
+        }
+    }
+
+    [Fact]
+    public async Task HandleKeyAsync_LargeSequentialInput_AccumulatesCorrectly()
+    {
+        // This test simulates what happens during a paste operation when keys arrive sequentially.
+        // Without batching (when Console.KeyAvailable is false), each character triggers a render.
+        // With batching (when Console.KeyAvailable is true), multiple characters are batched
+        // before triggering a single render. The batching logic is in HandleBatchedTextInputAsync
+        // which is called from RunAsync when Console.KeyAvailable returns true.
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec(
+                key: "input",
+                value: string.Empty,
+                events: new Dictionary<string, ulong>
+                {
+                    ["oninput"] = 200,
+                }));
+
+        // Simulate a large paste (100 characters) being processed sequentially
+        var largeText = new string('a', 100);
+        foreach (var ch in largeText)
+        {
+            var key = new ConsoleKeyInfo(ch, ConsoleKey.A, shift: false, alt: false, control: false);
+            await harness.Manager.HandleKeyAsync(key, CancellationToken.None);
+        }
+
+        // Without batching, this triggers 100 oninput events (one per character)
+        harness.Dispatcher.Events.Count.ShouldBe(100);
+
+        // Verify the final accumulated value is correct
+        var finalEvent = harness.Dispatcher.Events.Last();
+        finalEvent.HandlerId.ShouldBe(200UL);
+        var finalArgs = finalEvent.Args.ShouldBeOfType<ChangeEventArgs>();
+        finalArgs.Value.ShouldBe(largeText);
+    }
+
+    [Fact]
+    public async Task HandleKeyAsync_BackspaceInSequence_UpdatesBufferCorrectly()
+    {
+        // Test that backspace works correctly when processing sequential input
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec(
+                key: "input",
+                value: string.Empty,
+                events: new Dictionary<string, ulong>
+                {
+                    ["oninput"] = 300,
+                }));
+
+        // Type "hello", then backspace twice, then type "p!"
+        var keys = new[]
+        {
+            ('h', ConsoleKey.H),
+            ('e', ConsoleKey.E),
+            ('l', ConsoleKey.L),
+            ('l', ConsoleKey.L),
+            ('o', ConsoleKey.O),
+            ('\b', ConsoleKey.Backspace),
+            ('\b', ConsoleKey.Backspace),
+            ('p', ConsoleKey.P),
+            ('!', ConsoleKey.D1), // '!' character
+        };
+
+        foreach (var (ch, consoleKey) in keys)
+        {
+            var key = new ConsoleKeyInfo(ch, consoleKey, shift: false, alt: false, control: false);
+            await harness.Manager.HandleKeyAsync(key, CancellationToken.None);
+        }
+
+        // Should have 9 events (5 chars + 2 backspaces + 2 chars)
+        harness.Dispatcher.Events.Count.ShouldBe(9);
+
+        // Verify the final value
+        var finalEvent = harness.Dispatcher.Events.Last();
+        var finalArgs = finalEvent.Args.ShouldBeOfType<ChangeEventArgs>();
+        finalArgs.Value.ShouldBe("help!");
+    }
+
     private sealed class KeyboardHarness : IAsyncDisposable
     {
         private readonly ConsoleRenderer _renderer;
