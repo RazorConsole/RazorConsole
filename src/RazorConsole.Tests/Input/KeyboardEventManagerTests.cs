@@ -229,11 +229,11 @@ public class KeyboardEventManagerTests
     [Fact]
     public async Task HandleKeyAsync_LargeSequentialInput_AccumulatesCorrectly()
     {
-        // This test simulates what happens during a paste operation when keys arrive sequentially.
-        // Without batching (when Console.KeyAvailable is false), each character triggers a render.
-        // With batching (when Console.KeyAvailable is true), multiple characters are batched
-        // before triggering a single render. The batching logic is in HandleBatchedTextInputAsync
-        // which is called from RunAsync when Console.KeyAvailable returns true.
+        // This test simulates processing many characters sequentially (like during a paste).
+        // When keys are processed one-by-one through HandleKeyAsync (Console.KeyAvailable = false),
+        // each character triggers a separate oninput event, causing N render cycles for N characters.
+        // The batching optimization in KeyboardEventManager.RunAsync detects when Console.KeyAvailable
+        // is true and batches multiple characters before dispatching a single oninput event.
         await using var harness = await KeyboardHarness.CreateAsync(
             new FocusElementSpec(
                 key: "input",
@@ -277,20 +277,20 @@ public class KeyboardEventManagerTests
         // Type "hello", then backspace twice, then type "p!"
         var keys = new[]
         {
-            ('h', ConsoleKey.H),
-            ('e', ConsoleKey.E),
-            ('l', ConsoleKey.L),
-            ('l', ConsoleKey.L),
-            ('o', ConsoleKey.O),
-            ('\b', ConsoleKey.Backspace),
-            ('\b', ConsoleKey.Backspace),
-            ('p', ConsoleKey.P),
-            ('!', ConsoleKey.D1), // '!' character
+            ('h', ConsoleKey.H, false),
+            ('e', ConsoleKey.E, false),
+            ('l', ConsoleKey.L, false),
+            ('l', ConsoleKey.L, false),
+            ('o', ConsoleKey.O, false),
+            ('\b', ConsoleKey.Backspace, false),
+            ('\b', ConsoleKey.Backspace, false),
+            ('p', ConsoleKey.P, false),
+            ('!', ConsoleKey.D1, true), // '!' = Shift+1
         };
 
-        foreach (var (ch, consoleKey) in keys)
+        foreach (var (ch, consoleKey, shift) in keys)
         {
-            var key = new ConsoleKeyInfo(ch, consoleKey, shift: false, alt: false, control: false);
+            var key = new ConsoleKeyInfo(ch, consoleKey, shift: shift, alt: false, control: false);
             await harness.Manager.HandleKeyAsync(key, CancellationToken.None);
         }
 
