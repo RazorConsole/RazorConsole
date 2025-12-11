@@ -192,9 +192,10 @@ public class KeyboardEventManagerTests
     [Fact]
     public async Task HandleKeyAsync_MultipleSequentialCharacters_EachTriggersOninput()
     {
-        // This test demonstrates the behavior when keys are NOT batched (normal typing).
-        // Each character input triggers its own oninput event.
-        // When Console.KeyAvailable is false, HandleKeyAsync processes each key individually.
+        // This test verifies HandleKeyAsync behavior when processing keys one at a time.
+        // Each call to HandleKeyAsync triggers its own oninput event.
+        // This represents what happens during normal typing OR when paste is processed
+        // sequentially (which was the bug - causing hundreds of render cycles).
         await using var harness = await KeyboardHarness.CreateAsync(
             new FocusElementSpec(
                 key: "input",
@@ -204,7 +205,7 @@ public class KeyboardEventManagerTests
                     ["oninput"] = 100,
                 }));
 
-        // Simulate typing "hello" one character at a time (normal typing scenario)
+        // Simulate typing "hello" one character at a time
         var chars = new[] { 'h', 'e', 'l', 'l', 'o' };
         foreach (var ch in chars)
         {
@@ -229,11 +230,11 @@ public class KeyboardEventManagerTests
     [Fact]
     public async Task HandleKeyAsync_LargeSequentialInput_AccumulatesCorrectly()
     {
-        // This test simulates processing many characters sequentially (like during a paste).
-        // When keys are processed one-by-one through HandleKeyAsync (Console.KeyAvailable = false),
-        // each character triggers a separate oninput event, causing N render cycles for N characters.
-        // The batching optimization in KeyboardEventManager.RunAsync detects when Console.KeyAvailable
-        // is true and batches multiple characters before dispatching a single oninput event.
+        // This test verifies that HandleKeyAsync correctly accumulates text when called
+        // repeatedly. It demonstrates the performance issue: processing 100 characters
+        // one-by-one results in 100 oninput events = 100 render cycles.
+        // The batching fix (in RunAsync/HandleBatchedTextInputAsync) detects when
+        // Console.KeyAvailable is true and batches multiple keys into a single event.
         await using var harness = await KeyboardHarness.CreateAsync(
             new FocusElementSpec(
                 key: "input",
@@ -243,7 +244,7 @@ public class KeyboardEventManagerTests
                     ["oninput"] = 200,
                 }));
 
-        // Simulate a large paste (100 characters) being processed sequentially
+        // Process 100 characters sequentially (simulates worst-case paste scenario)
         var largeText = new string('a', 100);
         foreach (var ch in largeText)
         {
@@ -251,7 +252,8 @@ public class KeyboardEventManagerTests
             await harness.Manager.HandleKeyAsync(key, CancellationToken.None);
         }
 
-        // Without batching, this triggers 100 oninput events (one per character)
+        // Each call to HandleKeyAsync triggers an oninput event
+        // This is the bottleneck the batching fix addresses
         harness.Dispatcher.Events.Count.ShouldBe(100);
 
         // Verify the final accumulated value is correct
@@ -285,7 +287,7 @@ public class KeyboardEventManagerTests
             ('\b', ConsoleKey.Backspace, false),
             ('\b', ConsoleKey.Backspace, false),
             ('p', ConsoleKey.P, false),
-            ('!', ConsoleKey.D1, true), // '!' = Shift+1
+            ('!', ConsoleKey.D1, true), // Shift+1 produces '!'
         };
 
         foreach (var (ch, consoleKey, shift) in keys)
