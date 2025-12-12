@@ -305,6 +305,179 @@ public class KeyboardEventManagerTests
         finalArgs.Value.ShouldBe("help!");
     }
 
+    [Fact]
+    public async Task HandleBatchedTextInput_MultipleCharacters_TriggersSingleOninputEvent()
+    {
+        // This test verifies that when multiple keys are available (simulating paste),
+        // HandleBatchedTextInputAsync batches them into a single oninput event,
+        // reducing render cycles from N to 1.
+        var mockConsole = Substitute.For<IConsoleInput>();
+        var keys = new Queue<ConsoleKeyInfo>();
+        foreach (var ch in "hello")
+        {
+            var key = char.ToUpper(ch);
+            var consoleKey = key >= 'A' && key <= 'Z' ? (ConsoleKey)key : ConsoleKey.A;
+            keys.Enqueue(new ConsoleKeyInfo(ch, consoleKey, false, false, false));
+        }
+        mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
+        mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
+
+        await using var harness = await KeyboardHarness.CreateAsync(
+            mockConsole,
+            new FocusElementSpec(
+                key: "input",
+                value: string.Empty,
+                events: new Dictionary<string, ulong>
+                {
+                    ["oninput"] = 400,
+                }));
+
+        // Read the first key (which triggers batching since more keys are available)
+        var firstKey = mockConsole.ReadKey(intercept: true);
+
+        // Manually invoke HandleBatchedTextInputAsync to test batching logic
+        // In real usage, RunAsync detects KeyAvailable and calls this automatically
+        await harness.Manager.HandleBatchedTextInputAsync(firstKey, CancellationToken.None);
+
+        // Should have exactly 1 oninput event (batched all 5 characters)
+        harness.Dispatcher.Events.ShouldHaveSingleItem();
+
+        var evt = harness.Dispatcher.Events.Single();
+        evt.HandlerId.ShouldBe(400UL);
+        var args = evt.Args.ShouldBeOfType<ChangeEventArgs>();
+        args.Value.ShouldBe("hello");
+    }
+
+    [Fact]
+    public async Task HandleBatchedTextInput_LargePaste_TriggersSingleEvent()
+    {
+        // Test batching with a large paste operation (100 characters)
+        var mockConsole = Substitute.For<IConsoleInput>();
+        var largeText = new string('a', 100);
+        var keys = new Queue<ConsoleKeyInfo>();
+        foreach (var ch in largeText)
+        {
+            keys.Enqueue(new ConsoleKeyInfo(ch, ConsoleKey.A, false, false, false));
+        }
+        mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
+        mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
+
+        await using var harness = await KeyboardHarness.CreateAsync(
+            mockConsole,
+            new FocusElementSpec(
+                key: "input",
+                value: string.Empty,
+                events: new Dictionary<string, ulong>
+                {
+                    ["oninput"] = 500,
+                }));
+
+        var firstKey = mockConsole.ReadKey(intercept: true);
+        await harness.Manager.HandleBatchedTextInputAsync(firstKey, CancellationToken.None);
+
+        // Should have exactly 1 oninput event (batched all 100 characters)
+        harness.Dispatcher.Events.ShouldHaveSingleItem();
+
+        var evt = harness.Dispatcher.Events.Single();
+        evt.HandlerId.ShouldBe(500UL);
+        var args = evt.Args.ShouldBeOfType<ChangeEventArgs>();
+        args.Value.ShouldBe(largeText);
+    }
+
+    [Fact]
+    public async Task HandleBatchedTextInput_PasteWithEnter_StopsBatchingAndHandlesEnter()
+    {
+        // Test that batching stops when a special key (Enter) is encountered
+        var mockConsole = Substitute.For<IConsoleInput>();
+        var keys = new Queue<ConsoleKeyInfo>();
+        foreach (var ch in "hello")
+        {
+            var key = char.ToUpper(ch);
+            var consoleKey = key >= 'A' && key <= 'Z' ? (ConsoleKey)key : ConsoleKey.A;
+            keys.Enqueue(new ConsoleKeyInfo(ch, consoleKey, false, false, false));
+        }
+        keys.Enqueue(new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false));
+        mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
+        mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
+
+        await using var harness = await KeyboardHarness.CreateAsync(
+            mockConsole,
+            new FocusElementSpec(
+                key: "input",
+                value: string.Empty,
+                events: new Dictionary<string, ulong>
+                {
+                    ["oninput"] = 600,
+                    ["onclick"] = 601,
+                    ["onchange"] = 602,
+                }));
+
+        var firstKey = mockConsole.ReadKey(intercept: true);
+        await harness.Manager.HandleBatchedTextInputAsync(firstKey, CancellationToken.None);
+
+        // Should have:
+        // 1. One oninput event for "hello"
+        // 2. One onclick event for Enter
+        // 3. One onchange event for Enter
+        harness.Dispatcher.Events.Count.ShouldBe(3);
+
+        harness.Dispatcher.Events[0].HandlerId.ShouldBe(600UL);
+        var inputArgs = harness.Dispatcher.Events[0].Args.ShouldBeOfType<ChangeEventArgs>();
+        inputArgs.Value.ShouldBe("hello");
+
+        harness.Dispatcher.Events[1].HandlerId.ShouldBe(601UL);
+        harness.Dispatcher.Events[1].Args.ShouldBeOfType<MouseEventArgs>();
+
+        harness.Dispatcher.Events[2].HandlerId.ShouldBe(602UL);
+        var changeArgs = harness.Dispatcher.Events[2].Args.ShouldBeOfType<ChangeEventArgs>();
+        changeArgs.Value.ShouldBe("hello");
+    }
+
+    [Fact]
+    public async Task HandleBatchedTextInput_WithBackspaces_AccumulatesCorrectly()
+    {
+        // Test batching with backspaces mixed in
+        var mockConsole = Substitute.For<IConsoleInput>();
+        var keys = new Queue<ConsoleKeyInfo>();
+        foreach (var ch in "hello")
+        {
+            var key = char.ToUpper(ch);
+            var consoleKey = key >= 'A' && key <= 'Z' ? (ConsoleKey)key : ConsoleKey.A;
+            keys.Enqueue(new ConsoleKeyInfo(ch, consoleKey, false, false, false));
+        }
+        keys.Enqueue(new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false));
+        keys.Enqueue(new ConsoleKeyInfo('\b', ConsoleKey.Backspace, false, false, false));
+        foreach (var ch in "p!")
+        {
+            var key = char.ToUpper(ch);
+            var consoleKey = key >= 'A' && key <= 'Z' ? (ConsoleKey)key : ConsoleKey.A;
+            keys.Enqueue(new ConsoleKeyInfo(ch, consoleKey, false, false, false));
+        }
+        mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
+        mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
+
+        await using var harness = await KeyboardHarness.CreateAsync(
+            mockConsole,
+            new FocusElementSpec(
+                key: "input",
+                value: string.Empty,
+                events: new Dictionary<string, ulong>
+                {
+                    ["oninput"] = 700,
+                }));
+
+        var firstKey = mockConsole.ReadKey(intercept: true);
+        await harness.Manager.HandleBatchedTextInputAsync(firstKey, CancellationToken.None);
+
+        // Should have exactly 1 oninput event with final accumulated value
+        harness.Dispatcher.Events.ShouldHaveSingleItem();
+
+        var evt = harness.Dispatcher.Events.Single();
+        evt.HandlerId.ShouldBe(700UL);
+        var args = evt.Args.ShouldBeOfType<ChangeEventArgs>();
+        args.Value.ShouldBe("help!");
+    }
+
     private sealed class KeyboardHarness : IAsyncDisposable
     {
         private readonly ConsoleRenderer _renderer;
@@ -337,6 +510,18 @@ public class KeyboardEventManagerTests
 
         public static async Task<KeyboardHarness> CreateAsync(params FocusElementSpec[] elements)
         {
+            return await CreateAsync(console: null, elements).ConfigureAwait(false);
+        }
+
+        public static async Task<KeyboardHarness> CreateAsync(IConsoleInput? console, params FocusElementSpec[] elements)
+        {
+            if (console is null)
+            {
+                var defaultMock = Substitute.For<IConsoleInput>();
+                defaultMock.KeyAvailable.Returns(false);
+                console = defaultMock;
+            }
+
             if (elements is null || elements.Length == 0)
             {
                 throw new ArgumentException("At least one focus element is required.", nameof(elements));
@@ -344,7 +529,7 @@ public class KeyboardEventManagerTests
 
             var focusManager = new FocusManager();
             var dispatcher = new TestKeyboardEventDispatcher();
-            var manager = new KeyboardEventManager(focusManager, dispatcher, NullLogger<KeyboardEventManager>.Instance);
+            var manager = new KeyboardEventManager(focusManager, dispatcher, console, NullLogger<KeyboardEventManager>.Instance);
 
             var services = new ServiceCollection().BuildServiceProvider();
             var renderer = TestHelpers.CreateTestRenderer(services);

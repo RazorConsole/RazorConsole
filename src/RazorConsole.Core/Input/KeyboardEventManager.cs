@@ -50,6 +50,7 @@ internal sealed class KeyboardEventManager
 
     private readonly FocusManager _focusManager;
     private readonly IKeyboardEventDispatcher _dispatcher;
+    private readonly IConsoleInput _console;
     private readonly ILogger<KeyboardEventManager> _logger;
     private readonly ConcurrentDictionary<string, StringBuilder> _buffers = new(StringComparer.Ordinal);
     private volatile string? _activeFocusKey;
@@ -57,10 +58,12 @@ internal sealed class KeyboardEventManager
     public KeyboardEventManager(
         FocusManager focusManager,
         IKeyboardEventDispatcher dispatcher,
+        IConsoleInput console,
         ILogger<KeyboardEventManager>? logger = null)
     {
-        _focusManager = focusManager ?? throw new ArgumentNullException(nameof(focusManager));
-        _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
+        _focusManager = focusManager;
+        _dispatcher = dispatcher;
+        _console = console;
         _logger = logger ?? NullLogger<KeyboardEventManager>.Instance;
 
         _focusManager.FocusChanged += OnFocusChanged;
@@ -72,16 +75,16 @@ internal sealed class KeyboardEventManager
         {
             try
             {
-                if (!Console.KeyAvailable)
+                if (!_console.KeyAvailable)
                 {
                     await Task.Delay(50, token).ConfigureAwait(false);
                     continue;
                 }
 
-                var keyInfo = Console.ReadKey(intercept: true);
+                var keyInfo = _console.ReadKey(intercept: true);
 
                 // Check if this is a text input character and if more keys are available (paste operation)
-                if (ShouldBatchInput(keyInfo) && Console.KeyAvailable)
+                if (ShouldBatchInput(keyInfo) && _console.KeyAvailable)
                 {
                     await HandleBatchedTextInputAsync(keyInfo, token).ConfigureAwait(false);
                 }
@@ -359,7 +362,7 @@ internal sealed class KeyboardEventManager
         return (!char.IsControl(keyInfo.KeyChar) && keyInfo.KeyChar != '\0') || keyInfo.Key == ConsoleKey.Backspace;
     }
 
-    private async Task HandleBatchedTextInputAsync(ConsoleKeyInfo firstKey, CancellationToken token)
+    internal async Task HandleBatchedTextInputAsync(ConsoleKeyInfo firstKey, CancellationToken token)
     {
         if (!_focusManager.TryGetFocusedTarget(out var target) || target is null)
         {
@@ -372,9 +375,9 @@ internal sealed class KeyboardEventManager
         // Batch subsequent keys that are immediately available (paste operation)
         int batchCount = 1;
 
-        while (Console.KeyAvailable && batchCount < MaxPasteBatchSize)
+        while (_console.KeyAvailable && batchCount < MaxPasteBatchSize)
         {
-            var nextKey = Console.ReadKey(intercept: true);
+            var nextKey = _console.ReadKey(intercept: true);
 
             // If we encounter a special key (Enter, Tab, etc.), stop batching and handle it normally
             if (!ShouldBatchInput(nextKey))
