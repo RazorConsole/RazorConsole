@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run build:wasm && tsc -b && vite build",
+    "build": "npm run build:docfx && npm run build:wasm && tsc -b && vite build",
+    "build:docfx": "dotnet tool restore && dotnet docfx metadata ../docfx/docfx.json",
     "lint": "eslint .",
     "preview": "vite preview",
     "build:wasm": "node scripts/build-wasm.js"
