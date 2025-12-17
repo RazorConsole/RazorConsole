@@ -12,6 +12,7 @@ import QuickStart from "@/pages/QuickStart"
 import Advanced from "@/pages/Advanced"
 import Collaborators from "@/pages/Collaborators"
 import Showcase from "@/pages/Showcase"
+import ApiDocs from "@/pages/ApiDocs"
 
 // --- Lazy Imports ---
 const ComponentsLayout = lazy(() => import("@/pages/components/Layout"))
@@ -29,6 +30,7 @@ function App() {
           <Route index element={<Home />} />
           <Route path="docs/:topicId?" element={<Docs />} />
           <Route path="quick-start" element={<QuickStart />} />
+          <Route path="api/:uid?" element={<ApiDocs />} />
 
           <Route path="components" element={
             <Suspense fallback={<LoadingOverlay text={"Importing WASM runtime"} />}>

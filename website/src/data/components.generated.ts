@@ -1,5 +1,5 @@
 import type { ComponentInfo } from './components'
-import { parseXmlDocumentation } from './xml-parser'
+import { createApiItems, type DocfxApiItem, type DocfxApiMember } from './api-docs.types'
 
 // Manual metadata that can't be extracted from XML
 export const componentMetadata: Record<string, Partial<ComponentInfo>> = {
@@ -146,37 +146,85 @@ export const typeOverrides: Record<string, Record<string, string>> = {
   },
 }
 
-/**
- * Generate components list by merging XML docs with manual metadata
- */
+const docfxNameOverrides: Record<string, string> = {
+  Button: 'TextButton',
+  Table: 'SpectreTable',
+}
+
+function resolveDocfxItemName(componentName: string): string[] {
+  const overrideName = docfxNameOverrides[componentName] ?? componentName
+  const base = `RazorConsole.Components.${overrideName}`
+  return [base, `${base}\`1`, `${base}\`2`]
+}
+
+function isParameterMember(member: Pick<DocfxApiMember, 'type' | 'attributes'>): boolean {
+  if (member.type !== 'Property') {
+    return false
+  }
+
+  const attributes = member.attributes ?? []
+  return attributes.some(attr => {
+    if (!attr.type) {
+      return false
+    }
+    return attr.type.endsWith('.ParameterAttribute') || attr.type.endsWith('.CascadingParameterAttribute')
+  })
+}
+
+function extractParameters(componentName: string, docfxItem: DocfxApiItem | undefined) {
+  if (!docfxItem?.members) {
+    return undefined
+  }
+
+  const parameters = docfxItem.members
+    .filter(isParameterMember)
+    .map(member => {
+      const paramName = member.name
+      const overrideType = typeOverrides[componentName]?.[paramName]
+      const inferredType = member.syntax?.return?.type ?? member.syntax?.content ?? 'object'
+
+      return {
+        name: paramName,
+        type: overrideType ?? inferredType,
+        description: member.summary ?? '',
+      }
+    })
+    .filter(param => param.name)
+
+  return parameters.length > 0 ? parameters : undefined
+}
+
 export function generateComponents(): ComponentInfo[] {
-  const xmlDocs = parseXmlDocumentation()
+  const apiItems = createApiItems()
   const components: ComponentInfo[] = []
 
   // Iterate through components that have metadata
   Object.keys(componentMetadata).forEach(componentName => {
     const metadata = componentMetadata[componentName]
-    const xmlDoc = xmlDocs.get(componentName)
 
-    // Get parameters from XML or fallback to empty array
-    const parameters = xmlDoc?.parameters.map(param => {
-      // Apply type override if available
-      const type = typeOverrides[componentName]?.[param.name] || param.type
+    const candidateItem = resolveDocfxItemName(componentName)
+      .map(candidate => apiItems[candidate])
+      .find(item => item != null)
 
-      return {
-        name: param.name,
-        type,
-        description: param.description,
-        default: undefined, // Could be extracted from source code analysis
+    const overrideName = docfxNameOverrides[componentName] ?? componentName
+
+    const docfxItem = candidateItem ?? Object.values(apiItems).find(item => {
+      if (!item.namespace?.startsWith('RazorConsole.Components')) {
+        return false
       }
-    }) || []
+
+      const simpleName = item.name.replace(/`\d+$/, '')
+      return simpleName === overrideName
+    })
+
+    const parameters = extractParameters(componentName, docfxItem)
 
     components.push({
       name: componentName,
-      description: metadata.description || xmlDoc?.summary || `${componentName} component`,
+      description: metadata.description || docfxItem?.summary || `${componentName} component`,
       category: metadata.category || "Utilities",
       examples: metadata.examples || [],
-      parameters: parameters.length > 0 ? parameters : undefined,
+      parameters,
     })
   })
 

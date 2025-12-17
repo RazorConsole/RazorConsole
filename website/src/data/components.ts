@@ -16,5 +16,5 @@ export interface ComponentInfo {
   examples: string[]
 }
 
-// Auto-generated from XML documentation
+// Auto-generated from DocFX metadata
 export const components: ComponentInfo[] = generateComponents()

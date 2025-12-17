@@ -36,6 +36,12 @@ export default function Layout() {
                   Docs
                 </Link>
                 <Link 
+                  to="/api" 
+                  className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50 transition-colors"
+                >
+                  API Reference
+                </Link>
+                <Link 
                   to="/components" 
                   className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50 transition-colors"
                 >
@@ -108,6 +114,13 @@ export default function Layout() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Docs
+              </Link>
+              <Link 
+                to="/api" 
+                className="block py-2 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                API Reference
               </Link>
               <Link 
                 to="/components" 
@@ -203,6 +216,11 @@ export default function Layout() {
                 <li>
                   <Link to="/docs" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50">
                     Docs Overview
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/api" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50">
+                    API Reference
                   </Link>
                 </li>
                 <li>
