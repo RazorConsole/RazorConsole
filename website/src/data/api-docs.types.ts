@@ -114,7 +114,7 @@ function toSyntax(raw: unknown): DocfxSyntax | undefined {
 
       return param
     })
-    .filter((param): param is DocfxSyntaxParameter => Boolean(param) && Boolean(param.id))
+    .filter((param): param is DocfxSyntaxParameter => Boolean(param) && Boolean(param?.id))
 
   const returnRaw = source.return && typeof source.return === 'object' ? (source.return as Record<string, unknown>) : undefined
   const returnInfo: DocfxSyntaxReturn | undefined = returnRaw
