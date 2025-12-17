@@ -10,7 +10,7 @@
           ]
         }
       ],
-      "output": "../artifacts/docfx"
+      "output": "../website/.docfx"
     }
   ],
   "build": {
