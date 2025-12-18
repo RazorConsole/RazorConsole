@@ -60,13 +60,28 @@ jobs:
           name: codecov-${{ matrix.os }}
         continue-on-error: true
 
+      - name: Upload RazorConsole.Core build output
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: razorconsole-core-release_net10.0
+          path: artifacts/bin/RazorConsole.Core/release_net10.0
+          if-no-files-found: error
+
   website-build:
     name: Build website
+    needs: build-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
+
+      - name: Download RazorConsole.Core build output
+        uses: actions/download-artifact@v4
+        with:
+          name: razorconsole-core-release_net10.0
+          path: .
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
