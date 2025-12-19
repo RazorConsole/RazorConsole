@@ -2,55 +2,17 @@ import { useMemo, useState, Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import type { DocfxApiItem, DocfxApiMember, DocfxSyntaxParameter } from '@/data/api-docs'
 import { cn } from '@/lib/utils'
-import { Search, ChevronRight, ExternalLink, BookOpen, Code2, Settings, Zap, Box, FileCode } from 'lucide-react'
+import { TypeLink } from '@/components/TypeLink'
+import { Search, ChevronRight, BookOpen, Code2, Settings, Zap, Box, FileCode } from 'lucide-react'
+import { type MemberCategory, getCategoryIcon, categorizeMember, CATEGORY_ORDER } from '@/lib/categories'
+import { sanitizeDocText } from '@/lib/doc-utils'
 
 interface ApiDocumentProps {
   item?: DocfxApiItem
 }
 
-// Category definitions for properties
-type MemberCategory = 'Behavior' | 'Appearance' | 'Events' | 'Common' | 'Other'
-
-function sanitizeDocText(value?: string) {
-  if (!value) {
-    return undefined
-  }
-  const withoutTags = value.replace(/<[^>]+>/g, ' ')
-  const condensed = withoutTags.replace(/\s+/g, ' ').trim()
-  return condensed.length > 0 ? condensed : undefined
-}
-
-function categorizeMember(member: DocfxApiMember): MemberCategory {
-  const name = member.name.toLowerCase()
-  const summary = (member.summary ?? '').toLowerCase()
-  
-  // Events
-  if (member.type === 'Event' || name.startsWith('on') || name.includes('callback') || name.includes('event')) {
-    return 'Events'
-  }
-  
-  // Appearance
-  if (name.includes('color') || name.includes('style') || name.includes('class') || 
-      name.includes('width') || name.includes('height') || name.includes('size') ||
-      name.includes('border') || name.includes('background') || name.includes('foreground') ||
-      summary.includes('appearance') || summary.includes('visual') || summary.includes('style')) {
-    return 'Appearance'
-  }
-  
-  // Behavior
-  if (name.includes('enabled') || name.includes('disabled') || name.includes('readonly') ||
-      name.includes('visible') || name.includes('focus') || name.includes('selected') ||
-      summary.includes('behavior') || summary.includes('interact')) {
-    return 'Behavior'
-  }
-  
-  // Common patterns
-  if (name === 'childcontent' || name === 'id' || name === 'class' || name === 'style' ||
-      name.includes('content') || name.includes('value') || name.includes('text')) {
-    return 'Common'
-  }
-  
-  return 'Other'
+function categorizeMemberFromDocfx(member: DocfxApiMember): MemberCategory {
+  return categorizeMember(member.name, member.type ?? '', member.summary)
 }
 
 function SyntaxBlock({ code }: { code?: string }) {
@@ -65,47 +27,6 @@ function SyntaxBlock({ code }: { code?: string }) {
       </pre>
     </div>
   )
-}
-
-function TypeLink({ type }: { type?: string }) {
-  if (!type) {
-    return <span className="text-slate-400">—</span>
-  }
-
-  // Check if this is a link to Microsoft docs or an internal type
-  const isMicrosoftType = type.startsWith('Microsoft.') || type.startsWith('System.')
-  const isSpectreType = type.startsWith('Spectre.')
-  
-  if (isMicrosoftType) {
-    const docUrl = `https://learn.microsoft.com/dotnet/api/${type.replace(/`\d+/g, '-')}`
-    return (
-      <a
-        href={docUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 font-mono text-xs text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
-      >
-        {type.split('.').pop()}
-        <ExternalLink className="h-3 w-3" />
-      </a>
-    )
-  }
-  
-  if (isSpectreType) {
-    return (
-      <a
-        href={`https://spectreconsole.net/`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 font-mono text-xs text-emerald-600 hover:text-emerald-700 hover:underline dark:text-emerald-400 dark:hover:text-emerald-300"
-      >
-        {type.split('.').pop()}
-        <ExternalLink className="h-3 w-3" />
-      </a>
-    )
-  }
-
-  return <code className="font-mono text-xs text-violet-600 dark:text-violet-400">{type}</code>
 }
 
 function ParameterTable({ parameters }: { parameters?: DocfxSyntaxParameter[] }) {
@@ -170,28 +91,17 @@ function MemberTable({ members, title, icon, groupByCategory = false, sectionId 
 
     const groups = new Map<MemberCategory, DocfxApiMember[]>()
     for (const member of filteredMembers) {
-      const category = categorizeMember(member)
+      const category = categorizeMemberFromDocfx(member)
       if (!groups.has(category)) {
         groups.set(category, [])
       }
       groups.get(category)?.push(member)
     }
 
-    const order: MemberCategory[] = ['Behavior', 'Appearance', 'Events', 'Common', 'Other']
-    return order
+    return CATEGORY_ORDER
       .filter(cat => groups.has(cat))
       .map(cat => ({ category: cat, members: groups.get(cat) ?? [] }))
   }, [filteredMembers, groupByCategory])
-
-  const getCategoryIcon = (category: MemberCategory | null) => {
-    switch (category) {
-      case 'Behavior': return <Settings className="h-4 w-4" />
-      case 'Appearance': return <Box className="h-4 w-4" />
-      case 'Events': return <Zap className="h-4 w-4" />
-      case 'Common': return <FileCode className="h-4 w-4" />
-      default: return null
-    }
-  }
 
   return (
     <section id={sectionId} className="scroll-mt-20">
