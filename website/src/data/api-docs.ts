@@ -56,7 +56,7 @@ type RawYaml = Record<string, unknown> & {
   references?: unknown[]
 }
 
-const docfxRawFiles = import.meta.glob('../../.docfx/**/*.yml', {
+const docfxRawFiles = import.meta.glob('/public/.docfx/**/*.yml', {
   eager: true,
   query: '?raw',
   import: 'default',
