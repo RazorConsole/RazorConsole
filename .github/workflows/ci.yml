@@ -81,7 +81,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: razorconsole-core-release_net10.0
-          path: .
+          path: artifacts/bin/RazorConsole.Core/release_net10.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
