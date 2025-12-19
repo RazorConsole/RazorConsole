@@ -11,8 +11,11 @@ interface TypeLinkProps {
 // - Microsoft.AspNetCore.Components.EventCallback{System.Int32}
 // - System.Collections.Generic.IReadOnlyList{RazorConsole.Core.Vdom.VdomMutation}
 // - RazorConsole.Components.Scrollable`1.ScrollContext{{TItem}}
-function parseTypeName(type: string): { displayName: string; baseType: string } {
-    if (!type) return { displayName: "", baseType: "" };
+function parseTypeName(type: string): { displayName: string; baseType: string; isGeneric: boolean } {
+    if (!type) return { displayName: "", baseType: "", isGeneric: false };
+
+    // Check if this is a generic type
+    const isGeneric = /[{<`]/.test(type);
 
     // Extract the base type (before any generic parameters)
     const baseType = type.split(/[{<]/)[0].replace(/`\d+/g, "");
@@ -28,7 +31,7 @@ function parseTypeName(type: string): { displayName: string; baseType: string } 
     // Extract the short type name and generic arguments separately
     const genericMatch = cleaned.match(/^([^<]+)(<.+>)?$/);
     if (!genericMatch) {
-        return { displayName: cleaned, baseType };
+        return { displayName: cleaned, baseType, isGeneric };
     }
 
     const [, fullTypeName, genericPart] = genericMatch;
@@ -43,31 +46,63 @@ function parseTypeName(type: string): { displayName: string; baseType: string } 
         const innerTypes = genericPart.slice(1, -1); // Remove < and >
         
         // Simplify each type argument (get short names)
-        const simplifiedArgs = innerTypes.split(",").map(arg => {
+        const simplifiedArgs = splitGenericArgs(innerTypes).map(arg => {
             const trimmed = arg.trim();
-            // Get the last part after the last dot (but handle nested generics)
-            const argParts = trimmed.split(".");
-            return argParts[argParts.length - 1] ?? trimmed;
+            // Recursively parse nested generic types
+            const nested = parseTypeName(trimmed);
+            return nested.displayName;
         }).join(", ");
 
         return { 
             displayName: `${shortTypeName}<${simplifiedArgs}>`, 
-            baseType 
+            baseType,
+            isGeneric: true
         };
     }
 
-    return { displayName: shortTypeName, baseType };
+    return { displayName: shortTypeName, baseType, isGeneric };
 }
 
-// Get the documentation URL for a type
-function getTypeDocUrl(baseType: string): string | null {
+// Split generic arguments while respecting nested generics
+function splitGenericArgs(argsString: string): string[] {
+    const args: string[] = [];
+    let depth = 0;
+    let current = "";
+
+    for (const char of argsString) {
+        if (char === "{" || char === "<") {
+            depth++;
+            current += char;
+        } else if (char === "}" || char === ">") {
+            depth--;
+            current += char;
+        } else if (char === "," && depth === 0) {
+            args.push(current.trim());
+            current = "";
+        } else {
+            current += char;
+        }
+    }
+
+    if (current.trim()) {
+        args.push(current.trim());
+    }
+
+    return args;
+}
+
+// Get the documentation URL for a type (only for non-generic types)
+function getTypeDocUrl(baseType: string, isGeneric: boolean): string | null {
     if (!baseType) return null;
+
+    // Don't link generic Microsoft/System types - URLs are complex
+    if (isGeneric && (baseType.startsWith("Microsoft.") || baseType.startsWith("System."))) {
+        return null;
+    }
 
     // Microsoft/System types -> MS Docs
     if (baseType.startsWith("Microsoft.") || baseType.startsWith("System.")) {
-        return `https://learn.microsoft.com/dotnet/api/${baseType
-            .toLowerCase()
-            .replace(/`\d+/g, "-")}`;
+        return `https://learn.microsoft.com/dotnet/api/${baseType.toLowerCase()}`;
     }
 
     // Spectre.Console types
@@ -77,8 +112,7 @@ function getTypeDocUrl(baseType: string): string | null {
 
     // RazorConsole types -> internal API docs
     if (baseType.startsWith("RazorConsole.")) {
-        const cleanedType = baseType.replace(/`\d+/g, "-1");
-        return `/api/${cleanedType}`;
+        return `/api/${baseType}`;
     }
 
     return null;
@@ -88,10 +122,10 @@ function getTypeDocUrl(baseType: string): string | null {
 export function TypeLink({ type }: TypeLinkProps) {
     if (!type) return <span className="text-slate-400">—</span>;
 
-    const { displayName, baseType } = parseTypeName(type);
-    const docUrl = getTypeDocUrl(baseType);
+    const { displayName, baseType, isGeneric } = parseTypeName(type);
+    const docUrl = getTypeDocUrl(baseType, isGeneric);
 
-    // Microsoft/System types
+    // Microsoft/System types (only link if not generic)
     if (baseType.startsWith("Microsoft.") || baseType.startsWith("System.")) {
         return docUrl ? (
             <a
