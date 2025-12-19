@@ -1,5 +1,5 @@
 import type { ComponentInfo } from './components'
-import { createApiItems, type DocfxApiItem, type DocfxApiMember } from './api-docs.types'
+import { apiItems, type DocfxApiItem, type DocfxApiMember } from './api-docs'
 
 // Manual metadata that can't be extracted from XML
 export const componentMetadata: Record<string, Partial<ComponentInfo>> = {
@@ -195,7 +195,6 @@ function extractParameters(componentName: string, docfxItem: DocfxApiItem | unde
 }
 
 export function generateComponents(): ComponentInfo[] {
-  const apiItems = createApiItems()
   const components: ComponentInfo[] = []
 
   // Iterate through components that have metadata

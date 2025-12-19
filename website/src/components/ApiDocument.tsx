@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { DocfxApiItem, DocfxApiMember, DocfxSyntaxParameter } from '@/data/api-docs.types'
+import type { DocfxApiItem, DocfxApiMember, DocfxSyntaxParameter } from '@/data/api-docs'
 
 interface ApiDocumentProps {
   item?: DocfxApiItem

@@ -313,7 +313,7 @@ function toTocNode(raw: unknown): DocfxTocNode | undefined {
   return node
 }
 
-export function createApiToc(): DocfxTocNode[] {
+function createApiToc(): DocfxTocNode[] {
   if (cachedToc) {
     return cachedToc
   }
@@ -336,7 +336,7 @@ export function createApiToc(): DocfxTocNode[] {
   return cachedToc
 }
 
-export function createApiItems(): Record<string, DocfxApiItem> {
+function createApiItems(): Record<string, DocfxApiItem> {
   if (cachedItems) {
     return cachedItems
   }
@@ -418,3 +418,6 @@ export function createApiItems(): Record<string, DocfxApiItem> {
 
   return cachedItems
 }
+
+export const apiItems = createApiItems()
+export const apiToc = createApiToc()

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ApiDocument from '@/components/ApiDocument'
-import { createApiItems, createApiToc, type DocfxApiItem, type DocfxTocNode } from '@/data/api-docs.types'
+import { apiItems, apiToc, type DocfxApiItem, type DocfxTocNode } from '@/data/api-docs'
 import { Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -73,8 +73,8 @@ export default function ApiDocs() {
   const params = useParams<{ uid: string }>()
   const [query, setQuery] = useState('')
 
-  const docfxToc = createApiToc()
-  const docfxItems = createApiItems()
+  const docfxToc = apiToc
+  const docfxItems = apiItems
 
   const decodedUid = params.uid ? decodeURIComponent(params.uid) : undefined
 
