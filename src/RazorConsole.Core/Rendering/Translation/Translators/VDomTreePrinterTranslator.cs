@@ -142,7 +142,7 @@ internal sealed class VDomTreePrinterTranslator : ITranslationMiddleware
         return summary.ToString();
     }
 
-    private static void AppendAttributes(StringBuilder builder, IReadOnlyDictionary<string, string?> attributes)
+    private static void AppendAttributes(StringBuilder builder, IReadOnlyDictionary<string, object?> attributes)
     {
         if (attributes.Count == 0)
         {
@@ -151,7 +151,8 @@ internal sealed class VDomTreePrinterTranslator : ITranslationMiddleware
 
         builder.Append(" attrs[");
         var first = true;
-        foreach (var attribute in attributes.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+        foreach (var attribute in attributes
+            .OrderBy(static pair => pair.Key, StringComparer.Ordinal))
         {
             if (!first)
             {

@@ -8,11 +8,12 @@
 @using RazorConsole.Core.Rendering.ComponentMarkup
 @using Spectre.Console
 @using Spectre.Console.Rendering
+
 <div class="align"
-     data-horizontal="@HorizontalAttribute"
-     data-vertical="@VerticalAttribute"
-     data-width="@WidthAttribute"
-    data-height="@HeightAttribute">
+     data-horizontal="@Horizontal"
+     data-vertical="@Vertical"
+     data-width="@Width"
+    data-height="@Height">
     @ChildContent
 </div>
 
@@ -59,15 +60,4 @@
     [Parameter]
     public int? Height { get; set; }
 
-    private string HorizontalAttribute => Horizontal.ToString().ToLowerInvariant();
-
-    private string VerticalAttribute => Vertical.ToString().ToLowerInvariant();
-
-    private string? WidthAttribute => Width.HasValue && Width.Value > 0
-        ? Width.Value.ToString(CultureInfo.InvariantCulture)
-        : null;
-
-    private string? HeightAttribute => Height.HasValue && Height.Value > 0
-        ? Height.Value.ToString(CultureInfo.InvariantCulture)
-        : null;
 }

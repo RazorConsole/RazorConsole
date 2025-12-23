@@ -3,6 +3,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using RazorConsole.Core;
 using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
@@ -88,7 +89,8 @@ public sealed class CustomTranslatorTests
                 return next(node);
             }
 
-            if (!node.Attributes.TryGetValue("data-custom", out var value) || !string.Equals(value, "true", StringComparison.OrdinalIgnoreCase))
+            if (!node.TryGetAttributeValue<string>("data-custom", out var value)
+                || !string.Equals(value, "true", StringComparison.OrdinalIgnoreCase))
             {
                 return next(node);
             }

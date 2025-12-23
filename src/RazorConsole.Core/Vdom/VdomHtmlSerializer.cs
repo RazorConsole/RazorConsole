@@ -42,7 +42,7 @@ internal static class VdomHtmlSerializer
 
                     builder.Append(' ').Append(pair.Key).Append('=')
                         .Append('"')
-                        .Append(System.Net.WebUtility.HtmlEncode(pair.Value))
+                        .Append(System.Net.WebUtility.HtmlEncode(pair.Value?.ToString() ?? ""))
                         .Append('"');
                 }
 

@@ -633,7 +633,7 @@ public class KeyboardEventManagerTests
 
         public bool TryUpdateText(IReadOnlyList<int> path, string? text) => false;
 
-        public bool TryUpdateAttributes(IReadOnlyList<int> path, IReadOnlyDictionary<string, string?> attributes) => false;
+        public bool TryUpdateAttributes(IReadOnlyList<int> path, IReadOnlyDictionary<string, object?> attributes) => false;
 
         public void Refresh()
         {

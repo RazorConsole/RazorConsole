@@ -171,7 +171,7 @@ public sealed class OverflowElementTranslator : IVdomElementTranslator
             return false;
         }
 
-        if (!node.Attributes.TryGetValue("data-overflow", out var overflowType))
+        if (!node.TryGetAttributeValue<string>("data-overflow", out var overflowType))
         {
             return false;
         }
