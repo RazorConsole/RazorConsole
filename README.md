@@ -103,6 +103,15 @@ Get started quickly with **20+ pre-built components** covering layout, input, di
 
 For a full list of components and usage details, see the [Built-in Components](#built-in-components) section below.
 
+### ⚡ **Efficient Terminal Rendering**
+Experience blazing-fast updates with our intelligent diff-based rendering engine. RazorConsole uses a specialized `DiffRenderable` component that compares the current and previous output states, rendering only what changed. This bottom-up rendering approach minimizes terminal updates by:
+- Computing line-by-line differences between render states
+- Skipping unchanged content to reduce flicker and improve performance
+- Using precise cursor positioning to update only modified segments
+- Optimizing for the constraints of terminal output
+
+This design ensures your console applications remain responsive even with frequent UI updates.
+
 ### ⚡ **Hot Reload Support**
 Experience rapid development with built-in hot reload support. See your UI changes instantly without restarting your application.
 
