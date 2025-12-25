@@ -16,6 +16,7 @@ import componentGalleryDoc from "@/docs/component-gallery.md?raw";
 import v0_1_1ReleaseNotes from "../../../release-notes/v0.1.1.md?raw";
 import v0_2_0ReleaseNotes from "../../../release-notes/v0.2.0.md?raw";
 import v0_2_2ReleaseNotes from "../../../release-notes/v0.2.2.md?raw";
+import v0_3_0ReleaseNotes from "../../../release-notes/v0.3.0.md?raw";
 import { MarkdownRenderer } from "@/components/Markdown";
 
 
@@ -105,6 +106,7 @@ export default function Docs() {
     const releaseNotes: TopicItem[] = useMemo(
         () => {
             const rawNotes = [
+                { id: "v0.3.0", title: "v0.3.0", content: v0_3_0ReleaseNotes, filePath: "release-notes/v0.3.0.md" },
                 { id: "v0.2.2", title: "v0.2.2", content: v0_2_2ReleaseNotes, filePath: "release-notes/v0.2.2.md" },
                 { id: "v0.2.0", title: "v0.2.0", content: v0_2_0ReleaseNotes, filePath: "release-notes/v0.2.0.md" },
                 { id: "v0.1.1", title: "v0.1.1", content: v0_1_1ReleaseNotes, filePath: "release-notes/v0.1.1.md" },
