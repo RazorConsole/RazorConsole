@@ -1,9 +1,9 @@
-﻿# Native AOT 
+﻿# Native AOT
 
 This document explains how to use **Native Ahead-of-Time (AOT)** compilation with **RazorConsole** to build standalone, lightning-fast console applications.
 
-> [!WARNING] 
-> Native AOT support in RazorConsole is currently **experimental**. 
+> [!WARNING]
+> Native AOT support in RazorConsole is currently **experimental**.
 > While core features like routing and rendering are tested and working, you may encounter edge cases with third-party
 > libraries or complex reflection scenarios. Please report any issues on [GitHub](https://github.com/RazorConsole/RazorConsole/issues/new?template=bug-report.yml).
 
@@ -15,9 +15,9 @@ Native AOT compiles your .NET application directly into _native machine code_ li
 
 **Benefits for Console Apps:**
 
-* **Instant Startup:** No JIT warm-up time.
-* **Smaller Footprint:** No need to install the .NET Runtime on the target machine; the app is self-contained.
-* **Single File:** The output is a single binary executable.
+- **Instant Startup:** No JIT warm-up time.
+- **Smaller Footprint:** No need to install the .NET Runtime on the target machine; the app is self-contained.
+- **Single File:** The output is a single binary executable.
 
 ---
 
@@ -25,6 +25,7 @@ Native AOT compiles your .NET application directly into _native machine code_ li
 
 To build Native AOT applications, you need platform-specific build tools installed on your development machine or CI environment.
 Look at this article in [msdocs](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/?tabs=windows%2Cnet8).
+
 ---
 
 ## 3. How to Publish
@@ -56,15 +57,16 @@ During the build, you might see:
 
 > `warning IL2104: Assembly 'Microsoft.AspNetCore.Components' produced trim warnings`
 
-**Why this happens:** Blazor was designed for browser scenarios where the 
-full .NET runtime is available. Some internal Blazor APIs use reflection 
+**Why this happens:** Blazor was designed for browser scenarios where the
+full .NET runtime is available. Some internal Blazor APIs use reflection
 patterns that the AOT analyzer cannot verify.
 
-**Is it safe?** Yes, for RazorConsole use cases. We've tested core features 
-(routing, rendering, DI) and they work correctly. The warnings are about 
+**Is it safe?** Yes, for RazorConsole use cases. We've tested core features
+(routing, rendering, DI) and they work correctly. The warnings are about
 unused code paths in Blazor's browser-specific features.
 
 **Suppressing the warning:**
+
 ```xml
 <PropertyGroup>
   <!-- Safe for RazorConsole console apps -->
@@ -72,9 +74,8 @@ unused code paths in Blazor's browser-specific features.
 </PropertyGroup>
 ```
 
-**When to investigate:** If you're using advanced Blazor features beyond 
+**When to investigate:** If you're using advanced Blazor features beyond
 basic component rendering, test thoroughly with AOT.
-
 
 ### 4.2. Routing and Pages
 
@@ -89,11 +90,13 @@ To ensure routing works correctly, you must prevent your application assembly fr
 ```
 
 ### 4.3. Reflection & Parameters
-Native AOT aggressively trims unused code. Anonymous types rely on reflection 
-to read properties at runtime, and the trimmer may remove property metadata 
+
+Native AOT aggressively trims unused code. Anonymous types rely on reflection
+to read properties at runtime, and the trimmer may remove property metadata
 if it cannot statically prove the properties are used.
 
 **Avoid Anonymous Types for Parameters:**
+
 ```csharp
 // Avoid this in AOT
 // The trimmer may remove property metadata, causing runtime failures
@@ -117,6 +120,7 @@ await renderer.RenderAsync<MyComponent>(parameters);
 ### 4.4. What Works & What Doesn't
 
 **✅ AOT-Compatible:**
+
 - Razor component rendering
 - Routing (`@page` directives)
 - Dependency injection
@@ -124,11 +128,13 @@ await renderer.RenderAsync<MyComponent>(parameters);
 - LINQ (query syntax)
 
 **⚠️ Requires Care:**
+
 - Third-party libraries (check for `IsAotCompatible`)
 - Custom reflection code
 - Dynamic assembly loading
 
 **❌ Not Supported:**
+
 - `System.Reflection.Emit`
 - C# dynamic keyword
 
@@ -148,7 +154,8 @@ This usually means the C++ Build Tools are missing.
 
 If your app uses third-party libraries that rely heavily on reflection (e.g., JSON serializers other than `System.Text.Json` source generator), they might be incompatible with AOT.
 
-* Try enabling the AOT analysis warnings in your project to see potential issues:
+- Try enabling the AOT analysis warnings in your project to see potential issues:
+
 ```xml
 <PropertyGroup>
   <IsAotCompatible>true</IsAotCompatible>

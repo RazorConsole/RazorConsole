@@ -37,49 +37,46 @@ interface TopicItem {
 
 
 function extractHeadings(markdown: string): Heading[] {
-    const lines = markdown.split(/\r?\n/);
-    const headings: Heading[] = [];
+  const lines = markdown.split(/\r?\n/)
+  const headings: Heading[] = []
 
-    const slugger = new GithubSlugger();
+  const slugger = new GithubSlugger()
 
-    let inCodeBlock = false;
+  let inCodeBlock = false
 
-    for (const line of lines) {
-        if (line.trim().startsWith('```')) {
-            inCodeBlock = !inCodeBlock;
-            continue;
-        }
-        if (inCodeBlock) continue;
-
-        const match = line.match(/^\s*(#{1,4})\s+(.+)$/);
-        if (match) {
-            const level = match[1].length;
-            const rawTitle = match[2].trim();
-
-            const cleanTitle = rawTitle
-                .replace(/`([^`]+)`/g, '$1')          // `code` -> code
-                .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // [link](url) -> link
-                .replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, '$1'); // **bold** -> bold
-
-            const slug = slugger.slug(cleanTitle);
-
-            headings.push({ level, title: rawTitle, id: slug });
-        }
+  for (const line of lines) {
+    if (line.trim().startsWith("```")) {
+      inCodeBlock = !inCodeBlock
+      continue
     }
-    return headings;
+    if (inCodeBlock) continue
+
+    const match = line.match(/^\s*(#{1,4})\s+(.+)$/)
+    if (match) {
+      const level = match[1].length
+      const rawTitle = match[2].trim()
+
+      const cleanTitle = rawTitle
+        .replace(/`([^`]+)`/g, "$1") // `code` -> code
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1") // [link](url) -> link
+        .replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, "$1") // **bold** -> bold
+
+      const slug = slugger.slug(cleanTitle)
+
+      headings.push({ level, title: rawTitle, id: slug })
+    }
+  }
+  return headings
 }
 
 function getFilePathForTopic(
-    topicId: string,
-    topics: TopicItem[],
-    releaseNotes: TopicItem[]
+  topicId: string,
+  topics: TopicItem[],
+  releaseNotes: TopicItem[]
 ): string {
-    const topic =
-        topics.find((t) => t.id === topicId) ||
-        releaseNotes.find((r) => r.id === topicId);
-    return topic?.filePath || "";
+  const topic = topics.find((t) => t.id === topicId) || releaseNotes.find((r) => r.id === topicId)
+  return topic?.filePath || ""
 }
-
 
 export default function Docs() {
     const topics: TopicItem[] = useMemo(
@@ -352,5 +349,7 @@ export default function Docs() {
                 </div>
             </div>
         </div>
-    );
+      </div>
+    </div>
+  )
 }

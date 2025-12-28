@@ -1,9 +1,9 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { lazy, Suspense } from "react"
-import Layout from "@/components/Layout"
-import LoadingOverlay from "@/components/LoadingOverlay"
-import { useThemeEffect } from "@/components/ThemeProvider"
-import ScrollToTop from "@/components/ScrollToTop"
+import Layout from "@/components/app/Layout"
+import LoadingOverlay from "@/components/app/LoadingOverlay"
+import { useThemeEffect } from "@/hooks/useThemeEffect"
+import ScrollToTop from "@/components/app/ScrollToTop"
 
 // --- Eager Imports ---
 import Home from "@/pages/Home"
@@ -24,7 +24,7 @@ function App() {
 
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
-      <ScrollToTop/>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
@@ -32,11 +32,14 @@ function App() {
           <Route path="quick-start" element={<QuickStart />} />
           <Route path="api/:uid?" element={<ApiDocs />} />
 
-          <Route path="components" element={
-            <Suspense fallback={<LoadingOverlay text={"Importing WASM runtime"} />}>
-              <ComponentsLayout />
-            </Suspense>
-          }>
+          <Route
+            path="components"
+            element={
+              <Suspense fallback={<LoadingOverlay text={"Importing WASM runtime"} />}>
+                <ComponentsLayout />
+              </Suspense>
+            }
+          >
             <Route index element={<ComponentsOverview />} />
             <Route path=":name" element={<ComponentDetail />} />
           </Route>

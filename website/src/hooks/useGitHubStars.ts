@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react"
 
 interface GitHubRepo {
   stargazers_count: number
@@ -14,23 +14,22 @@ export function useGitHubStars(owner: string, repo: string) {
 
     const fetchStars = async () => {
       try {
-        const response = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}`,
-          { signal: abortController.signal }
-        )
+        const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+          signal: abortController.signal,
+        })
         if (!response.ok) {
-          throw new Error('Failed to fetch repository data')
+          throw new Error("Failed to fetch repository data")
         }
         const data: GitHubRepo = await response.json()
         setStars(data.stargazers_count)
         setError(null)
       } catch (err) {
         // Ignore abort errors
-        if (err instanceof Error && err.name === 'AbortError') {
+        if (err instanceof Error && err.name === "AbortError") {
           return
         }
         setStars(null)
-        setError(err instanceof Error ? err : new Error('Unknown error'))
+        setError(err instanceof Error ? err : new Error("Unknown error"))
       } finally {
         setLoading(false)
       }

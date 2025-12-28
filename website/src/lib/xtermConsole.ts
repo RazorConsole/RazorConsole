@@ -1,6 +1,6 @@
-import { Terminal } from 'xterm'
-import type { IDisposable, ITerminalOptions, ITheme } from 'xterm'
-import 'xterm/css/xterm.css'
+import { Terminal } from "xterm"
+import type { IDisposable, ITerminalOptions, ITheme } from "xterm"
+import "xterm/css/xterm.css"
 
 type TerminalConstructor = typeof Terminal
 type TerminalType = InstanceType<typeof Terminal>
@@ -34,26 +34,29 @@ const defaultOptions: TerminalOptions = {
   disableStdin: false,
   allowTransparency: false,
   theme: {
-    background: '#1e1e1e',
-    foreground: '#d4d4d4'
+    background: "#1e1e1e",
+    foreground: "#d4d4d4",
   },
   fontFamily: 'Consolas, "Courier New", monospace',
   fontSize: 14,
   lineHeight: 1.2,
   cursorBlink: false,
-  scrollback: 1000
+  scrollback: 1000,
 }
 
 function getTerminalConstructor(): TerminalConstructor {
-  const ctor = typeof window !== 'undefined' ? window.Terminal : undefined
+  const ctor = typeof window !== "undefined" ? window.Terminal : undefined
   if (!ctor) {
-    throw new Error('xterm.js is not loaded.')
+    throw new Error("xterm.js is not loaded.")
   }
 
   return ctor
 }
 
-function mergeThemes(base: Partial<ITheme> | undefined, overrides: Partial<ITheme> | undefined): Partial<ITheme> | undefined {
+function mergeThemes(
+  base: Partial<ITheme> | undefined,
+  overrides: Partial<ITheme> | undefined
+): Partial<ITheme> | undefined {
   if (!base && !overrides) {
     return undefined
   }
@@ -80,7 +83,7 @@ function getExistingTerminal(elementId: string): TerminalType {
 }
 
 export function isTerminalAvailable(): boolean {
-  return typeof window !== 'undefined' && typeof window.Terminal === 'function'
+  return typeof window !== "undefined" && typeof window.Terminal === "function"
 }
 
 export function registerTerminalInstance(elementId: string, terminal: TerminalType): void {
@@ -100,18 +103,18 @@ export function initTerminal(elementId: string, options?: TerminalOptions): Term
   const mergedOptions: ITerminalOptions = {
     ...defaultOptions,
     ...options,
-    theme: mergeThemes(defaultOptions.theme, options?.theme)
+    theme: mergeThemes(defaultOptions.theme, options?.theme),
   }
 
   const terminal = new TerminalCtor(mergedOptions)
-  host.innerHTML = ''
+  host.innerHTML = ""
   terminal.open(host)
   terminals.set(elementId, terminal)
   return terminal
 }
 
 export function writeToTerminal(elementId: string, text: string): void {
-  if (typeof text !== 'string' || text.length === 0) {
+  if (typeof text !== "string" || text.length === 0) {
     return
   }
 
@@ -129,24 +132,24 @@ export function attachKeyListener(elementId: string, helper: DotNetHelper): void
 
   keyHandlers.get(elementId)?.dispose()
 
-  const subscription = terminal.onKey(async event => {
+  const subscription = terminal.onKey(async (event) => {
     const { key, domEvent } = event
     const { ctrlKey, metaKey, key: domKey } = domEvent
 
     // Handle Ctrl+C (or Cmd+C on Mac) - Copy selected text
-    if ((ctrlKey || metaKey) && (domKey === 'c' || domKey === 'C')) {
+    if ((ctrlKey || metaKey) && (domKey === "c" || domKey === "C")) {
       const selection = terminal.getSelection()
       if (selection) {
         try {
           await navigator.clipboard.writeText(selection)
-          console.debug('Copied to clipboard:', selection)
+          console.debug("Copied to clipboard:", selection)
         } catch (err) {
-          console.warn('Failed to copy to clipboard:', err)
+          console.warn("Failed to copy to clipboard:", err)
         }
       }
       // Still forward the event to WASM in case it needs to handle it
       void helper.invokeMethodAsync(
-        'HandleKeyboardEvent',
+        "HandleKeyboardEvent",
         elementId,
         key,
         domEvent.key,
@@ -158,18 +161,18 @@ export function attachKeyListener(elementId: string, helper: DotNetHelper): void
     }
 
     // Handle Ctrl+V (or Cmd+V on Mac) - Paste from clipboard
-    if ((ctrlKey || metaKey) && (domKey === 'v' || domKey === 'V')) {
+    if ((ctrlKey || metaKey) && (domKey === "v" || domKey === "V")) {
       try {
         const text = await navigator.clipboard.readText()
         if (text) {
-          console.debug('Pasting from clipboard:', text)
+          console.debug("Pasting from clipboard:", text)
           // Send each character individually to WASM
           for (const char of text) {
             await helper.invokeMethodAsync(
-              'HandleKeyboardEvent',
+              "HandleKeyboardEvent",
               elementId,
               char,
-              char.length === 1 ? char : 'Unidentified',
+              char.length === 1 ? char : "Unidentified",
               false,
               false,
               false
@@ -177,14 +180,14 @@ export function attachKeyListener(elementId: string, helper: DotNetHelper): void
           }
         }
       } catch (err) {
-        console.warn('Failed to paste from clipboard:', err)
+        console.warn("Failed to paste from clipboard:", err)
       }
       return
     }
 
     // Forward all other keyboard events to WASM
     void helper.invokeMethodAsync(
-      'HandleKeyboardEvent',
+      "HandleKeyboardEvent",
       elementId,
       key,
       domEvent.key,
@@ -211,11 +214,11 @@ export function disposeTerminal(elementId: string): void {
 }
 
 function ensureGlobalApi(): void {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return
   }
 
-  if (typeof window.Terminal !== 'function') {
+  if (typeof window.Terminal !== "function") {
     window.Terminal = Terminal
   }
 
@@ -228,7 +231,7 @@ function ensureGlobalApi(): void {
     dispose: disposeTerminal,
     attachKeyListener: (elementId, helper) => {
       attachKeyListener(elementId, helper)
-    }
+    },
   }
 
   window.razorConsoleTerminal = api
@@ -242,7 +245,7 @@ ensureGlobalApi()
 // These functions call into the C# WebAssembly runtime via the razor-console module.
 // We use DYNAMIC IMPORT here to prevent loading the heavy WASM module on initial page load.
 
-import type { WasmExports } from 'razor-console'
+import type { WasmExports } from "razor-console"
 
 let wasmExportsPromise: Promise<WasmExports> | null = null
 
@@ -253,7 +256,7 @@ let wasmExportsPromise: Promise<WasmExports> | null = null
 async function getWasmExports(): Promise<WasmExports> {
   if (wasmExportsPromise === null) {
     // Dynamic import: Webpack/Vite will split this into a separate chunk
-    const { createRuntimeAndGetExports } = await import('razor-console')
+    const { createRuntimeAndGetExports } = await import("razor-console")
     wasmExportsPromise = createRuntimeAndGetExports()
   }
   return wasmExportsPromise
@@ -266,7 +269,11 @@ async function getWasmExports(): Promise<WasmExports> {
  * @param cols - The initial number of columns
  * @param rows - The initial number of rows
  */
-export async function registerComponent(elementId: string, cols: number, rows: number): Promise<void> {
+export async function registerComponent(
+  elementId: string,
+  cols: number,
+  rows: number
+): Promise<void> {
   const exports = await getWasmExports()
   return exports.Registry.RegisterComponent(elementId, cols, rows)
 }
@@ -290,7 +297,14 @@ export async function handleKeyboardEvent(
   shiftKey: boolean
 ): Promise<void> {
   const exports = await getWasmExports()
-  return exports.Registry.HandleKeyboardEvent(componentName, xtermKey, domKey, ctrlKey, altKey, shiftKey)
+  return exports.Registry.HandleKeyboardEvent(
+    componentName,
+    xtermKey,
+    domKey,
+    ctrlKey,
+    altKey,
+    shiftKey
+  )
 }
 
 /**

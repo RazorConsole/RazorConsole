@@ -65,11 +65,11 @@ using RazorConsole.Core;
 using RazorConsole.Core.Vdom;
 
 IHostBuilder hostBuilder = Host.CreateDefaultBuilder(args)
-    .UseRazorConsole<MyComponent>(configure: config => 
+    .UseRazorConsole<MyComponent>(configure: config =>
         {
             config.ConfigureServices(services =>
             {
-                services.AddVdomTranslator<OverflowElementTranslator>();   
+                services.AddVdomTranslator<OverflowElementTranslator>();
             });
         }
     );

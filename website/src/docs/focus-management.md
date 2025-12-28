@@ -68,14 +68,14 @@ Use the `FocusOrder` parameter on built-in components to control tab order:
 For custom elements, use the `data-focus-order` attribute:
 
 ```razor
-<div data-focusable="true" 
-     data-focus-order="1" 
+<div data-focusable="true"
+     data-focus-order="1"
      @key="first-element">
     <Markup Content="First in tab order" />
 </div>
 
-<div data-focusable="true" 
-     data-focus-order="2" 
+<div data-focusable="true"
+     data-focus-order="2"
      @key="second-element">
     <Markup Content="Second in tab order" />
 </div>
@@ -118,7 +118,7 @@ Focus a specific element by its key:
 <TextInput @key="username-input" Value="@username" />
 <TextInput @key="password-input" Value="@password" />
 
-<TextButton Content="Focus Username" 
+<TextButton Content="Focus Username"
             OnClick="FocusUsername" />
 
 @code {
@@ -172,7 +172,7 @@ Check if an element is currently focused:
 @using RazorConsole.Core.Focus
 @inject FocusManager FocusManager
 
-<div @key="my-element" 
+<div @key="my-element"
      data-focusable="true"
      style="@(FocusManager.IsFocused("my-element") ? "highlighted" : "")">
     <Markup Content="This element can be focused" />
@@ -181,7 +181,7 @@ Check if an element is currently focused:
 @code {
     // Check current focus
     private string? CurrentFocus => FocusManager.CurrentFocusKey;
-    
+
     // Check if manager has any focusable elements
     private bool HasFocusables => FocusManager.HasFocusables;
 }
@@ -229,8 +229,8 @@ Elements can respond to focus changes using event handlers:
 Fired when an element receives focus:
 
 ```razor
-<div @onfocus="OnFocus" 
-     data-focusable="true" 
+<div @onfocus="OnFocus"
+     data-focusable="true"
      @key="my-element">
     <Markup Content="@message" />
 </div>
@@ -270,9 +270,9 @@ Similar to `onfocus`, but bubbles up through parent elements:
 Fired when an element loses focus:
 
 ```razor
-<div @onfocus="OnFocus" 
+<div @onfocus="OnFocus"
      @onfocusout="OnFocusOut"
-     data-focusable="true" 
+     data-focusable="true"
      @key="my-element">
     <Markup Content="@message" />
 </div>
@@ -342,24 +342,24 @@ Here's a complete example demonstrating focus management:
 
 <Panel Title="Focus Management Demo">
     <Rows>
-        <TextInput @key="input1" 
-                   Value="@value1" 
+        <TextInput @key="input1"
+                   Value="@value1"
                    ValueChanged="@((v) => value1 = v)"
                    Label="First Input"
                    FocusOrder="1" />
-        
-        <TextInput @key="input2" 
-                   Value="@value2" 
+
+        <TextInput @key="input2"
+                   Value="@value2"
                    ValueChanged="@((v) => value2 = v)"
                    Label="Second Input"
                    FocusOrder="2" />
-        
-        <TextInput @key="input3" 
-                   Value="@value3" 
+
+        <TextInput @key="input3"
+                   Value="@value3"
                    ValueChanged="@((v) => value3 = v)"
                    Label="Third Input"
                    FocusOrder="3" />
-        
+
         <Columns>
             <TextButton Content="Focus First" OnClick="FocusFirst" />
             <TextButton Content="Focus Second" OnClick="FocusSecond" />
@@ -367,8 +367,8 @@ Here's a complete example demonstrating focus management:
             <TextButton Content="Next" OnClick="FocusNext" />
             <TextButton Content="Previous" OnClick="FocusPrevious" />
         </Columns>
-        
-        <Markup Content="@($"Current focus: {currentFocus ?? "none"}")" 
+
+        <Markup Content="@($"Current focus: {currentFocus ?? "none"}")"
                 Foreground="@Color.Cyan" />
     </Rows>
 </Panel>

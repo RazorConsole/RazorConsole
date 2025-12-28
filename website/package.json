@@ -9,7 +9,8 @@
     "build:docfx": "dotnet tool restore && dotnet docfx metadata ../docfx/docfx.json",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build:wasm": "node scripts/build-wasm.js"
+    "build:wasm": "node scripts/build-wasm.js",
+    "format": "prettier --write \"./src/**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "dependencies": {
     "@radix-ui/react-tabs": "^1.1.13",
@@ -51,6 +52,8 @@
     "tailwindcss": "^4.1.16",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.45.0",
-    "vite": "^7.1.7"
+    "vite": "^7.1.7",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.8"
   }
 }

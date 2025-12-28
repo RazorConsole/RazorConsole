@@ -1,0 +1,7 @@
+node_modules
+dist
+build
+coverage
+public
+package-lock.json
+*.d.ts

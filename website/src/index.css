@@ -12,7 +12,8 @@ html {
   scroll-padding-top: 5rem;
 }
 
-html, body {
+html,
+body {
   overflow-x: clip; /*For components overflow fix*/
 
   max-width: 100vw;
@@ -21,4 +22,21 @@ html, body {
 
 #root {
   position: relative;
+}
+/* Shimmer Animation Keyframes */
+@keyframes shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-shimmer {
+  background-size: 200% 200%;
+  animation: shimmer 2s ease infinite;
 }

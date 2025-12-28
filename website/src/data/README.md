@@ -23,6 +23,7 @@ This directory contains the component documentation system that automatically ex
 To add documentation for a new component:
 
 1. Add entry to `componentMetadata` in `components.generated.ts`:
+
 ```typescript
 NewComponent: {
   category: "Display",
@@ -32,6 +33,7 @@ NewComponent: {
 ```
 
 2. (Optional) Add type overrides if inference is incorrect:
+
 ```typescript
 typeOverrides: {
   NewComponent: {
@@ -41,6 +43,7 @@ typeOverrides: {
 ```
 
 3. Ensure the component has XML docs in C#:
+
 ```csharp
 /// <summary>
 /// Property description
@@ -54,24 +57,27 @@ public string MyProperty { get; set; }
 ✅ **Always in sync** - Parameters automatically reflect C# source  
 ✅ **Less maintenance** - No manual parameter definitions  
 ✅ **Single source of truth** - XML docs drive the website  
-✅ **Type safety** - TypeScript interfaces ensure consistency  
+✅ **Type safety** - TypeScript interfaces ensure consistency
 
 ## Limitations
 
 ⚠️ **Default values** - Not extracted from XML (would need source analysis)  
 ⚠️ **Type inference** - Some types need manual overrides  
-⚠️ **Build dependency** - Requires XML file to be generated first  
+⚠️ **Build dependency** - Requires XML file to be generated first
 
 ## Troubleshooting
 
 **Error: Cannot find XML file**
+
 - Ensure `dotnet build` has run and generated the XML doc file
 - Check path in `xml-parser.ts` matches your build output
 
 **Missing parameters**
+
 - Verify C# properties have `/// <summary>` XML comments
 - Check property matches pattern: `P:RazorConsole.Components.{Name}.{Property}`
 
 **Wrong types displayed**
+
 - Add type override in `components.generated.ts`
 - Update `inferTypeFromProperty()` for better inference

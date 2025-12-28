@@ -1,4 +1,4 @@
-import { load } from 'js-yaml'
+import { load } from "js-yaml"
 
 export interface DocfxTocNode {
   uid?: string
@@ -56,38 +56,38 @@ type RawYaml = Record<string, unknown> & {
   references?: unknown[]
 }
 
-const docfxRawFiles = import.meta.glob('/public/.docfx/**/*.yml', {
+const docfxRawFiles = import.meta.glob("/public/.docfx/**/*.yml", {
   eager: true,
-  query: '?raw',
-  import: 'default',
+  query: "?raw",
+  import: "default",
 }) as Record<string, string>
 
 let cachedToc: DocfxTocNode[] | undefined
 let cachedItems: Record<string, DocfxApiItem> | undefined
 
 function normalizeString(value: unknown): string | undefined {
-  if (typeof value !== 'string') {
+  if (typeof value !== "string") {
     return undefined
   }
   const trimmed = value.trim()
   if (!trimmed) {
     return undefined
   }
-  return trimmed.replace(/\r\n/g, '\n')
+  return trimmed.replace(/\r\n/g, "\n")
 }
 
 function parseYaml(raw: string): RawYaml | undefined {
   try {
     const result = load(raw)
-    return result && typeof result === 'object' ? (result as RawYaml) : undefined
+    return result && typeof result === "object" ? (result as RawYaml) : undefined
   } catch (error) {
-    console.warn('Failed to parse DocFX YAML', error)
+    console.warn("Failed to parse DocFX YAML", error)
     return undefined
   }
 }
 
 function toSyntax(raw: unknown): DocfxSyntax | undefined {
-  if (!raw || typeof raw !== 'object') {
+  if (!raw || typeof raw !== "object") {
     return undefined
   }
 
@@ -95,8 +95,8 @@ function toSyntax(raw: unknown): DocfxSyntax | undefined {
   const parametersRaw = Array.isArray(source.parameters) ? source.parameters : undefined
 
   const parameters = parametersRaw
-    ?.map(entry => {
-      if (!entry || typeof entry !== 'object') {
+    ?.map((entry) => {
+      if (!entry || typeof entry !== "object") {
         return undefined
       }
       const parameter = entry as Record<string, unknown>
@@ -116,7 +116,10 @@ function toSyntax(raw: unknown): DocfxSyntax | undefined {
     })
     .filter((param): param is DocfxSyntaxParameter => Boolean(param) && Boolean(param?.id))
 
-  const returnRaw = source.return && typeof source.return === 'object' ? (source.return as Record<string, unknown>) : undefined
+  const returnRaw =
+    source.return && typeof source.return === "object"
+      ? (source.return as Record<string, unknown>)
+      : undefined
   const returnInfo: DocfxSyntaxReturn | undefined = returnRaw
     ? {
         type: normalizeString(returnRaw.type),
@@ -131,7 +134,7 @@ function toSyntax(raw: unknown): DocfxSyntax | undefined {
     syntax.content = content
   }
 
-  const contentCs = normalizeString(source['content.csharp'] ?? source['content.cs'])
+  const contentCs = normalizeString(source["content.csharp"] ?? source["content.cs"])
   if (contentCs) {
     syntax.contentCs = contentCs
   }
@@ -158,8 +161,8 @@ function toAttributes(raw: unknown): DocfxAttribute[] | undefined {
   }
 
   const attributes = raw
-    .map(entry => {
-      if (!entry || typeof entry !== 'object') {
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
         return undefined
       }
 
@@ -175,7 +178,7 @@ function toAttributes(raw: unknown): DocfxAttribute[] | undefined {
         type,
         constructor: ctor,
       }
-      
+
       return attribute
     })
     .filter((attribute): attribute is DocfxAttribute => Boolean(attribute))
@@ -184,7 +187,7 @@ function toAttributes(raw: unknown): DocfxAttribute[] | undefined {
 }
 
 function toMember(raw: unknown): DocfxApiMember | undefined {
-  if (!raw || typeof raw !== 'object') {
+  if (!raw || typeof raw !== "object") {
     return undefined
   }
 
@@ -228,7 +231,7 @@ function toMember(raw: unknown): DocfxApiMember | undefined {
 
   if (Array.isArray(source.examples)) {
     const examples = source.examples
-      .map(example => normalizeString(example))
+      .map((example) => normalizeString(example))
       .filter((line): line is string => Boolean(line))
     if (examples.length > 0) {
       member.examples = examples
@@ -249,7 +252,7 @@ function toMember(raw: unknown): DocfxApiMember | undefined {
 }
 
 function toReferenceMember(raw: unknown): DocfxApiMember | undefined {
-  if (!raw || typeof raw !== 'object') {
+  if (!raw || typeof raw !== "object") {
     return undefined
   }
 
@@ -283,12 +286,12 @@ function toReferenceMember(raw: unknown): DocfxApiMember | undefined {
 }
 
 function toTocNode(raw: unknown): DocfxTocNode | undefined {
-  if (!raw || typeof raw !== 'object') {
+  if (!raw || typeof raw !== "object") {
     return undefined
   }
 
   const source = raw as Record<string, unknown>
-  const name = ensureName(source.name, normalizeString(source.uid) ?? 'Untitled')
+  const name = ensureName(source.name, normalizeString(source.uid) ?? "Untitled")
   const node: DocfxTocNode = { name }
 
   const uid = normalizeString(source.uid)
@@ -303,7 +306,7 @@ function toTocNode(raw: unknown): DocfxTocNode | undefined {
 
   if (Array.isArray(source.items)) {
     const items = source.items
-      .map(entry => toTocNode(entry))
+      .map((entry) => toTocNode(entry))
       .filter((entry): entry is DocfxTocNode => Boolean(entry))
     if (items.length > 0) {
       node.items = items
@@ -318,7 +321,9 @@ function createApiToc(): DocfxTocNode[] {
     return cachedToc
   }
 
-  const tocEntries = Object.entries(docfxRawFiles).filter(([filePath]) => filePath.endsWith('toc.yml'))
+  const tocEntries = Object.entries(docfxRawFiles).filter(([filePath]) =>
+    filePath.endsWith("toc.yml")
+  )
 
   if (tocEntries.length === 0) {
     cachedToc = []
@@ -330,7 +335,7 @@ function createApiToc(): DocfxTocNode[] {
   const items = parsed && Array.isArray(parsed.items) ? parsed.items : []
 
   cachedToc = items
-    .map(entry => toTocNode(entry))
+    .map((entry) => toTocNode(entry))
     .filter((entry): entry is DocfxTocNode => Boolean(entry))
 
   return cachedToc
@@ -341,7 +346,9 @@ function createApiItems(): Record<string, DocfxApiItem> {
     return cachedItems
   }
 
-  const entries = Object.entries(docfxRawFiles).filter(([filePath]) => !filePath.endsWith('toc.yml'))
+  const entries = Object.entries(docfxRawFiles).filter(
+    ([filePath]) => !filePath.endsWith("toc.yml")
+  )
   const items = new Map<string, DocfxApiItem>()
 
   for (const [, raw] of entries) {
@@ -363,7 +370,11 @@ function createApiItems(): Record<string, DocfxApiItem> {
 
     const itemLookup = new Map<string, unknown>()
     for (const entry of rawItems) {
-      if (entry && typeof entry === 'object' && typeof (entry as Record<string, unknown>).uid === 'string') {
+      if (
+        entry &&
+        typeof entry === "object" &&
+        typeof (entry as Record<string, unknown>).uid === "string"
+      ) {
         itemLookup.set((entry as Record<string, unknown>).uid as string, entry)
       }
     }
@@ -371,22 +382,28 @@ function createApiItems(): Record<string, DocfxApiItem> {
     const referencesRaw = Array.isArray(parsed.references) ? parsed.references : []
 
     const childUids = Array.isArray((rootRaw as Record<string, unknown>).children)
-      ? ((rootRaw as Record<string, unknown>).children as unknown[]).filter((child): child is string => typeof child === 'string')
+      ? ((rootRaw as Record<string, unknown>).children as unknown[]).filter(
+          (child): child is string => typeof child === "string"
+        )
       : []
 
     const members = childUids
-      .map(uid => {
+      .map((uid) => {
         const child = itemLookup.get(uid)
         if (child) {
           return toMember(child)
         }
-        const reference = referencesRaw.find(ref => ref && typeof ref === 'object' && (ref as Record<string, unknown>).uid === uid)
+        const reference = referencesRaw.find(
+          (ref) => ref && typeof ref === "object" && (ref as Record<string, unknown>).uid === uid
+        )
         return reference ? toReferenceMember(reference) : undefined
       })
       .filter((member): member is DocfxApiMember => Boolean(member))
 
     const assemblies = Array.isArray((rootRaw as Record<string, unknown>).assemblies)
-      ? ((rootRaw as Record<string, unknown>).assemblies as unknown[]).filter((assembly): assembly is string => typeof assembly === 'string')
+      ? ((rootRaw as Record<string, unknown>).assemblies as unknown[]).filter(
+          (assembly): assembly is string => typeof assembly === "string"
+        )
       : undefined
 
     const namespace = normalizeString((rootRaw as Record<string, unknown>).namespace)
@@ -414,7 +431,9 @@ function createApiItems(): Record<string, DocfxApiItem> {
     items.set(apiItem.uid, apiItem)
   }
 
-  cachedItems = Object.fromEntries(Array.from(items.entries()).sort(([a], [b]) => a.localeCompare(b)))
+  cachedItems = Object.fromEntries(
+    Array.from(items.entries()).sort(([a], [b]) => a.localeCompare(b))
+  )
 
   return cachedItems
 }

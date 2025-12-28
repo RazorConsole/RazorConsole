@@ -35,7 +35,7 @@ Create a `Counter.razor` component:
 
 <Columns>
     <p>Current count</p>
-    <Markup Content="@currentCount.ToString()" 
+    <Markup Content="@currentCount.ToString()"
             Foreground="@Spectre.Console.Color.Green" />
 </Columns>
 <TextButton Content="Click me"
@@ -45,7 +45,7 @@ Create a `Counter.razor` component:
 
 @code {
     private int currentCount = 0;
-    
+
     private void IncrementCount()
     {
         currentCount++;

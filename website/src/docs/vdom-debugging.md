@@ -11,17 +11,20 @@ RazorConsole uses a Virtual DOM (VDOM) to efficiently render Razor components to
 Set the `RC_PRINT_VDOM_TREE` environment variable to `true` before running your application:
 
 **On Windows (PowerShell):**
+
 ```shell
 $env:RC_PRINT_VDOM_TREE="true"
 dotnet run
 ```
 
 **On Linux/macOS:**
+
 ```shell
 RC_PRINT_VDOM_TREE=true dotnet run
 ```
 
 **Or inline:**
+
 ```shell
 RC_PRINT_VDOM_TREE=true dotnet watch run
 ```
@@ -37,6 +40,7 @@ When enabled, the tree printer displays each frame's VDOM structure in a panel, 
 - **Events** - Registered event handlers (onclick, onfocus, etc.)
 
 **Example output:**
+
 ```
 Frame 1
 ┌─────────────────────────────────────────┐
