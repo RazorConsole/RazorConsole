@@ -325,12 +325,12 @@ Turns semantic HTML table markup into a Spectre.Console `Table` renderable.
 ## TextButton
 Clickable text button that changes background while focused.
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `Content` | `string` | `string.Empty` | Button label. |
-| `BackgroundColor` | `Color` | `Color.Default` | Background when idle. |
-| `FocusedColor` | `Color` | `Color.Yellow` | Background when focused. |
-| `OnClick` | `EventCallback` | — | Fired when the button is clicked. |
+| Parameter | Type | Default              | Description |
+|-----------|------|----------------------|-------------|
+| `Content` | `string` | `string.Empty`       | Button label. |
+| `BackgroundColor` | `Color` | `Color.Default`      | Background when idle. |
+| `FocusedColor` | `Color` | `Color.DeepSkyBlue1` | Background when focused. |
+| `OnClick` | `EventCallback` | —                    | Fired when the button is clicked. |
 
 ## TextInput
 Text entry control with placeholder, masking, and focus management.

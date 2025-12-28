@@ -1,3 +1,4 @@
+@using Spectre.Console
 @namespace RazorConsole.Components
 
 <div @onfocus="OnFocus" @onfocusout="OnFocusOut" @onclick="OnClick">
@@ -15,10 +16,10 @@
     private bool isFocused = false;
 
     /// <summary>
-    /// Background color when focused. Default is <see cref="Spectre.Console.Color.Yellow"/>.
+    /// Background color when focused. Default is <see cref="Color.DeepSkyBlue1"/>.
     /// </summary>
     [Parameter]
-    public Spectre.Console.Color FocusedColor { get; set; } = Spectre.Console.Color.Yellow;
+    public Spectre.Console.Color FocusedColor { get; set; } = Spectre.Console.Color.DeepSkyBlue1;
 
     /// <summary>
     /// Background color when not focused. Default is <see cref="Spectre.Console.Color.Default"/>.

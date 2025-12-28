@@ -10,6 +10,7 @@ import hotReloadDoc from "@/docs/hot-reload.md?raw";
 import customTranslatorsDoc from "@/docs/custom-translators.md?raw";
 import keyboardEventsDoc from "@/docs/keyboard-events.md?raw";
 import focusManagementDoc from "@/docs/focus-management.md?raw";
+import aotDoc from "@/docs/native-aot-support.md?raw";
 import vdomDebuggingDoc from "@/docs/vdom-debugging.md?raw";
 import routingDoc from "@/docs/routing.md?raw";
 import componentGalleryDoc from "@/docs/component-gallery.md?raw";
@@ -87,11 +88,12 @@ export default function Docs() {
                 { id: "quick-start", title: "Quick Start", content: quickStartDoc, filePath: "website/src/docs/quick-start.md" },
                 { id: "built-in-components", title: "Built-in Components", content: builtInComponentsDoc, filePath: "website/src/docs/built-in-components.md" },
                 { id: "hot-reload", title: "Hot Reload", content: hotReloadDoc, filePath: "website/src/docs/hot-reload.md" },
+                { id: "cli-routing", title: "Routing", content: routingDoc, filePath: "website/src/docs/routing.md" },
+                { id: "native-aot", title: "Native Ahead-of-Time Compilation", content: aotDoc, filePath: "website/src/docs/native-aot-support.md" },
                 { id: "custom-translators", title: "Custom Translators", content: customTranslatorsDoc, filePath: "website/src/docs/custom-translators.md" },
                 { id: "keyboard-events", title: "Keyboard Events", content: keyboardEventsDoc, filePath: "website/src/docs/keyboard-events.md" },
                 { id: "focus-management", title: "Focus Management", content: focusManagementDoc, filePath: "website/src/docs/focus-management.md" },
                 { id: "vdom-debugging", title: "VDom Tree Debugging", content: vdomDebuggingDoc, filePath: "website/src/docs/vdom-debugging.md" },
-                { id: "cli-routing", title: "Routing", content: routingDoc, filePath: "website/src/docs/routing.md" },
                 { id: "component-gallery", title: "Component Gallery", content: componentGalleryDoc, filePath: "website/src/docs/component-gallery.md" },
             ];
 

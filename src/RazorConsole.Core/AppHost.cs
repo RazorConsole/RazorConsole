@@ -1,16 +1,15 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-
 using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Focus;
 using RazorConsole.Core.Input;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Utilities;
-
 using Spectre.Console;
 
 namespace RazorConsole.Core;
@@ -27,9 +26,12 @@ public static class HostBuilderExtension
     /// <param name="hostBuilder">The host builder to configure.</param>
     /// <param name="configure">An optional callback to perform additional configuration.</param>
     /// <returns>The configured <see cref="IHostBuilder"/> instance.</returns>
-    public static IHostBuilder UseRazorConsole<TComponent>(
+    public static IHostBuilder UseRazorConsole
+        <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>
+    (
         this IHostBuilder hostBuilder,
-        Action<IHostBuilder>? configure = null)
+        Action<IHostBuilder>? configure = null
+    )
         where TComponent : IComponent
     {
         hostBuilder.ConfigureServices(RegisterDefaults<TComponent>);
@@ -45,9 +47,12 @@ public static class HostBuilderExtension
     /// <param name="hostBuilder">The host application builder to configure.</param>
     /// <param name="configure">An optional callback to perform additional configuration.</param>
     /// <returns>The configured <see cref="IHostApplicationBuilder"/> instance.</returns>
-    public static IHostApplicationBuilder UseRazorConsole<TComponent>(
+    public static IHostApplicationBuilder UseRazorConsole
+    <[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>
+    (
         this IHostApplicationBuilder hostBuilder,
-        Action<IHostApplicationBuilder>? configure = null)
+        Action<IHostApplicationBuilder>? configure = null
+    )
         where TComponent : IComponent
     {
         RuntimeEncoding.EnsureUtf8();
@@ -58,7 +63,8 @@ public static class HostBuilderExtension
         return hostBuilder;
     }
 
-    private static void RegisterDefaults<TComponent>(IServiceCollection services) where TComponent : IComponent
+    private static void RegisterDefaults<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
+    TComponent>(IServiceCollection services) where TComponent : IComponent
     {
         services.AddRazorConsoleServices();
         services.AddHostedService<ComponentService<TComponent>>();
@@ -71,7 +77,7 @@ public static class HostBuilderExtension
     }
 }
 
-internal class ComponentService<TComponent>(
+internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(
     ConsoleAppOptions options,
     ConsoleRenderer consoleRenderer,
     FocusManager focusManager,
@@ -105,7 +111,7 @@ internal class ComponentService<TComponent>(
 
     protected override async Task ExecuteAsync(CancellationToken token)
     {
-        var initialView = await RenderComponentInternalAsync(null, token).ConfigureAwait(false);
+        var initialView = await RenderComponentInternalAsync(token).ConfigureAwait(false);
 
         var callback = options.AfterRenderAsync ?? ConsoleAppOptions.DefaultAfterRenderAsync;
 
@@ -125,14 +131,14 @@ internal class ComponentService<TComponent>(
         await Task.Delay(Timeout.InfiniteTimeSpan, token).ConfigureAwait(false);
     }
 
-    private async Task<ConsoleViewResult> RenderComponentInternalAsync(object? parameters, CancellationToken cancellationToken)
+    private async Task<ConsoleViewResult> RenderComponentInternalAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         await _renderLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var parameterView = CreateParameterView(parameters);
+            var parameterView = CreateParameterView();
             var snapshot = await consoleRenderer.MountComponentAsync<TComponent>(parameterView, cancellationToken).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -145,34 +151,5 @@ internal class ComponentService<TComponent>(
         }
     }
 
-    private static ParameterView CreateParameterView(object? parameters)
-    {
-        if (parameters is null)
-        {
-            return ParameterView.Empty;
-        }
-
-        if (parameters is ParameterView parameterView)
-        {
-            return parameterView;
-        }
-
-        if (parameters is IDictionary<string, object?> dictionary)
-        {
-            return ParameterView.FromDictionary(new Dictionary<string, object?>(dictionary));
-        }
-
-        if (parameters is IReadOnlyDictionary<string, object?> readOnlyDictionary)
-        {
-            return ParameterView.FromDictionary(readOnlyDictionary.ToDictionary(pair => pair.Key, pair => pair.Value));
-        }
-
-        var props = parameters
-            .GetType()
-            .GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
-            .Where(property => property.GetMethod is not null)
-            .ToDictionary(property => property.Name, property => property.GetValue(parameters));
-
-        return ParameterView.FromDictionary(props);
-    }
+    private static ParameterView CreateParameterView() => ParameterView.Empty;
 }

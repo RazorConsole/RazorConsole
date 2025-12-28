@@ -17,4 +17,9 @@
     <PackageReference Include="Spectre.Console" />
   </ItemGroup>
 
+  <!-- For Native AOT trimming (Needed because of routing) -->
+  <ItemGroup Condition="'$(OutputType)' == 'Exe' AND '$(PublishAot)' == 'true'">
+    <TrimmerRootAssembly Include="$(AssemblyName)" />
+  </ItemGroup>
+
 </Project>

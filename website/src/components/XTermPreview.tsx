@@ -106,7 +106,7 @@ export default function XTermPreview({
         const term = new Terminal({
             fontFamily: "'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace",
             fontSize: 14,
-            lineHeight: 1.2,
+            lineHeight: 1,
             cursorBlink: true,
             scrollback: 1000,
             cursorInactiveStyle: 'none',

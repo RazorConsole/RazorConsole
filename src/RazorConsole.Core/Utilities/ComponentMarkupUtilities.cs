@@ -1,5 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Spectre.Console;
 
@@ -24,18 +25,22 @@ internal static class ComponentMarkupUtilities
 
     public static Spinner ResolveSpinner(string? spinnerType)
     {
-        if (!string.IsNullOrWhiteSpace(spinnerType))
+        if (string.IsNullOrWhiteSpace(spinnerType))
         {
-            var property = typeof(Spinner.Known)
-                .GetProperties(BindingFlags.Public | BindingFlags.Static)
-                .FirstOrDefault(p => string.Equals(p.Name, spinnerType, StringComparison.OrdinalIgnoreCase));
-
-            if (property?.GetValue(null) is Spinner spinner)
-            {
-                return spinner;
-            }
+            return Spinner.Known.Dots;
         }
 
-        return Spinner.Known.Dots;
+        return GetSpinnerFromType(typeof(Spinner.Known), spinnerType) ?? Spinner.Known.Dots;
+    }
+
+    private static Spinner? GetSpinnerFromType(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)]
+        Type type,
+        string name)
+    {
+        var property = type.GetProperties(BindingFlags.Public | BindingFlags.Static)
+            .FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        return property?.GetValue(null) as Spinner;
     }
 }

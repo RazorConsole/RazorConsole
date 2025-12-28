@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <NoWarn>$(NoWarn);BL0007</NoWarn>
   </PropertyGroup>
 
