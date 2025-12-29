@@ -18,7 +18,7 @@ import v0_1_1ReleaseNotes from "../../../release-notes/v0.1.1.md?raw";
 import v0_2_0ReleaseNotes from "../../../release-notes/v0.2.0.md?raw";
 import v0_2_2ReleaseNotes from "../../../release-notes/v0.2.2.md?raw";
 import v0_3_0ReleaseNotes from "../../../release-notes/v0.3.0.md?raw";
-import { MarkdownRenderer } from "@/components/Markdown";
+import { MarkdownRenderer } from "@/components/ui/Markdown";
 
 
 interface Heading {
@@ -349,7 +349,5 @@ export default function Docs() {
                 </div>
             </div>
         </div>
-      </div>
-    </div>
   )
 }
