@@ -10,7 +10,7 @@
           ]
         }
       ],
-      "output": "../website/public/.docfx"
+      "output": "../website/src/.docfx"
     }
   ],
   "build": {

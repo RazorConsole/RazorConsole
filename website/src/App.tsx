@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
-import { lazy, Suspense } from "react"
+import { Suspense } from "react"
 import Layout from "@/components/app/Layout"
 import LoadingOverlay from "@/components/app/LoadingOverlay"
 import { useThemeEffect } from "@/hooks/useThemeEffect"
@@ -13,11 +13,9 @@ import Advanced from "@/pages/Advanced"
 import Collaborators from "@/pages/Collaborators"
 import Showcase from "@/pages/Showcase"
 import ApiDocs from "@/pages/ApiDocs"
-
-// --- Lazy Imports ---
-const ComponentsLayout = lazy(() => import("@/pages/components/Layout"))
-const ComponentsOverview = lazy(() => import("@/pages/components/Overview"))
-const ComponentDetail = lazy(() => import("@/pages/components/Detail"))
+import ComponentsLayout from "./pages/components/Layout"
+import ComponentsOverview from "./pages/components/Overview"
+import ComponentDetail from "./pages/components/Detail"
 
 function App() {
   useThemeEffect()

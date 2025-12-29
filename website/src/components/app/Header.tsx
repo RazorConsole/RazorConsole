@@ -141,7 +141,7 @@ export function Header() {
           : "bg-transparent"
       )}
     >
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 md:px-6">
+      <div className="mx-auto flex h-16 w-full items-center justify-between px-4 md:px-6">
         {/* Left Section */}
         <div className="flex items-center gap-8">
           <Link to="/" className="group flex items-center space-x-2">
