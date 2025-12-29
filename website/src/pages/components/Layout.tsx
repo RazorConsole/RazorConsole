@@ -22,7 +22,7 @@ export default function ComponentsLayout() {
           <Sidebar groupedComponents={groupedComponents} categories={categories} />
         </ResponsiveSidebar>
 
-        <main className="relative min-w-0 flex-1 lg:ml-72">
+        <main className="relative min-w-0">
           <Outlet />
         </main>
       </div>

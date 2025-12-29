@@ -66,7 +66,7 @@ export default function ApiDocs() {
               searchResults={searchResults}
             />
           </ResponsiveSidebar>
-          <main className="min-w-0 flex-1 lg:ml-72">
+          <main className="min-w-0 flex-1">
             <ApiDocument item={activeItem} />
           </main>
         </div>

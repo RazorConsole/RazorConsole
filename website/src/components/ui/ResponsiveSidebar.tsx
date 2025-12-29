@@ -49,7 +49,7 @@ export function ResponsiveSidebar({
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "fixed top-16 bottom-0 left-0 hidden overflow-y-auto border-r border-slate-200 bg-slate-50/50 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/50",
+          "fixed top-0 bottom-0 left-0 z-40 hidden overflow-y-auto border-r border-slate-200 bg-slate-50/50 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/50",
           desktopHiddenClass,
           scrollbarStyles,
           className
