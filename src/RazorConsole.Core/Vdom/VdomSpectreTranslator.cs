@@ -2,6 +2,8 @@
 
 using System.Globalization;
 using System.Text;
+
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -27,7 +29,7 @@ public static class VdomSpectreTranslator
             return null;
         }
 
-        return node.Attributes.TryGetValue(name, out var value) ? value : null;
+        return node.TryGetAttributeValue<string>(name, out var value) ? value : null;
     }
 
     /// <summary>
@@ -289,7 +291,7 @@ public static class VdomSpectreTranslator
     /// <returns>True if the node has the specified class; otherwise, false.</returns>
     public static bool HasClass(VNode node, string className)
     {
-        if (!node.Attributes.TryGetValue("class", out var classes))
+        if (!node.TryGetAttributeValue<string>("class", out var classes))
         {
             return false;
         }
@@ -373,7 +375,7 @@ public static class VdomSpectreTranslator
     public static bool ShouldBeBlock(VNode node)
     {
         // Check for explicit data-display attribute
-        if (node.Attributes.TryGetValue("data-display", out var display))
+        if (node.TryGetAttributeValue<string>("data-display", out var display))
         {
             if (string.Equals(display, "block", StringComparison.OrdinalIgnoreCase))
             {

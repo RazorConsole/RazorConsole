@@ -1,7 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
-
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -39,7 +39,7 @@ public sealed class HtmlDivElementTranslator : ITranslationMiddleware
         }
 
         // Skip div elements with special classes that should be handled by other translators
-        if (node.Attributes.TryGetValue("class", out var classValue))
+        if (node.TryGetAttributeValue<string>("class", out var classValue))
         {
             var classes = classValue?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
             if (classes.Any(c => string.Equals(c, "figlet", StringComparison.OrdinalIgnoreCase) ||

@@ -2,7 +2,7 @@
 
 using System.Globalization;
 using RazorConsole.Core.Abstractions.Rendering;
-
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
@@ -36,7 +36,7 @@ public sealed class PadderElementTranslator : ITranslationMiddleware
 
     private static bool CanHandle(VNode node)
         => node.Kind == VNodeKind.Element
-           && node.Attributes.TryGetValue("class", out var value)
+           && node.TryGetAttributeValue<string>("class", out var value)
            && string.Equals(value, "padder", StringComparison.OrdinalIgnoreCase);
 
     private static Padding ParsePadding(string? raw)

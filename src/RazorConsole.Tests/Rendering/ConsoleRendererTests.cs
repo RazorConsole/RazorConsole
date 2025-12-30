@@ -3,6 +3,8 @@
 #pragma warning disable BL0006 // RenderTree types are "internal-ish"; acceptable for console renderer tests.
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Vdom;
 using RazorConsole.Tests.TestComponents;
@@ -108,7 +110,7 @@ public sealed class ConsoleRendererTests
         using var sub = renderer.Subscribe(new SimpleObserver(s =>
         {
             var el = FindDiv(s.Root);
-            if (el != null && el.Attributes.TryGetValue("data-val", out var val) && val == "End")
+            if (el != null && el.TryGetAttributeValue<string>("data-val", out var val) && val == "End")
             {
                 tcs.TrySetResult(s);
             }

@@ -1,10 +1,12 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Renderables;
 
-using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
+
+using Spectre.Console;
 using Spectre.Console.Rendering;
 using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
@@ -24,10 +26,10 @@ public sealed class AlignElementTranslator : ITranslationMiddleware
             return next(node);
         }
 
-        var horizontal = VdomSpectreTranslator.ParseHorizontalAlignment(VdomSpectreTranslator.GetAttribute(node, "data-horizontal"));
-        var vertical = VdomSpectreTranslator.ParseVerticalAlignment(VdomSpectreTranslator.GetAttribute(node, "data-vertical"));
-        var width = VdomSpectreTranslator.ParseOptionalPositiveInt(VdomSpectreTranslator.GetAttribute(node, "data-width"));
-        var height = VdomSpectreTranslator.ParseOptionalPositiveInt(VdomSpectreTranslator.GetAttribute(node, "data-height"));
+        node.TryGetAttributeValue<HorizontalAlignment>("data-horizontal", out var horizontal);
+        node.TryGetAttributeValue<VerticalAlignment>("data-vertical", out var vertical);
+        node.TryGetAttributeValue<int>("data-width", out var width);
+        node.TryGetAttributeValue<int>("data-height", out var height);
 
         var align = new MeasuredAlign(children, horizontal, vertical)
         {
@@ -40,7 +42,7 @@ public sealed class AlignElementTranslator : ITranslationMiddleware
 
     private static bool CanHandle(VNode node)
         => node.Kind == VNodeKind.Element
-           && node.Attributes.TryGetValue("class", out var value)
+           && node.TryGetAttributeValue<string>("class", out var value)
            && string.Equals(value, "align", StringComparison.OrdinalIgnoreCase);
 }
 

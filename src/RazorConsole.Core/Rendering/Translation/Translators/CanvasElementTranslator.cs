@@ -1,7 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
-
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
@@ -62,12 +62,12 @@ public sealed class CanvasElementTranslator : ITranslationMiddleware
     private static bool CanHandle(VNode node)
         => node.Kind == VNodeKind.Element
            && string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
-           && node.Attributes.TryGetValue("data-canvas", out var canvasAttr)
+           && node.TryGetAttributeValue<string>("data-canvas", out var canvasAttr)
            && string.Equals(canvasAttr, "true", StringComparison.OrdinalIgnoreCase);
 
     private static int GetIntAttribute(VNode node, string name, int? defaultValue = null)
     {
-        if (node.Attributes.TryGetValue(name, out var value)
+        if (node.TryGetAttributeValue<string>(name, out var value)
             && int.TryParse(value, out var result))
         {
             return result;
@@ -83,7 +83,7 @@ public sealed class CanvasElementTranslator : ITranslationMiddleware
 
     private static bool GetBoolAttribute(VNode node, string name, bool defaultValue)
     {
-        if (node.Attributes.TryGetValue(name, out var value))
+        if (node.TryGetAttributeValue<string>(name, out var value))
         {
             return string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
         }
@@ -93,7 +93,7 @@ public sealed class CanvasElementTranslator : ITranslationMiddleware
 
     private static int? GetNullableIntAttribute(VNode node, string name)
     {
-        if (node.Attributes.TryGetValue(name, out var value)
+        if (node.TryGetAttributeValue<string>(name, out var value)
             && int.TryParse(value, out var result))
         {
             return result;
