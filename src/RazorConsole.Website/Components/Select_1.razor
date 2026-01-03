@@ -1,7 +1,7 @@
 @using Spectre.Console
 @using RazorConsole.Components
 
-<Select Options="@options" Value="@selectedValue" FocusedValue="@focusedValue"
+<Select TItem="string" Options="@options" Value="@selectedValue" FocusedValue="@focusedValue"
     FocusedValueChanged="@((v) => focusedValue = v)" ValueChanged="@((v) => selectedValue = v)"
     Placeholder="Choose an option" />
 @* add helper text *@

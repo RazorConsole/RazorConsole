@@ -1,30 +1,29 @@
 @namespace RazorConsole.Components
 
-@using System
-@using System.Collections.Generic
-@using System.Globalization
-@using System.Threading.Tasks
-@using Microsoft.AspNetCore.Components
-@using RazorConsole.Components
-@using Microsoft.AspNetCore.Components.Web
 @using Spectre.Console
 
-<div
-     @onfocus="OnFocus"
+@typeparam TItem where TItem : notnull
+
+<div @onfocus="OnFocus"
      @onfocusout="OnFocusOut"
      @onkeydown="OnKeyDown"
      @attributes="AdditionalAttributes">
     <Rows Expand="@Expand">
-        @foreach (var option in Options)
-        {
-            var isSelected = string.Equals(option, Value, StringComparison.Ordinal);
-            var isFocused = string.Equals(option, FocusedValue, StringComparison.Ordinal);
-            var indicator = isSelected ? SelectedIndicator : UnselectedIndicator;
-            <Columns>
-                <Markup Content="@($" {indicator} {option}")"
-                        Foreground="@(isFocused ? GetFocusAdjustedColor(SelectedOptionForeground) : GetFocusAdjustedColor(OptionForeground))"
-                        Decoration="@(isFocused ? GetFocusAdjustedDecoration(SelectedOptionDecoration) : GetFocusAdjustedDecoration(OptionDecoration))" />
-            </Columns>
+        @{
+            var index = 0;
+            foreach (var option in Options)
+            {
+                var isSelected = IsEqual(option, Value);
+                var isFocused = IsEqual(option, FocusedValue);
+                var indicator = isSelected ? SelectedIndicator : UnselectedIndicator;
+                var formattedOption = _formattedOptions[index];
+                <Columns>
+                    <Markup Content="@($" {indicator} {formattedOption}")"
+                            Foreground="@(isFocused ? GetFocusAdjustedColor(SelectedOptionForeground) : GetFocusAdjustedColor(OptionForeground))"
+                            Decoration="@(isFocused ? GetFocusAdjustedDecoration(SelectedOptionDecoration) : GetFocusAdjustedDecoration(OptionDecoration))" />
+                </Columns>
+                index += 1;
+            }
         }
     </Rows>
 </div>
@@ -34,7 +33,7 @@
     /// Additional attributes to apply to the root element.
     /// </summary>
     [Parameter(CaptureUnmatchedValues = true)]
-	public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
+    public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
 
     // Basic parameters
     /// <summary>
@@ -65,17 +64,44 @@
     /// Available options rendered by the select.
     /// </summary>
     [Parameter]
-    public string[] Options
+    public TItem[] Options
     {
         get => _options;
-        set => _options = value ?? Array.Empty<string>();
+        set
+        {
+            _options = value;
+            _formattedOptions = _options.Select(Format).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Custom comparer for items in the list. Default is object.Equals()
+    /// </summary>
+    [Parameter]
+    public IEqualityComparer<TItem>? Comparer { get; set; }
+
+    /// <summary>
+    /// Custom formatter for the items in the list. Default is object.ToString()
+    /// </summary>
+    [Parameter]
+    public Func<TItem, string>? Formatter
+    {
+        get;
+        set
+        {
+            if (field != value)
+            {
+                field = value;
+                _formattedOptions = _options.Select(Format).ToList();
+            }
+        }
     }
 
     /// <summary>
     /// Currently committed option value.
     /// </summary>
     [Parameter]
-    public string? Value { get; set; }
+    public TItem? Value { get; set; }
 
     /// <summary>
     /// Expands the rows layout to fill available space when true.
@@ -87,19 +113,19 @@
     /// Event raised when the committed value changes.
     /// </summary>
     [Parameter]
-    public EventCallback<string> ValueChanged { get; set; }
+    public EventCallback<TItem> ValueChanged { get; set; }
 
     /// <summary>
     /// Currently highlighted option during keyboard navigation (may differ from committed Value).
     /// </summary>
     [Parameter]
-    public string? FocusedValue { get; set; }
+    public TItem? FocusedValue { get; set; }
 
     /// <summary>
     /// Event raised when the focused option changes.
     /// </summary>
     [Parameter]
-    public EventCallback<string?> FocusedValueChanged { get; set; }
+    public EventCallback<TItem?> FocusedValueChanged { get; set; }
 
     /// <summary>
     /// Foreground color for non-focused options.
@@ -125,7 +151,8 @@
     [Parameter]
     public Decoration SelectedOptionDecoration { get; set; } = Decoration.Bold;
 
-    private string[] _options = Array.Empty<string>();
+    private TItem[] _options = [];
+    private List<string?> _formattedOptions = [];
 
     // Focus-adjusted styling methods
     private Color GetFocusAdjustedColor(Color color) => IsFocused ? color : Color.Grey50;
@@ -141,7 +168,7 @@
         }
     }
 
-    private async Task SelectOptionAsync(string option)
+    private async Task SelectOptionAsync(TItem option)
     {
         Value = option;
         FocusedValue = option;
@@ -183,7 +210,7 @@
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
 
-    private async Task OnKeyDown(KeyboardEventArgs args)
+    private async Task OnKeyDown(KeyboardEventArgs? args)
     {
         if (args is null)
         {
@@ -251,7 +278,7 @@
 
         var currentIndex = FocusedValue is null
             ? -1
-            : Array.IndexOf(_options, FocusedValue);
+            : Array.FindIndex(_options, i => IsEqual(i, FocusedValue));
 
         if (currentIndex < 0)
         {
@@ -271,7 +298,7 @@
 
         var nextValue = _options[nextIndex];
 
-        if (string.Equals(nextValue, FocusedValue, StringComparison.Ordinal))
+        if (IsEqual(nextValue, FocusedValue))
         {
             return false;
         }
@@ -279,6 +306,17 @@
         FocusedValue = nextValue;
         return true;
     }
+
+    private string? Format(TItem? item)
+    {
+        if (item is null)
+        {
+            return null;
+        }
+        return Formatter is null ? item.ToString() : Formatter(item);
+    }
+
+    private bool IsEqual(TItem? item1, TItem? item2) => Comparer?.Equals(item1, item2) ?? Equals(item1, item2);
 
     private bool TryTypeAhead(char key)
     {
@@ -291,7 +329,7 @@
 
         var startIndex = FocusedValue is null
             ? 0
-            : Array.IndexOf(_options, FocusedValue);
+            : Array.FindIndex(_options, i => IsEqual(i, FocusedValue));
 
         var comparison = StringComparison.CurrentCultureIgnoreCase;
         var prefix = key.ToString();
@@ -300,10 +338,12 @@
         {
             var candidateIndex = (startIndex + i + 1) % _options.Length;
             var candidate = _options[candidateIndex];
+            var formattedCandidate = _formattedOptions[candidateIndex];
+            var formattedFocusedValue = Format(FocusedValue);
 
-            if (!string.IsNullOrEmpty(candidate) && candidate.StartsWith(prefix, comparison))
+            if (!string.IsNullOrEmpty(formattedCandidate) && formattedCandidate.StartsWith(prefix, comparison))
             {
-                if (!string.Equals(candidate, FocusedValue, StringComparison.Ordinal))
+                if (!string.Equals(formattedCandidate, formattedFocusedValue, StringComparison.Ordinal))
                 {
                     FocusedValue = candidate;
                     return true;
@@ -316,8 +356,6 @@
         return false;
     }
 
-
-
     private static bool IsTypeAheadCandidate(string value)
         => value.Length == 1 && !char.IsControl(value[0]);
 
@@ -328,8 +366,6 @@
     private static bool IsUpKey(string key)
         => string.Equals(key, "UpArrow", StringComparison.OrdinalIgnoreCase)
             || string.Equals(key, "ArrowUp", StringComparison.OrdinalIgnoreCase);
-
-
 
     private static bool IsCommitKey(string key)
         => string.Equals(key, "Enter", StringComparison.OrdinalIgnoreCase)
@@ -343,22 +379,22 @@
     {
         if (_options.Length == 0)
         {
-            FocusedValue = null;
+            FocusedValue = default;
             return;
         }
 
-        if (!string.IsNullOrEmpty(FocusedValue))
+        if (FocusedValue is not null)
         {
-            var index = Array.IndexOf(_options, FocusedValue);
+            var index = Array.FindIndex(_options, i => IsEqual(i, FocusedValue));
             if (index >= 0)
             {
                 return;
             }
         }
 
-        if (!string.IsNullOrEmpty(Value))
+        if (Value is not null)
         {
-            var selectedIndex = Array.IndexOf(_options, Value);
+            var selectedIndex = Array.FindIndex(_options, i => IsEqual(i, Value));
             if (selectedIndex >= 0)
             {
                 FocusedValue = Value;
