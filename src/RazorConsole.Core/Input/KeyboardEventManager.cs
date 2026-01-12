@@ -44,7 +44,7 @@ internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher
     }
 }
 
-internal sealed class KeyboardEventManager
+internal sealed class KeyboardEventManager : IDisposable
 {
     private const int MaxPasteBatchSize = 1000;
 
@@ -54,6 +54,13 @@ internal sealed class KeyboardEventManager
     private readonly ILogger<KeyboardEventManager> _logger;
     private readonly ConcurrentDictionary<string, StringBuilder> _buffers = new(StringComparer.Ordinal);
     private volatile string? _activeFocusKey;
+    private bool _disposed;
+
+    /// <summary>
+    /// Occurs when an input event is received, before it is processed.
+    /// Subscribers can set <see cref="ConsoleInputEventArgs.Handled"/> to prevent default processing.
+    /// </summary>
+    public event ConsoleInputEventHandler? InputReceived;
 
     public KeyboardEventManager(
         FocusManager focusManager,
@@ -67,6 +74,7 @@ internal sealed class KeyboardEventManager
         _logger = logger ?? NullLogger<KeyboardEventManager>.Instance;
 
         _focusManager.FocusChanged += OnFocusChanged;
+        _console.InputReceived += OnConsoleInputReceived;
     }
 
     public async Task RunAsync(CancellationToken token)
@@ -75,16 +83,34 @@ internal sealed class KeyboardEventManager
         {
             try
             {
-                if (!_console.KeyAvailable)
+                if (!_console.InputAvailable)
                 {
                     await Task.Delay(50, token).ConfigureAwait(false);
                     continue;
                 }
 
-                var keyInfo = _console.ReadKey(intercept: true);
+                var inputEvent = _console.ReadInput(intercept: true);
+
+                // Check if the event was already handled by a subscriber
+                var args = new ConsoleInputEventArgs(inputEvent);
+                InputReceived?.Invoke(this, args);
+                if (args.Handled)
+                {
+                    continue;
+                }
+
+                // Handle mouse events
+                if (inputEvent.EventType == ConsoleInputEventType.Mouse)
+                {
+                    await HandleMouseEventAsync(inputEvent.MouseInfo, token).ConfigureAwait(false);
+                    continue;
+                }
+
+                // Handle keyboard events
+                var keyInfo = inputEvent.KeyInfo;
 
                 // Check if this is a text input character and if more keys are available (paste operation)
-                if (ShouldBatchInput(keyInfo) && _console.KeyAvailable)
+                if (ShouldBatchInput(keyInfo) && _console.InputAvailable)
                 {
                     await HandleBatchedTextInputAsync(keyInfo, token).ConfigureAwait(false);
                 }
@@ -375,9 +401,17 @@ internal sealed class KeyboardEventManager
         // Batch subsequent keys that are immediately available (paste operation)
         int batchCount = 1;
 
-        while (_console.KeyAvailable && batchCount < MaxPasteBatchSize)
+        while (_console.InputAvailable && batchCount < MaxPasteBatchSize)
         {
-            var nextKey = _console.ReadKey(intercept: true);
+            var nextInput = _console.ReadInput(intercept: true);
+
+            // Skip mouse events during batching
+            if (nextInput.EventType == ConsoleInputEventType.Mouse)
+            {
+                continue;
+            }
+
+            var nextKey = nextInput.KeyInfo;
 
             // If we encounter a special key (Enter, Tab, etc.), stop batching and handle it normally
             if (!ShouldBatchInput(nextKey))
@@ -432,5 +466,80 @@ internal sealed class KeyboardEventManager
         var buffer = GetOrCreateBuffer(target);
         buffer.Clear();
         buffer.Append(ResolveInitialValue(target));
+    }
+
+    private void OnConsoleInputReceived(object? sender, ConsoleInputEventArgs e)
+    {
+        // Forward console input events to our subscribers
+        // This allows external code to intercept input at the source level
+        InputReceived?.Invoke(this, e);
+    }
+
+    private async Task HandleMouseEventAsync(ConsoleMouseEventInfo mouseInfo, CancellationToken token)
+    {
+        if (!_focusManager.TryGetFocusedTarget(out var target) || target is null)
+        {
+            return;
+        }
+
+        switch (mouseInfo.Action)
+        {
+            case MouseAction.ButtonPressed when mouseInfo.Button == MouseButton.Left:
+                // Left click triggers onclick
+                if (target.Events.TryGetEvent("onclick", out var clickEvent))
+                {
+                    var clickArgs = new MouseEventArgs
+                    {
+                        Type = "click",
+                        Detail = 1,
+                        Button = 0,
+                        ClientX = mouseInfo.X,
+                        ClientY = mouseInfo.Y,
+                        ScreenX = mouseInfo.X,
+                        ScreenY = mouseInfo.Y,
+                        AltKey = (mouseInfo.Modifiers & ConsoleModifiers.Alt) != 0,
+                        CtrlKey = (mouseInfo.Modifiers & ConsoleModifiers.Control) != 0,
+                        ShiftKey = (mouseInfo.Modifiers & ConsoleModifiers.Shift) != 0,
+                    };
+                    await DispatchAsync(clickEvent, clickArgs, token).ConfigureAwait(false);
+                }
+
+                break;
+
+            case MouseAction.WheelScrolled:
+                // Dispatch wheel event
+                if (target.Events.TryGetEvent("onwheel", out var wheelEvent))
+                {
+                    var wheelArgs = new WheelEventArgs
+                    {
+                        Type = "wheel",
+                        DeltaY = mouseInfo.Button == MouseButton.WheelUp ? -100 : 100,
+                        DeltaMode = 0, // DOM_DELTA_PIXEL
+                        ClientX = mouseInfo.X,
+                        ClientY = mouseInfo.Y,
+                        AltKey = (mouseInfo.Modifiers & ConsoleModifiers.Alt) != 0,
+                        CtrlKey = (mouseInfo.Modifiers & ConsoleModifiers.Control) != 0,
+                        ShiftKey = (mouseInfo.Modifiers & ConsoleModifiers.Shift) != 0,
+                    };
+                    await DispatchAsync(wheelEvent, wheelArgs, token).ConfigureAwait(false);
+                }
+
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Releases the resources used by this instance.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _focusManager.FocusChanged -= OnFocusChanged;
+        _console.InputReceived -= OnConsoleInputReceived;
+        _disposed = true;
     }
 }

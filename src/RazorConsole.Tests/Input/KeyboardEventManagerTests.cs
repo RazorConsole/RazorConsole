@@ -320,7 +320,9 @@ public class KeyboardEventManagerTests
             keys.Enqueue(new ConsoleKeyInfo(ch, consoleKey, false, false, false));
         }
         mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
+        mockConsole.InputAvailable.Returns(_ => keys.Count > 0);
         mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
+        mockConsole.ReadInput(Arg.Any<bool>()).Returns(_ => ConsoleInputEvent.FromKey(keys.Dequeue()));
 
         await using var harness = await KeyboardHarness.CreateAsync(
             mockConsole,
@@ -360,7 +362,9 @@ public class KeyboardEventManagerTests
             keys.Enqueue(new ConsoleKeyInfo(ch, ConsoleKey.A, false, false, false));
         }
         mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
+        mockConsole.InputAvailable.Returns(_ => keys.Count > 0);
         mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
+        mockConsole.ReadInput(Arg.Any<bool>()).Returns(_ => ConsoleInputEvent.FromKey(keys.Dequeue()));
 
         await using var harness = await KeyboardHarness.CreateAsync(
             mockConsole,
@@ -398,7 +402,9 @@ public class KeyboardEventManagerTests
         }
         keys.Enqueue(new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false));
         mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
+        mockConsole.InputAvailable.Returns(_ => keys.Count > 0);
         mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
+        mockConsole.ReadInput(Arg.Any<bool>()).Returns(_ => ConsoleInputEvent.FromKey(keys.Dequeue()));
 
         await using var harness = await KeyboardHarness.CreateAsync(
             mockConsole,
@@ -454,7 +460,9 @@ public class KeyboardEventManagerTests
             keys.Enqueue(new ConsoleKeyInfo(ch, consoleKey, false, false, false));
         }
         mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
+        mockConsole.InputAvailable.Returns(_ => keys.Count > 0);
         mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
+        mockConsole.ReadInput(Arg.Any<bool>()).Returns(_ => ConsoleInputEvent.FromKey(keys.Dequeue()));
 
         await using var harness = await KeyboardHarness.CreateAsync(
             mockConsole,
@@ -519,6 +527,7 @@ public class KeyboardEventManagerTests
             {
                 var defaultMock = Substitute.For<IConsoleInput>();
                 defaultMock.KeyAvailable.Returns(false);
+                defaultMock.InputAvailable.Returns(false);
                 console = defaultMock;
             }
 

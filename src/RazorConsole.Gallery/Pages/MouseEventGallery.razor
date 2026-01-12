@@ -1,0 +1,223 @@
+@page "/mouse-events"
+@using RazorConsole.Core.Input
+@using RazorConsole.Components
+@inject IConsoleInput ConsoleInput
+@implements IDisposable
+
+<Rows>
+    <Markup Content="Mouse Event Gallery - Demonstrates console mouse input handling"
+            Foreground="@Color.Grey70" />
+    <Markup Content="This page shows raw mouse events received from the terminal via IConsoleInput."
+            Foreground="@Color.Grey" />
+    <Newline />
+
+    <Columns>
+        <Panel Title="Mouse Status" Border="BoxBorder.Rounded" Expand="true">
+            <Rows>
+                <Markup Content="@($"Mouse Enabled: {(ConsoleInput.MouseEnabled ? "[green]Yes[/]" : "[red]No[/]")}")" />
+                <Markup Content="@($"Total Events: {_events.Count}")" Foreground="@Color.Cyan1" />
+                <Newline />
+                <TextButton Content="@(_isListening ? "Stop Listening" : "Start Listening")"
+                            OnClick="ToggleListening" />
+                <TextButton Content="Clear Events" OnClick="ClearEvents" />
+                @if (!ConsoleInput.MouseEnabled)
+                {
+                    <TextButton Content="Enable Mouse" OnClick="EnableMouse" />
+                }
+            </Rows>
+        </Panel>
+
+        <Panel Title="Last Event" Border="BoxBorder.Rounded" Expand="true">
+            @if (_lastEvent is not null)
+            {
+                <Rows>
+                    <Markup Content="@($"Type: [yellow]{_lastEvent.Value.EventType}[/]")" />
+                    @if (_lastEvent.Value.EventType == ConsoleInputEventType.Mouse)
+                    {
+                        <Markup Content="@($"Action: [cyan]{_lastEvent.Value.MouseInfo.Action}[/]")" />
+                        <Markup Content="@($"Button: [green]{_lastEvent.Value.MouseInfo.Button}[/]")" />
+                        <Markup Content="@($"Position: [magenta]({_lastEvent.Value.MouseInfo.X}, {_lastEvent.Value.MouseInfo.Y})[/]")" />
+                        <Markup Content="@($"Modifiers: [blue]{_lastEvent.Value.MouseInfo.Modifiers}[/]")" />
+                    }
+                    else
+                    {
+                        <Markup Content="@($"Key: [cyan]{_lastEvent.Value.KeyInfo.Key}[/]")" />
+                        <Markup Content="@($"KeyChar: [green]'{_lastEvent.Value.KeyInfo.KeyChar}'[/]")" />
+                    }
+                </Rows>
+            }
+            else
+            {
+                <Markup Content="[grey]No events yet. Click 'Start Listening' and move your mouse.[/]" />
+            }
+        </Panel>
+    </Columns>
+
+    <Panel Title="Event Log (Last 20)" Border="BoxBorder.Rounded" Expand="true">
+        @if (_events.Count == 0)
+        {
+            <Markup Content="[grey]No events recorded yet.[/]" />
+        }
+        else
+        {
+            <SpectreTable Border="TableBorder.Simple" Expand="true">
+                <SpectreTHead>
+                    <SpectreTR>
+                        <SpectreTH Align="Justify.Center">#</SpectreTH>
+                        <SpectreTH Align="Justify.Left">Type</SpectreTH>
+                        <SpectreTH Align="Justify.Left">Action/Key</SpectreTH>
+                        <SpectreTH Align="Justify.Left">Button</SpectreTH>
+                        <SpectreTH Align="Justify.Center">X</SpectreTH>
+                        <SpectreTH Align="Justify.Center">Y</SpectreTH>
+                        <SpectreTH Align="Justify.Left">Modifiers</SpectreTH>
+                        <SpectreTH Align="Justify.Left">Time</SpectreTH>
+                    </SpectreTR>
+                </SpectreTHead>
+                <SpectreTBody>
+                    @foreach (var (evt, index, time) in _events.TakeLast(20).Select((e, i) => (e.Event, _events.Count - 20 + i + 1, e.Time)))
+                    {
+                        <SpectreTR>
+                            <SpectreTD>
+                                <Markup Content="@index.ToString()" Foreground="@Color.Grey" />
+                            </SpectreTD>
+                            <SpectreTD>
+                                <Markup Content="@evt.EventType.ToString()"
+                                        Foreground="@(evt.EventType == ConsoleInputEventType.Mouse ? Color.Green : Color.Yellow)" />
+                            </SpectreTD>
+                            <SpectreTD>
+                                @if (evt.EventType == ConsoleInputEventType.Mouse)
+                                {
+                                    <Markup Content="@evt.MouseInfo.Action.ToString()" Foreground="@Color.Cyan1" />
+                                }
+                                else
+                                {
+                                    <Markup Content="@evt.KeyInfo.Key.ToString()" Foreground="@Color.Yellow" />
+                                }
+                            </SpectreTD>
+                            <SpectreTD>
+                                @if (evt.EventType == ConsoleInputEventType.Mouse)
+                                {
+                                    <Markup Content="@evt.MouseInfo.Button.ToString()" Foreground="@GetButtonColor(evt.MouseInfo.Button)" />
+                                }
+                                else
+                                {
+                                    <Markup Content="-" Foreground="@Color.Grey" />
+                                }
+                            </SpectreTD>
+                            <SpectreTD>
+                                @if (evt.EventType == ConsoleInputEventType.Mouse)
+                                {
+                                    <Markup Content="@evt.MouseInfo.X.ToString()" Foreground="@Color.Magenta1" />
+                                }
+                                else
+                                {
+                                    <Markup Content="-" Foreground="@Color.Grey" />
+                                }
+                            </SpectreTD>
+                            <SpectreTD>
+                                @if (evt.EventType == ConsoleInputEventType.Mouse)
+                                {
+                                    <Markup Content="@evt.MouseInfo.Y.ToString()" Foreground="@Color.Magenta1" />
+                                }
+                                else
+                                {
+                                    <Markup Content="-" Foreground="@Color.Grey" />
+                                }
+                            </SpectreTD>
+                            <SpectreTD>
+                                @if (evt.EventType == ConsoleInputEventType.Mouse && evt.MouseInfo.Modifiers != ConsoleModifiers.None)
+                                {
+                                    <Markup Content="@evt.MouseInfo.Modifiers.ToString()" Foreground="@Color.Blue" />
+                                }
+                                else if (evt.EventType == ConsoleInputEventType.Key && evt.KeyInfo.Modifiers != ConsoleModifiers.None)
+                                {
+                                    <Markup Content="@evt.KeyInfo.Modifiers.ToString()" Foreground="@Color.Blue" />
+                                }
+                                else
+                                {
+                                    <Markup Content="-" Foreground="@Color.Grey" />
+                                }
+                            </SpectreTD>
+                            <SpectreTD>
+                                <Markup Content="@time.ToString("HH:mm:ss.fff")" Foreground="@Color.Grey" />
+                            </SpectreTD>
+                        </SpectreTR>
+                    }
+                </SpectreTBody>
+            </SpectreTable>
+        }
+    </Panel>
+
+    <Panel Title="Instructions" Border="BoxBorder.Rounded" Expand="true">
+        <Rows>
+            <Markup Content="[bold]How to use:[/]" />
+            <Markup Content="1. Click [green]'Enable Mouse'[/] to enable terminal mouse tracking" />
+            <Markup Content="2. Click [green]'Start Listening'[/] to begin capturing events" />
+            <Markup Content="3. Move your mouse, click, or scroll to see events" />
+            <Markup Content="4. Press [yellow]Escape[/] or click [red]'Stop Listening'[/] to stop" />
+            <Newline />
+            <Markup Content="[bold]Supported events:[/]" />
+            <Markup Content="• [cyan]ButtonPressed[/] - Mouse button down (Left, Middle, Right)" />
+            <Markup Content="• [cyan]ButtonReleased[/] - Mouse button up" />
+            <Markup Content="• [cyan]Moved[/] - Mouse movement (when button held)" />
+            <Markup Content="• [cyan]WheelScrolled[/] - Scroll wheel up/down" />
+        </Rows>
+    </Panel>
+</Rows>
+
+@code {
+    private readonly List<(ConsoleInputEvent Event, DateTime Time)> _events = new();
+    private ConsoleInputEvent? _lastEvent;
+    private bool _isListening;
+
+    protected override void OnInitialized()
+    {
+        ConsoleInput.InputReceived += OnInputReceived;
+    }
+
+    private void OnInputReceived(object? sender, ConsoleInputEventArgs e)
+    {
+        _lastEvent = e.InputEvent;
+        _events.Add((e.InputEvent, DateTime.Now));
+
+        // Keep only last 100 events to prevent memory issues
+        if (_events.Count > 100)
+        {
+            _events.RemoveAt(0);
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleListening()
+    {
+        _isListening = !_isListening;
+    }
+
+    private void ClearEvents()
+    {
+        _events.Clear();
+        _lastEvent = null;
+    }
+
+    private void EnableMouse()
+    {
+        ConsoleInput.EnableMouse();
+    }
+
+    private static Color GetButtonColor(MouseButton button) => button switch
+    {
+        MouseButton.Left => Color.Green,
+        MouseButton.Middle => Color.Yellow,
+        MouseButton.Right => Color.Red,
+        MouseButton.WheelUp => Color.Cyan1,
+        MouseButton.WheelDown => Color.Blue,
+        _ => Color.Grey,
+    };
+
+    public void Dispose()
+    {
+        ConsoleInput.InputReceived -= OnInputReceived;
+        ConsoleInput.DisableMouse();
+    }
+}
