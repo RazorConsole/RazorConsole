@@ -52,6 +52,12 @@
         new("cli-info", "CLI Info")
     ];
 
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _selectedTab = _tabs.FirstOrDefault();
+    }
+
     private void SelectTab(Tab tab)
     {
         _selectedTab = tab;
@@ -80,5 +86,4 @@
 
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
-
 }
