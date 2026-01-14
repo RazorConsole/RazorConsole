@@ -1,19 +1,26 @@
+@using System.Globalization
 @using Spectre.Console
 @namespace RazorConsole.Components
 
-<div @onfocus="OnFocus" @onfocusout="OnFocusOut" @onclick="OnClick">
-	<Markup Content="@Content" Background="@(isFocused ? FocusedColor : BackgroundColor)" />
+<div @onfocus="OnFocus" @onfocusout="OnFocusOut" @onclick="OnClick"
+     data-focusable="true"
+     data-focus-order="@FocusOrderAttribute"
+     @key="@_generatedFocusKey"
+     data-focus-key="@_generatedFocusKey">
+    <Markup Content="@Content" Background="@(_isFocused ? FocusedColor : BackgroundColor)"/>
 </div>
 
 @code {
+
     /// <summary>
     /// Clickable button with text that changes appearance when focused.
     /// </summary>
     /// <remarks>
     /// Simple button implementation with focus and click support. Background color changes on focus for visual feedback.
     /// </remarks>
+    private bool _isFocused = false;
 
-    private bool isFocused = false;
+    private readonly string _generatedFocusKey = Guid.NewGuid().ToString("N");
 
     /// <summary>
     /// Background color when focused. Default is <see cref="Color.DeepSkyBlue1"/>.
@@ -39,15 +46,26 @@
     [Parameter]
     public EventCallback OnClick { get; set; }
 
+    /// <summary>
+    /// Tab order for keyboard navigation. Lower values receive focus first. If <c>null</c>, natural document order is used.
+    /// </summary>
+    [Parameter]
+    public int? FocusOrder { get; set; }
+
+    private string? FocusOrderAttribute => FocusOrder.HasValue
+        ? FocusOrder.Value.ToString(CultureInfo.InvariantCulture)
+        : null;
+
     private void OnFocus(FocusEventArgs e)
     {
-        isFocused = true;
+        _isFocused = true;
         StateHasChanged();
     }
 
     private void OnFocusOut(FocusEventArgs e)
     {
-        isFocused = false;
+        _isFocused = false;
         StateHasChanged();
     }
+
 }

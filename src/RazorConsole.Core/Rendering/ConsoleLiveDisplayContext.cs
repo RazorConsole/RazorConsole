@@ -23,19 +23,25 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
     private readonly object _sync = new();
 #endif
     private readonly VdomDiffService _diffService;
+    private readonly ConsoleRenderer _renderer;
     private readonly Translation.Contexts.TranslationContext _translationContext;
     private bool _disposed;
     private ConsoleViewResult? _currentView;
     private readonly IDisposable? _snapshotSubscription;
     private List<AnimationSubscription>? _animationSubscriptions;
+    private readonly TerminalMonitor _terminalMonitor;
 
     internal ConsoleLiveDisplayContext(
         ILiveDisplayCanvas canvas,
         ConsoleRenderer renderer,
+        TerminalMonitor terminalMonitor,
         ConsoleViewResult? initialView = null,
         VdomDiffService? diffService = null)
     {
         _canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
+        _terminalMonitor = terminalMonitor;
+        _terminalMonitor.OnResized += HandleTerminalResize;
+        _renderer = renderer;
         _translationContext = renderer.GetTranslationContext();
         if (initialView is not null)
         {
@@ -123,6 +129,8 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         }
     }
 
+    private void HandleTerminalResize() => _canvas.Refresh();
+
     public void Dispose()
     {
         if (_disposed)
@@ -130,6 +138,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
             return;
         }
         DisposeAnimations();
+        _terminalMonitor.OnResized -= HandleTerminalResize;
         _snapshotSubscription?.Dispose();
         _disposed = true;
     }
@@ -140,7 +149,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         VdomDiffService? diffService)
     {
         var renderer = CreateTestRenderer();
-        return new ConsoleLiveDisplayContext(canvas, renderer, initialView, diffService: diffService);
+        return new ConsoleLiveDisplayContext(canvas, renderer, new TerminalMonitor(), initialView, diffService: diffService);
     }
 
     private static ConsoleRenderer CreateTestRenderer()

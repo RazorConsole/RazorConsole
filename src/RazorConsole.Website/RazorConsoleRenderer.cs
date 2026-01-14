@@ -87,8 +87,9 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         _consoleRenderer.Subscribe(focusManager);
 
         var initialView = ConsoleViewResult.FromSnapshot(snapshot);
+        var terminalMonitor = _serviceProvider.GetRequiredService<TerminalMonitor>();
         _canvas = new LiveDisplayCanvas(_ansiConsole);
-        var consoleLiveDisplayContext = new ConsoleLiveDisplayContext(_canvas, _consoleRenderer, initialView);
+        var consoleLiveDisplayContext = new ConsoleLiveDisplayContext(_canvas, _consoleRenderer, terminalMonitor, initialView);
         var focusSession = focusManager.BeginSession(consoleLiveDisplayContext, initialView, CancellationToken.None);
         await focusSession.InitializationTask.ConfigureAwait(false);
         _canvas.Refreshed += () =>
