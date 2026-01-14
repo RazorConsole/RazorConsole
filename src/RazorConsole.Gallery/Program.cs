@@ -10,7 +10,13 @@ using RazorConsole.Gallery.Services;
 var builder = Host
     .CreateApplicationBuilder(args);
 
-builder.UseRazorConsole<App>();
+builder.UseRazorConsole<App>(configure: config =>
+{
+    config.Services.Configure<ConsoleAppOptions>(opt =>
+    {
+        opt.EnableTerminalResizing = true;
+    });
+});
 
 builder.Services.AddHttpClient<INuGetUpgradeChecker, NuGetUpgradeChecker>(client =>
 {

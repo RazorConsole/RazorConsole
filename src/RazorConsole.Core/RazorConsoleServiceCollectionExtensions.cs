@@ -55,6 +55,7 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<SyntaxHighlightingService>();
         services.TryAddSingleton<MarkdownRenderingService>();
         services.TryAddSingleton<IConsoleInput, ConsoleInput>();
+        services.TryAddSingleton<TerminalMonitor>();
 
         // Register translation middlewares in order of priority
         // Text nodes and basic elements first
