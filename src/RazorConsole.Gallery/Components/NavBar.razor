@@ -3,7 +3,7 @@
 <Select
     TItem="Tab"
     Options="_tabs"
-    Formatter="t => t.Label"
+    Formatter="@(t => t.Label)"
     Value="@_selectedTab"
     ValueChanged="@SelectTab"
     IsFocused="@IsFocused"

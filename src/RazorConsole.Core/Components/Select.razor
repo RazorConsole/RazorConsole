@@ -9,21 +9,17 @@
      @onkeydown="OnKeyDown"
      @attributes="AdditionalAttributes">
     <Rows Expand="@Expand">
-        @{
-            var index = 0;
-            foreach (var option in Options)
-            {
-                var isSelected = IsEqual(option, Value);
-                var isFocused = IsEqual(option, FocusedValue);
-                var indicator = isSelected ? SelectedIndicator : UnselectedIndicator;
-                var formattedOption = _formattedOptions[index];
-                <Columns>
-                    <Markup Content="@($" {indicator} {formattedOption}")"
-                            Foreground="@(isFocused ? GetFocusAdjustedColor(SelectedOptionForeground) : GetFocusAdjustedColor(OptionForeground))"
-                            Decoration="@(isFocused ? GetFocusAdjustedDecoration(SelectedOptionDecoration) : GetFocusAdjustedDecoration(OptionDecoration))" />
-                </Columns>
-                index += 1;
-            }
+        @foreach (var option in Options)
+        {
+            var isSelected = IsEqual(option, Value);
+            var isFocused = IsEqual(option, FocusedValue);
+            var indicator = isSelected ? SelectedIndicator : UnselectedIndicator;
+            var formattedOption = Format(option);
+            <Columns>
+                <Markup Content="@($" {indicator} {formattedOption}")"
+                        Foreground="@(isFocused ? GetFocusAdjustedColor(SelectedOptionForeground) : GetFocusAdjustedColor(OptionForeground))"
+                        Decoration="@(isFocused ? GetFocusAdjustedDecoration(SelectedOptionDecoration) : GetFocusAdjustedDecoration(OptionDecoration))" />
+            </Columns>
         }
     </Rows>
 </div>
@@ -67,11 +63,7 @@
     public TItem[] Options
     {
         get => _options;
-        set
-        {
-            _options = value;
-            _formattedOptions = _options.Select(Format).ToList();
-        }
+        set => _options = value;
     }
 
     /// <summary>
@@ -84,18 +76,7 @@
     /// Custom formatter for the items in the list. Default is object.ToString()
     /// </summary>
     [Parameter]
-    public Func<TItem, string>? Formatter
-    {
-        get;
-        set
-        {
-            if (field != value)
-            {
-                field = value;
-                _formattedOptions = _options.Select(Format).ToList();
-            }
-        }
-    }
+    public Func<TItem, string>? Formatter { get; set; }
 
     /// <summary>
     /// Currently committed option value.
@@ -152,7 +133,6 @@
     public Decoration SelectedOptionDecoration { get; set; } = Decoration.Bold;
 
     private TItem[] _options = [];
-    private List<string?> _formattedOptions = [];
 
     // Focus-adjusted styling methods
     private Color GetFocusAdjustedColor(Color color) => IsFocused ? color : Color.Grey50;
@@ -338,7 +318,7 @@
         {
             var candidateIndex = (startIndex + i + 1) % _options.Length;
             var candidate = _options[candidateIndex];
-            var formattedCandidate = _formattedOptions[candidateIndex];
+            var formattedCandidate = Format(_options[candidateIndex]);
             var formattedFocusedValue = Format(FocusedValue);
 
             if (!string.IsNullOrEmpty(formattedCandidate) && formattedCandidate.StartsWith(prefix, comparison))

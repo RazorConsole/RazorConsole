@@ -24,55 +24,9 @@
 
         </Rows>
     </Panel>
-    <Panel Title="Complex Select Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor" Code="@_exampleComplexObjectCode" ShowLineNumbers="true" />
-    </Panel>
-    <Panel Title="Complex Object" Border="BoxBorder.Rounded" Expand="true">
-        <Rows>
-            <Select TItem="MyObject" Options="@(new MyObject[] { new("Align"), new("Border"), new("Columns"), new("Panel"), new("Select"), new("Text Input") })"
-                    Formatter="o => o.Value" Comparer="new MyObjectComparer()" @bind-Value="SelectComplex" @bind-FocusedValue="FocusedComplexOption" @bind-IsFocused="IsComplexFocused"
-                    Expand="true" />
-            @if (IsComplexFocused)
-            {
-                <Markup Content=@($"Selected: {SelectComplex?.Value}") Foreground="@Color.Chartreuse1"
-                        Decoration="@Decoration.Bold" />
-                <Markup Content=@($"Focused: {FocusedComplexOption?.Value}") Foreground="@Color.Yellow"
-                        Decoration="@Decoration.Italic" />
-            }
-
-        </Rows>
-    </Panel>
 </Rows>
 
 @code {
-
-    private class MyObject
-    {
-        public MyObject(string value) { Value = value; }
-        public string Value { get; set; }
-    }
-
-    private class MyObjectComparer : IEqualityComparer<MyObject>
-    {
-        public bool Equals(MyObject? x, MyObject? y)
-        {
-            if (ReferenceEquals(x, y)) return true;
-            if (x is null) return false;
-            if (y is null) return false;
-            if (x.GetType() != y.GetType()) return false;
-            return x.Value == y.Value;
-        }
-
-        public int GetHashCode(MyObject obj)
-        {
-            return obj.Value.GetHashCode();
-        }
-    }
-
-    private MyObject? SelectComplex = new MyObject("Align");
-    private MyObject? FocusedComplexOption = null;
-    private bool IsComplexFocused;
-
     private string Select = "Align";
     private string? FocusedOption = null;
     private bool IsFocused;
@@ -93,22 +47,6 @@
         }
 </Rows>".Trim();
 
-    private static readonly string _exampleComplexObjectCode = @"<Rows>
-    <Select TItem=""MyObject"" Options=""@(new MyObject[] { new(""Align""), new(""Border""), new(""Columns""), new(""Panel""), new(""Select""), new(""Text Input"") })""
-            Formatter=""o => o.Value""
-            @bind-Value=""SelectComplex""
-            @bind-FocusedValue=""FocusedComplexOption""
-            @bind-IsFocused=""IsComplexFocused""
-            Expand=""true"" />
-    @if (IsFocused)
-    {
-        <Markup Content=@($""Selected: {SelectComplex?.Value}"") Foreground=""@Color.Chartreuse1""
-                Decoration=""@Decoration.Bold"" />
-        <Markup Content=@($""Focused: {FocusedComplexOption?.Value}"") Foreground=""@Color.Yellow""
-                Decoration=""@Decoration.Italic"" />
-    }
-
-</Rows>".Trim();
 
     private const string DocumentationUrl =
     "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Select.razor";
