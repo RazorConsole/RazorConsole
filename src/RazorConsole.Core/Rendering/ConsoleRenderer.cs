@@ -91,7 +91,11 @@ internal sealed class ConsoleRenderer(
         return MountComponentAsync(component, parameters, cancellationToken);
     }
 
-    internal async Task<RenderSnapshot> MountComponentAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(TComponent component, ParameterView parameters, CancellationToken cancellationToken)
+    internal async Task<RenderSnapshot> MountComponentAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(
+        TComponent component,
+        ParameterView parameters,
+        CancellationToken cancellationToken)
         where TComponent : IComponent
     {
         var componentId = AssignRootComponentId(component);
@@ -356,8 +360,7 @@ internal sealed class ConsoleRenderer(
                     }
                     else
                     {
-                        var value = FormatAttributeValue(attribute.AttributeValue);
-                        element.SetAttribute(attribute.AttributeName!, value);
+                        element.SetAttribute(attribute.AttributeName!, attribute.AttributeValue);
                     }
 
                     index++;
@@ -420,8 +423,7 @@ internal sealed class ConsoleRenderer(
                     var attribute = frames.Array[index];
                     if (attribute.AttributeEventHandlerId == 0)
                     {
-                        var value = FormatAttributeValue(attribute.AttributeValue);
-                        component.SetAttribute(attribute.AttributeName!, value);
+                        component.SetAttribute(attribute.AttributeName!, attribute.AttributeValue);
                     }
 
                     index++;
@@ -623,7 +625,7 @@ internal sealed class ConsoleRenderer(
 
     private static int? TryGetComponentId(VNode node)
     {
-        if (node.Attributes.TryGetValue("component-id", out var value)
+        if (node.TryGetAttributeValue<string>("component-id", out var value)
             && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var componentId))
         {
             return componentId;
@@ -640,8 +642,8 @@ internal sealed class ConsoleRenderer(
             return;
         }
 
-        var value = FormatAttributeValue(frame.AttributeValue);
-        parent.SetAttribute(frame.AttributeName!, value);
+        var value = frame.AttributeValue as string;
+        parent.SetAttribute(frame.AttributeName!, frame.AttributeValue);
         if (IsKeyAttribute(frame.AttributeName!))
         {
             parent.SetKey(string.IsNullOrWhiteSpace(value) ? null : value);
@@ -651,34 +653,6 @@ internal sealed class ConsoleRenderer(
     private static bool IsKeyAttribute(string name)
         => string.Equals(name, "key", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "data-key", StringComparison.OrdinalIgnoreCase);
-
-    private static readonly string TrueString = "true";
-    private static readonly string FalseString = "false";
-
-    private static string? FormatAttributeValue(object? value)
-    {
-        if (value is null)
-        {
-            return null;
-        }
-
-        if (value is string s)
-        {
-            return s;
-        }
-
-        if (value is bool b)
-        {
-            return b ? TrueString : FalseString;
-        }
-
-        if (value is IFormattable formattable)
-        {
-            return formattable.ToString(null, CultureInfo.InvariantCulture);
-        }
-
-        return value.ToString() ?? string.Empty;
-    }
 
     public readonly record struct RenderSnapshot(VNode? Root, IRenderable? Renderable, IReadOnlyCollection<IAnimatedConsoleRenderable> AnimatedRenderables)
     {

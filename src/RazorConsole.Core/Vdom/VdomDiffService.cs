@@ -114,8 +114,8 @@ public sealed class VdomDiffService
     }
 
     private static bool AreAttributesEqual(
-        IReadOnlyDictionary<string, string?> left,
-        IReadOnlyDictionary<string, string?> right)
+        IReadOnlyDictionary<string, object?> left,
+        IReadOnlyDictionary<string, object?> right)
     {
         if (left.Count != right.Count)
         {
@@ -124,7 +124,8 @@ public sealed class VdomDiffService
 
         foreach (var pair in left)
         {
-            if (!right.TryGetValue(pair.Key, out var candidate) || !string.Equals(pair.Value, candidate, StringComparison.Ordinal))
+            if (!right.TryGetValue(pair.Key, out var candidate)
+                || !EqualityComparer<object?>.Default.Equals(pair.Value, candidate))
             {
                 return false;
             }
@@ -138,7 +139,7 @@ public sealed class VdomDiffService
         List<int> path,
         VNode? node,
         string? text = null,
-        IReadOnlyDictionary<string, string?>? attributes = null)
+        IReadOnlyDictionary<string, object?>? attributes = null)
     {
         var pathCopy = path.Count == 0 ? Array.Empty<int>() : path.ToArray();
         var resolvedText = text ?? (node is { Kind: VNodeKind.Text } ? node.Text : null);
@@ -161,7 +162,7 @@ public sealed record VdomMutation(
     IReadOnlyList<int> Path,
     VNode? Node,
     string? Text,
-    IReadOnlyDictionary<string, string?>? Attributes);
+    IReadOnlyDictionary<string, object?>? Attributes);
 
 public enum VdomMutationKind
 {
