@@ -2,7 +2,7 @@
 
 @using Spectre.Console
 
-@typeparam TItem where TItem : notnull
+@typeparam TItem
 
 <div @onfocus="OnFocus"
      @onfocusout="OnFocusOut"
@@ -63,7 +63,7 @@
     public TItem[] Options
     {
         get => _options;
-        set => _options = value;
+        set => _options = value ?? Array.Empty<TItem>();
     }
 
     /// <summary>
