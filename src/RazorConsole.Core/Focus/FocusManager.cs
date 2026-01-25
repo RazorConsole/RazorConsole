@@ -392,19 +392,18 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
         // Sort by focus order if specified, maintaining DOM order for elements with same/no order
         targets = targets
-            .Select((target, index) => new { Target = target, OriginalIndex = index })
-            .OrderBy(item =>
+            .Select(static (target, index) => new
             {
-                if (item.Target.Attributes.TryGetValue("data-focus-order", out var orderStr) &&
-                    int.TryParse(orderStr, out var order))
-                {
-                    return order;
-                }
-
-                return int.MaxValue; // Elements without focus order come last
+                Target = target,
+                OriginalIndex = index,
+                FocusOrder = target.Attributes.TryGetValue("data-focus-order", out var orderStr) &&
+                             int.TryParse(orderStr, out var order)
+                    ? order
+                    : int.MaxValue // Elements without focus order come last
             })
-            .ThenBy(item => item.OriginalIndex) // Maintain DOM order as tiebreaker
-            .Select(item => item.Target)
+            .OrderBy(static item => item.FocusOrder)
+            .ThenBy(static item => item.OriginalIndex) // Maintain DOM order as tiebreaker
+            .Select(static item => item.Target)
             .ToList();
 
         return targets;
