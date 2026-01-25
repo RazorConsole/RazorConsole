@@ -58,7 +58,7 @@ public sealed class SelectTests
     {
         protected override void BuildRenderTree(RenderTreeBuilder builder)
         {
-            builder.OpenComponent<Select>(0);
+            builder.OpenComponent<Select<string>>(0);
             builder.AddAttribute(1, "Options", new[] { "Option1", "Option2", "Option3" });
             builder.AddAttribute(2, "Value", "Option1");
             builder.CloseComponent();
@@ -71,7 +71,7 @@ public sealed class SelectTests
 
         protected override void BuildRenderTree(RenderTreeBuilder builder)
         {
-            builder.OpenComponent<Select>(0);
+            builder.OpenComponent<Select<string>>(0);
             builder.AddAttribute(1, "Options", new[] { "Option1", "Option2", "Option3" });
             builder.AddAttribute(2, "Value", "Option1");
             builder.AddAttribute(3, "FocusedValue", _focusedValue);

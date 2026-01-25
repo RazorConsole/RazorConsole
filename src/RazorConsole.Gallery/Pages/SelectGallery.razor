@@ -1,36 +1,36 @@
 @page "/select"
 
 <Rows>
-        <Markup Content="Select shows a focusable dropdown with keyboard navigation, callbacks for changes, and styling hooks for each option."
-                Foreground="@Color.Grey70" />
-        <Markup Content="Source Code: Select.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline"
-                link="@DocumentationUrl" />
-        <Newline />
-        <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-                <SyntaxHighlighter Language="razor" Code="@_exampleCode" ShowLineNumbers="true" />
-        </Panel>
-        <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
-                <Rows>
-                        <Select Options="@(new[] { "Align", "Border", "Columns", "Panel", "Select", "Text Input" })"
-                                @bind-Value="Select" @bind-FocusedValue="FocusedOption" @bind-IsFocused="IsFocused"
-                                Expand="true" />
-                        @if (IsFocused)
-                        {
-                                <Markup Content=@($"Selected: {Select}") Foreground="@Color.Chartreuse1"
-                                        Decoration="@Decoration.Bold" />
-                                <Markup Content=@($"Focused: {FocusedOption}") Foreground="@Color.Yellow"
-                                        Decoration="@Decoration.Italic" />
-                        }
+    <Markup Content="Select shows a focusable dropdown with keyboard navigation, callbacks for changes, and styling hooks for each option."
+            Foreground="@Color.Grey70" />
+    <Markup Content="Source Code: Select.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline"
+            link="@DocumentationUrl" />
+    <Newline />
+    <Panel Title="String Select Code" Border="BoxBorder.Rounded" Expand="true">
+        <SyntaxHighlighter Language="razor" Code="@_exampleCode" ShowLineNumbers="true" />
+    </Panel>
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <Rows>
+            <Select Options="@(new[] { "Align", "Border", "Columns", "Panel", "Select", "Text Input" })"
+                    @bind-Value="Select" @bind-FocusedValue="FocusedOption" @bind-IsFocused="IsFocused"
+                    Expand="true" />
+            @if (IsFocused)
+            {
+                <Markup Content=@($"Selected: {Select}") Foreground="@Color.Chartreuse1"
+                        Decoration="@Decoration.Bold" />
+                <Markup Content=@($"Focused: {FocusedOption}") Foreground="@Color.Yellow"
+                        Decoration="@Decoration.Italic" />
+            }
 
-                </Rows>
-        </Panel>
+        </Rows>
+    </Panel>
 </Rows>
 
 @code {
-        private string Select = "Align";
-        private string? FocusedOption = null;
-        private bool IsFocused;
-        private static readonly string _exampleCode = @"<Rows>
+    private string Select = "Align";
+    private string? FocusedOption = null;
+    private bool IsFocused;
+    private static readonly string _exampleCode = @"<Rows>
         <Select Options=""@(new[] { ""Align"", ""Border"", ""Columns"", ""Panel"", ""Select"", ""Text Input"" })""
                 @bind-Value=""Select""
                 @bind-FocusedValue=""FocusedOption""
@@ -47,6 +47,7 @@
         }
 </Rows>".Trim();
 
-        private const string DocumentationUrl =
-        "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Select.razor";
+
+    private const string DocumentationUrl =
+    "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Select.razor";
 }
