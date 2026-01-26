@@ -331,6 +331,7 @@ Clickable text button that changes background while focused.
 | `BackgroundColor` | `Color` | `Color.Default`      | Background when idle. |
 | `FocusedColor` | `Color` | `Color.DeepSkyBlue1` | Background when focused. |
 | `OnClick` | `EventCallback` | —                    | Fired when the button is clicked. |
+| `FocusOrder` | `int?` | `null` | Order used in focus traversal. | 
 
 ## TextInput
 Text entry control with placeholder, masking, and focus management.
