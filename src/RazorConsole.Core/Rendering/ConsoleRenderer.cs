@@ -737,10 +737,14 @@ internal sealed class ConsoleRenderer(
 
         try
         {
-            return base.DispatchEventAsync(handlerId, default, eventArgs);
+            Utilities.DebugFileLogger.Log($"[ConsoleRenderer] DispatchEventAsync: handlerId={handlerId}, eventArgs.Type={eventArgs.GetType().Name}");
+            var task = base.DispatchEventAsync(handlerId, default, eventArgs);
+            Utilities.DebugFileLogger.Log($"[ConsoleRenderer] DispatchEventAsync completed: handlerId={handlerId}, task.Status={task.Status}");
+            return task;
         }
         catch (Exception ex)
         {
+            Utilities.DebugFileLogger.Log($"[ConsoleRenderer] DispatchEventAsync EXCEPTION: handlerId={handlerId}, ex={ex.Message}");
             _logger.LogErrorDispatchingEvent(ex, handlerId);
             throw;
         }

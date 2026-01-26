@@ -301,24 +301,49 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         var dispatcher = _eventDispatcher;
         if (dispatcher is null)
         {
+            Utilities.DebugFileLogger.Log($"[FocusManager] DispatchFocusEventsAsync: dispatcher is null");
             return;
         }
 
         token.ThrowIfCancellationRequested();
 
+        Utilities.DebugFileLogger.Log($"[FocusManager] DispatchFocusEventsAsync: target.Key={target.Key}, previousTarget?.Key={previousTarget?.Key}");
+
+        // Dispatch focusout to the previous target. This may fail if the component was disposed
+        // (e.g., during navigation), so we catch and ignore the exception to ensure the new
+        // target still receives its focus events.
         if (previousTarget is not null && previousTarget.Events.TryGetEvent("onfocusout", out var focusOutEvent))
         {
-            await dispatcher.DispatchAsync(focusOutEvent.HandlerId, new FocusEventArgs { Type = "focusout" }, token).ConfigureAwait(false);
+            try
+            {
+                Utilities.DebugFileLogger.Log($"[FocusManager] Dispatching onfocusout, handlerId={focusOutEvent.HandlerId}");
+                await dispatcher.DispatchAsync(focusOutEvent.HandlerId, new FocusEventArgs { Type = "focusout" }, token).ConfigureAwait(false);
+                Utilities.DebugFileLogger.Log($"[FocusManager] onfocusout dispatched");
+            }
+            catch (ArgumentException ex) when (ex.ParamName == "eventHandlerId")
+            {
+                // The previous component was disposed (e.g., during navigation), so the event handler
+                // no longer exists. This is expected and we can safely ignore it.
+                Utilities.DebugFileLogger.Log($"[FocusManager] onfocusout skipped - handler disposed: {ex.Message}");
+            }
         }
 
         if (target.Events.TryGetEvent("onfocusin", out var focusInEvent))
         {
+            Utilities.DebugFileLogger.Log($"[FocusManager] Dispatching onfocusin, handlerId={focusInEvent.HandlerId}");
             await dispatcher.DispatchAsync(focusInEvent.HandlerId, new FocusEventArgs { Type = "focusin" }, token).ConfigureAwait(false);
+            Utilities.DebugFileLogger.Log($"[FocusManager] onfocusin dispatched");
         }
 
         if (target.Events.TryGetEvent("onfocus", out var focusEvent))
         {
+            Utilities.DebugFileLogger.Log($"[FocusManager] Dispatching onfocus, handlerId={focusEvent.HandlerId}");
             await dispatcher.DispatchAsync(focusEvent.HandlerId, new FocusEventArgs { Type = "focus" }, token).ConfigureAwait(false);
+            Utilities.DebugFileLogger.Log($"[FocusManager] onfocus dispatched");
+        }
+        else
+        {
+            Utilities.DebugFileLogger.Log($"[FocusManager] No onfocus event found for target.Key={target.Key}");
         }
     }
 
@@ -365,7 +390,28 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         }
 
         var previousFocusTarget = _focuseTargets[_currentIndex];
-        var matchIndex = targets.FindIndex(t => string.Equals(t.Key, previousFocusTarget.Key, StringComparison.Ordinal));
+
+        // Try to find a matching target by both Key (path) AND data-focus-key (component instance GUID).
+        // This ensures that when navigating between pages, we don't accidentally focus a component
+        // at the same position but with a different identity.
+        previousFocusTarget.Attributes.TryGetValue("data-focus-key", out var previousFocusKey);
+        var matchIndex = targets.FindIndex(t =>
+        {
+            if (!string.Equals(t.Key, previousFocusTarget.Key, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            // If the previous target had a data-focus-key, the new target must have the same one
+            if (previousFocusKey is not null)
+            {
+                t.Attributes.TryGetValue("data-focus-key", out var newFocusKey);
+                return string.Equals(previousFocusKey, newFocusKey, StringComparison.Ordinal);
+            }
+
+            return true;
+        });
+
         _focuseTargets = targets;
         var currentFocusTarget = matchIndex >= 0
             ? _focuseTargets[matchIndex]
@@ -389,6 +435,24 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         var path = new List<int> { 0 };
         var sequence = 0;
         CollectRecursive(root, path, targets, ref sequence);
+
+        // Sort by focus order if specified, maintaining DOM order for elements with same/no order
+        targets = targets
+            .Select((target, index) => new { Target = target, OriginalIndex = index })
+            .OrderBy(item =>
+            {
+                if (item.Target.Attributes.TryGetValue("data-focus-order", out var orderStr) &&
+                    int.TryParse(orderStr, out var order))
+                {
+                    return order;
+                }
+
+                return int.MaxValue; // Elements without focus order come last
+            })
+            .ThenBy(item => item.OriginalIndex) // Maintain DOM order as tiebreaker
+            .Select(item => item.Target)
+            .ToList();
+
         return targets;
     }
 

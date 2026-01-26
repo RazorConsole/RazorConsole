@@ -5,7 +5,6 @@
 <div @onfocus="OnFocus" @onfocusout="OnFocusOut" @onclick="OnClick"
      data-focusable="true"
      data-focus-order="@FocusOrderAttribute"
-     @key="@_generatedFocusKey"
      data-focus-key="@_generatedFocusKey">
     <Markup Content="@Content" Background="@(_isFocused ? FocusedColor : BackgroundColor)"/>
 </div>
@@ -58,14 +57,15 @@
 
     private void OnFocus(FocusEventArgs e)
     {
+        RazorConsole.Core.Utilities.DebugFileLogger.Log($"[TextButton] OnFocus called: Content={Content}, _generatedFocusKey={_generatedFocusKey}");
         _isFocused = true;
         StateHasChanged();
     }
 
     private void OnFocusOut(FocusEventArgs e)
     {
+        RazorConsole.Core.Utilities.DebugFileLogger.Log($"[TextButton] OnFocusOut called: Content={Content}, _generatedFocusKey={_generatedFocusKey}");
         _isFocused = false;
         StateHasChanged();
     }
-
 }
