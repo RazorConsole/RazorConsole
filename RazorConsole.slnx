@@ -17,4 +17,7 @@
   <Folder Name="/tests/">
     <Project Path="src/RazorConsole.Tests/RazorConsole.Tests.csproj" />
   </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="src/RazorConsole.Benchmarks/RazorConsole.Benchmarks.csproj" />
+  </Folder>
 </Solution>
