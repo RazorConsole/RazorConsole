@@ -389,6 +389,23 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         var path = new List<int> { 0 };
         var sequence = 0;
         CollectRecursive(root, path, targets, ref sequence);
+
+        // Sort by focus order if specified, maintaining DOM order for elements with same/no order
+        targets = targets
+            .Select(static (target, index) => new
+            {
+                Target = target,
+                OriginalIndex = index,
+                FocusOrder = target.Attributes.TryGetValue("data-focus-order", out var orderStr) &&
+                             int.TryParse(orderStr, out var order)
+                    ? order
+                    : int.MaxValue // Elements without focus order come last
+            })
+            .OrderBy(static item => item.FocusOrder)
+            .ThenBy(static item => item.OriginalIndex) // Maintain DOM order as tiebreaker
+            .Select(static item => item.Target)
+            .ToList();
+
         return targets;
     }
 
