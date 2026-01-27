@@ -30,7 +30,7 @@ export function ResponsiveSidebar({
   const scrollbarStyles = cn(
     // Firefox
     "[scrollbar-color:theme('colors.slate.300')_transparent]",
-    "dark:[scrollbar-color:theme('colors.slate.700')_transparent]", 
+    "dark:[scrollbar-color:theme('colors.slate.700')_transparent]",
 
     // Other Browsers
     "[&::-webkit-scrollbar-thumb]:bg-slate-300",
@@ -41,7 +41,7 @@ export function ResponsiveSidebar({
     "[&::-webkit-scrollbar]:w-1",
     "[&::-webkit-scrollbar]:h-1",
     "[&::-webkit-scrollbar-track]:bg-transparent",
-    "[&::-webkit-scrollbar-thumb]:rounded-full",
+    "[&::-webkit-scrollbar-thumb]:rounded-full"
   )
 
   return (

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core.Extensions;
+using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Vdom;
 using Spectre.Console.Rendering;
@@ -485,15 +486,22 @@ internal sealed class ConsoleRenderer(
                 return RenderSnapshot.Empty;
             }
 
-            var vnode = CreateRenderableRoot(componentNode);
-            if (vnode is null)
+            var rootNode = CreateRenderableRoot(componentNode);
+            if (rootNode is null)
             {
                 return RenderSnapshot.Empty;
             }
 
+            _translationContext.CollectedOverlays.Clear();
             _translationContext.AnimatedRenderables.Clear();
-            var renderable = _translationContext.Translate(vnode);
-            return new RenderSnapshot(vnode, renderable, _translationContext.AnimatedRenderables);
+
+            var mainRenderable = _translationContext.Translate(rootNode);
+
+            IRenderable finalRenderable = _translationContext.CollectedOverlays.Count > 0
+                ? new OverlayRenderable(mainRenderable, _translationContext.CollectedOverlays)
+                : mainRenderable;
+
+            return new RenderSnapshot(rootNode, finalRenderable, _translationContext.AnimatedRenderables);
         }
         catch (Exception ex)
         {
@@ -501,7 +509,6 @@ internal sealed class ConsoleRenderer(
             return RenderSnapshot.Empty;
         }
     }
-
     private VNode? CreateRenderableRoot(VNode node)
     {
         var visitedComponents = new HashSet<int>();
