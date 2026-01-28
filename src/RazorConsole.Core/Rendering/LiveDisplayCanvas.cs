@@ -35,15 +35,18 @@ internal sealed class LiveDisplayCanvas(IAnsiConsole ansiConsole) : ConsoleLiveD
         {
             _current = new DiffRenderable(ansiConsole, renderable);
             ansiConsole.Write(_current);
+            Refreshed?.Invoke();
         }
         else if (_current is not null && renderable is not null)
         {
             _current.UpdateRenderable(renderable);
             ansiConsole.Write(_current);
+            Refreshed?.Invoke();
         }
 
         _semaphore.Release();
     }
+
 
     public void Refresh()
     {
