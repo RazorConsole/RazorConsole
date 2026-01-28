@@ -18,7 +18,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 #else
     private readonly object _sync = new();
 #endif
-    private List<FocusTarget> _focuseTargets = new();
+    private List<FocusTarget> _focusTargets = new();
     private int _currentIndex = -1;
     private ConsoleLiveDisplayContext? _context;
     private CancellationTokenSource? _sessionCts;
@@ -56,7 +56,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             lock (_sync)
 #endif
             {
-                return _focuseTargets.Count > 0;
+                return _focusTargets.Count > 0;
             }
         }
     }
@@ -82,13 +82,13 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         lock (_sync)
 #endif
         {
-            if (_currentIndex < 0 || _currentIndex >= _focuseTargets.Count)
+            if (_currentIndex < 0 || _currentIndex >= _focusTargets.Count)
             {
                 snapshot = default;
                 return false;
             }
 
-            snapshot = _focuseTargets[_currentIndex];
+            snapshot = _focusTargets[_currentIndex];
             return true;
         }
     }
@@ -188,29 +188,29 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         lock (_sync)
 #endif
         {
-            if (_focuseTargets.Count == 0)
+            if (_focusTargets.Count == 0)
             {
                 return false;
             }
 
-            if (_currentIndex >= 0 && _currentIndex < _focuseTargets.Count)
+            if (_currentIndex >= 0 && _currentIndex < _focusTargets.Count)
             {
-                previousTarget = _focuseTargets[_currentIndex];
+                previousTarget = _focusTargets[_currentIndex];
             }
 
             int nextIndex;
             if (_currentIndex < 0)
             {
-                nextIndex = direction > 0 ? 0 : _focuseTargets.Count - 1;
+                nextIndex = direction > 0 ? 0 : _focusTargets.Count - 1;
             }
             else
             {
-                nextIndex = (_currentIndex + direction + _focuseTargets.Count) % _focuseTargets.Count;
+                nextIndex = (_currentIndex + direction + _focusTargets.Count) % _focusTargets.Count;
             }
 
             _currentIndex = nextIndex;
-            CurrentFocusKey = _focuseTargets[nextIndex].Key;
-            nextTarget = _focuseTargets[nextIndex];
+            CurrentFocusKey = _focusTargets[nextIndex].Key;
+            nextTarget = _focusTargets[nextIndex];
             return true;
         }
     }
@@ -237,12 +237,12 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         lock (_sync)
 #endif
         {
-            if (_focuseTargets.Count == 0)
+            if (_focusTargets.Count == 0)
             {
                 return false;
             }
 
-            var index = _focuseTargets.FindIndex(t => string.Equals(t.Key, key, StringComparison.Ordinal));
+            var index = _focusTargets.FindIndex(t => string.Equals(t.Key, key, StringComparison.Ordinal));
             if (index < 0)
             {
                 return false;
@@ -253,14 +253,14 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
                 return false;
             }
 
-            if (_currentIndex >= 0 && _currentIndex < _focuseTargets.Count)
+            if (_currentIndex >= 0 && _currentIndex < _focusTargets.Count)
             {
-                previousTarget = _focuseTargets[_currentIndex];
+                previousTarget = _focusTargets[_currentIndex];
             }
 
             _currentIndex = index;
-            CurrentFocusKey = _focuseTargets[index].Key;
-            target = _focuseTargets[index];
+            CurrentFocusKey = _focusTargets[index].Key;
+            target = _focusTargets[index];
         }
 
         await TriggerFocusChangedAsync(previousTarget, target!, token).ConfigureAwait(false);
@@ -337,7 +337,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
     {
         _context = null;
         _sessionCts = null;
-        _focuseTargets = new List<FocusTarget>();
+        _focusTargets = new List<FocusTarget>();
         _currentIndex = -1;
         CurrentFocusKey = null;
     }
@@ -369,13 +369,13 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
         if (_currentIndex == -1)
         {
-            _focuseTargets = targets;
+            _focusTargets = targets;
             _currentIndex = 0;
             CurrentFocusKey = targets[0].Key;
             return targets[0];
         }
 
-        var previousFocusTarget = _focuseTargets[_currentIndex];
+        var previousFocusTarget = _focusTargets[_currentIndex];
 
         // Try to find a matching target by both Key (path) AND data-focus-key (component instance GUID).
         // This ensures that when navigating between pages, we don't accidentally focus a component
@@ -398,21 +398,21 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             return true;
         });
 
-        _focuseTargets = targets;
+        _focusTargets = targets;
         var currentFocusTarget = matchIndex >= 0
-            ? _focuseTargets[matchIndex]
-            : _focuseTargets[0];
+            ? _focusTargets[matchIndex]
+            : _focusTargets[0];
 
         if (matchIndex >= 0)
         {
             _currentIndex = matchIndex;
-            CurrentFocusKey = _focuseTargets[matchIndex].Key;
+            CurrentFocusKey = _focusTargets[matchIndex].Key;
             return previousFocusTarget == currentFocusTarget ? null : currentFocusTarget;
         }
 
         _currentIndex = 0;
-        CurrentFocusKey = _focuseTargets[0].Key;
-        return _focuseTargets[0];
+        CurrentFocusKey = _focusTargets[0].Key;
+        return _focusTargets[0];
     }
 
     private static List<FocusTarget> CollectTargets(VNode root)
@@ -499,7 +499,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         lock (_sync)
 #endif
         {
-            FocusTarget? previousFocusTarget = _currentIndex >= 0 ? _focuseTargets[_currentIndex] : null;
+            FocusTarget? previousFocusTarget = _currentIndex >= 0 ? _focusTargets[_currentIndex] : null;
 
             if (UpdateFocusTargets_NoLock(value) is not { } newFocus)
             {
