@@ -11,7 +11,8 @@
 @using Spectre.Console
 
 <div class="text-input"
-    @attributes="AdditionalAttributes"
+     @attributes="AdditionalAttributes"
+     @key="@_generatedFocusKey"
     data-text-input="true"
     data-focusable="@FocusableAttribute"
     data-focus-key="@_generatedFocusKey"

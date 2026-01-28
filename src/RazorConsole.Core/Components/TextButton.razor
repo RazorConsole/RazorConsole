@@ -5,6 +5,7 @@
 <div @onfocus="OnFocus" @onfocusout="OnFocusOut" @onclick="OnClick"
      data-focusable="true"
      data-focus-order="@FocusOrderAttribute"
+     @key="@_generatedFocusKey"
      data-focus-key="@_generatedFocusKey">
     <Markup Content="@Content" Background="@(_isFocused ? FocusedColor : BackgroundColor)"/>
 </div>
