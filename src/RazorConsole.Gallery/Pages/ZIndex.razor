@@ -1,0 +1,175 @@
+@page "/zindex"
+@using System.Timers
+
+<Rows>
+    <Markup Content="Z-Index and absolute positioning"
+            Foreground="@Color.Grey70"/>
+    <Markup Content="Source Code: OverlayRenderable.cs" Foreground="@Color.DeepSkyBlue1"
+            Decoration="@Decoration.Underline"
+            link="@DocumentationUrl"/>
+    <Newline/>
+    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
+        <SyntaxHighlighter Language="razor"
+                           Code="@ExampleCode"
+                           ShowLineNumbers="true"/>
+    </Panel>
+    <Panel Border="BoxBorder.Double" Title="Overlays operating menu:" TitleColor="Color.Orange1"
+           BorderColor="Color.Grey">
+        <Rows>
+            <Markup Content="Main flow text."/>
+            <Newline/>
+            <Rows>
+                <TextButton Content="Swap Z-Indexes" OnClick="ChangeZIndexes"/>
+                <TextButton Content="Send Notification" OnClick="AddToastWithTimer"/>
+                <TextButton Content="Move Floating Modal" OnClick="MoveModal"/>
+            </Rows>
+        </Rows>
+    </Panel>
+</Rows>
+
+<div position="absolute" top="@_floatingTop" left="@_floatingLeft" z-index="@_firstModalZIndex">
+    <Panel Border="BoxBorder.Rounded" BorderColor="Color.Red" Title="Layer A">
+        <Rows>
+            <Markup Content="Modal window A" Decoration="Decoration.Bold"/>
+            <Markup Content="@($"Z-Index: {_firstModalZIndex}")"/>
+            <Markup Content="I can be moved!"/>
+        </Rows>
+    </Panel>
+</div>
+
+<div position="absolute" top="5" left="40" z-index="@_secondModalZIndex">
+    <Panel Border="BoxBorder.Rounded" BorderColor="Color.Green" Title="Layer B">
+        <Rows>
+            <Markup Content="Modal window B" Decoration="Decoration.Bold"/>
+            <Markup Content="@($"Z-Index: {_secondModalZIndex}")"/>
+        </Rows>
+    </Panel>
+</div>
+
+@if (_toasts.Any())
+{
+    <div position="absolute" top="1" right="2" z-index="2000">
+        <Rows>
+            @foreach (var toast in _toasts)
+            {
+                <Panel Border="BoxBorder.Rounded" BorderColor="Color.Blue">
+                    <Markup Content="@($"🔔 {toast}")"/>
+                </Panel>
+            }
+        </Rows>
+    </div>
+}
+
+<div position="absolute" right="1" bottom="6" z-index="500">
+    <Panel Border="BoxBorder.Rounded">
+        <Columns>
+            <Markup Content="STATUS: READY" Decoration="Decoration.Bold" Foreground="Color.Green"/>
+            <Markup Content="@($"LOGS: {_lastAction} ")" Decoration="Decoration.Underline" Foreground="Color.Yellow"/>
+            <Markup Content="@($"TIME: {DateTime.Now:HH:mm:ss} ")"/>
+        </Columns>
+    </Panel>
+</div>
+
+
+@code {
+    private int _firstModalZIndex = 10;
+    private int _secondModalZIndex = 20;
+    private int _floatingTop = 2;
+    private int _floatingLeft = 15;
+    private string _lastAction = "None";
+
+    // ReSharper disable once NotAccessedPositionalProperty.Local
+    // Using for default ToString method implementation
+    private sealed record ToastItem(string Message, DateTime Expiry);
+
+    private readonly List<ToastItem> _toasts = new();
+    private System.Timers.Timer? _cleanupTimer;
+
+    private void ChangeZIndexes()
+    {
+        (_firstModalZIndex, _secondModalZIndex) = (_secondModalZIndex, _firstModalZIndex);
+        _lastAction = "Z-Indexes swapped";
+        StateHasChanged();
+    }
+
+    private void MoveModal()
+    {
+        _floatingLeft += 2;
+        _floatingTop += 1;
+        if (_floatingLeft > 60) _floatingLeft = 10;
+        if (_floatingTop > 15) _floatingTop = 2;
+
+        _lastAction = $"Moved to {_floatingTop}:{_floatingLeft}";
+        StateHasChanged();
+    }
+
+    protected override void OnInitialized()
+    {
+        _cleanupTimer = new System.Timers.Timer(1000);
+        _cleanupTimer.Elapsed += OnCleanupTimerElapsed;
+        _cleanupTimer.AutoReset = true;
+        _cleanupTimer.Enabled = true;
+    }
+
+    private void AddToastWithTimer()
+    {
+        var id = Guid.NewGuid().ToString()[..4];
+        _toasts.Add(new ToastItem($"Update {id}", DateTime.Now.AddSeconds(2)));
+
+        _lastAction = $"Toast {id} added";
+        StateHasChanged();
+    }
+
+    private void OnCleanupTimerElapsed(object? sender, ElapsedEventArgs e)
+    {
+        var now = DateTime.Now;
+        if (_toasts.Any(t => t.Expiry <= now))
+        {
+            _toasts.RemoveAll(t => t.Expiry <= now);
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private static readonly string ExampleCode = @"
+<div position=""absolute"" top=""@_floatingTop"" left=""@_floatingLeft"" z-index=""@_firstModalZIndex"">
+    <Panel Border=""BoxBorder.Rounded"" BorderColor=""Color.Red"" Title=""Layer A"">
+        <Rows>
+            <Markup Content=""Modal window A"" Decoration=""Decoration.Bold""/>
+            <Markup Content=""@($""Z-Index: {_firstModalZIndex}"")""/>
+            <Markup Content=""I can be moved!""/>
+        </Rows>
+    </Panel>
+</div>
+<div position=""absolute"" top=""5"" left=""40"" z-index=""@_secondModalZIndex"">
+    <Panel Border=""BoxBorder.Rounded"" BorderColor=""Color.Green"" Title=""Layer B"">
+        <Rows>
+            <Markup Content=""Modal window B"" Decoration=""Decoration.Bold""/>
+            <Markup Content=""@($""Z-Index: {_secondModalZIndex}"")""/>
+        </Rows>
+    </Panel>
+</div>
+@if (_toasts.Any()) {
+    <div position=""absolute"" top=""1"" right=""2"" z-index=""2000"">
+        <Rows>
+            @foreach (var toast in _toasts)
+            {
+                <Panel Border=""BoxBorder.Rounded"" BorderColor=""Color.Blue"">
+                    <Markup Content=""@($""🔔 {toast}"")""/>
+                </Panel>
+            }
+        </Rows>
+    </div>
+}
+<div position=""absolute"" right=""1"" bottom=""6"" z-index=""500"">
+    <Panel Border=""BoxBorder.Rounded"">
+        <Columns>
+            <Markup Content=""STATUS: READY"" Decoration=""Decoration.Bold"" Foreground=""Color.Green""/>
+            <Markup Content=""@($""LOGS: {_lastAction} "")"" Decoration=""Decoration.Underline"" Foreground=""Color.Yellow""/>
+            <Markup Content=""@($""TIME: {DateTime.Now:HH:mm:ss} "")""/>
+        </Columns>
+    </Panel>
+</div>
+".Trim();
+
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Renderables/OverlayRenderable.cs";
+}

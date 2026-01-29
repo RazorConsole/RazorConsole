@@ -42,6 +42,25 @@ public sealed class TranslationContext
     public HashSet<IAnimatedConsoleRenderable> AnimatedRenderables { get; } = [];
 
     /// <summary>
+    /// Gets a collection of overlays that require special rendering in <see cref="ConsoleRenderer"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Middleware components can add <see cref="OverlayItem"/> to this collection during translation.
+    /// These items are collected and used by the rendering system to render these overlays.
+    /// </para>
+    /// <para>
+    /// The collection is cleared before each translation pass and populated as nodes are translated.
+    /// After translation completes, the collection contains all overlay items discovered during
+    /// the translation process.
+    /// </para>
+    /// </remarks>
+    public List<OverlayItem> CollectedOverlays { get; } = [];
+
+    public int CumulativeTop { get; set; }
+    public int CumulativeLeft { get; set; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="TranslationContext"/> class with the specified middleware components.
     /// </summary>
     /// <param name="middlewares">The collection of translation middleware components to use in the pipeline.</param>
