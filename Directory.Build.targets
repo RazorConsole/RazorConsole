@@ -2,4 +2,10 @@
   <Target Name="ShowProjectSummary" AfterTargets="Build">
     <Message Importance="Low" Text="Built $(MSBuildProjectName) ($(Configuration)|$(Platform))" />
   </Target>
+
+  <!-- Ensure the Generated directory exists for Razor source generators when using artifacts output -->
+  <!-- Source generators run early, so we need to create this before PrepareForBuild -->
+  <Target Name="EnsureGeneratedDirectoryExists" BeforeTargets="PrepareForBuild;BeforeCompile;CoreCompile" Condition="'$(UseArtifactsOutput)' == 'true'">
+    <MakeDir Directories="$(BaseIntermediateOutputPath)Generated" />
+  </Target>
 </Project>
