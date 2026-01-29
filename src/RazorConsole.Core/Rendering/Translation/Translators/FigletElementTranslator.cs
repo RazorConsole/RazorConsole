@@ -1,7 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
-
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
@@ -52,7 +52,7 @@ public sealed class FigletElementTranslator : ITranslationMiddleware
 
     private static bool CanHandle(VNode node)
         => node.Kind == VNodeKind.Element
-           && node.Attributes.TryGetValue("class", out var value)
+           && node.TryGetAttributeValue<string>("class", out var value)
            && string.Equals(value, "figlet", StringComparison.OrdinalIgnoreCase)
            && node.Children is { Count: 0 };
 }

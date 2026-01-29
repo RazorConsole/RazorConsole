@@ -1,7 +1,11 @@
 @namespace RazorConsole.Gallery.Components
 @inject NavigationManager Nav
 
-<Router AppAssembly="@typeof(App).Assembly">
+<Align Horizontal="HorizontalAlignment.Right">
+    <span>text</span>
+</Align>
+
+@* <Router AppAssembly="@typeof(App).Assembly">
     <Found Context="RouteContext">
         <RouteView RouteData="RouteContext" DefaultLayout="typeof(MainLayout)"/>
     </Found>
@@ -10,4 +14,4 @@
         <TextButton OnClick="@(()=>Nav.NavigateTo("/"))" Content="Back to main"/>
     </NotFound>
 </Router>
-
+ *@

@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Rendering.Vdom;
@@ -90,7 +91,7 @@ public sealed class HtmlButtonElementTranslator : ITranslationMiddleware
             return dataLabel;
         }
 
-        if (node.Attributes.TryGetValue("aria-label", out var ariaLabel) && !string.IsNullOrWhiteSpace(ariaLabel))
+        if (node.TryGetAttributeValue<string>("aria-label", out var ariaLabel) && !string.IsNullOrWhiteSpace(ariaLabel))
         {
             return ariaLabel;
         }
@@ -118,7 +119,7 @@ public sealed class HtmlButtonElementTranslator : ITranslationMiddleware
             return explicitVariant;
         }
 
-        if (node.Attributes.TryGetValue("class", out var classValue))
+        if (node.TryGetAttributeValue<string>("class", out var classValue))
         {
             foreach (var token in VdomSpectreTranslator.EnumerateClassNames(classValue))
             {
@@ -154,7 +155,7 @@ public sealed class HtmlButtonElementTranslator : ITranslationMiddleware
             return true;
         }
 
-        if (node.Attributes.TryGetValue("aria-disabled", out var ariaDisabled) && bool.TryParse(ariaDisabled, out var parsedAria))
+        if (node.TryGetAttributeValue<string>("aria-disabled", out var ariaDisabled) && bool.TryParse(ariaDisabled, out var parsedAria))
         {
             return parsedAria;
         }
@@ -196,7 +197,7 @@ public sealed class HtmlButtonElementTranslator : ITranslationMiddleware
             return value;
         }
 
-        if (node.Attributes.TryGetValue("type", out var typeValue) && string.Equals(typeValue, "submit", StringComparison.OrdinalIgnoreCase))
+        if (node.TryGetAttributeValue<string>("type", out var typeValue) && string.Equals(typeValue, "submit", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }

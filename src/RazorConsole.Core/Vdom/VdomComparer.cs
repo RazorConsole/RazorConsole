@@ -53,7 +53,7 @@ internal static class VdomComparer
                 return false;
             }
 
-            if (!string.Equals(pair.Value, rightValue, StringComparison.Ordinal))
+            if (!EqualityComparer<object?>.Default.Equals(pair.Value, rightValue))
             {
                 return false;
             }

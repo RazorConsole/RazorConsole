@@ -13,7 +13,7 @@ public enum VNodeKind
 public sealed class VNode : IEquatable<VNode>
 {
     private readonly List<VNode> _children;
-    private readonly Dictionary<string, string?> _attributes;
+    private readonly Dictionary<string, object?> _attributes;
     private readonly Dictionary<string, VNodeEvent> _events;
 
     private VNode(VNodeKind kind, string? tagName = null, string? text = null, string? key = null)
@@ -23,7 +23,7 @@ public sealed class VNode : IEquatable<VNode>
         Text = text ?? string.Empty;
         Key = key;
         _children = new List<VNode>();
-        _attributes = new Dictionary<string, string?>(StringComparer.Ordinal);
+        _attributes = new Dictionary<string, object?>(StringComparer.Ordinal);
         _events = new Dictionary<string, VNodeEvent>(StringComparer.OrdinalIgnoreCase);
         ID = Guid.NewGuid().ToString("N");
     }
@@ -40,7 +40,7 @@ public sealed class VNode : IEquatable<VNode>
 
     public IReadOnlyList<VNode> Children => _children;
 
-    public IReadOnlyDictionary<string, string?> Attributes => _attributes;
+    public IReadOnlyDictionary<string, object?> Attributes => _attributes;
 
     public IReadOnlyCollection<VNodeEvent> Events => _events.Values;
 
@@ -96,7 +96,7 @@ public sealed class VNode : IEquatable<VNode>
         _children.RemoveAt(index);
     }
 
-    public void SetAttribute(string name, string? value)
+    public void SetAttribute<TValue>(string name, TValue? value)
     {
         if ((Kind != VNodeKind.Element && Kind != VNodeKind.Component) || string.IsNullOrWhiteSpace(name))
         {
@@ -199,7 +199,7 @@ public sealed class VNode : IEquatable<VNode>
                 return false;
             }
 
-            if (!StringComparer.Ordinal.Equals(pair.Value, otherValue))
+            if (!EqualityComparer<object?>.Default.Equals(pair.Value, otherValue))
             {
                 return false;
             }
@@ -241,7 +241,7 @@ public sealed class VNode : IEquatable<VNode>
             {
                 hash.Add(key, StringComparer.Ordinal);
                 _attributes.TryGetValue(key, out var value);
-                hash.Add(value, StringComparer.Ordinal);
+                hash.Add(value, EqualityComparer<object?>.Default);
             }
         }
 
