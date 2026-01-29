@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableUnsupportedPlatformAnalyzer>true</EnableUnsupportedPlatformAnalyzer>
     <Nullable>enable</Nullable>
@@ -34,7 +34,7 @@
   <!-- Example projects configuration -->
   <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('examples'))">
     <IsPackable>false</IsPackable>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
 </Project>
