@@ -1,4 +1,5 @@
-using Counter.Components;
+// Copyright (c) RazorConsole. All rights reserved.
+
 using Microsoft.Extensions.Hosting;
 using RazorConsole.Core;
 
