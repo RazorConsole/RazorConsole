@@ -1,5 +1,4 @@
-// Copyright (c) RazorConsole. All rights reserved.
-
+using Counter.Components;
 using Microsoft.Extensions.Hosting;
 using RazorConsole.Core;
 

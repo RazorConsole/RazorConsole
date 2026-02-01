@@ -5,7 +5,6 @@
     <Platform Name="x86" />
   </Configurations>
   <Folder Name="/examples/">
-    <Project Path="examples/Counter/Counter.csproj" />
     <Project Path="examples/FileExplorer/FileExplorer.csproj" />
     <Project Path="examples/LLMAgentTUI/LLMAgentTUI.csproj" />
     <Project Path="examples/LoginForm/LoginForm.csproj" />
