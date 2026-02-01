@@ -11,26 +11,26 @@
 
 <Figlet Content="MAIN MENU" Color="@Color.Yellow" />
 
-@* <Align Horizontal="@HorizontalAlignment.Center"> -- TODO ML this dupplicates the buttons on tab press *@
+<Align Horizontal="@HorizontalAlignment.Center">
     <Panel Border="BoxBorder.Double" BorderColor="@Color.Yellow">
-            <Rows>
-                <TextButton Content="    New Game    "
-                            OnClick="@(() => Nav.NavigateTo("/newgame"))"
-                            BackgroundColor="@Color.Grey15"
-                            FocusedColor="@Color.Green" />
-                <Newline />
-                <TextButton Content="    Settings    "
-                            OnClick="@(() => Nav.NavigateTo("/settings"))"
-                            BackgroundColor="@Color.Grey15"
-                            FocusedColor="@Color.Blue" />
-                <Newline />
-                <TextButton Content="      Exit      "
-                            OnClick="ShowExitModal"
-                            BackgroundColor="@Color.Grey15"
-                            FocusedColor="@Color.Red" />
-            </Rows>
+        <Rows>
+            <TextButton Content="    New Game    "
+                        OnClick="@(() => Nav.NavigateTo("/newgame"))"
+                        BackgroundColor="@Color.Grey15"
+                        FocusedColor="@Color.Green" />
+            <Newline />
+            <TextButton Content="    Settings    "
+                        OnClick="@(() => Nav.NavigateTo("/settings"))"
+                        BackgroundColor="@Color.Grey15"
+                        FocusedColor="@Color.Blue" />
+            <Newline />
+            <TextButton Content="      Exit      "
+                        OnClick="ShowExitModal"
+                        BackgroundColor="@Color.Grey15"
+                        FocusedColor="@Color.Red" />
+        </Rows>
     </Panel>
-@* </Align> *@
+</Align>
 
 <Newline />
 <Align Horizontal="@HorizontalAlignment.Center">
@@ -39,7 +39,7 @@
 
 @if (_showExitModal)
 {
-    <div position="absolute" top="10" left="0" right="0" z-index="1000">
+    <div position="absolute" top="7" left="0" right="0" z-index="1000">
         <Align Horizontal="@HorizontalAlignment.Center">
             <Panel Border="BoxBorder.Double" BorderColor="@Color.Red" Title="Confirm Exit" TitleColor="@Color.Red">
                 <Padder Padding="@(new Padding(2, 1, 2, 1))">

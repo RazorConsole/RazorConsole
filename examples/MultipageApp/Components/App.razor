@@ -2,12 +2,13 @@
 @using Microsoft.AspNetCore.Components.Routing
 @using RazorConsole.Components
 
-<Router AppAssembly="@typeof(App).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" />
-    </Found>
-    <NotFound>
-        <Markup Content="Page not found. Press any key to return to menu." />
-    </NotFound>
-</Router>
-
+<Panel>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" />
+        </Found>
+        <NotFound>
+            <Markup Content="Page not found. Press any key to return to menu." />
+        </NotFound>
+    </Router>
+</Panel>

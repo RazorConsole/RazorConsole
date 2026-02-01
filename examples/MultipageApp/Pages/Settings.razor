@@ -9,40 +9,42 @@
 
 <Figlet Content="SETTINGS" Color="@Color.Yellow" />
 
-<Panel Border="BoxBorder.Double" BorderColor="@Color.Yellow">
-    <Rows>
-        <Markup Content="Master Volume" Foreground="@Color.White" />
-        <Columns>
-            <TextButton Content=" - "
-                        OnClick="DecreaseMasterVolume"
+<Align Horizontal="@HorizontalAlignment.Center">
+    <Panel Border="BoxBorder.Double" BorderColor="@Color.Yellow">
+        <Rows>
+            <Markup Content="Master Volume" Foreground="@Color.White" />
+            <Columns>
+                <TextButton Content=" - "
+                            OnClick="DecreaseMasterVolume"
+                            BackgroundColor="@Color.Grey15"
+                            FocusedColor="@Color.Blue" />
+                <Markup Content="@GetMasterVolumeBar()" />
+                <TextButton Content=" + "
+                            OnClick="IncreaseMasterVolume"
+                            BackgroundColor="@Color.Grey15"
+                            FocusedColor="@Color.Blue" />
+            </Columns>
+            <Newline />
+            <Markup Content="Music Volume" Foreground="@Color.White" />
+            <Columns>
+                <TextButton Content=" - "
+                            OnClick="DecreaseMusicVolume"
+                            BackgroundColor="@Color.Grey15"
+                            FocusedColor="@Color.Blue" />
+                <Markup Content="@GetMusicVolumeBar()" />
+                <TextButton Content=" + "
+                            OnClick="IncreaseMusicVolume"
+                            BackgroundColor="@Color.Grey15"
+                            FocusedColor="@Color.Blue" />
+            </Columns>
+            <Newline />
+            <TextButton Content="  <- Back   "
+                        OnClick="@(() => Nav.NavigateTo("/"))"
                         BackgroundColor="@Color.Grey15"
-                        FocusedColor="@Color.Blue" />
-            <Markup Content="@GetMasterVolumeBar()" />
-            <TextButton Content=" + "
-                        OnClick="IncreaseMasterVolume"
-                        BackgroundColor="@Color.Grey15"
-                        FocusedColor="@Color.Blue" />
-        </Columns>
-        <Newline />
-        <Markup Content="Music Volume" Foreground="@Color.White" />
-        <Columns>
-            <TextButton Content=" - "
-                        OnClick="DecreaseMusicVolume"
-                        BackgroundColor="@Color.Grey15"
-                        FocusedColor="@Color.Blue" />
-            <Markup Content="@GetMusicVolumeBar()" />
-            <TextButton Content=" + "
-                        OnClick="IncreaseMusicVolume"
-                        BackgroundColor="@Color.Grey15"
-                        FocusedColor="@Color.Blue" />
-        </Columns>
-        <Newline />
-        <TextButton Content="  <- Back   "
-                    OnClick="@(() => Nav.NavigateTo("/"))"
-                    BackgroundColor="@Color.Grey15"
-                    FocusedColor="@Color.Yellow" />
-    </Rows>
-</Panel>
+                        FocusedColor="@Color.Yellow" />
+        </Rows>
+    </Panel>
+</Align>
 
 <Newline />
 <Align Horizontal="@HorizontalAlignment.Center">
