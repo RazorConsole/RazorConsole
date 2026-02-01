@@ -2,6 +2,7 @@
 @namespace MultipageApp.Pages
 
 @using Microsoft.AspNetCore.Components
+@using MultipageApp.Components
 @using RazorConsole.Components
 @using Spectre.Console
 
@@ -13,30 +14,16 @@
     <Panel Border="BoxBorder.Double" BorderColor="@Color.Yellow">
         <Rows>
             <Markup Content="Master Volume" Foreground="@Color.White" />
-            <Columns>
-                <TextButton Content=" - "
-                            OnClick="DecreaseMasterVolume"
-                            BackgroundColor="@Color.Grey15"
-                            FocusedColor="@Color.Blue" />
-                <Markup Content="@GetMasterVolumeBar()" />
-                <TextButton Content=" + "
-                            OnClick="IncreaseMasterVolume"
-                            BackgroundColor="@Color.Grey15"
-                            FocusedColor="@Color.Blue" />
-            </Columns>
+            <Slider @bind-Value="_masterVolume"
+                    Min="0"
+                    Max="1"
+                    Step="0.05f" />
             <Newline />
             <Markup Content="Music Volume" Foreground="@Color.White" />
-            <Columns>
-                <TextButton Content=" - "
-                            OnClick="DecreaseMusicVolume"
-                            BackgroundColor="@Color.Grey15"
-                            FocusedColor="@Color.Blue" />
-                <Markup Content="@GetMusicVolumeBar()" />
-                <TextButton Content=" + "
-                            OnClick="IncreaseMusicVolume"
-                            BackgroundColor="@Color.Grey15"
-                            FocusedColor="@Color.Blue" />
-            </Columns>
+            <Slider @bind-Value="_musicVolume"
+                    Min="0"
+                    Max="1"
+                    Step="0.05f" />
             <Newline />
             <TextButton Content="  <- Back   "
                         OnClick="@(() => Nav.NavigateTo("/"))"
@@ -52,46 +39,7 @@
 </Align>
 
 @code {
-    private const int BarWidth = 20;
-    private const float VolumeStep = 0.05f;
-
     private float _masterVolume = 0.5f;
     private float _musicVolume = 0.5f;
-
-    private void IncreaseMasterVolume()
-    {
-        _masterVolume = Math.Min(1.0f, _masterVolume + VolumeStep);
-        StateHasChanged();
-    }
-
-    private void DecreaseMasterVolume()
-    {
-        _masterVolume = Math.Max(0.0f, _masterVolume - VolumeStep);
-        StateHasChanged();
-    }
-
-    private void IncreaseMusicVolume()
-    {
-        _musicVolume = Math.Min(1.0f, _musicVolume + VolumeStep);
-        StateHasChanged();
-    }
-
-    private void DecreaseMusicVolume()
-    {
-        _musicVolume = Math.Max(0.0f, _musicVolume - VolumeStep);
-        StateHasChanged();
-    }
-
-    private string GetMasterVolumeBar()
-    {
-        int filled = (int)(_masterVolume * BarWidth);
-        return $"[{new string('█', filled)}{new string('░', BarWidth - filled)}]";
-    }
-
-    private string GetMusicVolumeBar()
-    {
-        int filled = (int)(_musicVolume * BarWidth);
-        return $"[{new string('█', filled)}{new string('░', BarWidth - filled)}]";
-    }
 }
 

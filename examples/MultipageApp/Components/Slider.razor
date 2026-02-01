@@ -1,0 +1,98 @@
+@namespace MultipageApp.Components
+
+@using Microsoft.AspNetCore.Components
+@using RazorConsole.Components
+@using Spectre.Console
+
+<Columns>
+    <TextButton Content=" - "
+                OnClick="Decrease"
+                BackgroundColor="@ButtonBackgroundColor"
+                FocusedColor="@ButtonFocusedColor" />
+    <Markup Content="@GetSliderBar()" />
+    <TextButton Content=" + "
+                OnClick="Increase"
+                BackgroundColor="@ButtonBackgroundColor"
+                FocusedColor="@ButtonFocusedColor" />
+</Columns>
+
+@code {
+    private const int BarWidth = 20;
+
+    /// <summary>
+    /// Current value of the slider.
+    /// </summary>
+    [Parameter]
+    public float Value { get; set; }
+
+    /// <summary>
+    /// Event callback for two-way binding when value changes.
+    /// </summary>
+    [Parameter]
+    public EventCallback<float> ValueChanged { get; set; }
+
+    /// <summary>
+    /// Minimum value of the slider. Default is 0.
+    /// </summary>
+    [Parameter]
+    public float Min { get; set; } = 0f;
+
+    /// <summary>
+    /// Maximum value of the slider. Must be greater than Min. Default is 1.
+    /// </summary>
+    [Parameter]
+    public float Max { get; set; } = 1f;
+
+    /// <summary>
+    /// Step value for increment/decrement. Default is 0.05.
+    /// </summary>
+    [Parameter]
+    public float Step { get; set; } = 0.05f;
+
+    /// <summary>
+    /// Background color for the buttons. Default is Grey15.
+    /// </summary>
+    [Parameter]
+    public Color ButtonBackgroundColor { get; set; } = Color.Grey15;
+
+    /// <summary>
+    /// Focused color for the buttons. Default is Blue.
+    /// </summary>
+    [Parameter]
+    public Color ButtonFocusedColor { get; set; } = Color.Blue;
+
+    /// <summary>
+    /// Effective maximum value, ensuring Max > Min.
+    /// </summary>
+    private float EffectiveMax => Max > Min ? Max : Min + 1f;
+
+    private async Task Increase()
+    {
+        var newValue = Math.Min(EffectiveMax, Value + Step);
+        if (Math.Abs(newValue - Value) > float.Epsilon)
+        {
+            Value = newValue;
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+
+    private async Task Decrease()
+    {
+        var newValue = Math.Max(Min, Value - Step);
+        if (Math.Abs(newValue - Value) > float.Epsilon)
+        {
+            Value = newValue;
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+
+    private string GetSliderBar()
+    {
+        var range = EffectiveMax - Min;
+        var normalized = (Value - Min) / range;
+        int filled = (int)(normalized * BarWidth);
+        filled = Math.Clamp(filled, 0, BarWidth);
+        return $"[{new string('█', filled)}{new string('░', BarWidth - filled)}]";
+    }
+}
+
