@@ -13,13 +13,13 @@
 <Align Horizontal="@HorizontalAlignment.Center">
     <Panel Border="BoxBorder.Double" BorderColor="@Color.Yellow">
         <Rows>
-            <Markup Content="Master Volume" Foreground="@Color.White" />
+            <Markup Content="@($"Master Volume: {_masterVolume:F2}")" Foreground="@Color.White" />
             <Slider @bind-Value="_masterVolume"
                     Min="0"
                     Max="1"
                     Step="0.05f" />
             <Newline />
-            <Markup Content="Music Volume" Foreground="@Color.White" />
+            <Markup Content="@($"Music Volume: {_musicVolume:F2}")" Foreground="@Color.White" />
             <Slider @bind-Value="_musicVolume"
                     Min="0"
                     Max="1"
@@ -35,7 +35,7 @@
 
 <Newline />
 <Align Horizontal="@HorizontalAlignment.Center">
-    <Markup Content="Press Tab to navigate • Press Enter to adjust • Press Ctrl+C to force exit" Foreground="@Color.Grey58" />
+    <Markup Content="Press Tab/Shift+Tab to navigate • Press Enter to adjust • Press Ctrl+C to force exit" Foreground="@Color.Grey58" />
 </Align>
 
 @code {
