@@ -54,6 +54,9 @@ public partial class Registry
             case "Markup":
                 _renderers[elementID] = new RazorConsoleRenderer<Markup_1>(elementID, cols, rows);
                 break;
+            case "ModalWindow":
+                _renderers[elementID] = new RazorConsoleRenderer<ModalWindow_1>(elementID, cols, rows);
+                break;
             case "Markdown":
                 _renderers[elementID] = new RazorConsoleRenderer<Markdown_1>(elementID, cols, rows);
                 break;

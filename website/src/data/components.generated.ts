@@ -38,6 +38,11 @@ export const componentMetadata: Record<string, Partial<ComponentInfo>> = {
     description: "Arranges children in a grid layout.",
     examples: ["Grid_1.razor"],
   },
+  ModalWindow:{
+    category: "Display",
+    description: "Renders a modal in a dialog.",
+    examples: ["ModalWindow_1.razor"],
+  },
   Markdown: {
     category: "Display",
     description: "Renders markdown content.",

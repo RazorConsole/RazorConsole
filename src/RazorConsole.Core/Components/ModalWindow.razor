@@ -1,0 +1,31 @@
+@namespace RazorConsole.Components
+
+@if (IsOpened)
+{
+    <modal @attributes="AdditionalAttributes">
+        @ChildContent
+    </modal>
+}
+
+
+
+@code {
+    [Parameter]
+    [EditorRequired]
+    public required RenderFragment ChildContent { get; set; }
+
+    /// <summary>
+    /// Additional HTML attributes to apply to the table element.
+    /// </summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
+
+
+    /// <summary>
+    /// Parameter that determines visibility of modal window
+    /// </summary>
+    [Parameter]
+    [EditorRequired]
+    public required bool IsOpened { get; set; }
+
+}

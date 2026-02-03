@@ -25,11 +25,21 @@ public sealed class OverlayRenderable(IRenderable background, IEnumerable<Overla
         {
             var (widthToRender, finalLeft) = overlay switch
             {
+                { IsCentered: true } => CalculateCenteredPosition(overlay, options, maxWidth),
                 // CSS-like stretching
                 { Left: { } l, Right: { } r } => (maxWidth - l - r, l),
                 { Right: { } r } => CalculateRightPosition(overlay, r, options, maxWidth),
                 _ => (maxWidth - (overlay.Left ?? 0), overlay.Left ?? 0)
             };
+
+            (int Width, int Left) CalculateCenteredPosition(OverlayItem item, RenderOptions opt, int maxW)
+            {
+                var measurement = item.Renderable.Measure(opt, maxW);
+                int desiredWidth = Math.Min(measurement.Max, maxW);
+
+                int left = (maxW - desiredWidth) / 2;
+                return (desiredWidth, left);
+            }
 
             (int Width, int Left) CalculateRightPosition(OverlayItem item, int r, RenderOptions opt, int maxW)
             {
@@ -41,10 +51,13 @@ public sealed class OverlayRenderable(IRenderable background, IEnumerable<Overla
             var lines = Segment.SplitLines(
                 overlay.Renderable.Render(options, Math.Max(0, widthToRender))
             );
-
-            int finalTop = overlay.Top ?? (overlay.Bottom.HasValue
-                ? Math.Max(0, canvas.Count - overlay.Bottom.Value - lines.Count)
-                : 0);
+            int finalTop = overlay switch
+            {
+                { IsCentered: true } => Math.Max(0, (canvas.Count - lines.Count) / 2),
+                { Top: { } t } => t,
+                { Bottom: { } b } => Math.Max(0, canvas.Count - b - lines.Count),
+                _ => 0
+            };
 
             for (int i = 0; i < lines.Count; i++)
             {
