@@ -1,0 +1,53 @@
+﻿@using RazorConsole.Components
+@using Spectre.Console
+@using Panel = RazorConsole.Components.Panel
+
+<Rows>
+    <Markup Content="Main flow content"/>
+    <Newline/>
+    <Markup
+        Content="Some other content to make visible space larger and demonstrate the z-index of modal window component."/>
+    @if (!_isOpened)
+    {
+        <TextButton Content="Open Modal" OnClick="OpenModal"/>
+    }
+    <ModalWindow IsOpened="_isOpened">
+        <Panel Border="BoxBorder.Double" BorderColor="_currentColor">
+            <Rows>
+                <Markup Content="It is modal window content here!"/>
+                <Columns>
+                    <TextButton Content="Change color" OnClick="ChangeColor" BackgroundColor="_currentColor"
+                                FocusedColor="Color.Orange3"/>
+                    <TextButton Content="Close" OnClick="CloseModal" BackgroundColor="_currentColor"
+                                FocusedColor="Color.Orange3"/>
+                </Columns>
+            </Rows>
+        </Panel>
+    </ModalWindow>
+</Rows>
+
+
+
+@code {
+    private bool _isOpened = true;
+    private Color _currentColor = Color.Orange1;
+
+    private void CloseModal()
+    {
+        _isOpened = false;
+        StateHasChanged();
+    }
+
+    private void OpenModal()
+    {
+        _isOpened = true;
+        StateHasChanged();
+    }
+
+    private void ChangeColor()
+    {
+        _currentColor = _currentColor == Color.Orange1 ? Color.Red3 : Color.Orange1;
+        StateHasChanged();
+    }
+
+}

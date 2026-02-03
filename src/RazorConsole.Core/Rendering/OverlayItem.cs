@@ -10,5 +10,6 @@ public record OverlayItem(
     int? Left,
     int? Right,
     int? Bottom,
-    int ZIndex
+    int ZIndex,
+    bool IsCentered = false
 );
