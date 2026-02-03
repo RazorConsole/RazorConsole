@@ -1,0 +1,23 @@
+@using RazorConsole.Components
+@using Microsoft.AspNetCore.Components.Web
+
+@* Component with interactive elements *@
+<div>
+    <p>Counter: @_counter</p>
+    <TextButton Content="Increment" OnClick="Increment" />
+    <TextButton Content="Decrement" OnClick="Decrement" />
+</div>
+
+@code {
+    private int _counter = 0;
+
+    private void Increment()
+    {
+        _counter++;
+    }
+
+    private void Decrement()
+    {
+        _counter--;
+    }
+}
