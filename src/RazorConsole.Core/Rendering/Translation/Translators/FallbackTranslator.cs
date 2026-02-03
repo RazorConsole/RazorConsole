@@ -63,10 +63,12 @@ public sealed class FallbackTranslator : ITranslationMiddleware
             return;
         }
 
-        foreach (var attribute in node.Attributes.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+        foreach (var attribute in node
+            .Attributes
+            .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
         {
             var key = Markup.Escape(attribute.Key);
-            var value = Markup.Escape(attribute.Value ?? "null");
+            var value = Markup.Escape(attribute.Value as string ?? "null");
             builder.AppendLine($"  • [cyan]{key}[/] = [yellow]{value}[/]");
         }
     }

@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 
 using RazorConsole.Core.Rendering.Vdom;
@@ -32,7 +33,7 @@ public sealed class ButtonElementTranslator : ITranslationMiddleware
         => node.Kind == VNodeKind.Element
            && (string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
                || string.Equals(node.TagName, "button", StringComparison.OrdinalIgnoreCase))
-           && node.Attributes.TryGetValue("data-button", out var value)
+           && node.TryGetAttributeValue<string>("data-button", out var value)
            && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 }
 

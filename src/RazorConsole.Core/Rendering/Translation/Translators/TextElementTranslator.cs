@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 
@@ -20,7 +21,7 @@ internal sealed class TextElementTranslator : ITranslationMiddleware
         }
 
         string? text;
-        if (node.Attributes.TryGetValue("data-content", out var inlineContent) && inlineContent is not null)
+        if (node.TryGetAttributeValue<string>("data-content", out var inlineContent) && inlineContent is not null)
         {
             if (node.Children.Any())
             {
@@ -55,6 +56,6 @@ internal sealed class TextElementTranslator : ITranslationMiddleware
     private static bool CanHandle(VNode node)
         => node.Kind == VNodeKind.Element
            && string.Equals(node.TagName, "span", StringComparison.OrdinalIgnoreCase)
-           && node.Attributes.TryGetValue("data-text", out var value)
+           && node.TryGetAttributeValue<string>("data-text", out var value)
            && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 }

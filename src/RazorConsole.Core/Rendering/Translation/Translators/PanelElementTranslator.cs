@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 
 using RazorConsole.Core.Rendering.Vdom;
@@ -68,7 +69,7 @@ public sealed class PanelElementTranslator : ITranslationMiddleware
 
     private static bool IsPanelNode(VNode node)
         => node.Kind == VNodeKind.Element
-           && node.Attributes.TryGetValue("class", out var value)
+           && node.TryGetAttributeValue<string>("class", out var value)
            && string.Equals(value, "panel", StringComparison.OrdinalIgnoreCase);
 
     private static bool ShouldExpand(VNode node)

@@ -288,7 +288,7 @@ internal sealed class KeyboardEventManager
 
     private static string ResolveInitialValue(FocusManager.FocusTarget target)
     {
-        if (target.Attributes.TryGetValue("value", out var value) && value is not null)
+        if (target.Node.TryGetAttributeValue<string>("value", out var value) && value is not null)
         {
             return value;
         }

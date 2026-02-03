@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Rendering.Syntax;
 using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
@@ -37,7 +38,7 @@ public sealed class SyntaxHighlighterElementTranslator : ITranslationMiddleware
 
     private static bool CanHandle(VNode node)
         => node.Kind == VNodeKind.Element
-           && node.Attributes.TryGetValue("class", out var @class)
+           && node.TryGetAttributeValue<string>("class", out var @class)
            && string.Equals(@class, "syntax-highlighter", StringComparison.OrdinalIgnoreCase);
 }
 
