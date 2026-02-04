@@ -37,32 +37,27 @@
     <Markup Content="Press Tab/Shift+Tab to navigate • Press Enter to select • Press Ctrl+C to force exit" Foreground="@Color.Grey58" />
 </Align>
 
-@if (_showExitModal)
-{
-    <div position="absolute" top="7" left="0" right="0" z-index="1000">
-        <Align Horizontal="@HorizontalAlignment.Center">
-            <Panel Border="BoxBorder.Double" BorderColor="@Color.Red" Title="Confirm Exit" TitleColor="@Color.Red">
-                <Padder Padding="@(new Padding(2, 1, 2, 1))">
-                    <Rows>
-                        <Markup Content="Do you want to exit?" Foreground="@Color.White" />
-                        <Newline />
-                        <Columns>
-                            <TextButton Content="   Yes   "
-                                        OnClick="ExitApp"
-                                        BackgroundColor="@Color.Grey15"
-                                        FocusedColor="@Color.Green" />
-                            <Markup Content="  " />
-                            <TextButton Content="   No    "
-                                        OnClick="HideExitModal"
-                                        BackgroundColor="@Color.Grey15"
-                                        FocusedColor="@Color.Red" />
-                        </Columns>
-                    </Rows>
-                </Padder>
-            </Panel>
-        </Align>
-    </div>
-}
+<ModalWindow IsOpened="_showExitModal">
+    <Panel Border="BoxBorder.Double" BorderColor="@Color.Red" Title="Confirm Exit" TitleColor="@Color.Red">
+        <Padder Padding="@(new Padding(2, 1, 2, 1))">
+            <Rows>
+                <Markup Content="Do you want to exit?" Foreground="@Color.White" />
+                <Newline />
+                <Columns>
+                    <TextButton Content="   Yes   "
+                                OnClick="ExitApp"
+                                BackgroundColor="@Color.Grey15"
+                                FocusedColor="@Color.Green" />
+                    <Markup Content="  " />
+                    <TextButton Content="   No    "
+                                OnClick="HideExitModal"
+                                BackgroundColor="@Color.Grey15"
+                                FocusedColor="@Color.Red" />
+                </Columns>
+            </Rows>
+        </Padder>
+    </Panel>
+</ModalWindow>
 
 @code {
     private bool _showExitModal = false;
