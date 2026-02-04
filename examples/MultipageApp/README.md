@@ -2,6 +2,8 @@
 
 A multi-page console application demonstrating Blazor's Router for navigation between pages. This example shows how to:
 
+![Example presentation](./presentation.gif)
+
 - Use Blazor Router for page navigation
 - Navigate programmatically with `NavigationManager`
 - Create interactive menus with keyboard navigation
