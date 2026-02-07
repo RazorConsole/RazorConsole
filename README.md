@@ -94,10 +94,10 @@ Build your console UI using familiar Razor components with full support for data
 Create engaging user experiences with interactive elements like buttons, text inputs, selectors, and keyboard navigation - all with focus management handled automatically.
 
 ### 🎯 **Built-in Component Library**
-Get started quickly with **20+ pre-built components** covering layout, input, display, and navigation needs:
+Get started quickly with **21+ pre-built components** covering layout, input, display, and navigation needs:
 - **Layout** (6): `Align`, `Columns`, `Rows`, `Grid`, `Padder`, `Scrollable`
 - **Input** (3): `TextInput`, `TextButton`, `Select`
-- **Display** (11): `BarChart`, `BreakdownChart`, `StepChart`, `Border`, `Figlet`, `Markdown`, `Markup`, `Panel`, `SpectreCanvas`, `SyntaxHighlighter`, `Table`
+- **Display** (12): `BarChart`, `BreakdownChart`, `StepChart`, `Border`, `Figlet`, `Markdown`, `Markup`, `ModalWindow`, `Panel`, `SpectreCanvas`, `SyntaxHighlighter`, `Table`
 - **Utilities** (2): `Spinner`, `Newline`
 
 
@@ -125,6 +125,7 @@ RazorConsole ships with a catalog of ready-to-use components that wrap Spectre.C
 - `Grid` – build multi-row, multi-column layouts with precise cell control.
 - `Markup` – emit styled text with Spectre markup tags.
 - `Markdown` - render markdown string.
+- `ModalWindow` – display modal overlay windows with automatic centering using z-index positioning.
 - `Newline` – insert intentional spacing between renderables.
 - `Padder` – add outer padding around child content without altering the child itself.
 - `Panel` – frame content inside a titled container with border and padding options.
