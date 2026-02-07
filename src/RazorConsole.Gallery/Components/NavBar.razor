@@ -1,52 +1,68 @@
-@using Spectre.Console
 @inject NavigationManager Nav
 
-<Select Options="@(_tabs.Select(t => t.Label).ToArray())"
-    Value="@SelectedTab"
+<Select
+    TItem="Tab"
+    Options="_tabs"
+    Formatter="@(t => t.Label)"
+    Value="@_selectedTab"
     ValueChanged="@SelectTab"
     IsFocused="@IsFocused"
     IsFocusedChanged="@OnSelectFocusChanged"
     Expand="false"/>
 
 @code {
-    private string SelectedTab = "Align";
-    private readonly (string Key, string Label)[] _tabs = new[]
-    {
-        ("align", "Align"),
-        ("border", "Border"),
-        ("columns", "Columns"),
-        ("figlet", "Figlet"),
-        ("grid", "Grid"),
-        ("table", "Table"),
-        ("html-inline", "HTML Inline"),
-        ("html-list", "HTML List"),
-        ("markup", "Markup"),
-        ("markdown", "Markdown"),
-        ("syntax", "Syntax Highlight"),
-        ("newline", "Newline"),
-        ("canvas", "Spectre Canvas"),
-        ("small-charts", "Small Charts"),
-        ("step-chart", "Step Chart"),
-        ("padder", "Padder"),
-        ("panel", "Panel"),
-        ("rows", "Rows"),
-        ("select", "Select"),
-        ("spinner", "Spinner"),
-        ("scrollable", "Scrollable"),
-        ("textbutton", "Text Button"),
-        ("textinput", "Text Input"),
-        ("cli-info", "CLI Info"),
-    };
 
-    private void SelectTab(string tabName)
+    private class Tab
     {
-        var key = _tabs.FirstOrDefault(t => t.Label == tabName).Key;
-        if (key == null)
+        public Tab(string key, string label)
         {
-            throw new InvalidOperationException($"Tab '{tabName}' not found.");
+            Key = key;
+            Label = label;
         }
-        SelectedTab = tabName;
-        Nav.NavigateTo(key);
+        public string Key { get; set; }
+        public string Label { get; set; }
+    }
+
+    private Tab? _selectedTab;
+    private readonly Tab[] _tabs =
+    [
+        new("align", "Align"),
+        new("border", "Border"),
+        new("columns", "Columns"),
+        new("figlet", "Figlet"),
+        new("grid", "Grid"),
+        new("table", "Table"),
+        new("html-inline", "HTML Inline"),
+        new("html-list", "HTML List"),
+        new("markup", "Markup"),
+        new("markdown", "Markdown"),
+        new("syntax", "Syntax Highlight"),
+        new("newline", "Newline"),
+        new("canvas", "Spectre Canvas"),
+        new("small-charts", "Small Charts"),
+        new("step-chart", "Step Chart"),
+        new("padder", "Padder"),
+        new("panel", "Panel"),
+        new("rows", "Rows"),
+        new("select", "Select"),
+        new("spinner", "Spinner"),
+        new("scrollable", "Scrollable"),
+        new("textbutton", "Text Button"),
+        new("textinput", "Text Input"),
+        new("zindex", "Z-Index"),
+        new("cli-info", "CLI Info")
+    ];
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _selectedTab = _tabs.FirstOrDefault();
+    }
+
+    private void SelectTab(Tab tab)
+    {
+        _selectedTab = tab;
+        Nav.NavigateTo(tab.Key);
     }
 
     [Parameter]

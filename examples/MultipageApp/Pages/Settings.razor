@@ -1,0 +1,45 @@
+@page "/settings"
+@namespace MultipageApp.Pages
+
+@using Microsoft.AspNetCore.Components
+@using MultipageApp.Components
+@using RazorConsole.Components
+@using Spectre.Console
+
+@inject NavigationManager Nav
+
+<Figlet Content="SETTINGS" Color="@Color.Yellow" />
+
+<Align Horizontal="@HorizontalAlignment.Center">
+    <Panel Border="BoxBorder.Double" BorderColor="@Color.Yellow">
+        <Rows>
+            <Markup Content="@($"Master Volume: {_masterVolume:F2}")" Foreground="@Color.White" />
+            <Slider @bind-Value="_masterVolume"
+                    Min="0"
+                    Max="1"
+                    Step="0.05f" />
+            <Newline />
+            <Markup Content="@($"Music Volume: {_musicVolume:F2}")" Foreground="@Color.White" />
+            <Slider @bind-Value="_musicVolume"
+                    Min="0"
+                    Max="1"
+                    Step="0.05f" />
+            <Newline />
+            <TextButton Content="  <- Back   "
+                        OnClick="@(() => Nav.NavigateTo("/"))"
+                        BackgroundColor="@Color.Grey15"
+                        FocusedColor="@Color.Yellow" />
+        </Rows>
+    </Panel>
+</Align>
+
+<Newline />
+<Align Horizontal="@HorizontalAlignment.Center">
+    <Markup Content="Press Tab/Shift+Tab to navigate • Press Enter to adjust • Press Ctrl+C to force exit" Foreground="@Color.Grey58" />
+</Align>
+
+@code {
+    private float _masterVolume = 0.5f;
+    private float _musicVolume = 0.5f;
+}
+

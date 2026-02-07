@@ -7,6 +7,7 @@ import quickStartDoc from "@/docs/quick-start.md?raw"
 import builtInComponentsDoc from "@/docs/built-in-components.md?raw"
 import hotReloadDoc from "@/docs/hot-reload.md?raw"
 import customTranslatorsDoc from "@/docs/custom-translators.md?raw"
+import zindexDoc from "@/docs/zindex.md?raw"
 import keyboardEventsDoc from "@/docs/keyboard-events.md?raw"
 import focusManagementDoc from "@/docs/focus-management.md?raw"
 import aotDoc from "@/docs/native-aot-support.md?raw"
@@ -101,6 +102,12 @@ export default function Docs() {
         title: "Custom Translators",
         content: customTranslatorsDoc,
         filePath: "website/src/docs/custom-translators.md",
+      },
+      {
+        id: "zindex",
+        title: "Absolute Positioning & Z-Index",
+        content: zindexDoc,
+        filePath: "website/src/docs/zindex.md",
       },
       {
         id: "keyboard-events",

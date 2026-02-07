@@ -36,6 +36,7 @@ hostBuilder.ConfigureServices(services =>
     services.Configure<ConsoleAppOptions>(options =>
     {
         options.AutoClearConsole = false;
+        options.EnableTerminalResizing = true;
     });
 });
 

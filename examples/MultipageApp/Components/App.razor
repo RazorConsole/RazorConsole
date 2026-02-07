@@ -1,0 +1,17 @@
+@namespace MultipageApp.Components
+@using Microsoft.AspNetCore.Components.Routing
+@using RazorConsole.Components
+
+@inject NavigationManager Nav
+
+<Panel>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" />
+        </Found>
+        <NotFound>
+            <Markup Content="Page not found." />
+            <TextButton Content="Back to Menu" OnClick="@(() => Nav.NavigateTo("/"))" />
+        </NotFound>
+    </Router>
+</Panel>

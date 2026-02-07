@@ -1,0 +1,82 @@
+@page "/"
+@namespace MultipageApp.Pages
+
+@using Microsoft.AspNetCore.Components
+@using Microsoft.Extensions.Hosting
+@using RazorConsole.Components
+@using Spectre.Console
+
+@inject NavigationManager Nav
+@inject IHostApplicationLifetime AppLifetime
+
+<Figlet Content="MAIN MENU" Color="@Color.Yellow" />
+
+<Align Horizontal="@HorizontalAlignment.Center">
+    <Panel Border="BoxBorder.Double" BorderColor="@Color.Yellow">
+        <Rows>
+            <TextButton Content="    New Game    "
+                        OnClick="@(() => Nav.NavigateTo("/newgame"))"
+                        BackgroundColor="@Color.Grey15"
+                        FocusedColor="@Color.Green" />
+            <Newline />
+            <TextButton Content="    Settings    "
+                        OnClick="@(() => Nav.NavigateTo("/settings"))"
+                        BackgroundColor="@Color.Grey15"
+                        FocusedColor="@Color.Blue" />
+            <Newline />
+            <TextButton Content="      Exit      "
+                        OnClick="ShowExitModal"
+                        BackgroundColor="@Color.Grey15"
+                        FocusedColor="@Color.Red" />
+        </Rows>
+    </Panel>
+</Align>
+
+<Newline />
+<Align Horizontal="@HorizontalAlignment.Center">
+    <Markup Content="Press Tab/Shift+Tab to navigate • Press Enter to select • Press Ctrl+C to force exit" Foreground="@Color.Grey58" />
+</Align>
+
+<ModalWindow IsOpened="_showExitModal">
+    <Panel Border="BoxBorder.Double" BorderColor="@Color.Red" Title="Confirm Exit" TitleColor="@Color.Red">
+        <Padder Padding="@(new Padding(2, 1, 2, 1))">
+            <Rows>
+                <Markup Content="Do you want to exit?" Foreground="@Color.White" />
+                <Newline />
+                <Columns>
+                    <TextButton Content="   Yes   "
+                                OnClick="ExitApp"
+                                BackgroundColor="@Color.Grey15"
+                                FocusedColor="@Color.Green" />
+                    <Markup Content="  " />
+                    <TextButton Content="   No    "
+                                OnClick="HideExitModal"
+                                BackgroundColor="@Color.Grey15"
+                                FocusedColor="@Color.Red" />
+                </Columns>
+            </Rows>
+        </Padder>
+    </Panel>
+</ModalWindow>
+
+@code {
+    private bool _showExitModal = false;
+
+    private void ShowExitModal()
+    {
+        _showExitModal = true;
+        StateHasChanged();
+    }
+
+    private void HideExitModal()
+    {
+        _showExitModal = false;
+        StateHasChanged();
+    }
+
+    private void ExitApp()
+    {
+        AppLifetime.StopApplication();
+    }
+}
+

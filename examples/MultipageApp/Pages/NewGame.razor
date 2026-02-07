@@ -1,0 +1,38 @@
+@page "/newgame"
+@namespace MultipageApp.Pages
+
+@using Microsoft.AspNetCore.Components
+@using RazorConsole.Components
+@using Spectre.Console
+
+@inject NavigationManager Nav
+
+<Figlet Content="NEW GAME" Color="@Color.Green" />
+<Newline />
+
+<Align Horizontal="@HorizontalAlignment.Center">
+    <Panel Border="BoxBorder.Rounded" BorderColor="@Color.Green">
+        <Padder Padding="@(new Padding(2, 1, 2, 1))">
+            <Rows>
+                <Markup Content="🎮 Game would start here..." Foreground="@Color.Grey70" />
+                <Newline />
+                <Markup Content="This is a placeholder for the game screen." Foreground="@Color.Grey58" />
+                <Markup Content="In a real application, you would initialize" Foreground="@Color.Grey58" />
+                <Markup Content="your game logic and render the game UI here." Foreground="@Color.Grey58" />
+                <Newline />
+                <Panel>
+                    <TextButton Content="  <- Back to Menu  "
+                                OnClick="@(() => Nav.NavigateTo("/"))"
+                                BackgroundColor="@Color.Grey15"
+                                FocusedColor="@Color.Yellow" />
+                </Panel>
+            </Rows>
+        </Padder>
+    </Panel>
+</Align>
+
+<Newline />
+<Align Horizontal="@HorizontalAlignment.Center">
+    <Markup Content="Press Tab/Shift+Tab to navigate • Press Enter to select • Press Ctrl+C to force exit" Foreground="@Color.Grey58" />
+</Align>
+

@@ -6,88 +6,87 @@
 @using Spectre.Console
 @using System.IO
 
-<Figlet Content="File Explorer" />
-<Newline />
-
-<Panel Title="@($"Current Directory: {_currentPath}")" Border="BoxBorder.Rounded" Expand="true">
+<Figlet Content="File Explorer"/>
+<Newline/>
+ <Panel Title="@($"Current Directory: {_currentPath}")" Border="BoxBorder.Rounded" Expand="true">
     <Rows>
         @if (!string.IsNullOrEmpty(_parentPath))
         {
             <Columns>
                 <TextButton Content="📁 .. (Parent Directory)"
-                            OnClick="NavigateToParent"
-                            BackgroundColor="@Color.Grey"
-                            FocusedColor="@Color.Blue" />
+                            OnClick="NavigateToParent" BackgroundColor="@Color.Grey" FocusedColor="@Color.Blue"/>
             </Columns>
-            <Newline />
+            <Newline/>
         }
 
         <Panel Title="Files and Directories" Border="BoxBorder.Rounded" Expand="true">
-            <SpectreTable Expand="true" Border="TableBorder.Rounded">
-                <SpectreTHead>
-                    <SpectreTR>
-                        <SpectreTH Align="Justify.Left">Name</SpectreTH>
-                        <SpectreTH Align="Justify.Center">Type</SpectreTH>
-                        <SpectreTH Align="Justify.Right">Size</SpectreTH>
-                        <SpectreTH Align="Justify.Center">Modified</SpectreTH>
-                    </SpectreTR>
-                </SpectreTHead>
-                <SpectreTBody>
-                    @foreach (var item in _items)
-                    {
+            <Scrollable PageSize="15" Scrollbar="new(thumbFocusedColor:_scrollbarThumbFocusedColor)" Items="_items">
+                <SpectreTable Expand="true" Border="TableBorder.Rounded">
+                    <SpectreTHead>
                         <SpectreTR>
-                            <SpectreTD>
-                                @if (item.IsDirectory)
-                                {
-                                    <TextButton Content="@($"📁 {item.Name}")"
-                                                OnClick="@(() => NavigateToDirectory(item.FullPath))"
-                                                BackgroundColor="@Color.Black"
-                                                FocusedColor="@Color.Blue" />
-                                }
-                                else
-                                {
-                                    <TextButton Content="@($"📄 {item.Name}")"
-                                                OnClick="@(() => SelectFile(item.FullPath))"
-                                                BackgroundColor="@Color.Black"
-                                                FocusedColor="@Color.Green" />
-                                }
-                            </SpectreTD>
-                            <SpectreTD>
-                                <Markup Content="@(item.IsDirectory ? "Directory" : "File")" 
-                                        Foreground="@(item.IsDirectory ? Color.Blue : Color.Grey70)" />
-                            </SpectreTD>
-                            <SpectreTD>
-                                <Markup Content="@item.Size" Foreground="@Color.Grey70" />
-                            </SpectreTD>
-                            <SpectreTD>
-                                <Markup Content="@item.Modified" Foreground="@Color.Grey70" />
-                            </SpectreTD>
+                            <SpectreTH Align="Justify.Left">Name</SpectreTH>
+                            <SpectreTH Align="Justify.Center">Type</SpectreTH>
+                            <SpectreTH Align="Justify.Right">Size</SpectreTH>
+                            <SpectreTH Align="Justify.Center">Modified</SpectreTH>
                         </SpectreTR>
-                    }
-                </SpectreTBody>
-            </SpectreTable>
+                    </SpectreTHead>
+                    <SpectreTBody>
+                        @foreach (var item in context.Items)
+                        {
+                            <SpectreTR>
+                                <SpectreTD>
+                                    @if (item.IsDirectory)
+                                    {
+                                        <TextButton Content="@($"📁 {item.Name}")"
+                                                    OnClick="@(() => NavigateToDirectory(item.FullPath))"
+                                                    BackgroundColor="@Color.Black"
+                                                    FocusedColor="@Color.Blue"/>
+                                    }
+                                    else
+                                    {
+                                        <TextButton Content="@($"📄 {item.Name}")"
+                                                    OnClick="@(() => SelectFile(item.FullPath))"
+                                                    BackgroundColor="@Color.Black"
+                                                    FocusedColor="@Color.Green"/>
+                                    }
+                                </SpectreTD>
+                                <SpectreTD>
+                                    <Markup Content="@(item.IsDirectory ? "Directory" : "File")"
+                                            Foreground="@(item.IsDirectory ? Color.Blue : Color.Grey70)"/>
+                                </SpectreTD>
+                                <SpectreTD>
+                                    <Markup Content="@item.Size" Foreground="@Color.Grey70"/>
+                                </SpectreTD>
+                                <SpectreTD>
+                                    <Markup Content="@item.Modified" Foreground="@Color.Grey70"/>
+                                </SpectreTD>
+                            </SpectreTR>
+                        }
+                    </SpectreTBody>
+                </SpectreTable>
+            </Scrollable>
         </Panel>
 
         @if (!string.IsNullOrEmpty(_selectedFile))
         {
-            <Newline />
+            <Newline/>
             <Panel Title="File Details" Border="BoxBorder.Rounded" Expand="true">
                 <Rows>
                     <Columns>
-                        <Markup Content="Path:" Foreground="@Color.Grey70" />
-                        <Markup Content="@_selectedFile" Foreground="@Color.Green" />
+                        <Markup Content="Path:" Foreground="@Color.Grey70"/>
+                        <Markup Content="@_selectedFile" Foreground="@Color.Green"/>
                     </Columns>
                     <Columns>
-                        <Markup Content="Size:" Foreground="@Color.Grey70" />
-                        <Markup Content="@_selectedFileSize" Foreground="@Color.Yellow" />
+                        <Markup Content="Size:" Foreground="@Color.Grey70"/>
+                        <Markup Content="@_selectedFileSize" Foreground="@Color.Yellow"/>
                     </Columns>
                     <Columns>
-                        <Markup Content="Last Modified:" Foreground="@Color.Grey70" />
-                        <Markup Content="@_selectedFileModified" Foreground="@Color.Aqua" />
+                        <Markup Content="Last Modified:" Foreground="@Color.Grey70"/>
+                        <Markup Content="@_selectedFileModified" Foreground="@Color.Aqua"/>
                     </Columns>
                     <Columns>
-                        <Markup Content="Extension:" Foreground="@Color.Grey70" />
-                        <Markup Content="@_selectedFileExtension" Foreground="@Color.Purple" />
+                        <Markup Content="Extension:" Foreground="@Color.Grey70"/>
+                        <Markup Content="@_selectedFileExtension" Foreground="@Color.Purple"/>
                     </Columns>
                 </Rows>
             </Panel>
@@ -95,10 +94,11 @@
     </Rows>
 </Panel>
 
-<Newline />
-<Markup Content="Use Tab to navigate • Press Enter to select • Press Ctrl+C to exit" Foreground="@Color.Grey58" />
+<Newline/>
+<Markup Content="Use Tab to navigate • Press Enter to select • Press Arrow Up/Down to scroll • Press Ctrl+C to exit" Foreground="@Color.Grey58"/>
 
 @code {
+
     private class FileSystemItem
     {
         public string Name { get; set; } = string.Empty;
@@ -115,6 +115,7 @@
     private string _selectedFileSize = string.Empty;
     private string _selectedFileModified = string.Empty;
     private string _selectedFileExtension = string.Empty;
+    private readonly Color _scrollbarThumbFocusedColor = Color.FromHex("#3b78ff");
 
     protected override void OnInitialized()
     {
@@ -240,6 +241,8 @@
             order++;
             len = len / 1024;
         }
+
         return $"{len:0.##} {sizes[order]}";
     }
+
 }
