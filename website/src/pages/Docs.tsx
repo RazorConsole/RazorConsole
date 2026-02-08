@@ -18,6 +18,7 @@ import v0_1_1ReleaseNotes from "../../../release-notes/v0.1.1.md?raw"
 import v0_2_0ReleaseNotes from "../../../release-notes/v0.2.0.md?raw"
 import v0_2_2ReleaseNotes from "../../../release-notes/v0.2.2.md?raw"
 import v0_3_0ReleaseNotes from "../../../release-notes/v0.3.0.md?raw"
+import v0_4_0ReleaseNotes from "../../../release-notes/v0.4.0.md?raw"
 import type { Heading, TopicItem } from "@/types/docs/topicItem"
 import Sidebar from "@/components/docs/Sidebar"
 import EditLink from "@/components/docs/EditLink"
@@ -139,6 +140,12 @@ export default function Docs() {
 
   const releaseNotes: TopicItem[] = useMemo(() => {
     const rawNotes = [
+      {
+        id: "v0.4.0",
+        title: "v0.4.0",
+        content: v0_4_0ReleaseNotes,
+        filePath: "release-notes/v0.4.0.md",
+      },
       {
         id: "v0.3.0",
         title: "v0.3.0",
