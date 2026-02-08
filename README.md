@@ -94,7 +94,7 @@ Build your console UI using familiar Razor components with full support for data
 Create engaging user experiences with interactive elements like buttons, text inputs, selectors, and keyboard navigation - all with focus management handled automatically.
 
 ### 🎯 **Built-in Component Library**
-Get started quickly with **21+ pre-built components** covering layout, input, display, and navigation needs:
+Get started quickly with **20+ pre-built components** covering layout, input, display, and navigation needs:
 - **Layout** (6): `Align`, `Columns`, `Rows`, `Grid`, `Padder`, `Scrollable`
 - **Input** (3): `TextInput`, `TextButton`, `Select`
 - **Display** (12): `BarChart`, `BreakdownChart`, `StepChart`, `Border`, `Figlet`, `Markdown`, `Markup`, `ModalWindow`, `Panel`, `SpectreCanvas`, `SyntaxHighlighter`, `Table`
