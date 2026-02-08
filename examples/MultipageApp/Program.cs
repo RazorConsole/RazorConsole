@@ -1,15 +1,20 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using MultipageApp.Components;
 using RazorConsole.Core;
 
-// Set console encoding to UTF-8 for Unicode symbols
-Console.OutputEncoding = System.Text.Encoding.UTF8;
+var builder = Host
+    .CreateApplicationBuilder(args);
 
-var builder = Host.CreateDefaultBuilder(args)
-    .UseRazorConsole<MultipageApp.Components.App>();
+builder.UseRazorConsole<App>(configure: config =>
+{
+    config.Services.Configure<ConsoleAppOptions>(opt =>
+    {
+        opt.EnableTerminalResizing = true;
+    });
+});
 
-var host = builder.Build();
 
-await host.RunAsync();
-
+await builder.Build().RunAsync();

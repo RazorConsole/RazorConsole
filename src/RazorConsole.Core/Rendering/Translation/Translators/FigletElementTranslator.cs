@@ -1,8 +1,8 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
-
 using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Utilities;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -41,11 +41,16 @@ public sealed class FigletElementTranslator : ITranslationMiddleware
             "center" => Justify.Center,
             _ => Justify.Left,
         };
-        var figlet = new FigletText(content)
+        var fontKey = VdomSpectreTranslator.GetAttribute(node, "data-font");
+        FigletText figlet;
+        if (!string.IsNullOrWhiteSpace(fontKey) && FigletFontRegistry.TryGetOrLoad(fontKey, out var font))
         {
-            Justification = justify,
-            Color = style.Foreground
-        };
+            figlet = new FigletText(font, content) { Justification = justify, Color = style.Foreground };
+        }
+        else
+        {
+            figlet = new FigletText(content) { Justification = justify, Color = style.Foreground };
+        }
 
         return figlet;
     }
@@ -56,4 +61,3 @@ public sealed class FigletElementTranslator : ITranslationMiddleware
            && string.Equals(value, "figlet", StringComparison.OrdinalIgnoreCase)
            && node.Children is { Count: 0 };
 }
-
