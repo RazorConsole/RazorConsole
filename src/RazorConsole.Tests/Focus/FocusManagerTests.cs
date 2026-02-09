@@ -295,6 +295,141 @@ public sealed class FocusManagerTests
         manager.CurrentFocusKey.ShouldBeNull();
     }
 
+    [Fact]
+    public async Task FocusOrder_RespectsFocusOrderAttribute()
+    {
+        var manager = new FocusManager();
+
+        // Create elements with out-of-order focus-order attributes
+        // DOM order: fourth(4), second(2), third(3)
+        // Expected focus order: second(2), third(3), fourth(4)
+        var fourth = VNode.CreateElement("button");
+        fourth.SetKey("fourth");
+        fourth.SetAttribute("data-focusable", "true");
+        fourth.SetAttribute("data-focus-order", "4");
+        fourth.SetEvent("onclick", 1UL);
+
+        var second = VNode.CreateElement("button");
+        second.SetKey("second");
+        second.SetAttribute("data-focusable", "true");
+        second.SetAttribute("data-focus-order", "2");
+        second.SetEvent("onclick", 2UL);
+
+        var third = VNode.CreateElement("button");
+        third.SetKey("third");
+        third.SetAttribute("data-focusable", "true");
+        third.SetAttribute("data-focus-order", "3");
+        third.SetEvent("onclick", 3UL);
+
+        var root = VNode.CreateElement("div");
+        root.AddChild(fourth);
+        root.AddChild(second);
+        root.AddChild(third);
+
+        var view = ConsoleViewResult.Create(
+            "focus-order",
+            root,
+            new FakeRenderable("focus-order"),
+            Array.Empty<IAnimatedConsoleRenderable>());
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(
+            new TestCanvas(),
+            view,
+            new VdomDiffService());
+
+        using var session = manager.BeginSession(context, view, CancellationToken.None);
+        await session.InitializationTask;
+
+        PushInitialSnapshot(manager, view);
+
+        // First focus should be on element with order 2
+        manager.CurrentFocusKey.ShouldBe("second");
+
+        // Next should be element with order 3
+        await manager.FocusNextAsync(session.Token);
+        manager.CurrentFocusKey.ShouldBe("third");
+
+        // Next should be element with order 4
+        await manager.FocusNextAsync(session.Token);
+        manager.CurrentFocusKey.ShouldBe("fourth");
+
+        // Next should wrap to element with order 2
+        await manager.FocusNextAsync(session.Token);
+        manager.CurrentFocusKey.ShouldBe("second");
+    }
+
+    [Fact]
+    public async Task FocusOrder_MixedWithoutOrderAttribute()
+    {
+        var manager = new FocusManager();
+
+        // Create elements with mixed focus-order attributes
+        // DOM order: first(no order), third(3), second(2), fourth(no order)
+        // Expected focus order: second(2), third(3), first(no order), fourth(no order)
+        var first = VNode.CreateElement("button");
+        first.SetKey("first");
+        first.SetAttribute("data-focusable", "true");
+        first.SetEvent("onclick", 1UL);
+
+        var third = VNode.CreateElement("button");
+        third.SetKey("third");
+        third.SetAttribute("data-focusable", "true");
+        third.SetAttribute("data-focus-order", "3");
+        third.SetEvent("onclick", 2UL);
+
+        var second = VNode.CreateElement("button");
+        second.SetKey("second");
+        second.SetAttribute("data-focusable", "true");
+        second.SetAttribute("data-focus-order", "2");
+        second.SetEvent("onclick", 3UL);
+
+        var fourth = VNode.CreateElement("button");
+        fourth.SetKey("fourth");
+        fourth.SetAttribute("data-focusable", "true");
+        fourth.SetEvent("onclick", 4UL);
+
+        var root = VNode.CreateElement("div");
+        root.AddChild(first);
+        root.AddChild(third);
+        root.AddChild(second);
+        root.AddChild(fourth);
+
+        var view = ConsoleViewResult.Create(
+            "focus-order",
+            root,
+            new FakeRenderable("focus-order"),
+            Array.Empty<IAnimatedConsoleRenderable>());
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(
+            new TestCanvas(),
+            view,
+            new VdomDiffService());
+
+        using var session = manager.BeginSession(context, view, CancellationToken.None);
+        await session.InitializationTask;
+
+        PushInitialSnapshot(manager, view);
+
+        // First focus should be on element with order 2
+        manager.CurrentFocusKey.ShouldBe("second");
+
+        // Next should be element with order 3
+        await manager.FocusNextAsync(session.Token);
+        manager.CurrentFocusKey.ShouldBe("third");
+
+        // Next should be first element without order (DOM order)
+        await manager.FocusNextAsync(session.Token);
+        manager.CurrentFocusKey.ShouldBe("first");
+
+        // Next should be fourth element without order (DOM order)
+        await manager.FocusNextAsync(session.Token);
+        manager.CurrentFocusKey.ShouldBe("fourth");
+
+        // Next should wrap to element with order 2
+        await manager.FocusNextAsync(session.Token);
+        manager.CurrentFocusKey.ShouldBe("second");
+    }
+
     private static void PushInitialSnapshot(FocusManager manager, ConsoleViewResult view)
     {
         if (view.VdomRoot is null)
