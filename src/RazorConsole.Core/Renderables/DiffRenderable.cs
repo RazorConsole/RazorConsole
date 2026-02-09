@@ -3,6 +3,7 @@
 using Spectre.Console;
 using Spectre.Console.Rendering;
 using static RazorConsole.Core.Utilities.AnsiSequences;
+
 namespace RazorConsole.Core.Renderables;
 
 internal class DiffRenderable : Renderable
@@ -13,6 +14,8 @@ internal class DiffRenderable : Renderable
     private IRenderable _renderable;
     private SegmentShape _shape = new(0, 0);
     private List<SegmentLine> _previousLines = new();
+    private int _lastMaxWidth = -1;
+
     public bool DidOverflow { get; private set; }
 
     /// <summary>
@@ -40,6 +43,10 @@ internal class DiffRenderable : Renderable
         {
             yield return Segment.Control(RM(DECTCEM));
             DidOverflow = false;
+
+            bool widthChanged = _lastMaxWidth != -1 && _lastMaxWidth != maxWidth;
+            _lastMaxWidth = maxWidth;
+
             var segments = _renderable.Render(options, maxWidth);
             var segmentLines = Segment.SplitLines(segments);
             var shape = SegmentShape.Calculate(options, segmentLines);
@@ -49,6 +56,7 @@ internal class DiffRenderable : Renderable
             {
                 DidOverflow = true;
             }
+
             var previousLines = _previousLines ?? EmptyLines;
             var totalLines = segmentLines.Count;
             var renderFromLine = 0;
@@ -66,13 +74,14 @@ internal class DiffRenderable : Renderable
 
             // Move cursor to the first different line in the viewport
             int linesToMoveUp = _shape.Height - renderFromLine;
-            bool needFullClear = NeedsFullClear(linesToMoveUp);
+
+            bool needFullClear = NeedsFullClear(linesToMoveUp) || widthChanged;
+
             if (needFullClear)
             {
-                // The previous content is larger than the current console height, we need to clear everything
+                // The previous content is larger than the current console height, OR resize happened.
+                // We need to clear everything to avoid artifacts.
                 yield return Segment.Control(ED(2) + ED(3) + CUP(1, 1));
-                renderFromLine = 0;
-                linesToMoveUp = 0;
                 previousLines = EmptyLines;
                 renderFromLine = 0;
             }
@@ -113,11 +122,23 @@ internal class DiffRenderable : Renderable
                 yield return Segment.Control(NEL());
             }
 
+            // Cleaning residual lines from below
+            if (!needFullClear && previousLines.Count > totalLines)
+            {
+                var remaining = previousLines.Count - totalLines;
+                for (var i = 0; i < remaining; i++)
+                {
+                    yield return Segment.Control(EL(2)); // Clean line
+                    yield return Segment.Control(NEL()); // Go to next line
+                }
+
+                yield return Segment.Control(CUU(remaining));
+            }
+
             // Update the previous lines for next comparison
             _previousLines = CloneLines(segmentLines);
             _shape = shape;
             yield return Segment.Control(SM(DECTCEM));
-            yield break;
         }
     }
 
@@ -156,7 +177,7 @@ internal class DiffRenderable : Renderable
     private static bool SegmentsAreEqual(Segment segment1, Segment segment2)
     {
         return string.Equals(segment1.Text, segment2.Text, StringComparison.Ordinal)
-            && Equals(segment1.Style, segment2.Style);
+               && Equals(segment1.Style, segment2.Style);
     }
 
     internal static IEnumerable<Segment> RenderLineDiff(SegmentLine line, SegmentLine previousLine)

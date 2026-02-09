@@ -6,6 +6,7 @@
     data-content="@Content"
     data-justify="@justifyAttribute"
     data-style="@styleAttributes"
+    data-font="@Font"
 />
 
 @code {
@@ -41,4 +42,12 @@
     /// </summary>
     [Parameter]
     public Color Color { get; set; } = Color.Default;
+
+    /// <summary>
+    /// Custom FIGlet font name or path to .flf file
+    /// </summary>
+    /// <remarks>If it is name, it must be registered using <see cref="RazorConsole.Core.Utilities.FigletFontRegistry"/></remarks>
+    [Parameter]
+    public string Font { get; set; } = string.Empty;
+
 }

@@ -16,13 +16,10 @@
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-  </PropertyGroup>
-
   <!-- Set CompilerGeneratedFilesOutputPath after BaseIntermediateOutputPath is fully resolved -->
   <Target Name="SetCompilerGeneratedFilesPath" BeforeTargets="PrepareForBuild" Condition="'$(Configuration)' == 'Debug'">
     <PropertyGroup>
+      <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
       <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
     </PropertyGroup>
   </Target>
