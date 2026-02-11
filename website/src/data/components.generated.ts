@@ -119,6 +119,12 @@ export const componentMetadata: Record<string, Partial<ComponentInfo>> = {
     description: "Interactive button component.",
     examples: ["TextButton_1.razor"],
   },
+  FlexBox: {
+    category: "Layout",
+    description: "Lays out children using a CSS-like flexbox model with configurable direction, justification, alignment, wrapping, and gap.",
+    examples: ["FlexBox_1.razor"],
+    previewHeight: "550px",
+  },
 }
 
 // Type overrides for better accuracy than inference
@@ -174,6 +180,15 @@ export const typeOverrides: Record<string, Record<string, string>> = {
     Placeholder: "string?",
     IsPassword: "bool",
     MaxLength: "int?",
+  },
+  FlexBox: {
+    Direction: "FlexDirection",
+    Justify: "FlexJustify",
+    Align: "FlexAlign",
+    Wrap: "FlexWrap",
+    Gap: "int",
+    Width: "int?",
+    Height: "int?",
   },
 }
 
@@ -260,6 +275,7 @@ export function generateComponents(): ComponentInfo[] {
       category: metadata.category || "Utilities",
       examples: metadata.examples || [],
       parameters,
+      previewHeight: metadata.previewHeight,
     })
   })
 

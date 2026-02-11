@@ -90,6 +90,9 @@ public partial class Registry
             case "StepChart":
                 _renderers[elementID] = new RazorConsoleRenderer<StepChart_1>(elementID, cols, rows);
                 break;
+            case "FlexBox":
+                _renderers[elementID] = new RazorConsoleRenderer<FlexBox_1>(elementID, cols, rows);
+                break;
         }
     }
 

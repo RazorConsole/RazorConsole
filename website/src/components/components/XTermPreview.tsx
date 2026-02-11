@@ -13,6 +13,7 @@ import { FitAddon } from "@xterm/addon-fit"
 interface XTermPreviewProps {
   elementId: string
   className?: string
+  style?: React.CSSProperties
 }
 
 const TERMINAL_THEME = {
@@ -62,7 +63,7 @@ const TERMINAL_THEME = {
   },
 }
 
-export default function XTermPreview({ elementId, className = "" }: XTermPreviewProps) {
+export default function XTermPreview({ elementId, className = "", style }: XTermPreviewProps) {
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
@@ -221,6 +222,7 @@ export default function XTermPreview({ elementId, className = "" }: XTermPreview
       className={`relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 ${className}`}
       style={{
         backgroundColor: isDark ? TERMINAL_THEME.dark.background : TERMINAL_THEME.light.background,
+        ...style,
       }}
     >
       {/* Window Title Bar */}

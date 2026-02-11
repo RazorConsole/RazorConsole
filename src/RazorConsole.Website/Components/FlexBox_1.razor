@@ -1,0 +1,166 @@
+@using Spectre.Console
+@using RazorConsole.Components
+@using RazorConsole.Core.Renderables
+
+<FlexBox Direction="FlexDirection.Column" Gap="1">
+    @* ── Header (centered) ── *@
+    <FlexBox Direction="FlexDirection.Row" Justify="FlexJustify.Center">
+        <Markup Content="Create Your Account" Decoration="@(Decoration.Bold | Decoration.Underline)"
+                Foreground="@Color.DeepSkyBlue1" />
+    </FlexBox>
+
+    @* ── Name fields with SpaceBetween ── *@
+    <FlexBox Direction="FlexDirection.Row" Justify="FlexJustify.SpaceBetween">
+        <TextInput Label="First Name" Value="@_firstName" ValueChanged="OnFirstNameChanged"
+                   Placeholder="Ada" FocusedBorderColor="@Color.DeepSkyBlue1"
+                   BorderPadding="@_inputPadding" />
+        <TextInput Label="Middle Name" Value="@_middleName" ValueChanged="OnMiddleNameChanged"
+                   Placeholder="Augusta" FocusedBorderColor="@Color.DeepSkyBlue1"
+                   BorderPadding="@_inputPadding" />
+        <TextInput Label="Last Name" Value="@_lastName" ValueChanged="OnLastNameChanged"
+                   Placeholder="Lovelace" FocusedBorderColor="@Color.DeepSkyBlue1"
+                   BorderPadding="@_inputPadding" />
+    </FlexBox>
+
+    @* ── Email field full width ── *@
+    <TextInput Label="Email" Value="@_email" ValueChanged="OnEmailChanged"
+               Placeholder="ada@example.com" FocusedBorderColor="@Color.DeepSkyBlue1"
+               BorderPadding="@_inputPadding" Expand="true" />
+
+    @* ── Password field full width ── *@
+    <TextInput Label="Password" Value="@_password" ValueChanged="OnPasswordChanged"
+               Placeholder="Enter password" MaskInput="true"
+               FocusedBorderColor="@Color.DeepSkyBlue1"
+               BorderPadding="@_inputPadding" Expand="true" />
+
+    @* ── Role selector with description ── *@
+    <Markup Content="Select your role to determine access permissions:" Foreground="@Color.Grey70" />
+    <Select TItem="string" Options="@_roles" Value="@_selectedRole"
+            FocusedValue="@_focusedRole"
+            FocusedValueChanged="@((v) => _focusedRole = v)"
+            ValueChanged="@((v) => _selectedRole = v)"
+            Placeholder="Choose a role" />
+
+    @* ── Interests (wrapping tags) ── *@
+    <Markup Content="Pick your interests:" Foreground="@Color.Grey70" />
+    <FlexBox Direction="FlexDirection.Row" Wrap="FlexWrap.Wrap" Gap="2">
+        @foreach (var interest in _interests)
+        {
+            <TextButton Content="@interest" BackgroundColor="@(IsSelected(interest) ? Color.DeepSkyBlue1 : Color.Default)"
+                        FocusedColor="Color.Cyan1" OnClick="@(() => ToggleInterest(interest))" />
+        }
+    </FlexBox>
+
+    @* ── Action buttons ── *@
+    <FlexBox Direction="FlexDirection.Row" Justify="FlexJustify.End" Gap="3">
+        <TextButton Content="Cancel" BackgroundColor="Color.Grey"
+                    FocusedColor="Color.Red" OnClick="HandleCancel" />
+        <TextButton Content="Submit" BackgroundColor="Color.Grey"
+                    FocusedColor="Color.Green" OnClick="HandleSubmit" />
+    </FlexBox>
+
+    @* ── Status line ── *@
+    <Markup Content="@_statusText" Foreground="@_statusColor"
+            Decoration="@Decoration.Italic" />
+</FlexBox>
+
+@code {
+    private static readonly Padding _inputPadding = new(1, 0, 1, 0);
+    private static readonly string[] _roles = ["Viewer", "Editor", "Admin"];
+    private static readonly string[] _interests =
+        ["C#", "Razor", "Blazor", "Spectre.Console", "TUI", "CLI", "DevOps", "AI"];
+
+    private string _firstName = string.Empty;
+    private string _middleName = string.Empty;
+    private string _lastName = string.Empty;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string? _selectedRole;
+    private string? _focusedRole;
+    private readonly HashSet<string> _selectedInterests = new();
+    private string _statusText = "Fill out the form and press Submit.";
+    private Color _statusColor = Color.Grey70;
+
+    private bool IsSelected(string interest) => _selectedInterests.Contains(interest);
+
+    private void ToggleInterest(string interest)
+    {
+        if (!_selectedInterests.Remove(interest))
+        {
+            _selectedInterests.Add(interest);
+        }
+
+        StateHasChanged();
+    }
+
+    private Task OnFirstNameChanged(string? v)
+    {
+        _firstName = v ?? string.Empty;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnMiddleNameChanged(string? v)
+    {
+        _middleName = v ?? string.Empty;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnLastNameChanged(string? v)
+    {
+        _lastName = v ?? string.Empty;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnEmailChanged(string? v)
+    {
+        _email = v ?? string.Empty;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnPasswordChanged(string? v)
+    {
+        _password = v ?? string.Empty;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void HandleCancel()
+    {
+        _firstName = string.Empty;
+        _middleName = string.Empty;
+        _lastName = string.Empty;
+        _email = string.Empty;
+        _password = string.Empty;
+        _selectedRole = null;
+        _selectedInterests.Clear();
+        _statusText = "Form cleared.";
+        _statusColor = Color.Yellow;
+        StateHasChanged();
+    }
+
+    private void HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_email))
+        {
+            _statusText = "⚠ First name and email are required.";
+            _statusColor = Color.Red;
+        }
+        else
+        {
+            var interests = _selectedInterests.Count > 0
+                ? string.Join(", ", _selectedInterests)
+                : "none";
+            var fullName = string.IsNullOrWhiteSpace(_middleName)
+                ? $"{_firstName} {_lastName}"
+                : $"{_firstName} {_middleName} {_lastName}";
+            _statusText = $"✔ Registered {fullName} as {_selectedRole ?? "Viewer"} with interests: {interests}.";
+            _statusColor = Color.Green;
+        }
+
+        StateHasChanged();
+    }
+}

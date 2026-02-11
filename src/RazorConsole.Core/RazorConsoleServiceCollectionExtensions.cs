@@ -91,6 +91,7 @@ public static class RazorConsoleServiceCollectionExtensions
         services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.PanelElementTranslator>();
         services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.RowsElementTranslator>();
         services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.ColumnsElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.FlexBoxElementTranslator>();
         services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.GridElementTranslator>();
         services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.PadderElementTranslator>();
         services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.AlignElementTranslator>();

@@ -15,7 +15,7 @@ export function ComponentPreview({ component }: { component: ComponentInfo }) {
 
   return (
     <div className="group relative my-4 flex flex-col space-y-4">
-      <XTermPreview elementId={component.name} className="h-[300px]" />
+      <XTermPreview elementId={component.name} className={`h-[300px]`} style={{ height: component.previewHeight }} />
 
       <div className="flex flex-col space-y-4">
         <div className="w-full [&_pre]:my-0 [&_pre]:max-h-[300px] [&_pre]:overflow-auto">
