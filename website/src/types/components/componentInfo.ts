@@ -14,4 +14,6 @@ export interface ComponentInfo {
   // the files are located in razor-console/src/RazorConsole.Website/Components/
   // e.g., ["Align_1.razor"]
   examples: string[]
+  // optional custom height (CSS value) for the xterm preview container
+  previewHeight?: string
 }

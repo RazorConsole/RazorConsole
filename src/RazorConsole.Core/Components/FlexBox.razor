@@ -1,0 +1,88 @@
+@namespace RazorConsole.Components
+
+@using System.Globalization
+@using Microsoft.AspNetCore.Components
+@using RazorConsole.Core.Renderables
+
+<div class="flexbox"
+    data-direction="@DirectionAttribute"
+    data-justify="@JustifyAttribute"
+    data-align="@AlignAttribute"
+    data-wrap="@WrapAttribute"
+    data-gap="@GapAttribute"
+    data-width="@WidthAttribute"
+    data-height="@HeightAttribute">
+    @ChildContent
+</div>
+
+@code {
+        /// <summary>
+        /// Lays out child content using a CSS-like flexbox model with configurable direction,
+        /// justification, alignment, wrapping, and gap.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Use <c>Direction</c> to choose horizontal (<see cref="FlexDirection.Row"/>) or vertical
+        /// (<see cref="FlexDirection.Column"/>) layout. Combine with <c>Justify</c> and <c>Align</c>
+        /// to control distribution and alignment of child items.
+        /// </para>
+        /// </remarks>
+        /// 
+    /// <summary>
+    /// The main axis direction. Default is <see cref="FlexDirection.Row"/>.
+    /// </summary>
+    [Parameter]
+    public FlexDirection Direction { get; set; } = FlexDirection.Row;
+
+    /// <summary>
+    /// How free space is distributed along the main axis. Default is <see cref="FlexJustify.Start"/>.
+    /// </summary>
+    [Parameter]
+    public FlexJustify Justify { get; set; } = FlexJustify.Start;
+
+    /// <summary>
+    /// How items are aligned along the cross axis. Default is <see cref="FlexAlign.Start"/>.
+    /// </summary>
+    [Parameter]
+    public FlexAlign Align { get; set; } = FlexAlign.Start;
+
+    /// <summary>
+    /// Whether items wrap to new lines when they exceed the available space. Default is <see cref="FlexWrap.NoWrap"/>.
+    /// </summary>
+    [Parameter]
+    public FlexWrap Wrap { get; set; } = FlexWrap.NoWrap;
+
+    /// <summary>
+    /// Spacing between items along the main axis in characters (Row) or lines (Column). Default is 0.
+    /// </summary>
+    [Parameter]
+    public int Gap { get; set; }
+
+    /// <summary>
+    /// Explicit width constraint in characters. When null, uses all available width.
+    /// </summary>
+    [Parameter]
+    public int? Width { get; set; }
+
+    /// <summary>
+    /// Explicit height constraint in lines. When null, uses the natural content height.
+    /// </summary>
+    [Parameter]
+    public int? Height { get; set; }
+
+    /// <summary>
+    /// The child content to lay out within the flex container.
+    /// </summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private string DirectionAttribute => Direction.ToString().ToLowerInvariant();
+    private string JustifyAttribute => Justify.ToString().ToLowerInvariant();
+    private string AlignAttribute => Align.ToString().ToLowerInvariant();
+    private string WrapAttribute => Wrap.ToString().ToLowerInvariant();
+    private string GapAttribute => Gap.ToString(CultureInfo.InvariantCulture);
+    private string? WidthAttribute => Width.HasValue && Width.Value > 0
+        ? Width.Value.ToString(CultureInfo.InvariantCulture) : null;
+    private string? HeightAttribute => Height.HasValue && Height.Value > 0
+        ? Height.Value.ToString(CultureInfo.InvariantCulture) : null;
+}

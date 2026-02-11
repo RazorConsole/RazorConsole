@@ -1,0 +1,153 @@
+@page "/flexbox"
+
+@using RazorConsole.Core.Renderables
+
+<Rows>
+    <Markup
+        Content="FlexBox lays out child content using a CSS-like flexbox model with configurable direction, justification, alignment, wrapping, and gap."
+        Foreground="@Color.Grey70" />
+    <Markup Content="Source Code: FlexBox.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline"
+            link="@DocumentationUrl" />
+    <Newline />
+
+    @* ── Row with gap ── *@
+    <Panel Title="Row with Gap" Border="BoxBorder.Rounded" Expand="true">
+        <Rows>
+            <Panel Title="Code" Border="BoxBorder.None">
+                <SyntaxHighlighter Language="razor"
+                                   Code="@_rowGapCode"
+                                   ShowLineNumbers="true" />
+            </Panel>
+            <Panel Title="Preview" Border="BoxBorder.Heavy">
+                <FlexBox Direction="FlexDirection.Row" Gap="5">
+                    <Markup Content="Home" Foreground="Color.Green" />
+                    <Markup Content="About" Foreground="Color.Blue" />
+                    <Markup Content="Contact" Foreground="Color.Yellow" />
+                </FlexBox>
+            </Panel>
+        </Rows>
+    </Panel>
+
+    @* ── Row with Justify Center ── *@
+    <Panel Title="Row + Justify Center" Border="BoxBorder.Rounded" Expand="true">
+        <Rows>
+            <Panel Title="Code" Border="BoxBorder.None">
+                <SyntaxHighlighter Language="razor"
+                                   Code="@_justifyCenterCode"
+                                   ShowLineNumbers="true" />
+            </Panel>
+            <Panel Title="Preview" Border="BoxBorder.Heavy">
+                <FlexBox Direction="FlexDirection.Row" Justify="FlexJustify.Center" Gap="2">
+                    <Markup Content="Open" Decoration="Decoration.Bold" />
+                    <Markup Content="Save" Decoration="Decoration.Bold" />
+                    <Markup Content="Close" Decoration="Decoration.Bold" />
+                </FlexBox>
+            </Panel>
+        </Rows>
+    </Panel>
+
+    @* ── Row with Justify SpaceBetween ── *@
+    <Panel Title="Row + SpaceBetween" Border="BoxBorder.Rounded" Expand="true">
+        <Rows>
+            <Panel Title="Code" Border="BoxBorder.None">
+                <SyntaxHighlighter Language="razor"
+                                   Code="@_spaceBetweenCode"
+                                   ShowLineNumbers="true" />
+            </Panel>
+            <Panel Title="Preview" Border="BoxBorder.Heavy" Expand="true">
+                <FlexBox Direction="FlexDirection.Row" Justify="FlexJustify.SpaceBetween">
+                    <Markup Content="◀ Prev" Foreground="Color.Green" />
+                    <Markup Content="Page 3 of 10" Foreground="Color.Yellow" />
+                    <Markup Content="Next ▶" Foreground="Color.Green" />
+                </FlexBox>
+            </Panel>
+        </Rows>
+    </Panel>
+
+    @* ── Column layout ── *@
+    <Panel Title="Column Direction" Border="BoxBorder.Rounded" Expand="true">
+        <Rows>
+            <Panel Title="Code" Border="BoxBorder.None">
+                <SyntaxHighlighter Language="razor"
+                                   Code="@_columnCode"
+                                   ShowLineNumbers="true" />
+            </Panel>
+            <Panel Title="Preview" Border="BoxBorder.Heavy">
+                <FlexBox Direction="FlexDirection.Column" Gap="1" Align="FlexAlign.Center">
+                    <Markup Content="Status Dashboard" Decoration="@(Decoration.Bold | Decoration.Underline)" />
+                    <Markup Content="✔ Build passed" Foreground="Color.Green" />
+                    <Markup Content="✔ Tests passed" Foreground="Color.Green" />
+                    <Markup Content="⚠ 2 warnings" Foreground="Color.Yellow" />
+                </FlexBox>
+            </Panel>
+        </Rows>
+    </Panel>
+
+    @* ── Wrapping ── *@
+    <Panel Title="Wrapping" Border="BoxBorder.Rounded" Expand="true">
+        <Rows>
+            <Panel Title="Code" Border="BoxBorder.None">
+                <SyntaxHighlighter Language="razor"
+                                   Code="@_wrapCode"
+                                   ShowLineNumbers="true" />
+            </Panel>
+            <Panel Title="Preview" Border="BoxBorder.Heavy" Expand="true">
+                <FlexBox Direction="FlexDirection.Row" Wrap="FlexWrap.Wrap" Gap="2">
+                    <Markup Content="csharp" Foreground="Color.Blue" />
+                    <Markup Content="razor" Foreground="Color.Green" />
+                    <Markup Content="html" Foreground="Color.Yellow" />
+                    <Markup Content="css" Foreground="Color.Red" />
+                    <Markup Content="json" Foreground="Color.Magenta1" />
+                    <Markup Content="xml" Foreground="Color.Cyan1" />
+                    <Markup Content="sql" Foreground="Color.Grey" />
+                    <Markup Content="python" Foreground="Color.Blue" />
+                    <Markup Content="javascript" Foreground="Color.Green" />
+                    <Markup Content="typescript" Foreground="Color.Yellow" />
+                </FlexBox>
+            </Panel>
+        </Rows>
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly string _rowGapCode = @"<FlexBox Direction=""FlexDirection.Row"" Gap=""5"">
+    <Markup Content=""Home"" Foreground=""Color.Green"" />
+    <Markup Content=""About"" Foreground=""Color.Blue"" />
+    <Markup Content=""Contact"" Foreground=""Color.Yellow"" />
+</FlexBox>".Trim();
+
+    private static readonly string _justifyCenterCode = @"<FlexBox Direction=""FlexDirection.Row""
+        Justify=""FlexJustify.Center"" Gap=""2"">
+    <Markup Content=""Open"" Decoration=""Decoration.Bold"" />
+    <Markup Content=""Save"" Decoration=""Decoration.Bold"" />
+    <Markup Content=""Close"" Decoration=""Decoration.Bold"" />
+</FlexBox>".Trim();
+
+    private static readonly string _spaceBetweenCode = @"<FlexBox Direction=""FlexDirection.Row""
+        Justify=""FlexJustify.SpaceBetween"">
+    <Markup Content=""◀ Prev"" Foreground=""Color.Green"" />
+    <Markup Content=""Page 3 of 10"" Foreground=""Color.Yellow"" />
+    <Markup Content=""Next ▶"" Foreground=""Color.Green"" />
+</FlexBox>".Trim();
+
+    private static readonly string _columnCode = @"<FlexBox Direction=""FlexDirection.Column""
+        Gap=""1"" Align=""FlexAlign.Center"">
+    <Markup Content=""Status Dashboard""
+           Decoration=""@(Decoration.Bold | Decoration.Underline)"" />
+    <Markup Content=""✔ Build passed"" Foreground=""Color.Green"" />
+    <Markup Content=""✔ Tests passed"" Foreground=""Color.Green"" />
+    <Markup Content=""⚠ 2 warnings"" Foreground=""Color.Yellow"" />
+</FlexBox>".Trim();
+
+    private static readonly string _wrapCode = @"<FlexBox Direction=""FlexDirection.Row""
+        Wrap=""FlexWrap.Wrap"" Gap=""2"">
+    <Markup Content=""csharp"" Foreground=""Color.Blue"" />
+    <Markup Content=""razor"" Foreground=""Color.Green"" />
+    <Markup Content=""html"" Foreground=""Color.Yellow"" />
+    <Markup Content=""css"" Foreground=""Color.Red"" />
+    ...
+</FlexBox>".Trim();
+
+    private const string DocumentationUrl =
+        "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/FlexBox.razor";
+}
