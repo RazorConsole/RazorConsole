@@ -219,19 +219,6 @@ tag1 tag2 tag3 tag4 tag5
 tag6 tag7 tag8
 ```
 
-## Testing Strategy
-
-Tests in `FlexBoxRenderableTests.cs` will cover:
-
-1. **Construction** — null items → `ArgumentNullException`, empty items → no crash.
-2. **Measure** — correct min/max for row and column directions.
-3. **Row rendering** — items rendered side-by-side, gaps applied.
-4. **Column rendering** — items stacked vertically, gaps applied.
-5. **Justification** — verify padding for each `FlexJustify` variant.
-6. **Alignment** — verify cross-axis padding for each `FlexAlign` variant.
-7. **Wrapping** — items that exceed `maxWidth` wrap to the next line.
-8. **Edge cases** — single item, zero gap, items wider than maxWidth.
-
 ## See Also
 
 - [BlockInlineRenderable](block-inline-renderable.md) — block/inline flow model.
