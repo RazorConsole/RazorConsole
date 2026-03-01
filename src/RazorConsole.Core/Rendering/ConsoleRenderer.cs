@@ -407,6 +407,7 @@ internal sealed class ConsoleRenderer(
             {
                 var componentId = frame.ComponentId;
                 var component = VNode.CreateComponent();
+                component.SetKey(frame.ComponentKey?.ToString());
                 component.SetAttribute("component-id", componentId.ToString(CultureInfo.InvariantCulture));
                 if (frame.ComponentType is not null)
                 {
@@ -567,6 +568,7 @@ internal sealed class ConsoleRenderer(
         {
             visitedComponents.Add(childId.Value);
             var descendants = CollectRenderableChildren(componentRoot, visitedComponents);
+            TryApplyComponentKey(node.Key, descendants);
             result.AddRange(descendants);
             visitedComponents.Remove(childId.Value);
             return;
@@ -615,6 +617,23 @@ internal sealed class ConsoleRenderer(
         }
 
         return clone;
+    }
+
+    private static void TryApplyComponentKey(string? componentKey, List<VNode> descendants)
+    {
+        if (string.IsNullOrWhiteSpace(componentKey) || descendants.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var descendant in descendants)
+        {
+            if (descendant.Kind == VNodeKind.Element && string.IsNullOrWhiteSpace(descendant.Key))
+            {
+                descendant.SetKey(componentKey);
+                return;
+            }
+        }
     }
 
     private static VNode CreateDivWrapper(List<VNode> children)

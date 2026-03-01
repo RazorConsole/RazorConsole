@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Focus;
@@ -430,6 +431,55 @@ public sealed class FocusManagerTests
         manager.CurrentFocusKey.ShouldBe("second");
     }
 
+    [Fact]
+    public async Task FocusAsync_KeyedConditionalComponent_FindsTarget()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var host = new KeyedConditionalHost();
+
+        var initialSnapshot = await renderer.MountComponentAsync(host, ParameterView.Empty, CancellationToken.None);
+        var initialRenderable = initialSnapshot.Renderable.ShouldNotBeNull();
+        var initialView = ConsoleViewResult.Create(
+            "repro307-initial",
+            initialSnapshot.Root!,
+            initialRenderable,
+            initialSnapshot.AnimatedRenderables);
+
+        var manager = new FocusManager();
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(
+            new TestCanvas(),
+            initialView,
+            new VdomDiffService());
+        using var session = manager.BeginSession(context, initialView, CancellationToken.None);
+        await session.InitializationTask;
+
+        PushSnapshot(manager, initialSnapshot);
+
+        var updateReceived = new TaskCompletionSource<bool>();
+        using var subscription = renderer.Subscribe(new SnapshotObserver(snapshot =>
+        {
+            PushSnapshot(manager, snapshot);
+
+            if (HasFocusableCount(snapshot.Root, 2))
+            {
+                updateReceived.TrySetResult(true);
+            }
+        }));
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+            await host.SetParametersAsync(ParameterView.FromDictionary(new Dictionary<string, object?>
+            {
+                { nameof(KeyedConditionalHost.ShowSecond), true }
+            })));
+
+        await updateReceived.Task.WaitAsync(TimeSpan.FromSeconds(2), Xunit.TestContext.Current.CancellationToken);
+
+        var focusedByKey = await manager.FocusAsync("test", session.Token);
+
+        focusedByKey.ShouldBeTrue();
+        manager.CurrentFocusKey.ShouldBe("test");
+    }
+
     private static void PushInitialSnapshot(FocusManager manager, ConsoleViewResult view)
     {
         if (view.VdomRoot is null)
@@ -439,6 +489,40 @@ public sealed class FocusManagerTests
 
         var snapshot = new ConsoleRenderer.RenderSnapshot(view.VdomRoot, view.Renderable, view.AnimatedRenderables);
         ((IObserver<ConsoleRenderer.RenderSnapshot>)manager).OnNext(snapshot);
+    }
+
+    private static void PushSnapshot(FocusManager manager, ConsoleRenderer.RenderSnapshot snapshot)
+    {
+        ((IObserver<ConsoleRenderer.RenderSnapshot>)manager).OnNext(snapshot);
+    }
+
+    private static bool HasFocusableCount(VNode? node, int expectedCount)
+    {
+        if (node is null)
+        {
+            return false;
+        }
+
+        var count = 0;
+        var stack = new Stack<VNode>();
+        stack.Push(node);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+
+            if (current.Kind == VNodeKind.Element && current.Attributes.ContainsKey("data-focusable"))
+            {
+                count++;
+            }
+
+            for (var i = current.Children.Count - 1; i >= 0; i--)
+            {
+                stack.Push(current.Children[i]);
+            }
+        }
+
+        return count == expectedCount;
     }
 
     private static ConsoleViewResult CreateView(IReadOnlyList<string> keys, string? focusedKey)
@@ -532,6 +616,59 @@ public sealed class FocusManagerTests
 
             Events.Add((type, handlerId));
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class SnapshotObserver(Action<ConsoleRenderer.RenderSnapshot> onNext) : IObserver<ConsoleRenderer.RenderSnapshot>
+    {
+        public void OnCompleted()
+        {
+        }
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnNext(ConsoleRenderer.RenderSnapshot value)
+            => onNext(value);
+    }
+
+    private sealed class KeyedConditionalHost : ComponentBase
+    {
+        [Parameter]
+        public bool ShowSecond { get; set; }
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+
+            builder.OpenComponent<FocusableLeaf>(1);
+            builder.AddAttribute(2, nameof(FocusableLeaf.Label), "first");
+            builder.CloseComponent();
+
+            if (ShowSecond)
+            {
+                builder.OpenComponent<FocusableLeaf>(3);
+                builder.SetKey("test");
+                builder.AddAttribute(4, nameof(FocusableLeaf.Label), "second");
+                builder.CloseComponent();
+            }
+
+            builder.CloseElement();
+        }
+    }
+
+    private sealed class FocusableLeaf : ComponentBase
+    {
+        [Parameter]
+        public string Label { get; set; } = string.Empty;
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "data-focusable", "true");
+            builder.AddContent(2, Label);
+            builder.CloseElement();
         }
     }
 }
