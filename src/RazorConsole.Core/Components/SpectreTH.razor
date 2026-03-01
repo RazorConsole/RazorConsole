@@ -1,14 +1,17 @@
 @namespace RazorConsole.Components
 
-@using System.Collections.Generic
-@using Microsoft.AspNetCore.Components
 @using Spectre.Console
 
-<th data-align="@AlignAttribute" @attributes="AdditionalAttributes">
+<th data-align="@AlignAttribute"
+    data-width="@Width"
+    data-padding="@PaddingAttribute"
+    data-no-wrap="@NoWrapAttribute"
+    @attributes="AdditionalAttributes">
     @ChildContent
 </th>
 
 @code {
+
     /// <summary>
     /// Table header cell for <see cref="SpectreTable"/>.
     /// </summary>
@@ -29,6 +32,27 @@
     public Justify? Align { get; set; }
 
     /// <summary>
+    /// The width of the column.
+    /// </summary>
+    [Parameter]
+    public int? Width { get; set; }
+
+    /// <summary>
+    /// The padding of the column.
+    /// </summary>
+    [Parameter]
+    public Padding? Padding { get; set; }
+
+    /// <summary>
+    /// No wrap flag. If true, then text doesn't wrap in column.
+    /// </summary>
+    /// <remarks>
+    /// By default, is false
+    /// </remarks>
+    [Parameter]
+    public bool NoWrap { get; set; }
+
+    /// <summary>
     /// Additional HTML attributes for the th element.
     /// </summary>
     [Parameter(CaptureUnmatchedValues = true)]
@@ -41,4 +65,11 @@
         Justify.Center => "center",
         _ => null,
     };
+
+    private string? PaddingAttribute => Padding.HasValue
+        ? $"{Padding.Value.Left},{Padding.Value.Top},{Padding.Value.Right},{Padding.Value.Bottom}"
+        : null;
+
+    private string NoWrapAttribute => NoWrap.ToString().ToLower();
+
 }

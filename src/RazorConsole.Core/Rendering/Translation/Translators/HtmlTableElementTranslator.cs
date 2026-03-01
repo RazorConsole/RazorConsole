@@ -1,7 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
-
 using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
@@ -116,6 +115,21 @@ public sealed class HtmlTableElementTranslator : ITranslationMiddleware
             if (headerCell?.Alignment is { } alignment)
             {
                 column.Alignment = alignment;
+            }
+
+            if (headerCell?.Width is { } cellWidth)
+            {
+                column.Width = cellWidth;
+            }
+
+            if (headerCell?.Padding is { } cellPadding)
+            {
+                column.Padding = cellPadding;
+            }
+
+            if (headerCell?.NoWrap is { } noWrap)
+            {
+                column.NoWrap = noWrap;
             }
 
             table.AddColumn(column);
@@ -248,7 +262,12 @@ public sealed class HtmlTableElementTranslator : ITranslationMiddleware
             var alignmentAttribute = VdomSpectreTranslator.GetAttribute(child, "data-align");
             var alignment = ParseAlignment(alignmentAttribute);
 
-            cells.Add(new CellData(renderable, alignment));
+            var widthAttribute = VdomSpectreTranslator.GetAttribute(child, "data-width");
+            int? cellWidth = VdomSpectreTranslator.TryParsePositiveInt(widthAttribute, out var w) ? w : null;
+
+            VdomSpectreTranslator.TryParsePadding(VdomSpectreTranslator.GetAttribute(child, "data-padding"), out var padding);
+            VdomSpectreTranslator.TryGetBoolAttribute(child, "data-no-wrap", out var noWrap);
+            cells.Add(new CellData(renderable, alignment, cellWidth, padding, noWrap));
         }
 
         rowData = new RowData(cells.ToArray());
@@ -310,7 +329,7 @@ public sealed class HtmlTableElementTranslator : ITranslationMiddleware
         return buffer;
     }
 
-    private sealed record CellData(IRenderable Content, Justify? Alignment);
+    private sealed record CellData(IRenderable Content, Justify? Alignment, int? Width, Padding? Padding, bool? NoWrap);
 
     private sealed record RowData(CellData[] Cells)
     {
@@ -325,4 +344,3 @@ public sealed class HtmlTableElementTranslator : ITranslationMiddleware
         }
     }
 }
-
