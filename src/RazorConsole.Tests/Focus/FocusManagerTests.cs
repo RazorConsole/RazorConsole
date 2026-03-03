@@ -480,6 +480,63 @@ public sealed class FocusManagerTests
         manager.CurrentFocusKey.ShouldBe("test");
     }
 
+    [Fact]
+    public async Task FocusAsync_TargetNotYetRendered_AppliesWhenTargetAppears()
+    {
+        var manager = new FocusManager();
+        var initial = CreateView(new[] { "first" }, focusedKey: null);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(
+            new TestCanvas(),
+            initial,
+            new VdomDiffService());
+        using var session = manager.BeginSession(context, initial, CancellationToken.None);
+        await session.InitializationTask;
+
+        PushInitialSnapshot(manager, initial);
+
+        manager.CurrentFocusKey.ShouldBe("first");
+
+        var focusedImmediately = await manager.FocusAsync("later", CancellationToken.None);
+        focusedImmediately.ShouldBeFalse();
+        manager.CurrentFocusKey.ShouldBe("first");
+
+        var updated = CreateView(new[] { "first", "later" }, focusedKey: null);
+        PushInitialSnapshot(manager, updated);
+
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+
+        manager.CurrentFocusKey.ShouldBe("later");
+    }
+
+    [Fact]
+    public async Task FocusAsync_TargetNotYetRendered_PendingClearsAfterMatch()
+    {
+        var manager = new FocusManager();
+        var initial = CreateView(new[] { "first" }, focusedKey: null);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(
+            new TestCanvas(),
+            initial,
+            new VdomDiffService());
+        using var session = manager.BeginSession(context, initial, CancellationToken.None);
+        await session.InitializationTask;
+
+        PushInitialSnapshot(manager, initial);
+
+        var focusedImmediately = await manager.FocusAsync("later", CancellationToken.None);
+        focusedImmediately.ShouldBeFalse();
+
+        var updated = CreateView(new[] { "first", "later" }, focusedKey: null);
+        PushInitialSnapshot(manager, updated);
+
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+        manager.CurrentFocusKey.ShouldBe("later");
+
+        await manager.FocusNextAsync(session.Token);
+        manager.CurrentFocusKey.ShouldBe("first");
+    }
+
     private static void PushInitialSnapshot(FocusManager manager, ConsoleViewResult view)
     {
         if (view.VdomRoot is null)
