@@ -488,11 +488,6 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             sessionToken = _sessionCts?.Token ?? CancellationToken.None;
 
             newFocus = UpdateFocusTargets_NoLock(value);
-            if (newFocus is null)
-            {
-                return;
-            }
-
             if (_hasPendingFocusRetry && !string.IsNullOrWhiteSpace(_pendingFocusKey))
             {
                 var pendingKey = _pendingFocusKey;
@@ -532,6 +527,11 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
                 TriggerFocusChangedAsync(null, pendingFocusTarget, sessionToken).ConfigureAwait(false);
             }
 
+            return;
+        }
+
+        if (newFocus is null)
+        {
             return;
         }
 
