@@ -537,6 +537,40 @@ public sealed class FocusManagerTests
         manager.CurrentFocusKey.ShouldBe("first");
     }
 
+    [Fact]
+    public async Task FocusAsync_TargetNotYetRendered_ExpiresAfterNextSnapshotMiss()
+    {
+        var manager = new FocusManager();
+        var initial = CreateView(new[] { "first" }, focusedKey: null);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(
+            new TestCanvas(),
+            initial,
+            new VdomDiffService());
+        using var session = manager.BeginSession(context, initial, CancellationToken.None);
+        await session.InitializationTask;
+
+        PushInitialSnapshot(manager, initial);
+        manager.CurrentFocusKey.ShouldBe("first");
+
+        var focusedImmediately = await manager.FocusAsync("later", CancellationToken.None);
+        focusedImmediately.ShouldBeFalse();
+
+        // Next snapshot still doesn't contain the target. This consumes the one-shot retry.
+        var stillMissing = CreateView(new[] { "first" }, focusedKey: null);
+        PushInitialSnapshot(manager, stillMissing);
+
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+        manager.CurrentFocusKey.ShouldBe("first");
+
+        // A later snapshot introduces the target, but pending request should have expired.
+        var appearsLater = CreateView(new[] { "first", "later" }, focusedKey: null);
+        PushInitialSnapshot(manager, appearsLater);
+
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+        manager.CurrentFocusKey.ShouldBe("first");
+    }
+
     private static void PushInitialSnapshot(FocusManager manager, ConsoleViewResult view)
     {
         if (view.VdomRoot is null)

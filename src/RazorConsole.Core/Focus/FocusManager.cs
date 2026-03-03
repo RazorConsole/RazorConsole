@@ -17,6 +17,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
     private List<FocusTarget> _focusTargets = new();
     private int _currentIndex = -1;
     private string? _pendingFocusKey;
+    private bool _hasPendingFocusRetry;
     private ConsoleLiveDisplayContext? _context;
     private CancellationTokenSource? _sessionCts;
 
@@ -198,10 +199,15 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
     /// <summary>
     /// Attempts to focus the target that matches the supplied key.
+    /// If the target does not exist in the current snapshot, the request is stored and retried
+    /// on the next snapshot update only.
     /// </summary>
     /// <param name="key">Focus key to activate.</param>
     /// <param name="token">Cancellation token.</param>
-    /// <returns><see langword="true"/> when focus changed; otherwise <see langword="false"/>.</returns>
+    /// <returns>
+    /// <see langword="true"/> when focus changes immediately; otherwise <see langword="false"/>.
+    /// A <see langword="false"/> result can indicate the key was queued for a one-shot deferred focus retry.
+    /// </returns>
     public async Task<bool> FocusAsync(string key, CancellationToken token = default)
     {
         if (string.IsNullOrWhiteSpace(key))
@@ -217,6 +223,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             if (_focusTargets.Count == 0)
             {
                 _pendingFocusKey = key;
+                _hasPendingFocusRetry = true;
                 return false;
             }
 
@@ -224,12 +231,14 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             if (index < 0)
             {
                 _pendingFocusKey = key;
+                _hasPendingFocusRetry = true;
                 return false;
             }
 
             if (_currentIndex == index)
             {
                 _pendingFocusKey = null;
+                _hasPendingFocusRetry = false;
                 return false;
             }
 
@@ -241,6 +250,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             _currentIndex = index;
             CurrentFocusKey = _focusTargets[index].Key;
             _pendingFocusKey = null;
+            _hasPendingFocusRetry = false;
             target = _focusTargets[index];
         }
 
@@ -317,6 +327,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         _focusTargets = new List<FocusTarget>();
         _currentIndex = -1;
         _pendingFocusKey = null;
+        _hasPendingFocusRetry = false;
         CurrentFocusKey = null;
     }
 
@@ -482,7 +493,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(_pendingFocusKey))
+            if (_hasPendingFocusRetry && !string.IsNullOrWhiteSpace(_pendingFocusKey))
             {
                 var pendingKey = _pendingFocusKey;
                 var pendingIndex = _focusTargets.FindIndex(t => string.Equals(t.Key, pendingKey, StringComparison.Ordinal));
@@ -495,10 +506,17 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
                     CurrentFocusKey = _focusTargets[pendingIndex].Key;
                     pendingFocusTarget = _focusTargets[pendingIndex];
                     _pendingFocusKey = null;
+                    _hasPendingFocusRetry = false;
                 }
                 else if (pendingIndex >= 0)
                 {
                     _pendingFocusKey = null;
+                    _hasPendingFocusRetry = false;
+                }
+                else
+                {
+                    _pendingFocusKey = null;
+                    _hasPendingFocusRetry = false;
                 }
             }
         }
