@@ -261,7 +261,7 @@ Keyboard shortcuts: `↑`/`↓` (single line), `PageUp`/`PageDown` or `Space` (f
 
 ## StepChart
 
-Renders a step chart directly in the terminalusing Unicode box-drawing characters. Perfect for visualizing time-series, discrete state changes, or any data where values stay constant between points.
+Renders a step chart directly in the terminal, using Unicode box-drawing characters. Perfect for visualizing time-series, discrete state changes, or any data where values stay constant between points.
 
 | Parameter       | Type                          | Default      | Description                                                 |
 |-----------------|-------------------------------|--------------|-------------------------------------------------------------|
