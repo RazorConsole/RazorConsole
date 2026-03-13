@@ -23,6 +23,7 @@
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="ColorCode.Core" Version="2.0.15" />
     <PackageVersion Include="Markdig" Version="0.43.0" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
     <!-- Symbols -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.0" />
