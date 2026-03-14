@@ -181,6 +181,10 @@ public static class AnsiSequences
     /// <returns>The ANSI escape code.</returns>
     public static string NEL()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return CSI + "1E";
+        }
         return ESC + "E";
     }
 
