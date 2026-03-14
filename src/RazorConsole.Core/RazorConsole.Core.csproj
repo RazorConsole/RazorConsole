@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Razor">
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components" />
@@ -13,8 +13,9 @@
   <Import Project="$(RepoRoot)/nuget/nuget-package.props" />
 
   <ItemGroup>
-    <InternalVisibleTo Include="RazorConsole.Tests" />
-    <InternalVisibleTo Include="RazorConsole.Website" />
+    <InternalsVisibleTo Include="RazorConsole.Tests" />
+    <InternalsVisibleTo Include="RazorConsole.Website" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
   <PropertyGroup>
