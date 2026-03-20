@@ -1,8 +1,9 @@
 @using System.Globalization
+@using Microsoft.AspNetCore.Components.Web
 @using Spectre.Console
 @namespace RazorConsole.Components
 
-<div @onfocus="OnFocus" @onfocusout="OnFocusOut" @onclick="OnClick"
+<div @onfocus="OnFocusHandler" @onfocusout="OnFocusOutHandler" @onclick="OnClick" @onkeydown="OnKeyDownHandler"
      data-focusable="true"
      data-focus-order="@FocusOrderAttribute"
      @key="@_generatedFocusKey"
@@ -52,19 +53,50 @@
     [Parameter]
     public int? FocusOrder { get; set; }
 
+    /// <summary>
+    /// Callback invoked when the button receives focus. Uses Action (not EventCallback)
+    /// so tab navigation does not automatically re-render the parent component.
+    /// </summary>
+    [Parameter]
+    public Action<FocusEventArgs>? OnFocus { get; set; }
+
+    /// <summary>
+    /// Callback invoked when the button loses focus.
+    /// </summary>
+    [Parameter]
+    public Action<FocusEventArgs>? OnBlur { get; set; }
+
+    /// <summary>
+    /// Callback invoked when a key is pressed while the button has focus.
+    /// </summary>
+    [Parameter]
+    public Action<KeyboardEventArgs>? OnKeyDown { get; set; }
+
     private string? FocusOrderAttribute => FocusOrder.HasValue
         ? FocusOrder.Value.ToString(CultureInfo.InvariantCulture)
         : null;
 
-    private void OnFocus(FocusEventArgs e)
+    private void OnFocusHandler(FocusEventArgs e)
     {
+        if (_isFocused) return; // FocusManager re-fires after every render — skip to avoid infinite loop
         _isFocused = true;
         StateHasChanged();
+        if (OnFocus != null)
+            _ = InvokeAsync(() => { OnFocus(e); });
     }
 
-    private void OnFocusOut(FocusEventArgs e)
+    private void OnFocusOutHandler(FocusEventArgs e)
     {
+        if (!_isFocused) return;
         _isFocused = false;
         StateHasChanged();
+        if (OnBlur != null)
+            _ = InvokeAsync(() => { OnBlur(e); });
+    }
+
+    private void OnKeyDownHandler(KeyboardEventArgs e)
+    {
+        if (OnKeyDown != null)
+            _ = InvokeAsync(() => { OnKeyDown(e); });
     }
 }

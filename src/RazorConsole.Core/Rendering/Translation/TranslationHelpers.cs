@@ -114,13 +114,9 @@ public static class TranslationHelpers
             }
         }
 
-        if (items.Count == 0)
-        {
-            renderable = null;
-            return false;
-        }
-
-        renderable = new BlockInlineRenderable(items);
+        renderable = items.Count == 0
+            ? new Markup(string.Empty)
+            : new BlockInlineRenderable(items);
         return true;
     }
 }
