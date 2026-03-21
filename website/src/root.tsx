@@ -9,8 +9,11 @@ import "./index.css";
 import { useThemeEffect } from "./hooks/useThemeEffect";
 import { initHighlighter } from "./components/ui/CodeBlock";
 
+
 export async function loader() {
-  await initHighlighter()
+  if (typeof window === "undefined") {
+    await initHighlighter();
+  }
 }
 export default function Root() {
   useThemeEffect();
@@ -18,14 +21,6 @@ export default function Root() {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta charSet="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="icon" type="image/svg+xml" href="/razorconsole-icon.svg" />
-        <title>RazorConsole - Build Rich Console Apps with Razor</title>
-
-        <Meta />
-        <Links />
-
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -45,6 +40,11 @@ export default function Root() {
             `,
           }}
         />
+        <link rel="icon" type="image/svg+xml" href="/razorconsole-icon.svg" />
+        <meta charSet="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <Meta />
+        <Links />
       </head>
       <body id="root">
         <Outlet />

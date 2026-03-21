@@ -7,9 +7,23 @@ import Sidebar from "@/components/docs/Sidebar"
 import EditLink from "@/components/docs/EditLink"
 import { docTopicIds, releaseNoteIds } from "@/data/docs-ids"
 import { MarkdownRenderer } from "@/components/ui/Markdown"
+import type { MetaFunction } from "react-router"
 
 const docsModules = import.meta.glob("/src/docs/*.md", { query: "?raw", import: "default" })
 const releaseModules = import.meta.glob("/../release-notes/*.md", { query: "?raw", import: "default" })
+
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+  const topic = data;
+  const title = topic ? `${topic.title} | RazorConsole Docs` : "Documentation | RazorConsole";
+  const description = "Explore RazorConsole documentation to learn how to build powerful terminal user interfaces.";
+
+  return [
+    { title },
+    { name: "description", content: description },
+    { property: "og:title", content: title },
+    { property: "og:description", content: description },
+  ];
+};
 
 function extractHeadings(markdown: string): Heading[] {
   const lines = markdown.split(/\r?\n/)
@@ -39,6 +53,7 @@ function extractHeadings(markdown: string): Heading[] {
   return headings
 }
 
+type Topic = { id: string; title: string; content: string; filePath: string; headings: Heading[]; }
 async function loadMarkdownContent(topicId: string) {
   const topicMeta = docTopicIds.find(t => t.id === topicId)
   const releaseMeta = releaseNoteIds.find(r => r.id === topicId)
@@ -46,7 +61,7 @@ async function loadMarkdownContent(topicId: string) {
 
   const modules = !!releaseMeta ? releaseModules : docsModules
   const fileName = meta.filePath.split('/').pop()?.toLowerCase()
-  
+
   const loadFileKey = Object.keys(modules).find(k => k.toLowerCase().endsWith(`/${fileName}`))
   const loadFile = loadFileKey ? modules[loadFileKey] : null
 
@@ -63,19 +78,17 @@ async function loadMarkdownContent(topicId: string) {
 }
 
 export async function loader({ params }: LoaderFunctionArgs) {
-  const activeTopic = await loadMarkdownContent(params.topicId || "quick-start")
-  return { activeTopic }
+  return await loadMarkdownContent(params.topicId || "quick-start")
 }
 
 export async function clientLoader({ params }: LoaderFunctionArgs) {
   return await loadMarkdownContent(params.topicId || "quick-start")
 }
 
-clientLoader.hydrate = true
+clientLoader.hydrate = true;
 
 export default function Docs() {
-  const data = useLoaderData<any>()
-  const activeTopic = data.activeTopic || data 
+  const activeTopic = useLoaderData<Topic>(); 
   
   const { topicId } = useParams()
   const navigate = useNavigate()
@@ -137,7 +150,7 @@ export default function Docs() {
             <div className="prose prose-slate dark:prose-invert max-w-none">
               <MarkdownRenderer content={activeTopic.content} />
             </div>
-            
+
             <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800">
               <EditLink
                 activeTopic={activeTopic as any}

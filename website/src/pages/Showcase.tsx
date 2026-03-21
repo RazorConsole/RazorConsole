@@ -2,6 +2,12 @@ import ImageBanner from "@/components/showcase/ImageBanner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import { showcaseProjects } from "@/data/showcase"
 import { Rocket } from "lucide-react"
+import type { MetaFunction } from "react-router-dom";
+
+export const meta: MetaFunction = () => [
+  { title: "Showcase | RazorConsole" },
+  { name: "description", content: "Discover amazing projects and terminal interfaces built by the community using RazorConsole." }
+];
 
 export default function Showcase() {
   const getProjectUrl = (project: (typeof showcaseProjects)[0]) => {
