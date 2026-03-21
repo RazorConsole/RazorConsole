@@ -1,6 +1,4 @@
-﻿import { useEffect, useState } from "react"
-import { type BundledLanguage, createHighlighter, type Highlighter } from "shiki"
-import { useResolvedTheme } from "@/hooks/useTheme"
+﻿import { type BundledLanguage, createHighlighter, type Highlighter } from "shiki"
 import { CopyButton } from "@/components/ui/CopyButton"
 
 let globalHighlighter: Highlighter | null = null
@@ -23,29 +21,19 @@ interface CodeBlockProps {
 }
 
 function CodeBlock({ code, language = "csharp", showCopy = false, className = "" }: CodeBlockProps) {
-  const resolvedTheme = useResolvedTheme()
-  const theme = resolvedTheme === "dark" ? "github-dark" : "github-light"
+  let html = ""
 
-  let staticHtml = ""
   if (globalHighlighter) {
-    staticHtml = globalHighlighter.codeToHtml(code.trim(), { lang: language, theme })
-      .replace(/background-color:[^;"]+;?/g, "")
-      .replace(/background:[^;"]+;?/g, "")
+    html = globalHighlighter.codeToHtml(code.trim(), {
+      lang: language,
+      themes: {
+        light: "github-light",
+        dark: "github-dark",
+      },
+      defaultColor: false, 
+    })
+    html = html.replace(/background-color:[^;"]+;?/g, "").replace(/background:[^;"]+;?/g, "")
   }
-
-  const [html, setHtml] = useState(staticHtml)
-
-  useEffect(() => {
-    if (!globalHighlighter) {
-      initHighlighter().then(() => {
-        const newHtml = globalHighlighter!.codeToHtml(code.trim(), { lang: language, theme })
-        setHtml(newHtml.replace(/background-color:[^;"]+;?/g, ""))
-      })
-    } else {
-      const newHtml = globalHighlighter.codeToHtml(code.trim(), { lang: language, theme })
-      setHtml(newHtml.replace(/background-color:[^;"]+;?/g, ""))
-    }
-  }, [code, language, theme])
 
   return (
     <div
@@ -59,7 +47,7 @@ function CodeBlock({ code, language = "csharp", showCopy = false, className = ""
 
       <div 
         className="text-sm leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: html || staticHtml || `<pre><code>${code}</code></pre>` }} 
+        dangerouslySetInnerHTML={{ __html: html || `<pre><code>${code}</code></pre>` }} 
       />
     </div>
   )
