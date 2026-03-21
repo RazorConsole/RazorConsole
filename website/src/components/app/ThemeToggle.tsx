@@ -44,6 +44,7 @@ export function ThemeToggle() {
   return (
     <Button
       suppressHydrationWarning
+      aria-label="Toggle light/dark theme"
       variant="ghost"
       size="sm"
       onClick={cycleTheme}

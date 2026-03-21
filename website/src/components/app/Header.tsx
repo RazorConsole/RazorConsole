@@ -90,6 +90,7 @@ export function Header() {
           </span>
           <Button
             variant="ghost"
+            aria-label="Close navigation panel"
             size="icon"
             className="rounded-full"
             onClick={() => setMobileMenuOpen(false)}
@@ -127,6 +128,7 @@ export function Header() {
             href="https://github.com/RazorConsole/RazorConsole"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="View RazorConsole on GitHub"
             className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50"
           >
             <Github className="h-5 w-5" />
@@ -149,7 +151,7 @@ export function Header() {
       <div className="mx-auto flex h-16 w-full items-center justify-between px-4 md:px-6">
         {/* Left Section */}
         <div className="flex items-center gap-8">
-          <Link to="/" className="group flex items-center space-x-2">
+          <Link to="/" className="group flex items-center space-x-2" aria-label="RazorConsole Home">
             <div
               className="animate-shimmer min-h-[45px] min-w-[45px] bg-gradient-to-br from-blue-600 via-purple-600 to-purple-800 transition-transform dark:from-cyan-400 dark:via-purple-500 dark:to-purple-700"
               style={{
@@ -177,17 +179,18 @@ export function Header() {
             href="https://github.com/RazorConsole/RazorConsole"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label={`View GitHub repository, currently has ${stars ?? 0} stars`}
             className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 sm:flex dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-50"
           >
             <Github className="h-3.5 w-3.5" />
             <span>Stars</span>
-            <div className="mx-0.5 h-3 w-[1px] bg-slate-300 dark:bg-slate-700" />
+            <div className="mx-0.5 h-3 w-px bg-slate-300 dark:bg-slate-700" />
             <span className="font-mono tabular-nums">
               {stars !== null ? (stars >= 1000 ? `${(stars / 1000).toFixed(1)}k` : stars) : "..."}
             </span>
           </a>
 
-          <div className="mx-1 hidden h-4 w-[1px] bg-slate-200 sm:block dark:bg-slate-800" />
+          <div className="mx-1 hidden h-4 w-px bg-slate-200 sm:block dark:bg-slate-800" />
 
           <ThemeToggle />
 
@@ -197,6 +200,7 @@ export function Header() {
             size="icon"
             className="rounded-full md:hidden"
             onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open navigation menu"
           >
             <Menu className="h-6 w-6" />
           </Button>
