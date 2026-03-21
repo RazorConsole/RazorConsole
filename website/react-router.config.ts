@@ -6,6 +6,7 @@ import { docTopicIds, releaseNoteIds } from "./src/data/docs-ids";
 export default {
     appDirectory: "src",
     ssr: true,
+    basename: process.env.VITE_ROUTER_BASENAME || "/",
     async prerender() {
         const staticPaths = [
             "/",

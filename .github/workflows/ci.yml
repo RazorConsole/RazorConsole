@@ -107,7 +107,8 @@ jobs:
       - name: Build website for preview
         run: npm run build
         env:
-          VITE_BASE: ${{ github.event_name == 'push' && format('/{0}/', github.event.repository.name) || '/' }}
+          VITE_ROUTER_BASENAME: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && '/RazorConsole/' || '/' }}
+          VITE_BASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && '/RazorConsole/' || '/' }}
         working-directory: website
 
       - name: Upload preview artifact
