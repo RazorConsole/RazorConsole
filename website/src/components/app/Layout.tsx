@@ -2,7 +2,6 @@ import { Outlet, useLocation } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { Header } from "@/components/app/Header"
 import { Footer } from "@/components/app/Footer"
-import { useThemeEffect } from "@/hooks/useThemeEffect"
 
 export default function Layout() {
   const location = useLocation()
@@ -12,7 +11,6 @@ export default function Layout() {
     location.pathname.startsWith("/components")
 
   const layoutClasses = cn("min-h-screen flex flex-col", isDocs && "lg:pl-72")
-  useThemeEffect()
 
   return (
     <div className={layoutClasses}>

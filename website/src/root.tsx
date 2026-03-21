@@ -6,10 +6,13 @@ import {
   ScrollRestoration,
 } from "react-router";
 import "./index.css";
+import { useThemeEffect } from "./hooks/useThemeEffect";
 
 export default function Root() {
+  useThemeEffect();
+
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -39,7 +42,7 @@ export default function Root() {
           }}
         />
       </head>
-      <body>
+      <body id="root">
         <Outlet />
 
         <ScrollRestoration />
