@@ -1,4 +1,4 @@
-import { useParams, Navigate } from "react-router-dom"
+import { Navigate } from "react-router-dom"
 import { components } from "@/data/components"
 import { ComponentPreview } from "@/components/components/ComponentPreview"
 import { cn, getCategoryBadgeColor } from "@/lib/utils"
