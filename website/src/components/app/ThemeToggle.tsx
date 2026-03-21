@@ -1,4 +1,4 @@
-import { Moon, Sun, Monitor, Loader2, LoaderIcon } from "lucide-react"
+import { Moon, Sun, Monitor, LoaderIcon } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { useTheme } from "@/hooks/useTheme"
 import { useEffect, useState } from "react"
@@ -43,6 +43,7 @@ export function ThemeToggle() {
 
   return (
     <Button
+      suppressHydrationWarning
       variant="ghost"
       size="sm"
       onClick={cycleTheme}

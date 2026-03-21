@@ -48,6 +48,12 @@ export default defineConfig({
   ssr: {
     noExternal: ['xterm', '@xterm/addon-fit']
   },
+  server: {
+    fs: {
+      // Allow Vite to read files one level higher (for release-notes)
+      allow: [".."],
+    },
+  },
   assetsInclude: ['**/*.dat'],
   optimizeDeps: {
     exclude: ['razor-console'],

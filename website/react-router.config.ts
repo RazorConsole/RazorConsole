@@ -1,16 +1,40 @@
 import type {Config} from "@react-router/dev/config";
+import { components } from "./src/data/components";
+import { apiItems } from "./src/data/api-docs";
+import { docTopicIds, releaseNoteIds } from "./src/data/docs-ids";
 
 export default {
     appDirectory: "src",
-    ssr: false,
+    ssr: true,
     async prerender() {
-        return [
+        const staticPaths = [
             "/",
             "/quick-start",
             "/docs",
             "/components",
-            "/showcase",
+            "/advanced",
             "/collaborators",
+            "/showcase",
+            "/api"
+        ];
+
+        const componentPaths = components.map(
+            (comp) => `/components/${comp.name.toLowerCase()}`
+        );
+
+        const apiPaths = Object.keys(apiItems).map(
+            (uid) => `/api/${encodeURIComponent(uid)}`
+        );
+
+        const docsPaths = [...docTopicIds, ...releaseNoteIds].map(
+            (id) => `/docs/${id}`
+        );
+
+        return [
+            ...staticPaths,
+            ...componentPaths,
+            ...apiPaths,
+            ...docsPaths,
         ];
     },
 } satisfies Config;

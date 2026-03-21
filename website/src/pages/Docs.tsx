@@ -1,34 +1,20 @@
-import { useEffect, useMemo, useState } from "react"
-import { useParams, useNavigate, useLocation } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { useParams, useNavigate, useLocation, useLoaderData, type LoaderFunctionArgs } from "react-router"
 import GithubSlugger from "github-slugger"
 import { ResponsiveSidebar } from "@/components/ui/ResponsiveSidebar"
-
-import quickStartDoc from "@/docs/quick-start.md?raw"
-import builtInComponentsDoc from "@/docs/built-in-components.md?raw"
-import hotReloadDoc from "@/docs/hot-reload.md?raw"
-import customTranslatorsDoc from "@/docs/custom-translators.md?raw"
-import zindexDoc from "@/docs/zindex.md?raw"
-import keyboardEventsDoc from "@/docs/keyboard-events.md?raw"
-import focusManagementDoc from "@/docs/focus-management.md?raw"
-import aotDoc from "@/docs/native-aot-support.md?raw"
-import vdomDebuggingDoc from "@/docs/vdom-debugging.md?raw"
-import routingDoc from "@/docs/routing.md?raw"
-import componentGalleryDoc from "@/docs/component-gallery.md?raw"
-import v0_1_1ReleaseNotes from "../../../release-notes/v0.1.1.md?raw"
-import v0_2_0ReleaseNotes from "../../../release-notes/v0.2.0.md?raw"
-import v0_2_2ReleaseNotes from "../../../release-notes/v0.2.2.md?raw"
-import v0_3_0ReleaseNotes from "../../../release-notes/v0.3.0.md?raw"
-import v0_4_0ReleaseNotes from "../../../release-notes/v0.4.0.md?raw"
-import type { Heading, TopicItem } from "@/types/docs/topicItem"
+import type { Heading } from "@/types/docs/topicItem"
 import Sidebar from "@/components/docs/Sidebar"
 import EditLink from "@/components/docs/EditLink"
+import { docTopicIds, releaseNoteIds } from "@/data/docs-ids"
+import { MarkdownRenderer } from "@/components/ui/Markdown"
+
+const docsModules = import.meta.glob("/src/docs/*.md", { query: "?raw", import: "default" })
+const releaseModules = import.meta.glob("/../release-notes/*.md", { query: "?raw", import: "default" })
 
 function extractHeadings(markdown: string): Heading[] {
   const lines = markdown.split(/\r?\n/)
   const headings: Heading[] = []
-
   const slugger = new GithubSlugger()
-
   let inCodeBlock = false
 
   for (const line of lines) {
@@ -42,221 +28,124 @@ function extractHeadings(markdown: string): Heading[] {
     if (match) {
       const level = match[1].length
       const rawTitle = match[2].trim()
-
       const cleanTitle = rawTitle
-        .replace(/`([^`]+)`/g, "$1") // `code` -> code
-        .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1") // [link](url) -> link
-        .replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, "$1") // **bold** -> bold
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1")
+        .replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, "$1")
 
-      const slug = slugger.slug(cleanTitle)
-
-      headings.push({ level, title: rawTitle, id: slug })
+      headings.push({ level, title: rawTitle, id: slugger.slug(cleanTitle) })
     }
   }
   return headings
 }
 
-function getFilePathForTopic(
-  topicId: string,
-  topics: TopicItem[],
-  releaseNotes: TopicItem[]
-): string {
-  const topic = topics.find((t) => t.id === topicId) || releaseNotes.find((r) => r.id === topicId)
-  return topic?.filePath || ""
+async function loadMarkdownContent(topicId: string) {
+  const topicMeta = docTopicIds.find(t => t.id === topicId)
+  const releaseMeta = releaseNoteIds.find(r => r.id === topicId)
+  const meta = topicMeta || releaseMeta || docTopicIds[0]
+
+  const modules = !!releaseMeta ? releaseModules : docsModules
+  const fileName = meta.filePath.split('/').pop()?.toLowerCase()
+  
+  const loadFileKey = Object.keys(modules).find(k => k.toLowerCase().endsWith(`/${fileName}`))
+  const loadFile = loadFileKey ? modules[loadFileKey] : null
+
+  if (!loadFile) {
+    throw new Error(`Markdown file not found for: ${topicId} (looked for ${fileName})`)
+  }
+
+  const rawContent = (await loadFile()) as string
+  return {
+    ...meta,
+    content: rawContent,
+    headings: extractHeadings(rawContent)
+  }
 }
 
+export async function loader({ params }: LoaderFunctionArgs) {
+  const activeTopic = await loadMarkdownContent(params.topicId || "quick-start")
+  return { activeTopic }
+}
+
+export async function clientLoader({ params }: LoaderFunctionArgs) {
+  return await loadMarkdownContent(params.topicId || "quick-start")
+}
+
+clientLoader.hydrate = true
+
 export default function Docs() {
-  const topics: TopicItem[] = useMemo(() => {
-    const rawTopics = [
-      {
-        id: "quick-start",
-        title: "Quick Start",
-        content: quickStartDoc,
-        filePath: "website/src/docs/quick-start.md",
-      },
-      {
-        id: "built-in-components",
-        title: "Built-in Components",
-        content: builtInComponentsDoc,
-        filePath: "website/src/docs/built-in-components.md",
-      },
-      {
-        id: "hot-reload",
-        title: "Hot Reload",
-        content: hotReloadDoc,
-        filePath: "website/src/docs/hot-reload.md",
-      },
-      {
-        id: "cli-routing",
-        title: "Routing",
-        content: routingDoc,
-        filePath: "website/src/docs/routing.md",
-      },
-      {
-        id: "native-aot",
-        title: "Native Ahead-of-Time Compilation",
-        content: aotDoc,
-        filePath: "website/src/docs/native-aot-support.md",
-      },
-      {
-        id: "custom-translators",
-        title: "Custom Translators",
-        content: customTranslatorsDoc,
-        filePath: "website/src/docs/custom-translators.md",
-      },
-      {
-        id: "zindex",
-        title: "Absolute Positioning & Z-Index",
-        content: zindexDoc,
-        filePath: "website/src/docs/zindex.md",
-      },
-      {
-        id: "keyboard-events",
-        title: "Keyboard Events",
-        content: keyboardEventsDoc,
-        filePath: "website/src/docs/keyboard-events.md",
-      },
-      {
-        id: "focus-management",
-        title: "Focus Management",
-        content: focusManagementDoc,
-        filePath: "website/src/docs/focus-management.md",
-      },
-      {
-        id: "vdom-debugging",
-        title: "VDom Tree Debugging",
-        content: vdomDebuggingDoc,
-        filePath: "website/src/docs/vdom-debugging.md",
-      },
-      {
-        id: "component-gallery",
-        title: "Component Gallery",
-        content: componentGalleryDoc,
-        filePath: "website/src/docs/component-gallery.md",
-      },
-    ]
-    return rawTopics.map((topic) => ({ ...topic, headings: extractHeadings(topic.content) }))
-  }, [])
-
-  const releaseNotes: TopicItem[] = useMemo(() => {
-    const rawNotes = [
-      {
-        id: "v0.4.0",
-        title: "v0.4.0",
-        content: v0_4_0ReleaseNotes,
-        filePath: "release-notes/v0.4.0.md",
-      },
-      {
-        id: "v0.3.0",
-        title: "v0.3.0",
-        content: v0_3_0ReleaseNotes,
-        filePath: "release-notes/v0.3.0.md",
-      },
-      {
-        id: "v0.2.2",
-        title: "v0.2.2",
-        content: v0_2_2ReleaseNotes,
-        filePath: "release-notes/v0.2.2.md",
-      },
-      {
-        id: "v0.2.0",
-        title: "v0.2.0",
-        content: v0_2_0ReleaseNotes,
-        filePath: "release-notes/v0.2.0.md",
-      },
-      {
-        id: "v0.1.1",
-        title: "v0.1.1",
-        content: v0_1_1ReleaseNotes,
-        filePath: "release-notes/v0.1.1.md",
-      },
-    ]
-    return rawNotes.map((note) => ({ ...note, headings: extractHeadings(note.content) }))
-  }, [])
-
+  const data = useLoaderData<any>()
+  const activeTopic = data.activeTopic || data 
+  
   const { topicId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const activeId = topicId || topics[0].id
+
+  const activeId = topicId || docTopicIds[0].id
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set([activeId]))
-  const [releaseNotesOpen, setReleaseNotesOpen] = useState(false)
+  const [releaseNotesOpen, setReleaseNotesOpen] = useState(activeId.startsWith("v0."))
+
+  const topicsWithHeadings = docTopicIds.map(t => ({
+    ...t,
+    headings: t.id === activeTopic.id ? activeTopic.headings : []
+  }))
+
+  const releaseWithHeadings = releaseNoteIds.map(r => ({
+    ...r,
+    headings: r.id === activeTopic.id ? activeTopic.headings : []
+  }))
 
   useEffect(() => {
-    if (topics.some((t) => t.id === activeId)) {
-      setExpandedTopics((prev) => {
-        const newSet = new Set(prev)
-        newSet.add(activeId)
-        return newSet
-      })
-    } else if (releaseNotes.some((r) => r.id === activeId)) {
+    if (docTopicIds.some((t) => t.id === activeId)) {
+      setExpandedTopics((prev) => new Set(prev).add(activeId))
+    } else if (releaseNoteIds.some((r) => r.id === activeId)) {
       setReleaseNotesOpen(true)
     }
-  }, [activeId, topics, releaseNotes])
+  }, [activeId])
 
   useEffect(() => {
     if (location.hash) {
       const id = location.hash.replace("#", "")
-      setTimeout(() => {
-        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })
-      }, 100)
+      const element = document.getElementById(id)
+      if (element) {
+        setTimeout(() => element.scrollIntoView({ behavior: "smooth", block: "start" }), 100)
+      }
     }
   }, [location.hash, activeId])
 
-  const activeTopic = useMemo(
-    () =>
-      topics.find((topic) => topic.id === activeId) ??
-      releaseNotes.find((note) => note.id === activeId) ??
-      topics[0],
-    [activeId, topics, releaseNotes]
-  )
-
-  const handleTopicClick = (id: string) => {
-    navigate(`/docs/${id}`)
-    setExpandedTopics((prev) => {
-      const newSet = new Set(prev)
-      newSet.add(id)
-      return newSet
-    })
-  }
-  const toggleTopicExpand = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation()
-    setExpandedTopics((prev) => {
-      const newSet = new Set(prev)
-      if (newSet.has(id)) newSet.delete(id)
-      else newSet.add(id)
-      return newSet
-    })
-  }
-  const handleSubHeadingClick = (e: React.MouseEvent, topicId: string, headingId: string) => {
-    e.stopPropagation()
-    navigate(`/docs/${topicId}#${headingId}`)
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
       <div className="px-6 py-16 sm:px-10 lg:px-16">
         <div className="flex flex-col lg:block">
           <ResponsiveSidebar breakpoint="lg" className="w-72 px-6 py-6">
             <Sidebar
-              topics={topics}
-              releaseNotes={releaseNotes}
-              activeTopic={activeTopic}
+              topics={topicsWithHeadings as any}
+              releaseNotes={releaseWithHeadings as any}
+              activeTopic={activeTopic as any}
               expandedTopics={expandedTopics}
               releaseNotesOpen={releaseNotesOpen}
-              handleTopicClick={handleTopicClick}
-              handleSubHeadingClick={handleSubHeadingClick}
-              toggleTopicExpand={toggleTopicExpand}
+              handleTopicClick={(id) => navigate(`/docs/${id}`)}
+              handleSubHeadingClick={(_, tId, hId) => navigate(`/docs/${tId}#${hId}`)}
+              toggleTopicExpand={(_, id) => setExpandedTopics(p => {
+                const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n;
+              })}
               setReleaseNotesOpen={setReleaseNotesOpen}
             />
           </ResponsiveSidebar>
 
           <main className="min-w-0 flex-1">
-            <EditLink
-              activeTopic={activeTopic}
-              topics={topics}
-              releaseNotes={releaseNotes}
-              getFilePathForTopic={getFilePathForTopic}
-            />
+            <div className="prose prose-slate dark:prose-invert max-w-none">
+              <MarkdownRenderer content={activeTopic.content} />
+            </div>
+            
+            <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800">
+              <EditLink
+                activeTopic={activeTopic as any}
+                topics={topicsWithHeadings as any}
+                releaseNotes={releaseWithHeadings as any}
+                getFilePathForTopic={() => activeTopic.filePath}
+              />
+            </div>
           </main>
         </div>
       </div>
