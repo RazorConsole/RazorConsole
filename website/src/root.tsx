@@ -7,7 +7,11 @@ import {
 } from "react-router";
 import "./index.css";
 import { useThemeEffect } from "./hooks/useThemeEffect";
+import { initHighlighter } from "./components/ui/CodeBlock";
 
+export async function loader() {
+  await initHighlighter()
+}
 export default function Root() {
   useThemeEffect();
 
