@@ -65,6 +65,10 @@ const docfxRawFiles = import.meta.glob("/src/.docfx/**/*.yml", {
 let cachedToc: DocfxTocNode[] | undefined
 let cachedItems: Record<string, DocfxApiItem> | undefined
 
+function sanitizeUid(uid: string): string {
+  return uid.replace(/`/g, "-")
+}
+
 function normalizeString(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined
@@ -192,11 +196,12 @@ function toMember(raw: unknown): DocfxApiMember | undefined {
   }
 
   const source = raw as Record<string, unknown>
-  const uid = normalizeString(source.uid)
-  if (!uid) {
+  const rawUid = normalizeString(source.uid)
+  if (!rawUid) {
     return undefined
   }
 
+  const uid = sanitizeUid(rawUid)
   const name = normalizeString(source.name) ?? normalizeString(source.id) ?? uid
 
   const member: DocfxApiMember = {
@@ -257,11 +262,12 @@ function toReferenceMember(raw: unknown): DocfxApiMember | undefined {
   }
 
   const source = raw as Record<string, unknown>
-  const uid = normalizeString(source.uid)
-  if (!uid) {
+  const rawUid = normalizeString(source.uid)
+  if (!rawUid) {
     return undefined
   }
 
+  const uid = sanitizeUid(rawUid)
   const member: DocfxApiMember = {
     uid,
     name: ensureName(source.name, uid),
@@ -291,10 +297,12 @@ function toTocNode(raw: unknown): DocfxTocNode | undefined {
   }
 
   const source = raw as Record<string, unknown>
-  const name = ensureName(source.name, normalizeString(source.uid) ?? "Untitled")
+  const rawUid = normalizeString(source.uid)
+  const uid = rawUid ? sanitizeUid(rawUid) : undefined
+  
+  const name = ensureName(source.name, uid ?? "Untitled")
   const node: DocfxTocNode = { name }
 
-  const uid = normalizeString(source.uid)
   if (uid) {
     node.uid = uid
   }
@@ -370,21 +378,18 @@ function createApiItems(): Record<string, DocfxApiItem> {
 
     const itemLookup = new Map<string, unknown>()
     for (const entry of rawItems) {
-      if (
-        entry &&
-        typeof entry === "object" &&
-        typeof (entry as Record<string, unknown>).uid === "string"
-      ) {
-        itemLookup.set((entry as Record<string, unknown>).uid as string, entry)
+      const source = entry as Record<string, unknown>
+      if (source && typeof source.uid === "string") {
+        itemLookup.set(sanitizeUid(source.uid), entry)
       }
     }
 
     const referencesRaw = Array.isArray(parsed.references) ? parsed.references : []
 
     const childUids = Array.isArray((rootRaw as Record<string, unknown>).children)
-      ? ((rootRaw as Record<string, unknown>).children as unknown[]).filter(
-          (child): child is string => typeof child === "string"
-        )
+      ? ((rootRaw as Record<string, unknown>).children as unknown[])
+          .filter((child): child is string => typeof child === "string")
+          .map(uid => sanitizeUid(uid))
       : []
 
     const members = childUids
@@ -394,7 +399,10 @@ function createApiItems(): Record<string, DocfxApiItem> {
           return toMember(child)
         }
         const reference = referencesRaw.find(
-          (ref) => ref && typeof ref === "object" && (ref as Record<string, unknown>).uid === uid
+          (ref) => 
+            ref && 
+            typeof ref === "object" && 
+            sanitizeUid((ref as Record<string, unknown>).uid as string) === uid
         )
         return reference ? toReferenceMember(reference) : undefined
       })
