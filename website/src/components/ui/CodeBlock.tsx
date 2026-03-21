@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react"
 import { codeToHtml, type BundledLanguage } from "shiki"
-import { useTheme } from "@/hooks/useTheme"
+import { useResolvedTheme } from "@/hooks/useTheme"
 import { CopyButton } from "@/components/ui/CopyButton"
 
 interface CodeBlockProps {
@@ -12,15 +12,21 @@ interface CodeBlockProps {
 
 function CodeBlock({ code, language = "csharp", showCopy = true, className = "" }: CodeBlockProps) {
   const [html, setHtml] = useState("")
-  const theme = useTheme((s) => s.theme)
-  const resolvedTheme =
-    theme === "system"
-      ? window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-      : theme
+  const [isMounted, setIsMounted] = useState(false)
+  const resolvedTheme = useResolvedTheme()
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted) return
+
+  }, [resolvedTheme, isMounted])
+
+  useEffect(() => {
+    if (!isMounted) return
+
     codeToHtml(code, {
       lang: language,
       theme: resolvedTheme === "dark" ? "github-dark" : "github-light",
@@ -31,7 +37,7 @@ function CodeBlock({ code, language = "csharp", showCopy = true, className = "" 
         .replace(/background:[^;"]+;?/g, "")
       setHtml(cleanHtml)
     })
-  }, [code, language, resolvedTheme])
+  }, [code, language, resolvedTheme, isMounted])
 
   return (
     <div

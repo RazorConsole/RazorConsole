@@ -12,7 +12,12 @@ export function Header() {
   const { stars } = useGitHubStars("RazorConsole", "RazorConsole")
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const location = useLocation()
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     setMobileMenuOpen(false)
@@ -199,7 +204,7 @@ export function Header() {
       </div>
 
       {/* Mobile Navigation */}
-      {createPortal(mobileMenu, document.body)}
+      {isMounted && createPortal(mobileMenu, document.body)}
     </header>
   )
 }

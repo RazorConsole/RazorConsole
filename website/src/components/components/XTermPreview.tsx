@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react"
+import type { Terminal } from "xterm"
+import type { FitAddon } from "@xterm/addon-fit"
 import {
   attachKeyListener,
   registerTerminalInstance,
@@ -7,9 +9,8 @@ import {
   handleResize,
 } from "@/lib/xtermConsole"
 import "xterm/css/xterm.css"
-import { Terminal } from "xterm"
-import { useTheme } from "@/hooks/useTheme"
-import { FitAddon } from "@xterm/addon-fit"
+import { useResolvedTheme } from "@/hooks/useTheme"
+
 interface XTermPreviewProps {
   elementId: string
   className?: string
@@ -69,20 +70,18 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
   const fitAddonRef = useRef<FitAddon | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { theme } = useTheme()
+  const theme  = useResolvedTheme()
   const [isDark, setIsDark] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    const checkTheme = () => {
-      if (theme === "system") {
-        setIsDark(window.matchMedia("(prefers-color-scheme: dark)").matches)
-      } else {
-        setIsDark(theme === "dark")
-      }
-    }
+    setIsMounted(true)
+  }, [])
 
-    checkTheme()
-  }, [theme])
+  useEffect(() => {
+    if (!isMounted) return
+    setIsDark(theme === "dark")
+  }, [theme, isMounted])
 
   useEffect(() => {
     if (xtermRef.current) {
@@ -91,61 +90,46 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
   }, [isDark])
 
   useEffect(() => {
+    if (!isMounted) return
+
     let cancelled = false
     let disposed = false
     let disposeTimer: ReturnType<typeof setTimeout> | null = null
     let resizeObserver: ResizeObserver | null = null
-
-    if (terminalRef.current === null) {
-      console.log("Terminal host element is not available")
-      return
-    }
-
-    const term = new Terminal({
-      fontFamily: "'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace",
-      fontSize: 14,
-      lineHeight: 1,
-      cursorBlink: true,
-      scrollback: 1000,
-      cursorInactiveStyle: "none",
-      theme: isDark ? TERMINAL_THEME.dark : TERMINAL_THEME.light,
-      allowProposedApi: true,
-      minimumContrastRatio: 1, // Not allow xterm to change origin colors
-      allowTransparency: true,
-      convertEol: true, // Correct processing of newline
-    })
-
-    const fitAddon = new FitAddon()
-    term.loadAddon(fitAddon)
-
-    xtermRef.current = term
-    fitAddonRef.current = fitAddon
-
-    const disposeSafely = () => {
-      if (disposed) {
-        return
-      }
-      disposed = true
-
-      if (resizeObserver) {
-        resizeObserver.disconnect()
-      }
-
-      term.dispose()
-      xtermRef.current = null
-      fitAddonRef.current = null
-    }
-
-    console.log("Initializing terminal preview for", elementId)
+    let termInstance: Terminal | null = null
 
     async function startPreview() {
+      if (terminalRef.current === null) return
+      
       setError(null)
       setIsLoading(true)
+      
       try {
-        if (!terminalRef.current) {
-          console.error("Terminal host element was not found")
-          throw new Error("Terminal host element was not found")
-        }
+        const { Terminal } = await import("xterm")
+        const { FitAddon } = await import("@xterm/addon-fit")
+
+        if (cancelled) return
+
+        const term = new Terminal({
+          fontFamily: "'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace",
+          fontSize: 14,
+          lineHeight: 1,
+          cursorBlink: true,
+          scrollback: 1000,
+          cursorInactiveStyle: "none",
+          theme: isDark ? TERMINAL_THEME.dark : TERMINAL_THEME.light,
+          allowProposedApi: true,
+          minimumContrastRatio: 1,
+          allowTransparency: true,
+          convertEol: true,
+        })
+
+        const fitAddon = new FitAddon()
+        term.loadAddon(fitAddon)
+
+        termInstance = term
+        xtermRef.current = term
+        fitAddonRef.current = fitAddon
 
         term.open(terminalRef.current)
 
@@ -190,24 +174,34 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
         }
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : "Failed to initialize preview"
-          setError(message)
+          setError(err instanceof Error ? err.message : "Failed to initialize preview")
           setIsLoading(false)
         }
-        disposeSafely()
       }
+    }
+
+    const disposeSafely = () => {
+      if (disposed) return
+      disposed = true
+      if (resizeObserver) resizeObserver.disconnect()
+      if (termInstance) termInstance.dispose()
+      xtermRef.current = null
+      fitAddonRef.current = null
     }
 
     startPreview()
 
     return () => {
       cancelled = true
-      if (disposeTimer !== null) {
-        clearTimeout(disposeTimer)
-      }
+      if (disposeTimer !== null) clearTimeout(disposeTimer)
       disposeTimer = window.setTimeout(disposeSafely, 0)
     }
-  }, [elementId, isDark])
+  }, [elementId, isDark, isMounted])
+
+  // Render empty placeholder if not mounted (SSG)
+  if (!isMounted) {
+    return <div className={className} style={{ minHeight: '300px', ...style }} />
+  }
 
   if (error) {
     return (
