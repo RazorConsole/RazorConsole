@@ -27,7 +27,7 @@ export default {
         );
 
         const docsPaths = [...docTopicIds, ...releaseNoteIds].map(
-            (id) => `/docs/${id}`
+            (item) => `/docs/${item.id}`
         );
 
         return [
