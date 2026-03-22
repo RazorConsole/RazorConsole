@@ -2,7 +2,7 @@ import ImageBanner from "@/components/showcase/ImageBanner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import { showcaseProjects } from "@/data/showcase"
 import { Rocket } from "lucide-react"
-import type { MetaFunction } from "react-router-dom";
+import type { MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => [
   { title: "Showcase | RazorConsole" },

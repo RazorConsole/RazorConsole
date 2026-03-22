@@ -1,4 +1,4 @@
-import type {Config} from "@react-router/dev/config";
+import type { Config } from "@react-router/dev/config";
 import { components } from "./src/data/components";
 import { apiItems } from "./src/data/api-docs";
 import { docTopicIds, releaseNoteIds } from "./src/data/docs-ids";
@@ -7,17 +7,12 @@ export default {
     appDirectory: "src",
     ssr: false,
     basename: process.env.VITE_ROUTER_BASENAME || "/",
-    async prerender() {
-        const staticPaths = [
-            "/",
-            "/quick-start",
+    async prerender({ getStaticPaths }) {
+        // For dynamic routes, that have indexes
+        const dynamicPathIndexes = [
             "/docs",
-            "/components",
-            "/advanced",
-            "/collaborators",
-            "/showcase",
-            "/api"
-        ];
+            "/api",
+        ]
 
         const componentPaths = components.map(
             (comp) => `/components/${comp.name.toLowerCase()}`
@@ -32,7 +27,8 @@ export default {
         );
 
         return [
-            ...staticPaths,
+            ...getStaticPaths(),
+            ...dynamicPathIndexes,
             ...componentPaths,
             ...apiPaths,
             ...docsPaths,

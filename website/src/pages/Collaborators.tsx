@@ -1,7 +1,7 @@
 import { collaborators } from "@/data/collaborators"
 import Collaborator from "@/components/collaborators/Collaborator"
 import ContributeMessage from "@/components/collaborators/ContributeMessage"
-import type { MetaFunction } from "react-router-dom";
+import type { MetaFunction } from "react-router";
 
 export const meta: MetaFunction = () => [
   { title: "Collaborators | RazorConsole" },

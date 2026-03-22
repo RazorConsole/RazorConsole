@@ -1,4 +1,4 @@
-import { Link, type MetaFunction } from "react-router-dom"
+import { Link, type MetaFunction } from "react-router"
 import { components } from "@/data/components"
 import { ArrowRight, Box } from "lucide-react"
 import { cn, getCategoryBadgeColor } from "@/lib/utils"

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { useLoaderData, useNavigate, useParams, type LoaderFunctionArgs, type MetaFunction } from "react-router-dom"
+import { useLoaderData, useNavigate, useParams, type LoaderFunctionArgs, type MetaFunction } from "react-router"
 import ApiDocument from "@/components/api/ApiDocument"
 import { apiItems, apiToc, type DocfxApiItem, type DocfxTocNode } from "@/data/api-docs"
 import { ResponsiveSidebar } from "@/components/ui/ResponsiveSidebar"
