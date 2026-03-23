@@ -1,11 +1,32 @@
 @namespace RazorConsole.Components
 
 @using System.Collections.Generic
+@using System.Globalization
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using Spectre.Console
 
-<tbody @attributes="AdditionalAttributes">
-    @ChildContent
-</tbody>
+@if (Navigable)
+{
+    <CascadingValue Name="TableNavSelectedIndex" Value="@(_isFocused ? (int?)DisplaySelectedIndex : null)">
+        <tbody @onfocus="OnFocusHandler"
+               @onfocusout="OnFocusOutHandler"
+               @onkeydown="OnKeyDownHandler"
+               data-focusable="true"
+               data-focus-order="@FocusOrderAttribute"
+               @key="_focusKey"
+               data-focus-key="@_focusKey"
+               @attributes="AdditionalAttributes">
+            @ChildContent
+        </tbody>
+    </CascadingValue>
+}
+else
+{
+    <tbody @attributes="AdditionalAttributes">
+        @ChildContent
+    </tbody>
+}
 
 @code {
     /// <summary>
@@ -13,6 +34,8 @@
     /// </summary>
     /// <remarks>
     /// Contains <see cref="SpectreTR"/> rows with <see cref="SpectreTD"/> data cells.
+    /// When <see cref="Navigable"/> is true, the body acts as a single tab stop and
+    /// up/down arrow keys move selection between rows.
     /// </remarks>
 
     /// <summary>
@@ -26,4 +49,160 @@
     /// </summary>
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
+
+    /// <summary>
+    /// When true, the table body becomes a single focusable element. Up/Down moves
+    /// row selection; Enter activates the selected row.
+    /// </summary>
+    [Parameter]
+    public bool Navigable { get; set; }
+
+    /// <summary>
+    /// Tab order for keyboard navigation. Lower values receive focus first.
+    /// Only used when <see cref="Navigable"/> is true.
+    /// </summary>
+    [Parameter]
+    public int? FocusOrder { get; set; }
+
+    /// <summary>
+    /// Total number of visible rows. Required when <see cref="Navigable"/> is true.
+    /// </summary>
+    [Parameter]
+    public int RowCount { get; set; }
+
+    /// <summary>
+    /// Currently selected row index (zero-based, relative to visible rows).
+    /// </summary>
+    [Parameter]
+    public int SelectedIndex { get; set; }
+
+    /// <summary>
+    /// Raised when the selected row index changes via keyboard navigation.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> SelectedIndexChanged { get; set; }
+
+    /// <summary>
+    /// Raised when the user presses Enter on the selected row.
+    /// </summary>
+    [Parameter]
+    public EventCallback OnActivate { get; set; }
+
+    /// <summary>
+    /// Callback invoked for key presses that are not handled by the navigation logic
+    /// (e.g. F5, F9, Escape). Use this to forward hotkeys to the page's handler.
+    /// </summary>
+    [Parameter]
+    public Action<KeyboardEventArgs>? OnKeyDown { get; set; }
+
+    /// <summary>
+    /// Cascaded from a parent <see cref="Scrollable{TItem}"/> when it is in selection mode.
+    /// When present, arrow/enter keys are delegated to the Scrollable and the relative
+    /// selected index from the Scrollable is used for row highlighting.
+    /// </summary>
+    [CascadingParameter(Name = "ScrollableSelection")]
+    private ScrollableSelection? ScrollableSelection { get; set; }
+
+    private bool IsScrollableManaged => ScrollableSelection is not null;
+
+    private int DisplaySelectedIndex => IsScrollableManaged
+        ? ScrollableSelection!.RelativeSelectedIndex
+        : _selectedIndex;
+
+    private int _selectedIndex;
+    private bool _isFocused;
+    private readonly string _focusKey = Guid.NewGuid().ToString("N");
+
+    private string? FocusOrderAttribute => FocusOrder.HasValue
+        ? FocusOrder.Value.ToString(CultureInfo.InvariantCulture)
+        : null;
+
+    protected override void OnParametersSet()
+    {
+        if (!Navigable || IsScrollableManaged) return;
+        _selectedIndex = RowCount > 0 && SelectedIndex >= RowCount ? 0 : SelectedIndex;
+    }
+
+    private void OnFocusHandler(FocusEventArgs e)
+    {
+        if (_isFocused) return;
+        _isFocused = true;
+        StateHasChanged();
+    }
+
+    private void OnFocusOutHandler(FocusEventArgs e)
+    {
+        if (!_isFocused) return;
+        _isFocused = false;
+        StateHasChanged();
+    }
+
+    private async Task OnKeyDownHandler(KeyboardEventArgs e)
+    {
+        if (e.CtrlKey || e.AltKey || e.MetaKey)
+        {
+            ForwardKeyDown(e);
+            return;
+        }
+
+        // When inside a selection-aware Scrollable, delegate navigation keys to it.
+        if (IsScrollableManaged)
+        {
+            switch (e.Key)
+            {
+                case "ArrowDown":
+                case "DownArrow":
+                case "ArrowUp":
+                case "UpArrow":
+                case "PageDown":
+                case "PageUp":
+                case "Home":
+                case "End":
+                case " ":
+                case "Enter":
+                case "Return":
+                    await ScrollableSelection!.HandleKeyDown(e);
+                    return;
+            }
+
+            ForwardKeyDown(e);
+            return;
+        }
+
+        if (RowCount > 0)
+        {
+            switch (e.Key)
+            {
+                case "ArrowDown":
+                case "DownArrow":
+                    await SetSelectedAsync((_selectedIndex + 1) % RowCount);
+                    return;
+                case "ArrowUp":
+                case "UpArrow":
+                    await SetSelectedAsync((_selectedIndex - 1 + RowCount) % RowCount);
+                    return;
+                case "Enter":
+                case "Return":
+                    if (OnActivate.HasDelegate)
+                        await OnActivate.InvokeAsync();
+                    return;
+            }
+        }
+
+        ForwardKeyDown(e);
+    }
+
+    private async Task SetSelectedAsync(int index)
+    {
+        _selectedIndex = index;
+        if (SelectedIndexChanged.HasDelegate)
+            await SelectedIndexChanged.InvokeAsync(index);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ForwardKeyDown(KeyboardEventArgs e)
+    {
+        if (OnKeyDown != null)
+            _ = InvokeAsync(() => OnKeyDown(e));
+    }
 }
