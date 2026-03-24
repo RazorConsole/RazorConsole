@@ -2,7 +2,7 @@ import type { Collaborator } from "@/data/collaborators"
 import { Github, Linkedin, Globe } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card"
-import { getOptimizedImageUrl } from "@/lib/image-utils"
+import { Image } from "@/components/ui/Image"
 function XIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -12,21 +12,16 @@ function XIcon({ className }: { className?: string }) {
 }
 
 export default function Collaborator({ collaborator }: { collaborator: Collaborator }) {
-  const avatarUrl = getOptimizedImageUrl(
-    collaborator.avatar ?? `https://github.com/${collaborator.github}.png`,
-    { size: 96 }
-  );
-
   return (
     <Card key={collaborator.github} className="flex flex-col">
       <CardHeader className="text-center">
         <div className="mx-auto mb-4">
-          <img
-            src={avatarUrl}
+          <Image
+            src={collaborator.avatar ?? `https://github.com/${collaborator.github}.png`}
             width={96}
             height={96}
             alt={`${collaborator.name}'s avatar`}
-            className="h-24 w-24 rounded-full border-2 border-slate-200 dark:border-slate-700"
+            containerClassName="h-24 w-24 rounded-full border-2 border-slate-200 dark:border-slate-700"
             onError={(e) => {
               e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(collaborator.name)}&background=random`
             }}
