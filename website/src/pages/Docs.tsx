@@ -6,8 +6,8 @@ import type { Heading } from "@/types/docs/topicItem"
 import Sidebar from "@/components/docs/Sidebar"
 import EditLink from "@/components/docs/EditLink"
 import { docTopicIds, releaseNoteIds } from "@/data/docs-ids"
-import { MarkdownRenderer } from "@/components/ui/Markdown"
 import type { MetaFunction } from "react-router"
+import { MarkdownRenderer } from "@/components/ui/Markdown"
 
 const docsModules = import.meta.glob("/src/docs/*.md", { query: "?raw", import: "default" })
 const releaseModules = import.meta.glob("/../release-notes/*.md", { query: "?raw", import: "default" })
@@ -81,10 +81,15 @@ export async function loader({ params }: LoaderFunctionArgs) {
   return await loadMarkdownContent(params.topicId || "quick-start")
 }
 
+export async function clientLoader({ params }: LoaderFunctionArgs) {
+  return await loadMarkdownContent(params.topicId || "quick-start")
+}
+
+clientLoader.hydrate = true;
 
 export default function Docs() {
-  const activeTopic = useLoaderData<Topic>(); 
-  
+  const activeTopic = useLoaderData<Topic>();
+
   const { topicId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -122,7 +127,7 @@ export default function Docs() {
   }, [location.hash, activeId])
 
   return (
-    <div className="min-h-screen bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen docs bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
       <div className="px-6 py-16 sm:px-10 lg:px-16">
         <div className="flex flex-col lg:block">
           <ResponsiveSidebar breakpoint="lg" className="w-72 px-6 py-6">
@@ -145,15 +150,13 @@ export default function Docs() {
             <div className="prose prose-slate dark:prose-invert max-w-none">
               <MarkdownRenderer content={activeTopic.content} />
             </div>
-
-            <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800">
-              <EditLink
-                activeTopic={activeTopic as any}
-                topics={topicsWithHeadings as any}
-                releaseNotes={releaseWithHeadings as any}
-                getFilePathForTopic={() => activeTopic.filePath}
-              />
-            </div>
+            
+            <EditLink
+              activeTopic={activeTopic as any}
+              topics={topicsWithHeadings as any}
+              releaseNotes={releaseWithHeadings as any}
+              getFilePathForTopic={() => activeTopic.filePath}
+            />
           </main>
         </div>
       </div>
