@@ -13,13 +13,18 @@ public sealed class ConsoleLiveDisplayOptions
     public bool AutoClear { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the live display should automatically hide cursor after render or not.
+    /// </summary>
+    /// <remarks>
+    /// By default, is true
+    /// </remarks>
+    public bool HideCursor { get; set; } = true;
+
+    /// <summary>
     /// Creates a new instance with default settings.
     /// </summary>
     public static ConsoleLiveDisplayOptions Default => new();
 
     internal ConsoleLiveDisplayOptions Clone()
-        => new()
-        {
-            AutoClear = AutoClear,
-        };
+        => new() { AutoClear = AutoClear, HideCursor = HideCursor };
 }

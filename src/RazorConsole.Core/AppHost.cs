@@ -122,7 +122,7 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
             AnsiConsole.Clear();
         }
 
-        using var liveContext = new ConsoleLiveDisplayContext(new LiveDisplayCanvas(AnsiConsole.Console), consoleRenderer, terminalMonitor, null);
+        using var liveContext = new ConsoleLiveDisplayContext(new LiveDisplayCanvas(options.ConsoleLiveDisplayOptions, AnsiConsole.Console), consoleRenderer, terminalMonitor, null);
         using var _ = consoleRenderer.Subscribe(focusManager);
         using var focusSession = focusManager.BeginSession(liveContext, initialView, token);
         await focusSession.InitializationTask.ConfigureAwait(false);
