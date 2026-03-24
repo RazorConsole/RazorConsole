@@ -3,6 +3,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using RazorConsole.Core;
 using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Focus;
@@ -70,6 +71,7 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         _consoleRenderer = _serviceProvider.GetRequiredService<ConsoleRenderer>();
         _keyboardEventManager = _serviceProvider.GetRequiredService<KeyboardEventManager>();
         var focusManager = _serviceProvider.GetRequiredService<FocusManager>();
+        var options = _serviceProvider.GetRequiredService<IOptions<ConsoleAppOptions>>().Value;
 
         _ansiConsole = AnsiConsole.Create(new AnsiConsoleSettings
         {
@@ -87,7 +89,7 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
 
         var initialView = ConsoleViewResult.FromSnapshot(snapshot);
         var terminalMonitor = _serviceProvider.GetRequiredService<TerminalMonitor>();
-        _canvas = new LiveDisplayCanvas(_ansiConsole);
+        _canvas = new LiveDisplayCanvas(options.ConsoleLiveDisplayOptions, _ansiConsole);
 
         // Subscribe to Refreshed BEFORE creating the context, so we catch the initial render.
         _canvas.Refreshed += () =>
