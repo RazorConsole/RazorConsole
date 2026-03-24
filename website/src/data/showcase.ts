@@ -1,3 +1,5 @@
+import { getOptimizedImageUrl } from "@/lib/image-utils"
+
 export interface ShowcaseProject {
   name: string
   description: string
@@ -18,4 +20,8 @@ export const showcaseProjects: ShowcaseProject[] = [
       "https://raw.githubusercontent.com/Skuzzle-UK/Waves/main/screenshot2.png",
     ],
   },
-]
+].map((project) => ({
+  ...project,
+  imageUrls: project.imageUrls?.map(i => getOptimizedImageUrl(i, { size: 1000 })),
+})
+);

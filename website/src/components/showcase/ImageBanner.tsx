@@ -24,7 +24,7 @@ export default function ImageBanner({ imageUrls, alt }: { imageUrls: string[]; a
         src={imageUrls[currentIndex]}
         alt={`${alt} screenshot ${currentIndex + 1}`}
         className="h-full w-full object-cover"
-        loading="lazy"
+        loading="eager"
       />
       {imageUrls.length > 1 && (
         <>
