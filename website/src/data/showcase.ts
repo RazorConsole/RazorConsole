@@ -25,7 +25,6 @@ export const showcaseProjects: ShowcaseProject[] = [
     imageUrls: [
       "https://raw.githubusercontent.com/DevMando/MandoCode/main/docs/images/hero-demo.gif",
       "https://raw.githubusercontent.com/DevMando/MandoCode/main/docs/images/diff-approval.png",
-      "https://raw.githubusercontent.com/DevMando/MandoCode/main/docs/images/file-autocomplete.gif",
       "https://raw.githubusercontent.com/DevMando/MandoCode/main/docs/images/task-planner.png",
       "https://raw.githubusercontent.com/DevMando/MandoCode/main/docs/images/music-player.png",
     ]
