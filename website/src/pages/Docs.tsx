@@ -81,11 +81,6 @@ export async function loader({ params }: LoaderFunctionArgs) {
   return await loadMarkdownContent(params.topicId || "quick-start")
 }
 
-export async function clientLoader({ params }: LoaderFunctionArgs) {
-  return await loadMarkdownContent(params.topicId || "quick-start")
-}
-
-clientLoader.hydrate = true;
 
 export default function Docs() {
   const activeTopic = useLoaderData<Topic>(); 
