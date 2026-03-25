@@ -20,3 +20,25 @@ export function getCategoryBadgeColor(category: Category) {
       return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-500/40 dark:bg-slate-500/10 dark:text-slate-300"
   }
 }
+export function stripMarkdown(markdown: string): string {
+  return markdown
+    // Remove code blocks
+    .replace(/```[\s\S]*?```/g, "")
+    // Remove inline code
+    .replace(/`([^`]+)`/g, "$1")
+    // Remove alerts
+    .replace(/\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/gi, "")
+    // Remove images ![alt](url)
+    .replace(/!\[([^\]]*)\]\([^\)]+\)/g, "")
+    // Remove links leaving only text
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1")
+    // Remove titles
+    .replace(/#+\s+(.+)/g, "$1")
+    // Remove text formatting
+    .replace(/[*_]{1,2}([^*_]+)[*_]{1,2}/g, "$1")
+    // Replace newlines with spaces
+    .replace(/\n+/g, " ")
+    // Remove extra whitespace
+    .replace(/\s+/g, " ")
+    .trim();
+}

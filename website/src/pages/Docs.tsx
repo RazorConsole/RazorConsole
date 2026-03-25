@@ -8,6 +8,7 @@ import EditLink from "@/components/docs/EditLink"
 import { docTopicIds, releaseNoteIds } from "@/data/docs-ids"
 import type { MetaFunction } from "react-router"
 import { MarkdownRenderer } from "@/components/ui/Markdown"
+import { stripMarkdown } from "@/lib/utils"
 
 const docsModules = import.meta.glob("/src/docs/*.md", { query: "?raw", import: "default" })
 const releaseModules = import.meta.glob("/../release-notes/*.md", { query: "?raw", import: "default" })
@@ -15,7 +16,9 @@ const releaseModules = import.meta.glob("/../release-notes/*.md", { query: "?raw
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   const topic = data;
   const title = topic ? `${topic.title} | RazorConsole Docs` : "Documentation | RazorConsole";
-  const description = "Explore RazorConsole documentation to learn how to build powerful terminal user interfaces.";
+  const description = topic ? 
+    stripMarkdown(topic.content).slice(0, 150) + "..." : 
+    "Explore RazorConsole documentation to learn how to build powerful terminal user interfaces.";
 
   return [
     { title },
@@ -150,7 +153,7 @@ export default function Docs() {
             <div className="prose prose-slate dark:prose-invert max-w-none">
               <MarkdownRenderer content={activeTopic.content} />
             </div>
-            
+
             <EditLink
               activeTopic={activeTopic as any}
               topics={topicsWithHeadings as any}
