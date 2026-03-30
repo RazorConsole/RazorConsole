@@ -24,38 +24,43 @@ internal sealed class VDomTreePrinterTranslator : ITranslationMiddleware
         }
 
         _semaphore.Wait();
-
-        var builder = new StringBuilder();
-        builder.Append(node.Key);
-
-        AppendNode(node, builder, string.Empty, true);
-        builder.AppendLine();
-        var dump = builder.ToString();
-
-        var textRenderable = new Text(dump);
-
-        _frames.Add(textRenderable);
-
-        var row = new Rows(_frames.Select((i, frame) =>
+        try
         {
-            return new Panel(i)
+
+            var builder = new StringBuilder();
+            builder.Append(node.Key);
+
+            AppendNode(node, builder, string.Empty, true);
+            builder.AppendLine();
+            var dump = builder.ToString();
+
+            var textRenderable = new Text(dump);
+
+            _frames.Add(textRenderable);
+
+            var row = new Rows(_frames.Select((i, frame) =>
             {
-                Border = BoxBorder.Rounded,
-                Header = new PanelHeader($"Frame {frame + 1}", Justify.Center),
-                Padding = new Padding(1, 1, 1, 1),
+                return new Panel(i)
+                {
+                    Border = BoxBorder.Rounded,
+                    Header = new PanelHeader($"Frame {frame + 1}", Justify.Center),
+                    Padding = new Padding(1, 1, 1, 1),
+                    Expand = true
+                };
+            }));
+
+            var result = new Panel(row)
+            {
+                Border = BoxBorder.None,
                 Expand = true
             };
-        }));
 
-        var result = new Panel(row)
+            return result;
+        }
+        finally
         {
-            Border = BoxBorder.None,
-            Expand = true
-        };
-
-        _semaphore.Release();
-
-        return result;
+            _semaphore.Release();
+        }
     }
 
     private static void AppendNode(VNode node, StringBuilder builder, string indent, bool isLast)

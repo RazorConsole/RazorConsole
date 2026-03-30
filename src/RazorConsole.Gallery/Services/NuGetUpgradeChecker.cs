@@ -31,7 +31,7 @@ internal sealed class NuGetUpgradeChecker : INuGetUpgradeChecker
     private readonly string _currentVersion;
 
     private UpgradeCheckResult? _cachedResult;
-    private readonly SemaphoreSlim _cacheLock = new(1, 1);
+    private readonly SemaphoreSlim _cacheSemaphore = new(1, 1);
 
     public NuGetUpgradeChecker(HttpClient httpClient, ILogger<NuGetUpgradeChecker> logger)
     {
@@ -47,7 +47,7 @@ internal sealed class NuGetUpgradeChecker : INuGetUpgradeChecker
             return _cachedResult;
         }
 
-        await _cacheLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _cacheSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             if (_cachedResult is not null)
@@ -61,7 +61,7 @@ internal sealed class NuGetUpgradeChecker : INuGetUpgradeChecker
         }
         finally
         {
-            _cacheLock.Release();
+            _cacheSemaphore.Release();
         }
     }
 

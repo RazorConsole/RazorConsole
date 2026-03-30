@@ -13,7 +13,7 @@ namespace RazorConsole.Core.Focus;
 public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 {
     private readonly IFocusEventDispatcher? _eventDispatcher;
-    private readonly object _sync = new();
+    private readonly Lock _sync = new();
     private List<FocusTarget> _focusTargets = new();
     private int _currentIndex = -1;
     private string? _pendingFocusKey;

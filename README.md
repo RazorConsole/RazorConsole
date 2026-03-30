@@ -332,7 +332,8 @@ The following file types are automatically tracked by Git LFS:
 
 Projects built with RazorConsole:
 
-- [Waves](https://github.com/Skuzzle-UK/Waves) - GitHub Game Off 2025 entry
+- [Waves](https://github.com/Skuzzle-UK/Waves) - GitHub Game Off 2025 entry.
+- [MandoCode](https://github.com/DevMando/MandoCode) - A CLI coding agent powered by Ollama + Semantic Kernel. Run locally or in the cloud. Refactors code, proposes diffs, and updates your project safely.
 - [azure-servicebus-console](https://github.com/zidad/azure-servicebus-console) - Terminal UI browser for Azure Service Bus — browse namespaces, queues, topics and subscriptions, peek/receive messages, and manage entities with delete support
 
 *Want to showcase your project? Submit a PR to add it here!*
