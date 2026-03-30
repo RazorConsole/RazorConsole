@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from 'vite'
-import react from '@vitejs/plugin-react'
+import { reactRouter } from "@react-router/dev/vite";
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -44,7 +44,16 @@ function rewriteDotnetResourceImports(): Plugin {
 // https://vite.dev/config/
 export default defineConfig({
   base: process.env.VITE_BASE ?? '/',
-  plugins: [rewriteDotnetResourceImports(), react(), tailwindcss()],
+  plugins: [rewriteDotnetResourceImports(), reactRouter(), tailwindcss()],
+  ssr: {
+    noExternal: ['xterm', '@xterm/addon-fit']
+  },
+  server: {
+    fs: {
+      // Allow Vite to read files one level higher (for release-notes)
+      allow: [".."],
+    },
+  },
   assetsInclude: ['**/*.dat'],
   optimizeDeps: {
     exclude: ['razor-console'],

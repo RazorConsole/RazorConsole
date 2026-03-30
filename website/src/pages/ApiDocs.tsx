@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useLoaderData, useNavigate, useParams, type LoaderFunctionArgs, type MetaFunction } from "react-router"
 import ApiDocument from "@/components/api/ApiDocument"
 import { apiItems, apiToc, type DocfxApiItem, type DocfxTocNode } from "@/data/api-docs"
 import { ResponsiveSidebar } from "@/components/ui/ResponsiveSidebar"
 import Sidebar from "@/components/api/Sidebar"
+
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+  const item = data?.activeItem;
+  const title = item ? `${item.name} (${item.type}) | API Reference` : "API Reference | RazorConsole";
+  
+  return [
+    { title },
+    { name: "description", content: item?.summary || "Full API reference for RazorConsole classes, components, and utilities." },
+  ];
+};
 
 function findFirstUid(nodes: DocfxTocNode[]): string | undefined {
   for (const node of nodes) {
@@ -19,6 +29,10 @@ function findFirstUid(nodes: DocfxTocNode[]): string | undefined {
   }
   return undefined
 }
+export async function loader({ params }: LoaderFunctionArgs) {
+  const item = params.uid ? apiItems[decodeURIComponent(params.uid)] : undefined;
+  return { activeItem: item };
+}
 
 export default function ApiDocs() {
   const navigate = useNavigate()
@@ -33,7 +47,7 @@ export default function ApiDocs() {
     if (!decodedUid && firstUid) navigate(`/api/${encodeURIComponent(firstUid)}`, { replace: true })
   }, [decodedUid, firstUid, navigate])
 
-  const activeItem = decodedUid ? docfxItems[decodedUid] : undefined
+  const activeItem = useLoaderData<{activeItem: DocfxApiItem | undefined}>().activeItem;
   const searchTerm = query.trim().toLowerCase()
   const searchResults = useMemo(() => {
     if (!searchTerm) return []
@@ -52,7 +66,7 @@ export default function ApiDocs() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
       <div className="px-6 py-16 sm:px-10 lg:px-16">
         <div className="flex flex-col lg:block">
           <ResponsiveSidebar breakpoint="lg" className="w-72 px-6 py-6">

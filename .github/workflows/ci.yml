@@ -107,7 +107,8 @@ jobs:
       - name: Build website for preview
         run: npm run build
         env:
-          VITE_BASE: ${{ github.event_name == 'push' && format('/{0}/', github.event.repository.name) || '/' }}
+          VITE_ROUTER_BASENAME: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && '/RazorConsole/' || '/' }}
+          VITE_BASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && '/RazorConsole/' || '/' }}
         working-directory: website
 
       - name: Upload preview artifact
@@ -115,7 +116,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: website-preview-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
-          path: website/dist
+          path: website/build/client
           retention-days: 30
 
       - name: Configure Pages
@@ -126,7 +127,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: website/dist
+          path: website/build/client
 
   deploy-pages:
     name: Deploy to GitHub Pages

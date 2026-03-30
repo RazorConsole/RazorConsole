@@ -1,13 +1,28 @@
 import { Terminal } from "lucide-react"
 import { useState, useEffect } from "react"
+import { useResolvedTheme } from "@/hooks/useTheme"
 
 export default function ConsoleTitle() {
   const fullText = "RazorConsole"
   const [text, setText] = useState("")
   const [isDeleting, setIsDeleting] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
+  const [isMounted, setIsMounted] = useState(false) 
+  const theme = useResolvedTheme()
+  const [resolvedIsDark, setResolvedIsDark] = useState(theme === "dark")
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted) return
+    setResolvedIsDark(theme === "dark")
+  }, [theme, isMounted])
+
+  useEffect(() => {
+    if (!isMounted) return
+
     const typingSpeed = 120
     const deletingSpeed = 70
     const pauseDuration = 1500
@@ -50,13 +65,14 @@ export default function ConsoleTitle() {
       }, deletingSpeed)
     }
     return () => clearTimeout(timer)
-  }, [text, isDeleting])
+  }, [text, isDeleting, isMounted])
+
   const progress = text.length / fullText.length
 
   const getIconColor = () => {
-    const isDark = document.documentElement.classList.contains("dark")
+    if (!isMounted) return "rgb(37, 99, 235)" 
 
-    if (isDark) {
+    if (resolvedIsDark) {
       const r = Math.round(96 + (192 - 96) * progress)
       const g = Math.round(165 + (132 - 165) * progress)
       const b = Math.round(250 + (252 - 250) * progress)
@@ -68,6 +84,7 @@ export default function ConsoleTitle() {
       return `rgb(${r}, ${g}, ${b})`
     }
   }
+
   return (
     <h1 className="mb-4 flex items-center justify-center gap-3 text-5xl font-bold">
       <div className="relative inline-flex items-center">
@@ -86,7 +103,9 @@ export default function ConsoleTitle() {
 
           {/* Cursor */}
           <span
-            className={`ml-0.5 inline-block h-10 w-0.5 bg-blue-600 dark:bg-blue-400 ${isPaused ? "animate-pulse" : "opacity-100"}`}
+            className={`ml-0.5 inline-block h-10 w-0.5 bg-blue-600 dark:bg-blue-400 ${
+              isPaused ? "animate-pulse" : "opacity-100"
+            } ${!isMounted ? "invisible" : ""}`}
           />
         </span>
       </div>

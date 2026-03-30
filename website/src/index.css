@@ -40,3 +40,16 @@ body {
   background-size: 200% 200%;
   animation: shimmer 2s ease infinite;
 }
+
+/* Shiki (Code blocks) Dual Themes */
+.shiki span {
+  color: var(--shiki-light);
+}
+
+.dark .shiki span {
+  color: var(--shiki-dark) !important;
+}
+
+.shiki {
+  background-color: transparent !important;
+}

@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom"
+import { Outlet } from "react-router"
 import { components } from "@/data/components"
 import { ResponsiveSidebar } from "@/components/ui/ResponsiveSidebar"
 import Sidebar from "@/components/components/Sidebar"

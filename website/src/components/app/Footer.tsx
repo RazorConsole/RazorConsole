@@ -19,13 +19,13 @@ export function Footer() {
     </h3>
   )
 
-  const FooterLink = ({ href, to, children, icon: Icon }: any) => {
+  const FooterLink = ({ href, to, children, icon: Icon, ariaLabel }: any) => {
     const classes =
       "group flex items-center gap-2 text-sm text-slate-600 transition-colors hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
 
     if (to) {
       return (
-        <Link to={to} className={classes}>
+        <Link to={to} className={classes} aria-label={ariaLabel}>
           {Icon && (
             <Icon className="h-3.5 w-3.5 text-slate-400 transition-colors group-hover:text-blue-600 dark:text-slate-500 dark:group-hover:text-blue-400" />
           )}
@@ -34,7 +34,7 @@ export function Footer() {
       )
     }
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={classes}>
+      <a href={href} target="_blank" rel="noopener noreferrer" className={classes} aria-label={ariaLabel}>
         {Icon && (
           <Icon className="h-3.5 w-3.5 text-slate-400 transition-colors group-hover:text-blue-600 dark:text-slate-500 dark:group-hover:text-blue-400" />
         )}
@@ -52,22 +52,38 @@ export function Footer() {
             <FooterHeader>Project</FooterHeader>
             <ul className="space-y-3">
               <li>
-                <FooterLink href="https://github.com/RazorConsole/RazorConsole" icon={Github}>
+                <FooterLink 
+                  href="https://github.com/RazorConsole/RazorConsole" 
+                  icon={Github}
+                  ariaLabel="View RazorConsole source code on GitHub"
+                >
                   GitHub
                 </FooterLink>
               </li>
               <li>
-                <FooterLink href="https://www.nuget.org/packages/RazorConsole.Core" icon={Package}>
+                <FooterLink 
+                  href="https://www.nuget.org/packages/RazorConsole.Core" 
+                  icon={Package}
+                  ariaLabel="View RazorConsole package on NuGet"
+                >
                   NuGet
                 </FooterLink>
               </li>
               <li>
-                <FooterLink to="/showcase" icon={Gem}>
+                <FooterLink 
+                  to="/showcase" 
+                  icon={Gem}
+                  ariaLabel="View RazorConsole showcase"
+                >
                   Showcase
                 </FooterLink>
               </li>
               <li>
-                <FooterLink to="/collaborators" icon={Heart}>
+                <FooterLink 
+                  to="/collaborators" 
+                  icon={Heart}
+                  ariaLabel="View project collaborators"
+                >
                   Collaborators
                 </FooterLink>
               </li>
@@ -79,22 +95,38 @@ export function Footer() {
             <FooterHeader>Resources</FooterHeader>
             <ul className="space-y-3">
               <li>
-                <FooterLink to="/docs/quick-start" icon={BookOpen}>
+                <FooterLink 
+                  to="/docs/quick-start" 
+                  icon={BookOpen}
+                  ariaLabel="Read RazorConsole documentation"
+                >
                   Documentation
                 </FooterLink>
               </li>
               <li>
-                <FooterLink to="/api" icon={Code}>
+                <FooterLink 
+                  to="/api" 
+                  icon={Code}
+                  ariaLabel="Browse API reference"
+                >
                   API Reference
                 </FooterLink>
               </li>
               <li>
-                <FooterLink href="https://discord.gg/DphHAnJxCM" icon={MessageCircle}>
+                <FooterLink 
+                  href="https://discord.gg/DphHAnJxCM" 
+                  icon={MessageCircle}
+                  ariaLabel="Join our Discord community"
+                >
                   Discord Community
                 </FooterLink>
               </li>
               <li>
-                <FooterLink href="https://github.com/RazorConsole/RazorConsole/issues" icon={Bug}>
+                <FooterLink 
+                  href="https://github.com/RazorConsole/RazorConsole/issues" 
+                  icon={Bug}
+                  ariaLabel="Report an issue on GitHub"
+                >
                   Report Issue
                 </FooterLink>
               </li>
@@ -111,6 +143,7 @@ export function Footer() {
               href="https://github.com/RazorConsole/RazorConsole/blob/main/LICENSE"
               target="_blank"
               rel="noreferrer"
+              aria-label="View MIT License"
               className="transition-colors hover:text-slate-900 dark:hover:text-slate-200"
             >
               License
@@ -119,6 +152,7 @@ export function Footer() {
               href="https://github.com/RazorConsole/RazorConsole"
               target="_blank"
               rel="noreferrer"
+              aria-label="View source code on GitHub"
               className="transition-colors hover:text-slate-900 dark:hover:text-slate-200"
             >
               Source Code
