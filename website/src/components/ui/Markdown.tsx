@@ -64,6 +64,7 @@ export const MarkdownRenderer = React.memo<MarkdownRendererProps>(({ content, cl
         rehypePlugins={rehypePluginsList}
         components={{
           // Customize code blocks
+          pre: ({ children }) => <>{children}</>,
           code: ({ className, children, ...props }: any) => {
             const match = /language-(\w+)/.exec(className || "")
             const language = match ? (match[1] as BundledLanguage) : undefined

@@ -4,7 +4,7 @@ This reference summarizes the Razor components that ship with RazorConsole. Each
 
 > **Tip:** Components marked with `RenderFragment? ChildContent` accept arbitrary nested markup.
 
-Current catalog: `Align`, `Border`, `Columns`, `Figlet`, `Grid`, `Markup`, `Newline`, `Padder`, `Panel`, `Rows`, `Select`, `Spinner`, `SyntaxHighlighter`, `Table`, `TextButton`, `TextInput`.
+Current catalog: `Align`, `Border`, `Columns`, `Figlet`, `FlexBox`, `Grid`, `Markup`, `Newline`, `Padder`, `Panel`, `Rows`, `Select`, `Spinner`, `SyntaxHighlighter`, `Table`, `TextButton`, `TextInput`, `ViewHeightScrollable`.
 
 ## Align
 Wraps child content in an alignment container.
@@ -74,6 +74,22 @@ Renders large ASCII art text using Figlet fonts.
 | `Content` | `string` | `string.Empty` | Text to render. |
 | `Justify` | `Justify` | `Center` | Alignment inside the Figlet block. |
 | `Color` | `Color` | `Color.Default` | Foreground color for the glyphs. |
+
+## FlexBox
+Lays out child items using a CSS-like flexbox model with configurable direction, justification, alignment, wrapping, and gap.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `ChildContent` | `RenderFragment?` | — | Items to lay out inside the flex container. |
+| `Direction` | `FlexDirection` | `Row` | Main axis direction: `Row` (horizontal) or `Column` (vertical). |
+| `Justify` | `FlexJustify` | `Start` | Distribution of free space along the main axis: `Start`, `End`, `Center`, `SpaceBetween`, `SpaceAround`, `SpaceEvenly`. |
+| `Align` | `FlexAlign` | `Start` | Alignment of items along the cross axis: `Start`, `End`, `Center`, `Stretch`. |
+| `Wrap` | `FlexWrap` | `NoWrap` | Whether items wrap to new lines when they exceed available space: `NoWrap`, `Wrap`. |
+| `Gap` | `int` | `0` | Spacing between items in characters (Row) or lines (Column). |
+| `Width` | `int?` | `null` | Explicit width constraint in characters. When `null`, uses all available width. |
+| `Height` | `int?` | `null` | Explicit height constraint in lines. When `null`, uses the natural content height. |
+
+See [`design-doc/flexbox-renderable.md`](flexbox-renderable.md) for the full layout algorithm and advanced usage.
 
 ## Grid
 Builds a Spectre.Console grid with configurable columns.
@@ -221,9 +237,31 @@ Record, that enables and adjusts scrollbar inside the Scrollable component.
 | `OnFocusInCallback` | `Action<FocusEventArgs>?` | `null` | Invoked when scrollbar gains focus.                                                        |
 | `OnFocusOutCallback` | `Action<FocusEventArgs>?` | `null` | Invoked when scrollbar loses focus.                                                        |
 
+## ViewHeightScrollable
+Scrolls any content line-by-line with keyboard navigation. Unlike `Scrollable` (which paginates a typed item list), `ViewHeightScrollable` renders a fixed-height viewport over arbitrary `RenderFragment` content.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `ChildContent` | `RenderFragment<ScrollContext>` | — | Required. Content to display inside the scrollable viewport. Receives a `ScrollContext`. |
+| `LinesToRender` | `int` | `10` | Number of lines visible at one time (viewport height). |
+| `ScrollOffset` | `int` | `0` | Two-way – index of the first visible line. |
+| `ScrollOffsetChanged` | `EventCallback<int>` | — | Fired when the scroll offset changes. |
+| `Scrollbar` | `ScrollbarSettings?` | `null` | When provided, renders a scrollbar alongside the content. Uses the same `ScrollbarSettings` record as `Scrollable`. |
+| `IsScrollbarEmbedded` | `bool` | `true` | When `true`, embeds the scrollbar inside the border of a `Panel`, `Border`, or `Table` child. Falls back to side-rendering when multiple block elements are detected. |
+
+Keyboard shortcuts: `↑`/`↓` (single line), `PageUp`/`PageDown` or `Space` (full page), `Home`/`End` (bounds).
+
+### `ScrollContext` (ViewHeightScrollable)
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `KeyDownEventHandler` | `Func<KeyboardEventArgs,Task>` | Attach via `@onkeydown` on a focusable element inside the viewport. |
+| `CurrentOffset` | `int` | Current scroll offset in lines. |
+
+
 ## StepChart
 
-Renders a step chart directly in the terminal using Unicode box-drawing characters. Perfect for visualizing time-series, discrete state changes, or any data where values stay constant between points.
+Renders a step chart directly in the terminal, using Unicode box-drawing characters. Perfect for visualizing time-series, discrete state changes, or any data where values stay constant between points.
 
 | Parameter       | Type                          | Default      | Description                                                 |
 |-----------------|-------------------------------|--------------|-------------------------------------------------------------|

@@ -94,8 +94,8 @@ Build your console UI using familiar Razor components with full support for data
 Create engaging user experiences with interactive elements like buttons, text inputs, selectors, and keyboard navigation - all with focus management handled automatically.
 
 ### 🎯 **Built-in Component Library**
-Get started quickly with **20+ pre-built components** covering layout, input, display, and navigation needs:
-- **Layout** (6): `Align`, `Columns`, `Rows`, `Grid`, `Padder`, `Scrollable`
+Get started quickly with **25+ pre-built components** covering layout, input, display, and navigation needs:
+- **Layout** (8): `Align`, `Columns`, `FlexBox`, `Rows`, `Grid`, `Padder`, `Scrollable`, `ViewHeightScrollable`
 - **Input** (3): `TextInput`, `TextButton`, `Select`
 - **Display** (12): `BarChart`, `BreakdownChart`, `StepChart`, `Border`, `Figlet`, `Markdown`, `Markup`, `ModalWindow`, `Panel`, `SpectreCanvas`, `SyntaxHighlighter`, `Table`
 - **Utilities** (2): `Spinner`, `Newline`
@@ -122,6 +122,7 @@ RazorConsole ships with a catalog of ready-to-use components that wrap Spectre.C
 - `BreakdownChart` – Renders a colorful breakdown (pie-style) chart showing proportions with optional legend and values.
 - `Columns` – arrange items side-by-side, optionally stretching to fill the console width.
 - `Figlet` – render big ASCII art text using FIGlet fonts.
+- `FlexBox` – lay out child items using a CSS-like flexbox model with configurable direction, justification, alignment, wrapping, and gap.
 - `Grid` – build multi-row, multi-column layouts with precise cell control.
 - `Markup` – emit styled text with Spectre markup tags.
 - `Markdown` - render markdown string.
@@ -139,6 +140,7 @@ RazorConsole ships with a catalog of ready-to-use components that wrap Spectre.C
 - `Table` – display structured data in formatted tables with headers, borders, and rich cell content.
 - `TextButton` – display clickable text with focus and pressed-state styling.
 - `TextInput` – capture user input with optional masking and change handlers.
+- `ViewHeightScrollable` – scroll any content line-by-line with keyboard navigation and optional embedded scrollbar support for `Panel`, `Border`, and `Table`.
 
 See [`design-doc/builtin-components.md`](design-doc/builtin-components.md) for the full reference, including parameters and customization tips.
 

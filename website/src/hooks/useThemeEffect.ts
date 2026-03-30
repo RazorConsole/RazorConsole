@@ -1,24 +1,32 @@
-import { useEffect } from "react"
-import { useTheme } from "@/hooks/useTheme"
+import { useEffect } from "react";
+import { useTheme } from "./useTheme";
 
-// Hook to apply theme changes to the DOM
 export function useThemeEffect() {
-  const theme = useTheme((state) => state.theme)
+  const { theme } = useTheme();
 
   useEffect(() => {
-    const root = window.document.documentElement
+    const root = window.document.documentElement;
+    
+    const applyTheme = (currentTheme: string) => {
+      root.classList.remove("light", "dark");
 
-    root.classList.remove("light", "dark")
+      if (currentTheme === "system") {
+        const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+        root.classList.add(systemTheme);
+      } else {
+        root.classList.add(currentTheme);
+      }
+    };
+
+    applyTheme(theme);
 
     if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-
-      root.classList.add(systemTheme)
-      return
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleChange = () => applyTheme("system");
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
     }
-
-    root.classList.add(theme)
-  }, [theme])
+  }, [theme]);
 }

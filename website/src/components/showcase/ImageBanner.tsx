@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useState } from "react"
+import { Image } from "../ui/Image";
 
 export default function ImageBanner({ imageUrls, alt }: { imageUrls: string[]; alt: string }) {
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -20,11 +21,10 @@ export default function ImageBanner({ imageUrls, alt }: { imageUrls: string[]; a
 
   return (
     <div className="group relative h-72 overflow-hidden rounded-t-lg">
-      <img
+      <Image
         src={imageUrls[currentIndex]}
         alt={`${alt} screenshot ${currentIndex + 1}`}
-        className="h-full w-full object-cover"
-        loading="lazy"
+        loading="eager"
       />
       {imageUrls.length > 1 && (
         <>
@@ -33,14 +33,14 @@ export default function ImageBanner({ imageUrls, alt }: { imageUrls: string[]; a
             className="absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/70"
             aria-label="Previous image"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-7 w-7" />
           </button>
           <button
             onClick={goToNext}
             className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/70"
             aria-label="Next image"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-7 w-7" />
           </button>
           <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
             {imageUrls.map((_, index) => (

@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils"
 import type { TopicItem } from "@/types/docs/topicItem"
 import { ChevronDown, ChevronRight } from "lucide-react"
+import { useLocation } from "react-router"
 
 interface Props {
   topics: TopicItem[]
@@ -28,8 +29,10 @@ const Sidebar: React.FC<Props> = ({
   handleSubHeadingClick,
   toggleTopicExpand,
   setReleaseNotesOpen,
-}) => (
-  <div className="space-y-6">
+}) => {
+  const location = useLocation();
+  return (
+    <div className="space-y-6">
     <div>
       <h2 className="mb-4 text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase dark:text-slate-400">
         Topics
@@ -129,6 +132,7 @@ const Sidebar: React.FC<Props> = ({
       )}
     </div>
   </div>
-)
+  )
+}
 
 export default Sidebar

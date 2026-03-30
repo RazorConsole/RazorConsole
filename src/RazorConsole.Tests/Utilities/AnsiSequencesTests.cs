@@ -8,6 +8,7 @@ public sealed class AnsiSequencesTests
 {
     private const string IndexEscapeSequence = AnsiSequences.ESC + "D";
     private const string NextLineEscapeSequence = AnsiSequences.ESC + "E";
+    private const string NextLineEscapeSequenceWindows = AnsiSequences.CSI + "1E";
     private const string ReverseIndexEscapeSequence = AnsiSequences.ESC + "M";
 
     [Fact]
@@ -19,7 +20,14 @@ public sealed class AnsiSequencesTests
     [Fact]
     public void NEL_ReturnsNextLineEscapeSequence()
     {
-        AnsiSequences.NEL().ShouldBe(NextLineEscapeSequence);
+        if (!OperatingSystem.IsWindows())
+        {
+            AnsiSequences.NEL().ShouldBe(NextLineEscapeSequence);
+        }
+        else
+        {
+            AnsiSequences.NEL().ShouldBe(NextLineEscapeSequenceWindows);
+        }
     }
 
     [Fact]

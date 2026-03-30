@@ -1,7 +1,29 @@
-﻿import { useEffect, useState } from "react"
-import { codeToHtml, type BundledLanguage } from "shiki"
-import { useTheme } from "@/hooks/useTheme"
+﻿import { type BundledLanguage, createHighlighter, type Highlighter } from "shiki"
 import { CopyButton } from "@/components/ui/CopyButton"
+import { useEffect, useState } from "react"
+
+let globalHighlighter: Highlighter | null = null
+
+// For ssr, inits the shiki highlighter on the server 
+export async function initHighlighter() {
+  if (!globalHighlighter) {
+    globalHighlighter = await createHighlighter({
+      themes: ["github-dark", "github-light"],
+      langs: ["csharp", "razor", "bash", "xml", "shell", "typescript", "javascript", "json"]
+    })
+  }
+}
+
+function generateHtml(code: string, language: BundledLanguage) {
+  return globalHighlighter?.codeToHtml(code.trim(), {
+    lang: language,
+    themes: {
+      light: "github-light",
+      dark: "github-dark",
+    },
+    defaultColor: false,
+  }).replace(/background-color:[^;"]+;?/g, "").replace(/background:[^;"]+;?/g, "") ?? "";
+}
 
 interface CodeBlockProps {
   code: string
@@ -10,28 +32,22 @@ interface CodeBlockProps {
   className?: string
 }
 
-function CodeBlock({ code, language = "csharp", showCopy = true, className = "" }: CodeBlockProps) {
-  const [html, setHtml] = useState("")
-  const theme = useTheme((s) => s.theme)
-  const resolvedTheme =
-    theme === "system"
-      ? window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-      : theme
+function CodeBlock({ code, language = "csharp", showCopy = false, className = "" }: CodeBlockProps) {
+  let staticHtml = ""
+  if (globalHighlighter) {
+    staticHtml = generateHtml(code.trim(), language)  
+  }
+
+  const [html, setHtml] = useState(staticHtml);
 
   useEffect(() => {
-    codeToHtml(code, {
-      lang: language,
-      theme: resolvedTheme === "dark" ? "github-dark" : "github-light",
-    }).then((generatedHtml) => {
-      // remove inline background styles
-      const cleanHtml = generatedHtml
-        .replace(/background-color:[^;"]+;?/g, "")
-        .replace(/background:[^;"]+;?/g, "")
-      setHtml(cleanHtml)
-    })
-  }, [code, language, resolvedTheme])
+    if (!globalHighlighter) {
+      initHighlighter().then(() => {
+        const newHtml = generateHtml(code.trim(), language);
+        setHtml(newHtml);
+      })
+    }
+  }, [code, language])
 
   return (
     <div
@@ -44,8 +60,8 @@ function CodeBlock({ code, language = "csharp", showCopy = true, className = "" 
       )}
 
       <div
-        className="[&_code]:text-sm [&_code]:leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: html }}
+        className="text-sm leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: html || `<pre><code>${code}</code></pre>` }}
       />
     </div>
   )
