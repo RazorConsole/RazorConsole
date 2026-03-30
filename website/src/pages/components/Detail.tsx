@@ -1,13 +1,30 @@
-import { useParams, Navigate } from "react-router-dom"
+import { Navigate } from "react-router"
 import { components } from "@/data/components"
 import { ComponentPreview } from "@/components/components/ComponentPreview"
 import { cn, getCategoryBadgeColor } from "@/lib/utils"
 import ApiSection from "@/components/components/ApiSection"
 import ParametersTable from "@/components/components/ParametersTable"
+import type { MetaFunction, LoaderFunctionArgs } from "react-router";
+import { useLoaderData } from "react-router";
 
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+  if (!data) return [{ title: "Component Not Found | RazorConsole" }];
+  
+  const { component } = data;
+  return [
+    { title: `${component.name} Component | RazorConsole` },
+    { name: "description", content: component.description },
+    { property: "og:title", content: `${component.name} - RazorConsole Component` },
+  ];
+};
+
+export async function loader({ params }: LoaderFunctionArgs) {
+  const component = components.find((c) => c.name.toLowerCase() === params.name?.toLowerCase());
+  if (!component) throw new Response("Not Found", { status: 404 });
+  return { component };
+}
 export default function ComponentDetail() {
-  const { name } = useParams()
-  const component = components.find((c) => c.name.toLowerCase() === name?.toLowerCase())
+  const { component } = useLoaderData<typeof loader>();
 
   if (!component) {
     return <Navigate to="/components" replace />

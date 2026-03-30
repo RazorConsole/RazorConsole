@@ -1,18 +1,17 @@
-import { Terminal } from "xterm"
-import type { IDisposable, ITerminalOptions, ITheme } from "xterm"
+import type { Terminal, IDisposable, ITerminalOptions, ITheme } from "xterm"
 import "xterm/css/xterm.css"
 
 type TerminalConstructor = typeof Terminal
 type TerminalType = InstanceType<typeof Terminal>
 
-type TerminalOptions = Partial<ITerminalOptions> & { theme?: Partial<ITheme> }
+export type TerminalOptions = Partial<ITerminalOptions> & { theme?: Partial<ITheme> }
 
-type DotNetHelper = {
+export type DotNetHelper = {
   invokeMethodAsync: (methodName: string, ...args: unknown[]) => Promise<unknown>
 }
 
-type RazorConsoleTerminalApi = {
-  init: (elementId: string, options?: TerminalOptions) => void
+export type RazorConsoleTerminalApi = {
+  init: (elementId: string, options?: TerminalOptions) => Promise<void>
   write: (elementId: string, text: string) => void
   clear: (elementId: string) => void
   dispose: (elementId: string) => void
@@ -44,13 +43,16 @@ const defaultOptions: TerminalOptions = {
   scrollback: 1000,
 }
 
-function getTerminalConstructor(): TerminalConstructor {
-  const ctor = typeof window !== "undefined" ? window.Terminal : undefined
-  if (!ctor) {
-    throw new Error("xterm.js is not loaded.")
+async function getTerminalConstructor(): Promise<TerminalConstructor> {
+  if (typeof window === "undefined") {
+    throw new Error("Terminal can only be initialized in the browser.")
   }
+  
+  if (window.Terminal) return window.Terminal
 
-  return ctor
+  const { Terminal } = await import("xterm")
+  window.Terminal = Terminal
+  return Terminal
 }
 
 function mergeThemes(
@@ -83,7 +85,7 @@ function getExistingTerminal(elementId: string): TerminalType {
 }
 
 export function isTerminalAvailable(): boolean {
-  return typeof window !== "undefined" && typeof window.Terminal === "function"
+  return typeof window !== "undefined" && (typeof window.Terminal === "function" || !!window.razorConsoleTerminal)
 }
 
 export function registerTerminalInstance(elementId: string, terminal: TerminalType): void {
@@ -94,8 +96,8 @@ export function getTerminalInstance(elementId: string): TerminalType | undefined
   return terminals.get(elementId)
 }
 
-export function initTerminal(elementId: string, options?: TerminalOptions): TerminalType {
-  const TerminalCtor = getTerminalConstructor()
+export async function initTerminal(elementId: string, options?: TerminalOptions): Promise<TerminalType> {
+  const TerminalCtor = await getTerminalConstructor()
   const host = ensureHostElement(elementId)
 
   disposeTerminal(elementId)
@@ -114,10 +116,7 @@ export function initTerminal(elementId: string, options?: TerminalOptions): Term
 }
 
 export function writeToTerminal(elementId: string, text: string): void {
-  if (typeof text !== "string" || text.length === 0) {
-    return
-  }
-
+  if (typeof text !== "string" || text.length === 0) return
   const terminal = getExistingTerminal(elementId)
   terminal.write(text)
 }
@@ -147,20 +146,8 @@ export function attachKeyListener(elementId: string, helper: DotNetHelper): void
           console.warn("Failed to copy to clipboard:", err)
         }
       }
-      // Still forward the event to WASM in case it needs to handle it
-      void helper.invokeMethodAsync(
-        "HandleKeyboardEvent",
-        elementId,
-        key,
-        domEvent.key,
-        domEvent.ctrlKey,
-        domEvent.altKey,
-        domEvent.shiftKey
-      )
-      return
     }
 
-    // Handle Ctrl+V (or Cmd+V on Mac) - Paste from clipboard
     if ((ctrlKey || metaKey) && (domKey === "v" || domKey === "V")) {
       try {
         const text = await navigator.clipboard.readText()
@@ -168,15 +155,7 @@ export function attachKeyListener(elementId: string, helper: DotNetHelper): void
           console.debug("Pasting from clipboard:", text)
           // Send each character individually to WASM
           for (const char of text) {
-            await helper.invokeMethodAsync(
-              "HandleKeyboardEvent",
-              elementId,
-              char,
-              char.length === 1 ? char : "Unidentified",
-              false,
-              false,
-              false
-            )
+            await helper.invokeMethodAsync("HandleKeyboardEvent", elementId, char, char, false, false, false)
           }
         }
       } catch (err) {
@@ -185,7 +164,6 @@ export function attachKeyListener(elementId: string, helper: DotNetHelper): void
       return
     }
 
-    // Forward all other keyboard events to WASM
     void helper.invokeMethodAsync(
       "HandleKeyboardEvent",
       elementId,
@@ -205,26 +183,18 @@ export function disposeTerminal(elementId: string): void {
   keyHandlers.delete(elementId)
 
   const terminal = terminals.get(elementId)
-  if (!terminal) {
-    return
+  if (terminal) {
+    terminal.dispose()
+    terminals.delete(elementId)
   }
-
-  terminal.dispose()
-  terminals.delete(elementId)
 }
 
-function ensureGlobalApi(): void {
-  if (typeof window === "undefined") {
-    return
-  }
-
-  if (typeof window.Terminal !== "function") {
-    window.Terminal = Terminal
-  }
+async function ensureGlobalApi(): Promise<void> {
+  if (typeof window === "undefined") return
 
   const api: RazorConsoleTerminalApi = {
-    init: (elementId, options) => {
-      initTerminal(elementId, options)
+    init: async (elementId, options) => {
+      await initTerminal(elementId, options)
     },
     write: writeToTerminal,
     clear: clearTerminal,
@@ -237,43 +207,22 @@ function ensureGlobalApi(): void {
   window.razorConsoleTerminal = api
 }
 
-ensureGlobalApi()
-
-// ================================
-// C# WASM Interop Functions
-// ================================
-// These functions call into the C# WebAssembly runtime via the razor-console module.
-// We use DYNAMIC IMPORT here to prevent loading the heavy WASM module on initial page load.
+if (typeof window !== "undefined") {
+  ensureGlobalApi()
+}
 
 import type { WasmExports } from "razor-console"
-
 let wasmExportsPromise: Promise<WasmExports> | null = null
 
-/**
- * Gets the WASM exports from main.js via the razor-console package.
- * Uses dynamic import to load the module only when needed.
- */
 async function getWasmExports(): Promise<WasmExports> {
   if (wasmExportsPromise === null) {
-    // Dynamic import: Webpack/Vite will split this into a separate chunk
     const { createRuntimeAndGetExports } = await import("razor-console")
     wasmExportsPromise = createRuntimeAndGetExports()
   }
   return wasmExportsPromise
 }
 
-/**
- * Registers a Razor component so its renderer can stream updates into the terminal.
- * Calls into C# WASM: Registry.RegisterComponent(elementId, cols, rows)
- * @param elementId - The ID of the terminal element to register
- * @param cols - The initial number of columns
- * @param rows - The initial number of rows
- */
-export async function registerComponent(
-  elementId: string,
-  cols: number,
-  rows: number
-): Promise<void> {
+export async function registerComponent(elementId: string, cols: number, rows: number): Promise<void> {
   const exports = await getWasmExports()
   return exports.Registry.RegisterComponent(elementId, cols, rows)
 }
@@ -289,22 +238,11 @@ export async function registerComponent(
  * @param shiftKey - Whether Shift was held
  */
 export async function handleKeyboardEvent(
-  componentName: string,
-  xtermKey: string,
-  domKey: string,
-  ctrlKey: boolean,
-  altKey: boolean,
-  shiftKey: boolean
+  componentName: string, xtermKey: string, domKey: string, 
+  ctrlKey: boolean, altKey: boolean, shiftKey: boolean
 ): Promise<void> {
   const exports = await getWasmExports()
-  return exports.Registry.HandleKeyboardEvent(
-    componentName,
-    xtermKey,
-    domKey,
-    ctrlKey,
-    altKey,
-    shiftKey
-  )
+  return exports.Registry.HandleKeyboardEvent(componentName, xtermKey, domKey, ctrlKey, altKey, shiftKey)
 }
 
 /**
@@ -322,5 +260,3 @@ export async function handleResize(
   const exports = await getWasmExports()
   return exports.Registry.HandleResize(componentName, cols, rows)
 }
-
-export type { DotNetHelper, RazorConsoleTerminalApi, TerminalOptions }

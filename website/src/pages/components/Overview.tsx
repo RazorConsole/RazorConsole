@@ -1,13 +1,18 @@
-import { Link } from "react-router-dom"
+import { Link, type MetaFunction } from "react-router"
 import { components } from "@/data/components"
 import { ArrowRight, Box } from "lucide-react"
 import { cn, getCategoryBadgeColor } from "@/lib/utils"
+
+export const meta: MetaFunction = () => ([
+  {title: "Components Library | RazorConsole",},
+  {name: "description", content: "Explore RazorConsole components to build powerful terminal user interfaces."},
+])
 
 export default function ComponentsOverview() {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 space-y-10 duration-500">
       <div className="space-y-2">
-        <h1 className="bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-4xl font-bold tracking-tight text-transparent dark:from-slate-100 dark:to-slate-400">
+        <h1 className="bg-linear-to-r from-slate-900 to-slate-700 bg-clip-text text-4xl font-bold tracking-tight text-transparent dark:from-slate-100 dark:to-slate-400">
           Built-in Components
         </h1>
         <p className="max-w-2xl text-lg text-slate-600 dark:text-slate-400">
