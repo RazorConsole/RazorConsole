@@ -18,4 +18,15 @@ export const showcaseProjects: ShowcaseProject[] = [
       "https://raw.githubusercontent.com/Skuzzle-UK/Waves/main/screenshot2.png",
     ],
   },
+  {
+    name: "MandoCode",
+    description: "A CLI coding agent powered by Ollama + Semantic Kernel. Run locally or in the cloud. Refactors code, proposes diffs, and updates your project safely — no API keys required.",
+    github: "DevMando/MandoCode",
+    imageUrls: [
+      "https://raw.githubusercontent.com/DevMando/MandoCode/main/docs/images/hero-demo.gif",
+      "https://raw.githubusercontent.com/DevMando/MandoCode/main/docs/images/diff-approval.png",
+      "https://raw.githubusercontent.com/DevMando/MandoCode/main/docs/images/task-planner.png",
+      "https://raw.githubusercontent.com/DevMando/MandoCode/main/docs/images/music-player.png",
+    ]
+  }
 ]

@@ -17,11 +17,7 @@ namespace RazorConsole.Core.Rendering;
 public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRenderer.RenderSnapshot>
 {
     private readonly ILiveDisplayCanvas _canvas;
-#if NET9_0_OR_GREATER
     private readonly Lock _sync = new();
-#else
-    private readonly object _sync = new();
-#endif
     private readonly VdomDiffService _diffService;
     private readonly ConsoleRenderer _renderer;
     private readonly Translation.Contexts.TranslationContext _translationContext;
@@ -69,11 +65,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
             throw new ArgumentNullException(nameof(view));
         }
 
-#if NET9_0_OR_GREATER
-        using (_sync.EnterScope())
-#else
         lock (_sync)
-#endif
         {
             var previous = _currentView;
             var previousRoot = previous?.VdomRoot;
@@ -118,11 +110,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
     public void UpdateRenderable(IRenderable? renderable)
     {
         _canvas.UpdateTarget(renderable);
-#if NET9_0_OR_GREATER
-        using (_sync.EnterScope())
-#else
         lock (_sync)
-#endif
         {
             _currentView = null;
             DisposeAnimations();

@@ -15,11 +15,7 @@ internal sealed class TerminalMonitor : IDisposable
     private CancellationTokenSource? _cts;
     private CancellationTokenSource? _debounceCts;
     private bool _isStarted;
-#if NET9_0_OR_GREATER
     private readonly Lock _sync = new();
-#else
-    private readonly object _sync = new();
-#endif
 
     public event Action? OnResized;
 

@@ -85,7 +85,7 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
     KeyboardEventManager keyboardEventManager,
     TerminalMonitor terminalMonitor) : BackgroundService where TComponent : IComponent
 {
-    private readonly SemaphoreSlim _renderLock = new(1, 1);
+    private readonly SemaphoreSlim _renderSemaphore = new(1, 1);
 
     /// <summary>
     /// Ensures exceptions that occur during component execution are surfaced when the host stops.
@@ -141,7 +141,7 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        await _renderLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _renderSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var parameterView = CreateParameterView();
@@ -153,7 +153,7 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
         }
         finally
         {
-            _renderLock.Release();
+            _renderSemaphore.Release();
         }
     }
 

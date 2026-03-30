@@ -64,11 +64,7 @@ internal sealed class ConsoleRenderer(
     private readonly ILogger<ConsoleRenderer> _logger = loggerFactory?.CreateLogger<ConsoleRenderer>()
         ?? throw new ArgumentNullException(nameof(loggerFactory));
     private readonly Translation.Contexts.TranslationContext _translationContext = translationContext;
-#if NET9_0_OR_GREATER
     private readonly Lock _observersSync = new();
-#else
-    private readonly object _observersSync = new();
-#endif
     private readonly List<IObserver<RenderSnapshot>> _observers = [];
 
     private TaskCompletionSource<RenderSnapshot>? _pendingRender;
