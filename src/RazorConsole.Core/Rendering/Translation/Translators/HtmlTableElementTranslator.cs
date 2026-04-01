@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
@@ -240,6 +241,13 @@ public sealed class HtmlTableElementTranslator : ITranslationMiddleware
     {
         var cells = new List<CellData>();
 
+        var selectedBgStr = VdomSpectreTranslator.GetAttribute(rowNode, "data-selected-bg");
+        Color? rowBackground = null;
+        if (!string.IsNullOrWhiteSpace(selectedBgStr) && Color.TryFromHex(selectedBgStr, out var bgColor))
+        {
+            rowBackground = bgColor;
+        }
+
         foreach (var child in rowNode.Children)
         {
             if (child.Kind != VNodeKind.Element)
@@ -259,6 +267,10 @@ public sealed class HtmlTableElementTranslator : ITranslationMiddleware
                 return false;
             }
 
+            IRenderable cellContent = rowBackground.HasValue
+                ? new BackgroundRenderable(renderable, rowBackground.Value)
+                : renderable;
+
             var alignmentAttribute = VdomSpectreTranslator.GetAttribute(child, "data-align");
             var alignment = ParseAlignment(alignmentAttribute);
 
@@ -267,7 +279,7 @@ public sealed class HtmlTableElementTranslator : ITranslationMiddleware
 
             VdomSpectreTranslator.TryParsePadding(VdomSpectreTranslator.GetAttribute(child, "data-padding"), out var padding);
             VdomSpectreTranslator.TryGetBoolAttribute(child, "data-no-wrap", out var noWrap);
-            cells.Add(new CellData(renderable, alignment, cellWidth, padding, noWrap));
+            cells.Add(new CellData(cellContent, alignment, cellWidth, padding, noWrap));
         }
 
         rowData = new RowData(cells.ToArray());
