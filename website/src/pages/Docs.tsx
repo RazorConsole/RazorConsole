@@ -8,20 +8,25 @@ import EditLink from "@/components/docs/EditLink"
 import { docTopicIds, releaseNoteIds } from "@/data/docs-ids"
 import type { MetaFunction } from "react-router"
 import { MarkdownRenderer } from "@/components/ui/Markdown"
-import { stripMarkdown } from "@/lib/utils"
+import { getFullSitePath, stripMarkdown } from "@/lib/utils"
 
 const docsModules = import.meta.glob("/src/docs/*.md", { query: "?raw", import: "default" })
 const releaseModules = import.meta.glob("/../release-notes/*.md", { query: "?raw", import: "default" })
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
+export const meta: MetaFunction<typeof loader> = ({ data, matches, location }) => {
+  const rootMeta = matches.find((m) => m.id === "root")?.meta || [];
+  const pageUrl = `${getFullSitePath()}${location.pathname}`;
+
   const topic = data;
   const title = topic ? `${topic.title} | RazorConsole Docs` : "Documentation | RazorConsole";
-  const description = topic ? 
-    stripMarkdown(topic.content).slice(0, 150) + "..." : 
+  const description = topic ?
+    stripMarkdown(topic.content).slice(0, 150) + "..." :
     "Explore RazorConsole documentation to learn how to build powerful terminal user interfaces.";
 
   return [
+    ...rootMeta,
     { title },
+    { property: "og:url", content: pageUrl },
     { name: "description", content: description },
     { property: "og:title", content: title },
     { property: "og:description", content: description },

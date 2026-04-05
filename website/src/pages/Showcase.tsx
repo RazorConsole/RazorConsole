@@ -1,13 +1,21 @@
 import ImageBanner from "@/components/showcase/ImageBanner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import { showcaseProjects } from "@/data/showcase"
+import { getFullSitePath } from "@/lib/utils";
 import { Rocket } from "lucide-react"
 import type { MetaFunction } from "react-router";
 
-export const meta: MetaFunction = () => [
-  { title: "Showcase | RazorConsole" },
-  { name: "description", content: "Discover amazing projects and terminal interfaces built by the community using RazorConsole." }
-];
+export const meta: MetaFunction = ({ matches, location }) => {
+  const rootMeta = matches.find((m) => m.id === "root")?.meta || [];
+  const pageUrl = `${getFullSitePath()}${location.pathname}`;
+
+  return [
+    ...rootMeta,
+    { property: "og:url", content: pageUrl },
+    { title: "Showcase | RazorConsole" },
+    { name: "description", content: "Discover amazing projects and terminal interfaces built by the community using RazorConsole." }
+  ]
+};
 
 export default function Showcase() {
   const getProjectUrl = (project: (typeof showcaseProjects)[0]) => {

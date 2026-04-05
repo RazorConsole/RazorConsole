@@ -2,11 +2,20 @@ import { collaborators } from "@/data/collaborators"
 import Collaborator from "@/components/collaborators/Collaborator"
 import ContributeMessage from "@/components/collaborators/ContributeMessage"
 import type { MetaFunction } from "react-router";
+import { getFullSitePath } from "@/lib/utils";
 
-export const meta: MetaFunction = () => [
-  { title: "Collaborators | RazorConsole" },
-  { name: "description", content: "Meet the incredible people behind RazorConsole framework." }
-];
+export const meta: MetaFunction = ({ matches, location }) => {
+  const rootMeta = matches.find((m) => m.id === "root")?.meta || [];
+  const pageUrl = `${getFullSitePath()}${location.pathname}`;
+
+  return [
+    ...rootMeta,
+    { title: "Collaborators | RazorConsole" },
+    { property: "og:url", content: pageUrl },
+    { name: "description", content: "Meet the incredible people behind RazorConsole framework." }
+  ];
+}
+
 
 export default function Collaborators() {
   return (

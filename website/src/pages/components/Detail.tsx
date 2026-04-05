@@ -1,20 +1,19 @@
 import { Navigate } from "react-router"
 import { components } from "@/data/components"
 import { ComponentPreview } from "@/components/components/ComponentPreview"
-import { cn, getCategoryBadgeColor } from "@/lib/utils"
+import { cn, getCategoryBadgeColor, getFullSitePath } from "@/lib/utils"
 import ApiSection from "@/components/components/ApiSection"
 import ParametersTable from "@/components/components/ParametersTable"
 import type { MetaFunction, LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
+export const meta: MetaFunction<typeof loader> = ({ data, location }) => {
   if (!data) return [{ title: "Component Not Found | RazorConsole" }];
 
   const { component } = data;
 
-  const siteUrl = (import.meta.env.VITE_SITE_URL || '').replace(/\/$/, '');
-  const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, '');
-  const fullBaseUrl = `${siteUrl}${baseUrl}`;
+  const fullBaseUrl = getFullSitePath();  
+  const pageUrl = `${fullBaseUrl}${location.pathname}`;
 
   const title = `${component.name} Component | RazorConsole`;
   const description = component.description;
@@ -26,16 +25,19 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 
     // Open Graph / Facebook
     { property: "og:type", content: "website" },
-    { property: "og:url", content: `${fullBaseUrl}/components/${component.name.toLowerCase()}` },
+    { property: "og:url", content: pageUrl },
     { property: "og:title", content: component.name },
     { property: "og:description", content: description },
     { property: "og:image", content: ogImage },
+    { property: "og:image:width", content: "1200" },
+    { property: "og:image:height", content: "630" },
 
     // Twitter
-    { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: component.name },
     { name: "twitter:description", content: description },
     { name: "twitter:image", content: ogImage },
+    { name: "twitter:image:width", content: "1200" },
+    { name: "twitter:image:height", content: "630" },
   ];
 };
 

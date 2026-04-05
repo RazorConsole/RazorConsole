@@ -42,3 +42,9 @@ export function stripMarkdown(markdown: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+export function getFullSitePath() {
+  const siteUrl = (import.meta.env.VITE_SITE_URL || '').replace(/\/$/, '');
+  const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, '');
+  return `${siteUrl}${baseUrl}`
+}

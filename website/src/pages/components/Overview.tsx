@@ -1,12 +1,19 @@
 import { Link, type MetaFunction } from "react-router"
 import { components } from "@/data/components"
 import { ArrowRight, Box } from "lucide-react"
-import { cn, getCategoryBadgeColor } from "@/lib/utils"
+import { cn, getCategoryBadgeColor, getFullSitePath } from "@/lib/utils"
 
-export const meta: MetaFunction = () => ([
-  {title: "Components Library | RazorConsole",},
-  {name: "description", content: "Explore RazorConsole components to build powerful terminal user interfaces."},
-])
+export const meta: MetaFunction = ({ matches, location }) => {
+  const rootMeta = matches.find((m) => m.id === "root")?.meta || [];
+  const pageUrl = `${getFullSitePath()}${location.pathname}`;
+
+  return [
+    ...rootMeta,
+    { title: "Components Library | RazorConsole", },
+    { property: "og:url", content: pageUrl },
+    { name: "description", content: "Explore RazorConsole components to build powerful terminal user interfaces." },
+  ];
+}
 
 export default function ComponentsOverview() {
   return (
