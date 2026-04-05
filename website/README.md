@@ -48,6 +48,11 @@ npm run build:docfx
 npm run build:wasm
 ```
 
+> [!WARNING]
+> Metadata (like llms.txt, sitemap.xml, open graph images) is generated automatically after the main build, and stored on the production folder
+> so when running `npm run dev`, you don't see any of them. 
+> If you want to see website with metadata, run `npm run build` and then `npm run preview`.
+
 ### Running the Project
 
 ```bash
@@ -68,9 +73,10 @@ website/
 ├── scripts/                # Build orchestration scripts
 │   ├── build-wasm.js       # Compiles RazorConsole.Website (.NET) to WASM for browser previews
 │   ├── generate-llms.ts    # Generates AI-friendly documentation (llms.txt, llms-full.txt)
+│   ├── generate-og.tsx     # Generates dynamic OG social images using Satori and WASM runtime
 │   └── generate-sitemap.ts # Generates SEO sitemap.xml with hierarchical priorities
 ├── src/
-│   ├── assets/             # Static assets (images, global icons)
+│   ├── assets/             # Static assets (images, global icons, fonts)
 │   ├── components/         # Reusable React components
 │   │   ├── api/            # API Reference specific (TocTree, Sidebar, ApiDocument)
 │   │   ├── app/            # Global Shell (Header, Footer, Layout, Theme handling)
@@ -119,10 +125,16 @@ This stage is executed automatically after the main build (`postbuild`) to prepa
     * **Components** — main functionality.
     * **Docs** — tutorial guides.
     * **API** — low-level technical details.
-3.  **Vite SSR Integration**: The scripts use `vite.ssrLoadModule` to guarantee a full response to generated requests without manual list updates.
+3.  **Dynamic Open Graph Images (`generate-og.ts`)**: Creates unique social media preview images for each component page.
+    * **TUI Snapshot**: The script initializes a headless terminal [`@xterm/headless`](https://github.com/xtermjs/xterm.js) and loads the .NET WASM runtime.
+    * **Image Rendering**: Utilizes the [`@chenglou/pretext`](https://github.com/chenglou/pretext) library for precise monospace font measurement and [`satori`](https://github.com/vercel/satori) to convert HTML/CSS into SVG.
+    * **Consistency**: Each image reflects the actual state of the component (borders, scrollbars) directly from the library's source code.
+
+### Vite SSR Integration
+
+The automation scripts utilize `vite.ssrLoadModule`. This ensures that generators (OG, LLMS, Sitemap) always operate with the latest business logic and project data without requiring manual updates to the page lists.
 
 ---
-
 ### Theming Strategy
 
 To avoid the "White Flash" (FOUC), we use a small blocking script in the `<head>` of `root.tsx`. It reads the theme preference directly from `localStorage` and applies the `.dark` class to the `<html>` element before React even starts rendering.
