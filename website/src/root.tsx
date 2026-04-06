@@ -28,6 +28,7 @@ export const meta: MetaFunction = () => {
     { property: "og:image:height", content: "640" },
 
     // Twitter
+    { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:image", content: `${fullBaseUrl}/razor_console_preview.png` },
     { property: "twitter:image:width", content: "1280" },
     { property: "twitter:image:height", content: "640" },

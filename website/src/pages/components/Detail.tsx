@@ -35,6 +35,7 @@ export const meta: MetaFunction<typeof loader> = ({ data, location }) => {
     // Twitter
     { name: "twitter:title", content: component.name },
     { name: "twitter:description", content: description },
+    { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:image", content: ogImage },
     { name: "twitter:image:width", content: "1200" },
     { name: "twitter:image:height", content: "630" },
