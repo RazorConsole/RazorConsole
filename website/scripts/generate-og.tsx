@@ -11,6 +11,7 @@ import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
 const { Terminal } = xtermPkg;
 
 import type { ComponentInfo } from '../src/types/components/componentInfo.ts';
+
 const ANSI_HEX: Record<number, string> = {
     0: "#000000", 1: "#cd3131", 2: "#0dbc79", 3: "#e5e510",
     4: "#2472c8", 5: "#bc3fbc", 6: "#11a8cd", 7: "#e5e5e5",
@@ -52,26 +53,30 @@ async function generateOgImages() {
     const config = await resolveConfig({}, 'build');
     const DIST_DIR = path.resolve(config.root, config.build.outDir || 'dist');
     const OG_DIR = path.join(DIST_DIR, 'og');
+    const ASSETS_DIR = path.resolve(config.root, 'src/assets/fonts');
 
-    const FONT_PATH = path.resolve(config.root, 'src/assets/fonts/CascadiaCode.ttf');
-    registerFont(FONT_PATH, { family: 'Cascadia Code' });
+    const FONT_PATH = path.join(ASSETS_DIR, 'CascadiaCode.ttf');
+    const FONT_PATH_BOLD = path.join(ASSETS_DIR, 'CascadiaCode-Bold.ttf');
+    const FONT_PATH_ITALIC = path.join(ASSETS_DIR, 'CascadiaCode-Italic.ttf');
+
+    registerFont(FONT_PATH, { family: 'Cascadia Code', weight: 'normal', style: 'normal' });
+    registerFont(FONT_PATH_BOLD, { family: 'Cascadia Code', weight: 'bold', style: 'normal' });
+    registerFont(FONT_PATH_ITALIC, { family: 'Cascadia Code', weight: 'normal', style: 'italic' });
+
+    if (!fs.existsSync(OG_DIR)) fs.mkdirSync(OG_DIR, { recursive: true });
+    
+    const fontData = fs.readFileSync(FONT_PATH);
+    const fontBoldData = fs.readFileSync(FONT_PATH_BOLD);
+    const fontItalicData = fs.readFileSync(FONT_PATH_ITALIC);
 
     const termCols = 80;
     const termRows = 24;
 
-    if (!fs.existsSync(OG_DIR)) fs.mkdirSync(OG_DIR, { recursive: true });
-    if (!fs.existsSync(FONT_PATH)) throw new Error(`Font not found at ${FONT_PATH}`);
-
-    const fontData = fs.readFileSync(FONT_PATH);
-
-    const dom = new JSDOM(
-        '<!DOCTYPE html><html><body></body></html>',
-        {
-            url: "http://localhost",
-            pretendToBeVisual: true 
-        }
-    );
-
+    const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
+        url: "http://localhost",
+        pretendToBeVisual: true 
+    });
+    
     global.window = dom.window as any;
     if (typeof global.OffscreenCanvas === 'undefined') {
         // @ts-ignore
@@ -177,7 +182,11 @@ async function generateOgImages() {
                 {
                     width: 1200,
                     height: 630,
-                    fonts: [{ name: 'Cascadia Code', data: fontData, weight: 400 }]
+                    fonts: [
+                        { name: 'Cascadia Code', data: fontData, weight: 400, style: 'normal' },
+                        { name: 'Cascadia Code', data: fontBoldData, weight: 700, style: 'normal' },
+                        { name: 'Cascadia Code', data: fontItalicData, weight: 400, style: 'italic' },
+                    ]
                 }
             );
 
@@ -198,7 +207,7 @@ async function generateOgImages() {
     }
 }
 
-const FONT_SPEC = '20px "Cascadia Code"';
+const FONT_SPEC_BASE = '20px "Cascadia Code"';
 
 function renderTerminalToJSX(term: any) {
     const rows = [];
@@ -219,6 +228,8 @@ function renderTerminalToJSX(term: any) {
         let currentSegment = '';
         let lastFg = -1;
         let lastBg = -1;
+        let lastBold = false;
+        let lastItalic = false;
 
         for (let x = 0; x < term.cols; x++) {
             const cell = line.getCell(x);
@@ -226,22 +237,26 @@ function renderTerminalToJSX(term: any) {
 
             const fg = cell.getFgColor();
             const bg = cell.getBgColor();
+            const bold = !!cell.isBold();
+            const italic = !!cell.isItalic();
             const char = cell.getChars() || ' ';
 
-            if (fg === lastFg && bg === lastBg) {
+            if (fg === lastFg && bg === lastBg && bold === lastBold && italic === lastItalic) {
                 currentSegment += char;
             } else {
                 if (currentSegment) {
-                    rowSpans.push(createSpan(currentSegment, lastFg, lastBg, y, x));
+                    rowSpans.push(createSpan(currentSegment, lastFg, lastBg, lastBold, lastItalic, y, x));
                 }
                 currentSegment = char;
                 lastFg = fg;
                 lastBg = bg;
+                lastBold = bold;
+                lastItalic = italic;
             }
         }
 
         if (currentSegment) {
-            rowSpans.push(createSpan(currentSegment, lastFg, lastBg, y, term.cols));
+            rowSpans.push(createSpan(currentSegment, lastFg, lastBg, lastBold, lastItalic, y, term.cols));
         }
 
         rows.push(
@@ -265,11 +280,13 @@ function renderTerminalToJSX(term: any) {
     return rows;
 }
 
-function createSpan(text: string, fg: number, bg: number, y: number, x: number) {
+function createSpan(text: string, fg: number, bg: number, isBold: boolean, isItalic: boolean, y: number, x: number) {
     const fgColor = resolveColor(fg, true);
     const bgColor = resolveColor(bg, false);
 
-    const prepared = prepareWithSegments(text, FONT_SPEC, { whiteSpace: 'pre-wrap' });
+    const fontSpec = `${isItalic ? 'italic ' : ''}${isBold ? 'bold ' : ''}${FONT_SPEC_BASE}`;
+
+    const prepared = prepareWithSegments(text, fontSpec, { whiteSpace: 'pre-wrap' });
     const { lines } = layoutWithLines(prepared, 2000, 22);
 
     const exactWidth = (lines[0]?.width > 0) ? lines[0].width : text.length * 12;
@@ -284,6 +301,8 @@ function createSpan(text: string, fg: number, bg: number, y: number, x: number) 
             lineHeight: '22px',
             fontFamily: 'Cascadia Code',
             fontSize: '20px',
+            fontWeight: isBold ? 'bold' : 'normal',
+            fontStyle: isItalic ? 'italic' : 'normal',
             whiteSpace: 'pre',
             margin: 0,
             padding: 0,
