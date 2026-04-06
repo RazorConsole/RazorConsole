@@ -50,6 +50,9 @@ function resolveColor(colorValue: number, isForeground: boolean): string {
 }
 
 async function generateOgImages() {
+    const args = process.argv.slice(2);
+    const componentNameArg = args.find(a => a.startsWith('--componentName='))?.split('=')[1];
+
     const config = await resolveConfig({}, 'build');
     const DIST_DIR = path.resolve(config.root, config.build.outDir || 'dist');
     const OG_DIR = path.join(DIST_DIR, 'og');
@@ -113,7 +116,17 @@ async function generateOgImages() {
     try {
         const { createRuntimeAndGetExports } = await vite.ssrLoadModule('razor-console');
         const wasmExports = await createRuntimeAndGetExports();
-        const { components } = await vite.ssrLoadModule('./src/data/components.ts') as { components: ComponentInfo[] };
+        let { components } = await vite.ssrLoadModule('./src/data/components.ts') as { components: ComponentInfo[] };
+
+        if (componentNameArg) {
+            components = components.filter(c => c.name.toLowerCase() === componentNameArg.toLowerCase());
+            
+            if (components.length === 0) {
+                console.log(pc.red(`[OG] Component "${componentNameArg}" not found in metadata.`));
+                process.exit(1);
+            }
+            console.log(pc.yellow(`[OG] Filtering active: only processing "${components[0].name}"`));
+        }
 
         const capturedAnsi: Record<string, string> = {};
         (global.window as any).razorConsoleTerminal = {

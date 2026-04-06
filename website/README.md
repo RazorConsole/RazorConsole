@@ -129,6 +129,7 @@ This stage is executed automatically after the main build (`postbuild`) to prepa
     * **TUI Snapshot**: The script initializes a headless terminal [`@xterm/headless`](https://github.com/xtermjs/xterm.js) and loads the .NET WASM runtime.
     * **Image Rendering**: Utilizes the [`@chenglou/pretext`](https://github.com/chenglou/pretext) library for precise monospace font measurement and [`satori`](https://github.com/vercel/satori) to convert HTML/CSS into SVG.
     * **Consistency**: Each image reflects the actual state of the component (borders, scrollbars) directly from the library's source code.
+    * **Selective Generation**: Supports an optional `--componentName` CLI flag to generate or update a preview for a single specific component, significantly reducing iteration time during development. (e.g., `npm run gen:og -- --componentName="Scrollable"`)
 
 ### Vite SSR Integration
 
