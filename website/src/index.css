@@ -53,38 +53,3 @@ body {
 .shiki {
   background-color: transparent !important;
 }
-
-
-/* xterm fonts */
-
-/* Regular (400) */
-@font-face {
-  font-family: 'Cascadia Code';
-  src: url('https://cdn.jsdelivr.net/npm/@fontsource/cascadia-code@5/files/cascadia-code-latin-400-normal.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-}
-
-/* Italic (400) */
-@font-face {
-  font-family: 'Cascadia Code';
-  src: url('https://cdn.jsdelivr.net/npm/@fontsource/cascadia-code@5/files/cascadia-code-latin-400-italic.woff2') format('woff2');
-  font-weight: 400;
-  font-style: italic;
-}
-
-/* Bold (700) */
-@font-face {
-  font-family: 'Cascadia Code';
-  src: url('https://cdn.jsdelivr.net/npm/@fontsource/cascadia-code@5/files/cascadia-code-latin-700-normal.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-}
-
-/* Bold Italic (700) */
-@font-face {
-  font-family: 'Cascadia Code';
-  src: url('https://cdn.jsdelivr.net/npm/@fontsource/cascadia-code@5/files/cascadia-code-latin-700-italic.woff2') format('woff2');
-  font-weight: 700;
-  font-style: italic;
-}

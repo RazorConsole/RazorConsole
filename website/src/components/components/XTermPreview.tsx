@@ -109,10 +109,6 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
         const { FitAddon } = await import("@xterm/addon-fit")
 
         if (cancelled) return
-
-        if ('fonts' in document) {
-          await document.fonts.load('14px "Cascadia Code"'); // Wait for loading Cascadia Code
-        }
         
         const term = new Terminal({
           fontFamily: "'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace",
