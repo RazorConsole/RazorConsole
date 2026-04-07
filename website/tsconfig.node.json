@@ -6,6 +6,8 @@
     "module": "ESNext",
     "types": ["node", "vite/client"],
     "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
 
     /* Bundler mode */
     "moduleResolution": "bundler",

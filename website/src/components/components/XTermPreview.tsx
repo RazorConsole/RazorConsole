@@ -70,7 +70,7 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
   const fitAddonRef = useRef<FitAddon | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const theme  = useResolvedTheme()
+  const theme = useResolvedTheme()
   const [isDark, setIsDark] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -109,7 +109,7 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
         const { FitAddon } = await import("@xterm/addon-fit")
 
         if (cancelled) return
-
+        
         const term = new Terminal({
           fontFamily: "'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace",
           fontSize: 14,

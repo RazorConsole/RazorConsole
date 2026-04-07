@@ -4,10 +4,12 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  type MetaFunction,
 } from "react-router";
 import "./index.css";
 import { useThemeEffect } from "./hooks/useThemeEffect";
 import { initHighlighter } from "./components/ui/CodeBlock";
+import { getFullSitePath } from "./lib/utils";
 
 
 export async function loader() {
@@ -15,9 +17,27 @@ export async function loader() {
     await initHighlighter();
   }
 }
+
+export const meta: MetaFunction = () => {
+  const fullBaseUrl = getFullSitePath();
+
+  return [
+    // Open Graph / Facebook
+    { property: "og:image", content: `${fullBaseUrl}/razor_console_preview.png` },
+    { property: "og:image:width", content: "1280" },
+    { property: "og:image:height", content: "640" },
+
+    // Twitter
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:image", content: `${fullBaseUrl}/razor_console_preview.png` },
+    { property: "twitter:image:width", content: "1280" },
+    { property: "twitter:image:height", content: "640" },
+  ];
+}
+
 export default function Root() {
   useThemeEffect();
-  const baseUrl = import.meta.env.BASE_URL;
+  const fullBaseUrl = getFullSitePath();
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -41,20 +61,25 @@ export default function Root() {
             `,
           }}
         />
-        <link rel="icon" type="image/svg+xml" href={`${baseUrl}razorconsole-icon.svg`} />
+        <link rel="icon" type="image/svg+xml" href={`${fullBaseUrl}/razorconsole-icon.svg`} />
         <meta charSet="UTF-8" />
         <meta name="google-site-verification" content="jF1dcSGbDQJm6UY_MriNs2wHdnEGr_M1wZKiVciIdf8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="preconnect" href="https://api.github.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.github.com" />
         <link
+          rel="sitemap"
+          href={`${fullBaseUrl}/sitemap.xml`}
+          title="Sitemap"
+        />
+        <link
           rel="llms"
-          href={`${baseUrl}llms.txt`}
+          href={`${fullBaseUrl}/llms.txt`}
           title="AI Documentation"
         />
         <link
           rel="llms-full"
-          href={`${baseUrl}llms-full.txt`}
+          href={`${fullBaseUrl}/llms-full.txt`}
           title="Full AI Documentation"
         />
         <Meta />

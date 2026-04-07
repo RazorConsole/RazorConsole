@@ -48,6 +48,11 @@ npm run build:docfx
 npm run build:wasm
 ```
 
+> [!WARNING]
+> Metadata (like llms.txt, sitemap.xml, open graph images) is generated automatically after the main build, and stored on the production folder
+> so when running `npm run dev`, you don't see any of them. 
+> If you want to see website with metadata, run `npm run build` and then `npm run preview`.
+
 ### Running the Project
 
 ```bash
@@ -66,9 +71,12 @@ npm run preview
 ```
 website/
 ├── scripts/                # Build orchestration scripts
-│   └── build-wasm.js       # Compiles RazorConsole.Website (.NET) to WASM for browser previews
+│   ├── build-wasm.js       # Compiles RazorConsole.Website (.NET) to WASM for browser previews
+│   ├── generate-llms.ts    # Generates AI-friendly documentation (llms.txt, llms-full.txt)
+│   ├── generate-og.tsx     # Generates dynamic OG social images using Satori and WASM runtime
+│   └── generate-sitemap.ts # Generates SEO sitemap.xml with hierarchical priorities
 ├── src/
-│   ├── assets/             # Static assets (images, global icons)
+│   ├── assets/             # Static assets (images, global icons, fonts)
 │   ├── components/         # Reusable React components
 │   │   ├── api/            # API Reference specific (TocTree, Sidebar, ApiDocument)
 │   │   ├── app/            # Global Shell (Header, Footer, Layout, Theme handling)
@@ -93,7 +101,7 @@ website/
 │   ├── root.tsx            # Root Layout: Meta tags, Global Scripts, Theme initialization
 │   ├── routes.ts           # Unified route definitions for React Router v7
 │   └── index.css           # Global styles and Tailwind directives
-├── public/                 # Static files (favicons, robots.txt, 404.html)
+├── public/                 # Static files 
 ├── react-router.config.ts  # SSG Configuration (Routes to pre-render)
 └── vite.config.ts          # Build tool config (Path aliases, plugins)
 ```
@@ -104,9 +112,30 @@ website/
 
 1.  **Extraction**: `docfx` scans the `RazorConsole.Core` project and outputs YAML files to `src/.docfx/`.
 2.  **Indexing**: `api-docs.ts` uses Vite's `import.meta.glob` to eager-load these YAML files.
-3.  **Sanitization**: During parsing, member UIDs (like `Scrollable`1` ) are converted to URL-friendly slugs (like  `Scrollable-1\`).
+3.  **Sanitization**: During parsing, member UIDs (like `Scrollable`1` ) are converted to URL-friendly slugs (like `Scrollable-1\`).
 4.  **Rendering**: `ApiDocs.tsx` uses route loaders to find and display the correct metadata based on the URL.
 
+### Metadata & SEO Generation (`build:metadata`)
+
+This stage is executed automatically after the main build (`postbuild`) to prepare the project for publication:
+
+1.  **AI Discovery (`llms.txt`)**: The script collects all guides and API components into a single, comprehensive plain text format. This allows AI tools (Cursor, GPT-4) to immediately obtain the context of the entire library.
+2.  **SEO Automation (`sitemap.xml`)**: Dynamically generates a website map using the same data sources as React Router. The script automatically sets scan priorities:
+    * **Home** — highest priority.
+    * **Components** — main functionality.
+    * **Docs** — tutorial guides.
+    * **API** — low-level technical details.
+3.  **Dynamic Open Graph Images (`generate-og.ts`)**: Creates unique social media preview images for each component page.
+    * **TUI Snapshot**: The script initializes a headless terminal [`@xterm/headless`](https://github.com/xtermjs/xterm.js) and loads the .NET WASM runtime.
+    * **Image Rendering**: Utilizes the [`@chenglou/pretext`](https://github.com/chenglou/pretext) library for precise monospace font measurement and [`satori`](https://github.com/vercel/satori) to convert HTML/CSS into SVG.
+    * **Consistency**: Each image reflects the actual state of the component (borders, scrollbars) directly from the library's source code.
+    * **Selective Generation**: Supports an optional `--componentName` CLI flag to generate or update a preview for a single specific component, significantly reducing iteration time during development. (e.g., `npm run gen:og -- --componentName="Scrollable"`)
+
+### Vite SSR Integration
+
+The automation scripts utilize `vite.ssrLoadModule`. This ensures that generators (OG, LLMS, Sitemap) always operate with the latest business logic and project data without requiring manual updates to the page lists.
+
+---
 ### Theming Strategy
 
 To avoid the "White Flash" (FOUC), we use a small blocking script in the `<head>` of `root.tsx`. It reads the theme preference directly from `localStorage` and applies the `.dark` class to the `<html>` element before React even starts rendering.
@@ -118,7 +147,6 @@ Code previews are rendered at build-time using `Shiki`. It sets two theme color 
 The website is automatically deployed to GitHub Pages via **GitHub Actions**.
 
   - The build process injects the repository name as a `basename` (e.g., `/RazorConsole/`).
-  - A `404.html` fallback is generated to support SPA routing on static hosts.
 
 ## License
 

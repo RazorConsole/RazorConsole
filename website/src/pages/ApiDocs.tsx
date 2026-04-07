@@ -4,13 +4,19 @@ import ApiDocument from "@/components/api/ApiDocument"
 import { apiItems, apiToc, type DocfxApiItem, type DocfxTocNode } from "@/data/api-docs"
 import { ResponsiveSidebar } from "@/components/ui/ResponsiveSidebar"
 import Sidebar from "@/components/api/Sidebar"
+import { getFullSitePath } from "@/lib/utils"
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
+export const meta: MetaFunction<typeof loader> = ({ data, matches, location }) => {
+  const rootMeta = matches.find((m) => m.id === "root")?.meta || [];
+  const pageUrl = `${getFullSitePath()}${location.pathname}`;
+  
   const item = data?.activeItem;
   const title = item ? `${item.name} (${item.type}) | API Reference` : "API Reference | RazorConsole";
   
   return [
+    ...rootMeta,
     { title },
+    { property: "og:url", content: pageUrl },
     { name: "description", content: item?.summary || "Full API reference for RazorConsole classes, components, and utilities." },
   ];
 };

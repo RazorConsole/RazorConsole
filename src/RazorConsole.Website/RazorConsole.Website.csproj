@@ -28,5 +28,8 @@
   <ItemGroup>
     <ProjectReference Include="..\RazorConsole.Core\RazorConsole.Core.csproj" />
   </ItemGroup>
-
+  
+  <PropertyGroup>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
 </Project>
