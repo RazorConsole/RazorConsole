@@ -9,7 +9,7 @@ async function generate() {
     const config = await resolveConfig({}, 'build');
     const SITE_URL = (config.env.VITE_SITE_URL || '').replace(/\/$/, '');
     const BASE_PATH = config.base.replace(/\/$/, '');
-    const FULL_BASE_URL = `${SITE_URL}${BASE_PATH}`;
+    const FULL_BASE_URL = `${SITE_URL.toLowerCase()}${BASE_PATH}`;
 
     const DIST_DIR = path.resolve(config.root, config.build.outDir || 'dist');
     const RAW_DIR = path.join(DIST_DIR, 'raw');
