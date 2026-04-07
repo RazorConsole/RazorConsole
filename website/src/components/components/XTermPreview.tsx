@@ -70,7 +70,7 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
   const fitAddonRef = useRef<FitAddon | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const theme  = useResolvedTheme()
+  const theme = useResolvedTheme()
   const [isDark, setIsDark] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -110,6 +110,10 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
 
         if (cancelled) return
 
+        if ('fonts' in document) {
+          await document.fonts.load('14px "Cascadia Code"'); // Wait for loading Cascadia Code
+        }
+        
         const term = new Terminal({
           fontFamily: "'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace",
           fontSize: 14,
