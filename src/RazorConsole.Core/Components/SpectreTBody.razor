@@ -113,6 +113,12 @@ else
     private bool _isFocused;
     private readonly string _focusKey = Guid.NewGuid().ToString("N");
 
+    /// <summary>
+    /// The focus manager key for this tbody, for use with <c>FocusManager.FocusAsync</c>.
+    /// Only meaningful when <see cref="Navigable"/> is true.
+    /// </summary>
+    public string FocusKey => _focusKey;
+
     private string? FocusOrderAttribute => FocusOrder.HasValue
         ? FocusOrder.Value.ToString(CultureInfo.InvariantCulture)
         : null;
