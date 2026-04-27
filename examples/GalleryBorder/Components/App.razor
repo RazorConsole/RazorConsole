@@ -1,0 +1,52 @@
+@namespace GalleryBorder.Components
+
+<Rows>
+    <Markup Content="Border wraps child content with a Spectre.Console panel using the configured border style, color, and padding." Foreground="@Color.Grey70" />
+    <Newline />
+    @for (var index = 0; index < _examples.Length; index++)
+    {
+        var example = _examples[index];
+        <Markup Content="@example.Title" Decoration="@Decoration.Bold" />
+        <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+            <Border BoxBorder="@example.Border"
+                    BorderColor="@example.BorderColor"
+                    Padding="new Padding(1, 0, 1, 0)">
+                <Markup Content="@example.Description" />
+            </Border>
+        </Panel>
+        @if (index < _examples.Length - 1)
+        {
+            <Newline />
+        }
+    }
+</Rows>
+
+@code {
+    private sealed record BorderExample(string Title, string Description, BoxBorder Border, Color BorderColor, string Code);
+
+    private static readonly BorderExample[] _examples =
+    {
+        new(
+            "Rounded border",
+            "Rounded border with padding.",
+            BoxBorder.Rounded,
+            Color.Chartreuse1,
+            @"<Border BoxBorder=""BoxBorder.Rounded""
+       BorderColor=""Color.Chartreuse1""
+       Padding=""new(1, 0, 1, 0)"">
+    <Markup Content=""Rounded border with padding."" />
+</Border>".Trim()),
+        new(
+            "Double border",
+            "Double border and custom color.",
+            BoxBorder.Double,
+            Color.DeepSkyBlue1,
+            @"<Border BoxBorder=""BoxBorder.Double""
+       BorderColor=""Color.DeepSkyBlue1""
+       Padding=""new(1, 0, 1, 0)"">
+    <Markup Content=""Double border and custom color."" />
+</Border>".Trim()),
+    };
+
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Border.razor";
+}

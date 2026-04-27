@@ -33,11 +33,29 @@ export OPENAI_API_KEY="your-api-key-here"
    ```
 3. Make sure Ollama is running on `http://localhost:11434`
 
+If you see `Connection refused (localhost:11434)`, start Ollama first:
+
+```bash
+ollama serve
+```
+
+Then pull the default model if needed:
+
+```bash
+ollama pull llama3.2
+```
+
 ## Running the Example
 
 ```bash
 cd examples/LLMAgentTUI
 dotnet run
+```
+
+To compare the widget layout pipeline:
+
+```bash
+dotnet run -- --widget-layout
 ```
 
 The application will automatically detect if you have an OpenAI API key set. If not, it will use Ollama with the llama3.2 model.

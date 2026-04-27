@@ -1,0 +1,28 @@
+@namespace ScrollableMinimal.Components
+
+@using RazorConsole.Components
+@using RazorConsole.Core.Rendering
+
+<Scrollable TItem="string"
+            Items="_items"
+            PageSize="3"
+            Scrollbar="new ScrollbarSettings()"
+            IsScrollbarEmbedded="false">
+    <Rows>
+        @foreach (var item in context.Items)
+        {
+            <Markup Content="@item" />
+        }
+    </Rows>
+</Scrollable>
+
+@code {
+    private readonly string[] _items =
+    [
+        "One",
+        "Two",
+        "Three",
+        "Four",
+        "Five",
+    ];
+}

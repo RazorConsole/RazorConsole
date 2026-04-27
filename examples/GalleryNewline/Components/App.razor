@@ -1,0 +1,34 @@
+@namespace GalleryNewline.Components
+
+<Rows>
+    <Markup Content="Newline injects a line break into the render tree, letting you add intentional spacing between elements." Foreground="@Color.Grey70" />
+    <Newline />
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+            <Rows>
+                <Markup Content="• Brew coffee" />
+                <Newline />
+                <Markup Content="• Review pull requests" />
+                <Newline />
+                <Newline />
+                <Markup Content="Break before stand-up"
+                        Foreground="@Color.Grey70"
+                        Decoration="@Decoration.Italic" />
+            </Rows>
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly string _exampleCode = @"
+<Rows>
+    <Markup Content=""• Brew coffee"" />
+    <Newline />
+    <Markup Content=""• Review pull requests"" />
+    <Newline />
+    <Newline />
+    <Markup Content=""Break before stand-up""
+           Foreground=""Color.Grey70""
+           Decoration=""Decoration.Italic"" />
+</Rows>".Trim();
+
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Newline.razor";
+}

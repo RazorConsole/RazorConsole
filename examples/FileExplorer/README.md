@@ -3,7 +3,7 @@
 A local file explorer application demonstrating how to build an interactive file browser in the console. This example shows how to:
 
 - Browse directories and navigate the file system
-- Display files and directories in a table
+- Display files and directories in a paged table
 - Show file details dynamically
 - Handle file I/O operations
 - Update components in response to user interaction
@@ -23,11 +23,19 @@ Or from this directory:
 dotnet run
 ```
 
+To compare the widget layout pipeline:
+
+```bash
+dotnet run -- --widget-layout
+```
+
 ## Features Demonstrated
 
 - **Directory Navigation**: Browse directories with clickable navigation
 - **Parent Directory Access**: Navigate up the directory tree with a parent button
-- **File/Directory Listing**: Display items in a formatted table with columns
+- **Header / View / Footer Layout**: Show directory summary, the current page of files, and page controls as separate sections
+- **File/Directory Listing**: Display the current page in a formatted table with columns
+- **Pagination**: Navigate file listings with Previous/Next page buttons instead of embedded table scrolling
 - **File Details Panel**: Show detailed information when a file is selected
 - **Dynamic Updates**: Components update automatically when navigating or selecting files
 - **Error Handling**: Gracefully handles permission errors and inaccessible paths
@@ -67,6 +75,8 @@ The table displays:
 - **Type**: Directory or File indicator
 - **Size**: Human-readable file sizes (directories show "-")
 - **Modified**: Last modification timestamp
+
+The view intentionally uses pagination instead of `Scrollable` with an embedded table scrollbar so the table layout remains owned by the table widget path.
 
 ### Dynamic Component Updates
 

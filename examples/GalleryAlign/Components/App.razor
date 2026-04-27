@@ -1,0 +1,61 @@
+@namespace GalleryAlign.Components
+
+<Rows>
+    <Markup Content="Align positions child content horizontally and vertically inside a fixed region." Foreground="@Color.Grey70" />
+    <Newline />
+	<Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+		<Columns Expand = "true">
+			<Border>
+			<Align Width="18" Height="5"
+				   Horizontal="@(HorizontalAlignment.Left)"
+				   Vertical="@(VerticalAlignment.Top)">
+				<Markup Content="Top / Left" />
+			</Align>
+			</Border>
+			<Border>
+			<Align Width="18" Height="5"
+				   Horizontal="@(HorizontalAlignment.Center)"
+				   Vertical="@(VerticalAlignment.Middle)">
+				<Markup Content="Center" />
+			</Align>
+			</Border>
+			<Border>
+			<Align Width="18" Height="5"
+				   Horizontal="@(HorizontalAlignment.Right)"
+				   Vertical="@(VerticalAlignment.Bottom)">
+				<Markup Content="Bottom / Right" />
+			</Align>
+			</Border>
+		</Columns>
+	</Panel>
+</Rows>
+
+@code {
+	private string _sampleCode = @"
+<Columns Expand=""true"">
+	<Border>
+	<Align Width=""18"" Height=""5""
+		   Horizontal=""@(HorizontalAlignment.Left)""
+		   Vertical=""@(VerticalAlignment.Top)"">
+		<Markup Content=""Top / Left"" />
+	</Align>
+	</Border>
+	<Border>
+	<Align Width=""18"" Height=""5""
+		   Horizontal=""@(HorizontalAlignment.Center)""
+		   Vertical=""@(VerticalAlignment.Middle)"">
+		<Markup Content=""Center"" />
+	</Align>
+	</Border>
+	<Border>
+	<Align Width=""18"" Height=""5""
+		   Horizontal=""@(HorizontalAlignment.Right)""
+		   Vertical=""@(VerticalAlignment.Bottom)"">
+		<Markup Content=""Bottom / Right"" />
+	</Align>
+	</Border>
+</Columns>".Trim();
+
+    private const string DocumentationUrl =
+        "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Align.razor";
+}

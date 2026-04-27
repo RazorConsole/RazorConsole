@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Focus;
 using RazorConsole.Core.Input;
+using RazorConsole.Core.Layout;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Rendering.Markdown;
 using RazorConsole.Core.Rendering.Syntax;
@@ -36,6 +37,7 @@ public static class RazorConsoleServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddRazorConsoleServices(this IServiceCollection services)
     {
+        services.AddOptions<ConsoleAppOptions>();
         services.TryAddSingleton<IComponentActivator, ComponentActivator>();
         services.TryAddSingleton<ConsoleNavigationManager>();
         services.TryAddSingleton<NavigationManager>(sp => sp.GetRequiredService<ConsoleNavigationManager>());
@@ -57,6 +59,12 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<IConsoleInput, ConsoleInput>();
         services.TryAddSingleton<TerminalMonitor>();
         services.TryAddSingleton<ScrollableLayoutCoordinator>();
+        services.TryAddSingleton<LayoutEngine>();
+        services.TryAddSingleton<WidgetTranslationContext>();
+        services.TryAddSingleton<VNodeIdAccessor>();
+        services.TryAddSingleton<IVNodeIdAccessor>(sp => sp.GetRequiredService<VNodeIdAccessor>());
+        services.TryAddSingleton<VNodeLayoutAccessor>();
+        services.TryAddSingleton<IVNodeLayoutAccessor>(sp => sp.GetRequiredService<VNodeLayoutAccessor>());
 
         // Register translation middlewares in order of priority
         // Overlay catcher
