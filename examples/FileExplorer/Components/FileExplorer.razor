@@ -134,9 +134,9 @@
     private int _currentPage;
     private const int PageSize = 6;
 #if DEBUG
-    private const bool ShowLayoutDiagnostics = true;
+    private static bool ShowLayoutDiagnostics => true;
 #else
-    private const bool ShowLayoutDiagnostics = false;
+    private static bool ShowLayoutDiagnostics => false;
 #endif
 
     private int PageCount => Math.Max(1, (int)Math.Ceiling(_items.Count / (double)PageSize));
