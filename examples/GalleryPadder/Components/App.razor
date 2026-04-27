@@ -1,0 +1,26 @@
+@namespace GalleryPadder.Components
+
+<Rows>
+    <Markup Content="Padder adds outer spacing around its child content without modifying the child component itself." Foreground="@Color.Grey70" />
+    <Newline />
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <Panel Title="Padder adds space"
+               Border="@BoxBorder.Square"
+               Expand="false">
+            <Padder Padding="new Padding(1, 1, 1, 1)">
+                <Markup Content="Comfortable breathing room." />
+            </Padder>
+        </Panel>
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly string _panelPaddedCode = @"<Panel Title=""Padder adds space""
+       Border=""BoxBorder.Square"" Expand=""false"">
+    <Padder Padding=""new(1, 1, 1, 1)"">
+        <Markup Content=""Comfortable breathing room."" />
+    </Padder>
+</Panel>".Trim();
+
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Padder.razor";
+}

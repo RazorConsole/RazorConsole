@@ -1,0 +1,26 @@
+@namespace GalleryRows.Components
+
+<Rows>
+    <Markup Content="Rows stacks child content vertically and can optionally expand height to fill the available space." Foreground="@Color.Grey70" />
+    <Newline />
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+                <Rows>
+                    <Markup Content="Morning: Daily sync" />
+                    <Markup Content="Afternoon: Pair with teammates" />
+                    <Markup Content="Evening: Ship features"
+                            Foreground="@Color.Chartreuse1" />
+                </Rows>
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly string _exampleCode = @"
+<Rows>
+    <Markup Content=""Morning: Daily sync"" />
+    <Markup Content=""Afternoon: Pair with teammates"" />
+    <Markup Content=""Evening: Ship features""
+           Foreground=""Color.Chartreuse1"" />
+</Rows>".Trim();
+
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Rows.razor";
+}

@@ -1,0 +1,120 @@
+@namespace GallerySyntaxHighlighter.Components
+
+<Rows>
+    <Markup Content="The SyntaxHighlighter component renders source code using ColorCode scopes and Spectre styles." Foreground="@Color.Grey70" />
+    <Newline />
+
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <Grid Columns="3">
+            @* C# Example *@
+            <Panel Title="C#" Border="BoxBorder.None">
+                <SyntaxHighlighter Language="csharp" Code="@CsharpCode" ShowLineNumbers="true"/>
+            </Panel>
+
+            @* TypeScript Example *@
+            <Panel Title="TypeScript" Border="BoxBorder.None">
+                <SyntaxHighlighter Language="typescript" Code="@TsCode" ShowLineNumbers="true"/>
+            </Panel>
+
+            @* Python Example *@
+            <Panel Title="Python" Border="BoxBorder.None">
+                <SyntaxHighlighter Language="python" Code="@PythonCode" ShowLineNumbers="true"/>
+            </Panel>
+
+            @* SQL Example *@
+            <Panel Title="SQL" Border="BoxBorder.None">
+                <SyntaxHighlighter Language="sql" Code="@SqlCode" ShowLineNumbers="true"/>
+            </Panel>
+
+            @* JSON Example *@
+            <Panel Title="JSON" Border="BoxBorder.None">
+                <SyntaxHighlighter Language="json" Code="@JsonCode" ShowLineNumbers="true"/>
+            </Panel>
+
+            @* Razor Example *@
+            <Panel Title="Razor" Border="BoxBorder.None">
+                <SyntaxHighlighter Language="razor" Code="@RazorCode" ShowLineNumbers="true"/>
+            </Panel>
+        </Grid>
+    </Panel>
+</Rows>
+
+@code {
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/SyntaxHighlighter.razor";
+
+    private static readonly string CsharpCode = @"
+public class OrderProcessor
+{
+    public async Task ProcessAsync(int orderId)
+    {
+        var order = await _db.Orders.FindAsync(orderId);
+        if (order is { IsValid: true })
+        {
+            Console.WriteLine($""Processing: {order.Name}"");
+        }
+    }
+}".Trim();
+
+    private static readonly string TsCode = @"
+interface IUser { id: number; name: string; }
+
+export class UserService {
+    private users: IUser[] = [];
+
+    public getActiveUsers(): IUser[] {
+        return this.users.filter(u => u.id > 0);
+    }
+}".Trim();
+
+    private static readonly string PythonCode = @"
+class Greeter:
+    def __init__(self, name: str):
+        self.name = name
+
+    def say_hi(self):
+        # Python 3.6+ f-strings
+        print(f""Hello, {self.name}!"")
+".Trim();
+
+    private static readonly string SqlCode = @"
+SELECT u.Name, count(o.Id) as OrderCount
+FROM Users u
+INNER JOIN Orders o ON u.Id = o.UserId
+WHERE u.IsActive = 1
+GROUP BY u.Name
+HAVING count(o.Id) > 5;".Trim();
+
+
+    private static readonly string JsonCode = @"
+{
+  ""id"": ""RC-42"",
+  ""tags"": [""highlighter"", ""tui"", ""dotnet""],
+  ""settings"": {
+    ""theme"": ""VSCodeDark+"",
+    ""lineNumbers"": true
+  }
+}".Trim();
+
+    private static readonly string RazorCode = @"
+@using System.Linq
+@{
+    var items = Enumerable.Range(1, 3);
+}
+
+<ul>
+    @foreach (var item in items)
+    {
+        <li>Value: @(item * 2)</li>
+    }
+</ul>".Trim();
+
+    private static readonly string DefaultUsageCode = @"
+<SyntaxHighlighter Language=""csharp"" Code=""@CsharpCode"" ShowLineNumbers=""true""/>
+<SyntaxHighlighter Language=""python"" Code=""@PythonCode"" ShowLineNumbers=""true""/>
+<SyntaxHighlighter Language=""json""   Code=""@JsonCode"" ShowLineNumbers=""true""/>
+<SyntaxHighlighter Language=""sql""    Code=""@SqlCode"" ShowLineNumbers=""true""/>
+<SyntaxHighlighter Language=""typescript"" Code=""@TsCode"" ShowLineNumbers=""true""/>
+<SyntaxHighlighter Language=""razor""  Code=""@RazorCode"" ShowLineNumbers=""true""/>
+".Trim();
+
+}

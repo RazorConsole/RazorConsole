@@ -1,0 +1,120 @@
+@namespace GallerySpectreCanvas.Components
+
+<Rows>
+    <Markup Content="SpectreCanvas renders an array of pixels with different colors."/>
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <Columns>
+            <Rows>
+                <Markup Content=@($"Heart ({HeartW}x{HeartH})") Decoration="Decoration.Bold"/>
+                <SpectreCanvas Pixels="@_pixelsHeart"
+                               CanvasWidth="@HeartW"
+                               CanvasHeight="@HeartH"
+                               Scale="true"/>
+            </Rows>
+            <Rows>
+                <Markup Content=@($"Checkerboard ({CheckerW}x{CheckerH})") Decoration="Decoration.Bold"/>
+                <SpectreCanvas Pixels="@_pixelsChecker"
+                               CanvasWidth="@CheckerW"
+                               CanvasHeight="@CheckerH"
+                               Scale="true"/>
+            </Rows>
+            <Rows>
+                <Markup Content=@($"Gradient ({GradientW}x{GradientH})") Decoration="Decoration.Bold"/>
+                <Markup Content="PixelWidth = 1" Decoration="Decoration.Bold"/>
+                <SpectreCanvas Pixels="@_pixelsGradient"
+                               CanvasWidth="@GradientW"
+                               CanvasHeight="@GradientH"
+                               PixelWidth="1"
+                               Scale="false"/>
+            </Rows>
+        </Columns>
+    </Panel>
+</Rows>
+
+@code {
+    private const int CheckerW = 10;
+    private const int CheckerH = 10;
+    private const int GradientW = 20;
+    private const int GradientH = 15;
+    private const int HeartW = 11;
+    private const int HeartH = 10;
+    private readonly (int x, int y, Color color)[] _pixelsChecker = new (int x, int y, Color color)[CheckerW * CheckerH];
+    private readonly (int x, int y, Color color)[] _pixelsGradient = new (int x, int y, Color color)[GradientW * GradientH];
+    private readonly (int x, int y, Color color)[] _pixelsHeart = new (int x, int y, Color color)[HeartW * HeartH];
+
+    private readonly string _sampleCode = $@"
+<SpectreCanvas Pixels=""@_pixelsHeart"" CanvasWidth=""{HeartW}"" CanvasHeight=""{HeartH}"" Scale=""true""/>
+<SpectreCanvas Pixels=""@_pixelsChecker"" CanvasWidth=""{CheckerW}"" CanvasHeight=""{CheckerH}"" Scale=""true""/>
+<SpectreCanvas Pixels=""@_pixelsGradient"" CanvasWidth=""{GradientW}"" CanvasHeight=""{GradientH}"" PixelWidth=""1"" Scale=""false""/>
+".Trim();
+
+    private const string DocumentationUrl =
+        "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/SpectreCanvas.razor";
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        BuildHeart();
+        BuildCheckerboard();
+        BuildGradient();
+    }
+
+    private void BuildHeart()
+    {
+        int w = HeartW, h = HeartH;
+        var bg = Color.Black;
+        var fg = Color.Red;
+        int[] pattern = new[]
+        {
+            0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0,
+            1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+            0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+            0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+            0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        };
+        for (int i = 0; i < w * h; i++)
+        {
+            int x = i % w;
+            int y = i / w;
+            var color = pattern[i] == 1 ? fg : bg;
+            _pixelsHeart[i] = (x, y, color);
+        }
+    }
+
+    private void BuildCheckerboard()
+    {
+        int w = CheckerW, h = CheckerH;
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                bool dark = ((x + y) % 2) == 0;
+                var color = dark ? Color.Grey23 : Color.Grey70;
+                _pixelsChecker[y * w + x] = (x, y, color);
+            }
+        }
+    }
+
+    private void BuildGradient()
+    {
+        int w = GradientW, h = GradientH;
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                // diagonal gradient from purple-ish to cyan-ish
+                double factor = (x + y) / (double)(w + h - 2);
+                byte r = (byte)(160 + 95 * (1 - factor));
+                byte g = (byte)(100 + 155 * factor);
+                byte b = (byte)(180 + 75 * factor);
+                var color = new Color(r, g, b);
+                _pixelsGradient[y * w + x] = (x, y, color);
+            }
+        }
+    }
+}

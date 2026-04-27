@@ -1,0 +1,49 @@
+@namespace GalleryTextButton.Components
+
+<Rows>
+    <Markup Content="TextButton renders clickable text with customizable focus and background colors." Foreground="@Color.Grey70" />
+    <Newline />
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <Columns>
+            <TextButton Content="@_buttonLabel"
+                        BackgroundColor="@_restingColor"
+                        OnClick="ToggleAsync" />
+            <Markup Content="@_status"
+                    Foreground="@_statusColor"
+                    Decoration="@_statusDecoration" />
+        </Columns>
+    </Panel>
+</Rows>
+
+@code {
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/TextButton.razor";
+
+    private static readonly string _exampleCode = @"<Columns>
+    <TextButton Content=""Toggle""
+                BackgroundColor=""Color.Black""
+                FocusedColor=""Color.DeepSkyBlue1""
+                OnClick=""ToggleAsync"" />
+    <Markup Content=""@_status""
+           Foreground=""@_statusColor""
+           Decoration=""@_statusDecoration"" />
+</Columns>".Trim();
+
+    private bool _isActive;
+    private string _buttonLabel = "Toggle";
+    private string _status = "Button is off.";
+    private Color _statusColor = Color.Grey70;
+    private Decoration _statusDecoration = Decoration.Italic;
+    private Color _restingColor = Color.Black;
+
+    private Task ToggleAsync()
+    {
+        _isActive = !_isActive;
+        _buttonLabel = _isActive ? "Disable" : "Toggle";
+        _status = _isActive ? "Button switched on." : "Button is off.";
+        _statusColor = _isActive ? Color.Chartreuse1 : Color.Grey70;
+        _statusDecoration = _isActive ? Decoration.Bold : Decoration.Italic;
+        _restingColor = _isActive ? Color.DarkOliveGreen3 : Color.Black;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+}

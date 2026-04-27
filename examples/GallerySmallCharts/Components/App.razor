@@ -1,0 +1,95 @@
+@namespace GallerySmallCharts.Components
+
+<Rows>
+    <Markup Content="Small Charts components are used for displaying statistics info in charts view."/>
+    <Newline/>
+
+    <Panel Title="BarChart" Border="BoxBorder.Rounded">
+        <Rows>
+            <Markup
+                Content="BarChart component is used for displaying some statistics info in bar charts to the console."
+                Foreground="@Color.Grey70"/>
+            <Newline/>
+
+
+            <Panel Title="Preview" Border="BoxBorder.Rounded">
+                <BarChart BarChartItems="@GenerateFruits()"
+                          Label="Fruits" LabelAlignment="Justify.Left" LabelForeground="Color.Red"
+                          LabelDecoration="Decoration.Italic"
+                          Width="60"
+                          ShowValues="true"/>
+            </Panel>
+        </Rows>
+    </Panel>
+
+    <Panel Title="BreakdownChart" Border="BoxBorder.Rounded">
+        <Rows>
+            <Markup
+                Content="BreakdownChart component is used for displaying some statistics info in breakdown charts to the console."
+                Foreground="@Color.Grey70"/>
+            <Newline/>
+
+
+            <Panel Title="Preview" Border="BoxBorder.Rounded">
+                <BreakdownChart BreakdownChartItems="@GenerateProgrammingLanguages()"
+                                Width="60"
+                                ValueColor="Color.Chartreuse1"
+                                ShowTags="true"
+                                ShowTagValues="true"
+                                ShowTagValuesPercentage="true"/>
+            </Panel>
+        </Rows>
+    </Panel>
+</Rows>
+
+@code{
+
+    private const string BarChartExampleCode = @"
+<BarChart BarChartItems=""@GenerateFruits()""
+    Label=""Fruits"" LabelAlignment=""Justify.Left"" LabelForeground=""Color.Red"" LabelDecoration=""Decoration.Italic""
+    Width=""60""
+    ShowValues=""true""
+/>
+";
+
+    private const string BarChartDocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/BarChart.razor";
+
+    private const string BreakdownChartExampleCode = @"
+<BreakdownChart BreakdownChartItems=""@GenerateProgrammingLanguages()""
+    Width=""60""
+    ValueColor=""Color.Chartreuse1""
+    ShowTags=""true""
+    ShowTagValues=""true""
+    ShowTagValuesPercentage=""true""
+/>
+";
+
+    private const string BreakdownChartDocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/BreakdownChart.razor";
+
+
+    private readonly Color _lightRed = Color.FromHex("#fc034e");
+
+    private List<IBarChartItem> GenerateFruits()
+    {
+        return
+        [
+            new BarChartItem("Apples", 55.2, _lightRed),
+            new BarChartItem("Oranges", 20.7, Color.Orange1),
+            new BarChartItem("Bananas", 40, Color.Yellow)
+        ];
+    }
+
+    private List<IBreakdownChartItem> GenerateProgrammingLanguages()
+    {
+        return
+        [
+            new BreakdownChartItem("SCSS", 80, _lightRed),
+            new BreakdownChartItem("HTML", 28.3, Color.Orange1),
+            new BreakdownChartItem("C#", 22.6, Color.Purple4),
+            new BreakdownChartItem("JavaScript", 6, Color.Yellow),
+            new BreakdownChartItem("Ruby", 6, Color.Red),
+            new BreakdownChartItem("Shell", 4.1, Color.Aqua)
+        ];
+    }
+
+}

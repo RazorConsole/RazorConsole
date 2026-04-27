@@ -1,0 +1,68 @@
+@namespace GalleryGrid.Components
+
+<Rows>
+    <Markup Content="Grid arranges content into rows and columns with optional width and expansion rules."
+        Foreground="@Color.Grey70" />
+    <Newline />
+<Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <Panel Title="Conference Schedule" Border="@BoxBorder.Rounded">
+            <Grid Columns="3">
+                <Markup Foreground="@Color.Gold3_1" Decoration="@Decoration.Bold" Content="Time" />
+                <Markup Foreground="@Color.Gold3_1" Decoration="@Decoration.Bold" Content="Topic" />
+                <Markup Foreground="@Color.Gold3_1" Decoration="@Decoration.Bold" Content="Speaker" />
+
+                <Markup Content="09:00" />
+                <Markup Content="Morning Standup" />
+                <Markup Content="L. Console" />
+
+                <Markup Content="10:30" />
+                <Markup Content="Rendering Deep Dive" />
+                <Markup Content="S. Spectre" />
+
+                <Markup Content="13:30" />
+                <Markup Content="Component Patterns" />
+                <Markup Content="R. Razor" />
+
+                <Markup Content="15:00" />
+                <Markup Content="Hot Reload Demo" />
+                <Markup Content="C. Runtime" />
+            </Grid>
+        </Panel>
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly string _scheduleCode = @"<Panel Title=""Conference Schedule""
+       Border=""BoxBorder.Rounded"">
+    <Grid Columns=""3"">
+        <Markup Content=""Time""
+               Foreground=""Color.Gold3_1""
+               Decoration=""Decoration.Bold"" />
+        <Markup Content=""Topic""
+               Foreground=""Color.Gold3_1""
+               Decoration=""Decoration.Bold"" />
+        <Markup Content=""Speaker""
+               Foreground=""Color.Gold3_1""
+               Decoration=""Decoration.Bold"" />
+
+        <Markup Content=""09:00"" />
+        <Markup Content=""Morning Standup"" />
+        <Markup Content=""L. Console"" />
+
+        <Markup Content=""10:30"" />
+        <Markup Content=""Rendering Deep Dive"" />
+        <Markup Content=""S. Spectre"" />
+
+        <Markup Content=""13:30"" />
+        <Markup Content=""Component Patterns"" />
+        <Markup Content=""R. Razor"" />
+
+        <Markup Content=""15:00"" />
+        <Markup Content=""Hot Reload Demo"" />
+        <Markup Content=""C. Runtime"" />
+    </Grid>
+</Panel>".Trim();
+
+    private const string DocumentationUrl =
+    "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Grid.razor";
+}

@@ -1,0 +1,20 @@
+{
+  "skill_name": "razorconsole-example-alignment",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "开始对齐 examples/MultipageApp，让它支持 WidgetLayout，并比较 legacy/widget 输出差异。",
+      "expected_output": "The agent should inspect MultipageApp, add or verify the WidgetLayout switch, build the example, compare legacy and widget smoke output, classify visual mismatches, fix reusable widget/translator issues before example-specific hacks, add focused tests when core layout behavior changes, and update the README. It should validate with focused/full tests as appropriate."
+    },
+    {
+      "id": 2,
+      "prompt": "LoginForm 的 --widget-layout 输出和默认输出不一致，TextInput 和标题看起来错位，帮我对齐。",
+      "expected_output": "The agent should compare legacy versus WidgetLayout output, identify whether the mismatch belongs to TextInput translation, Spectre/Figlet leaf rendering, text wrapping, or example markup, add regression tests for generic fixes, update docs if needed, and validate the example build plus relevant tests."
+    },
+    {
+      "id": 3,
+      "prompt": "LLMAgentTUI widget layout footer 没居中，而且本地 Ollama 没启动时报错显示了 [red] markup，继续按 examples 对齐流程修。",
+      "expected_output": "The agent should treat footer alignment as a generic layout issue when possible, render user-facing errors with proper Markup instead of raw Markdown/Spectre markup, add README troubleshooting for Ollama, add focused tests for generic layout fixes, and run build/test/smoke validation."
+    }
+  ]
+}

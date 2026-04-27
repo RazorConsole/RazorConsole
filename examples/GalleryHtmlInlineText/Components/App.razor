@@ -1,0 +1,45 @@
+@namespace GalleryHtmlInlineText.Components
+
+<Rows>
+    <Markup Content="HTML inline tags map to Spectre markup styles via the RazorConsole translator."
+        Foreground="@Color.Grey70" />
+    <Markup Content="Documentation: Built-in HTML inline styling" Foreground="@Color.DeepSkyBlue1"
+        Decoration="@Decoration.Underline"
+        link="https://github.com/LittleLittleCloud/RazorConsole/blob/main/design-doc/builtin-components.md" />
+    <Newline />
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <div>
+            <div>
+                <strong>Tip:</strong> combine <em>HTML emphasis</em>, <mark>callouts</mark>, and
+                <code>code samples</code> directly in your Razor components.
+            </div>
+            <div>
+                <abbr title="Table">Tbl.</abbr> status: <sup>updated</sup> <sub>just now</sub>
+            </div>
+            <div>
+                <a href="https://github.com/LittleLittleCloud/RazorConsole">This is a link</a> to RazorConsole
+                repository.
+            </div>
+            <div>
+                Quote with <q>inline citation</q> and a <cite>reference</cite>.
+            </div>
+        </div>
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly string _example = @"
+<div>
+    <strong>Tip:</strong> combine <em>HTML emphasis</em>, <mark>callouts</mark>, and
+    <code>code samples</code> directly in your Razor components.
+</div>
+<div>
+    <abbr title=""Table"">Tbl.</abbr> status: <sup>updated</sup> <sub>just now</sub>
+</div>
+<div>
+    <a href=""https://github.com/LittleLittleCloud/RazorConsole"">This is a link</a> to RazorConsole repository.
+</div>
+<div>
+    Quote with <q>inline citation</q> and a <cite>reference</cite>.
+</div>".Trim();
+}

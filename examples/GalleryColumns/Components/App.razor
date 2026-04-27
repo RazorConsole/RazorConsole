@@ -1,0 +1,38 @@
+@namespace GalleryColumns.Components
+
+<Rows>
+    <Markup
+        Content="Columns lays out child content horizontally, optionally stretching items to fill the available width."
+        Foreground="@Color.Grey70" />
+    <Newline />
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <Columns Expand="true">
+            <Rows>
+                <Markup Content="Column 1" Decoration="@Decoration.Bold" />
+            </Rows>
+            <Rows>
+                <Markup Content="Column 2" Decoration="@Decoration.Bold" />
+            </Rows>
+            <Rows>
+                <Markup Content="Column 3" Decoration="@Decoration.Bold" />
+            </Rows>
+        </Columns>
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly string _exampleCode = @"<Columns Expand=""true"">
+    <Rows>
+        <Markup Content=""Column 1"" Decoration=""Decoration.Bold"" />
+    </Rows>
+    <Rows>
+        <Markup Content=""Column 2"" Decoration=""Decoration.Bold"" />
+    </Rows>
+    <Rows>
+        <Markup Content=""Column 3"" Decoration=""Decoration.Bold"" />
+    </Rows>
+</Columns>".Trim();
+
+    private const string DocumentationUrl =
+    "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Columns.razor";
+}
