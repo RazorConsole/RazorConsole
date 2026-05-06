@@ -64,10 +64,7 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         }
 
         var services = new ServiceCollection();
-        services.Configure<ConsoleAppOptions>(options =>
-        {
-            options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
-        });
+        services.Configure<ConsoleAppOptions>(_ => { });
         services.AddRazorConsoleServices();
 
         _serviceProvider = services.BuildServiceProvider();

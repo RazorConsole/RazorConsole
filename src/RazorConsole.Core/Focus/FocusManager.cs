@@ -560,8 +560,6 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
         public string Key { get; }
 
-        public string VNodeId => _vnode.ID;
-
         public IReadOnlyDictionary<string, string?> Attributes => _vnode.Attributes;
 
         public IReadOnlyCollection<VNodeEvent> Events => _vnode.Events;
