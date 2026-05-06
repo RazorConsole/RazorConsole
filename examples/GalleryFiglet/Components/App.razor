@@ -1,0 +1,25 @@
+@namespace GalleryFiglet.Components
+
+<Rows>
+    <Markup Content="Figlet renders large ASCII art text using Figlet fonts. " Foreground="@Color.Grey70"/>
+    <Newline/>
+    <Panel Title="Figlet" Border="BoxBorder.Rounded" Expand="true">
+        <Figlet Content="Default color"/>
+        <Figlet Content="Color.Aqua" Color="Color.Aqua"/>
+        <Figlet Content="Justify.Left" Justify="Justify.Left"/>
+        <Figlet Font="Fonts/Slant Relief.flf" Color="Color.Orange1" Content="Custom"/>
+    </Panel>
+</Rows>
+
+@code {
+
+    private static readonly string _exampleCode = @"
+<Panel Title=""Figlet"" Border=""BoxBorder.Rounded"" Expand=""true"">
+    <Figlet Content=""Default color""/>
+    <Figlet Content=""Color.Aqua"" Color=""Color.Aqua""/>
+    <Figlet Content=""Justify.Left"" Justify=""Justify.Left""/>
+    <Figlet Font=""Fonts/Slant Relief.flf"" Color=""Color.Orange1"" Content=""Custom""/>
+</Panel>".Trim();
+
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Figlet.razor";
+}

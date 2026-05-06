@@ -19,6 +19,10 @@ internal sealed class TerminalMonitor : IDisposable
 
     public event Action? OnResized;
 
+    public int Width => _width;
+
+    public int Height => _height;
+
     public TerminalMonitor()
     {
         if (!OperatingSystem.IsBrowser())
@@ -78,6 +82,7 @@ internal sealed class TerminalMonitor : IDisposable
             {
                 if (t.IsCompletedSuccessfully)
                 {
+                    UpdateCurrentSize();
                     OnResized?.Invoke();
                 }
             }, token);
@@ -91,11 +96,23 @@ internal sealed class TerminalMonitor : IDisposable
         {
             if (AnsiConsole.Console.Profile.Width != _width || AnsiConsole.Console.Profile.Height != _height)
             {
-                _width = AnsiConsole.Console.Profile.Width;
-                _height = AnsiConsole.Console.Profile.Height;
+                UpdateCurrentSize();
                 OnResized?.Invoke();
             }
         }
+    }
+
+    private void UpdateCurrentSize()
+    {
+        if (OperatingSystem.IsBrowser())
+        {
+            _width = 0;
+            _height = 0;
+            return;
+        }
+
+        _width = AnsiConsole.Console.Profile.Width;
+        _height = AnsiConsole.Console.Profile.Height;
     }
 
     public void Dispose()

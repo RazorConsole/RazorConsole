@@ -1,0 +1,37 @@
+@namespace GalleryMarkup.Components
+
+<Rows>
+    <Markup Content="Markup renders styled text by combining colors, decorations, and optional hyperlinks." Foreground="@Color.Grey70" />
+	<Newline />
+	<Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+	<Rows>
+		<Markup Content="Emphasize important labels"
+				 Foreground="@Color.Chartreuse1"
+				 Decoration="@Decoration.Bold" />
+		<Markup Content="Callouts can be dimmed"
+				Foreground="@Color.Grey70"
+				Decoration="@(Decoration.Dim | Decoration.Italic)" />
+		<Markup Content="Link to the repository"
+				Foreground="@Color.DeepSkyBlue1"
+				Decoration="@Decoration.Underline"
+				link="https://github.com/LittleLittleCloud/RazorConsole" />
+	</Rows>
+	</Panel>
+	</Rows>
+
+@code {
+	private static readonly string _exampleCodeString = @"
+<Markup Content=""Emphasize important labels""
+	   Foreground=""Color.Chartreuse1""
+	   Decoration=""Decoration.Bold"" />
+<Markup Content=""Callouts can be dimmed""
+	   Foreground=""Color.Grey70""
+	   Decoration=""Decoration.Dim | Decoration.Italic"" />
+<Markup Content=""Link to the repository""
+	   Foreground=""Color.DeepSkyBlue1""
+	   Decoration=""Decoration.Underline""
+	   link=""https://github.com/LittleLittleCloud/RazorConsole"" />
+".Trim();
+
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Markup.razor";
+}

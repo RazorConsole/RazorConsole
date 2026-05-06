@@ -1,0 +1,80 @@
+@namespace GalleryTextInput.Components
+
+<Rows>
+    <Markup Content="TextInput captures user text, supports masking, focus styling, and change/submit callbacks." Foreground="@Color.Grey70" />
+    <Newline />
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <Rows>
+            <TextInput Label="First Name"
+                       Value="@_firstName"
+                       ValueChanged="OnFirstNameChangedAsync"
+                       Placeholder="Ada"
+                       FocusedBorderColor="@Color.DeepSkyBlue1"
+                       BorderPadding="@_inputPadding"
+                       Expand="true" />
+            <TextInput Label="Secret Note"
+                       Value="@_secretNote"
+                       ValueChanged="OnSecretChangedAsync"
+                       Placeholder="Classified"
+                       MaskInput="true"
+                       FocusedBorderColor="@Color.MediumOrchid"
+                       BorderPadding="@_inputPadding"
+                       Expand="true" />
+            <Markup Content="@PreviewText" />
+            <Markup Content="@SecretLengthText"
+                    Foreground="@Color.Grey70"
+                    Decoration="@Decoration.Italic" />
+        </Rows>
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly Padding _inputPadding = new(1, 0, 1, 0);
+
+    private string _firstName = string.Empty;
+    private string _secretNote = string.Empty;
+
+    private string PreviewText => _firstName.Length == 0
+        ? "Preview: (none)"
+        : $"Preview: {_firstName}";
+
+    private string SecretLengthText => $"Stored secret length: {_secretNote.Length}";
+
+    private Task OnFirstNameChangedAsync(string? value)
+    {
+        _firstName = value ?? string.Empty;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnSecretChangedAsync(string? value)
+    {
+        _secretNote = value ?? string.Empty;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private static readonly string _exampleCode = @"<Rows>
+    <TextInput Label=""First Name""
+               Value=""@_firstName""
+               ValueChanged=""OnFirstNameChangedAsync""
+               Placeholder=""Ada""
+               FocusedBorderColor=""Color.DeepSkyBlue1""
+               BorderPadding=""new(1, 0, 1, 0)""
+               Expand=""true"" />
+    <TextInput Label=""Secret Note""
+               Value=""@_secretNote""
+               ValueChanged=""OnSecretChangedAsync""
+               Placeholder=""Classified""
+               MaskInput=""true""
+               FocusedBorderColor=""Color.MediumOrchid""
+               BorderPadding=""new(1, 0, 1, 0)""
+               Expand=""true"" />
+    <Markup Content=""@PreviewText"" />
+    <Markup Content=""@SecretLengthText""
+           Foreground=""Color.Grey70""
+           Decoration=""Decoration.Italic"" />
+</Rows>".Trim();
+
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/TextInput.razor";
+}

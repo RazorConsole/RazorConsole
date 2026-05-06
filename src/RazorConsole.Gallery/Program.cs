@@ -15,6 +15,7 @@ builder.UseRazorConsole<App>(configure: config =>
     config.Services.Configure<ConsoleAppOptions>(opt =>
     {
         opt.EnableTerminalResizing = true;
+        opt.RenderingPipeline = ResolveRenderingPipeline(args);
     });
 });
 
@@ -27,3 +28,20 @@ builder.Services.AddHttpClient<INuGetUpgradeChecker, NuGetUpgradeChecker>(client
 await builder
     .Build()
     .RunAsync();
+
+static RazorConsoleRenderingPipeline ResolveRenderingPipeline(string[] args)
+{
+    if (args.Any(arg => string.Equals(arg, "--widget-layout", StringComparison.OrdinalIgnoreCase)))
+    {
+        return RazorConsoleRenderingPipeline.WidgetLayout;
+    }
+
+    var value = Environment.GetEnvironmentVariable("RAZORCONSOLE_RENDERING_PIPELINE");
+    if (string.Equals(value, "WidgetLayout", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "widget", StringComparison.OrdinalIgnoreCase))
+    {
+        return RazorConsoleRenderingPipeline.WidgetLayout;
+    }
+
+    return RazorConsoleRenderingPipeline.LegacySpectre;
+}

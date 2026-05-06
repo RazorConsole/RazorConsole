@@ -1,0 +1,52 @@
+@namespace GallerySpinner.Components
+
+@using RazorConsole.Components
+@using Spectre.Console
+
+
+<Rows>
+    <Markup
+        Content="Spinner renders Spectre.Console spinner animations with optional message, style, and auto-dismiss configuration."
+        Foreground="@Color.Grey70" />
+    <Markup Content="On Windows terminals, enable UTF-8 output might be required to ensure spinners render correctly." Foreground="@Color.Gold3_1" />
+    <Markup Content="See Spectre.Console best practices for more tips." Foreground="@Color.Gold3_1" link="https://spectreconsole.net/best-practices" />
+    <Newline />
+    @for (var index = 0; index < _examples.Length; index++)
+    {
+        var example = _examples[index];
+        <Markup Content="@example.Title" Decoration="@Decoration.Bold" />
+        <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+            <Spinner SpinnerType="@example.SpinnerType" />
+        </Panel>
+        @if (index < _examples.Length - 1)
+        {
+            <Newline />
+        }
+    }
+    <Newline />
+    <Markup Content="Browse more spinner styles" Foreground="@Color.DeepSkyBlue1"
+            link="https://spectreconsole.net/appendix/spinners" Decoration="@Decoration.Underline" />
+</Rows>
+
+@code {
+    private sealed record SpinnerExample(string Title, global::Spectre.Console.Spinner SpinnerType, string Code);
+
+    private static readonly SpinnerExample[] _examples =
+    {
+        new(
+            "Dots spinner",
+            global::Spectre.Console.Spinner.Known.Dots,
+            @"<Spinner SpinnerType=""Spinner.Known.Dots"" />"),
+        new(
+            "Bouncing bar spinner",
+            global::Spectre.Console.Spinner.Known.BouncingBar,
+            @"<Spinner SpinnerType=""Spinner.Known.BouncingBar"" />"),
+        new(
+            "Star spinner",
+            global::Spectre.Console.Spinner.Known.Star,
+            @"<Spinner SpinnerType=""Spinner.Known.Star"" />"),
+    };
+
+    private const string DocumentationUrl =
+    "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Spinner.razor";
+}

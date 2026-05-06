@@ -1,0 +1,33 @@
+@namespace GalleryStepChart.Components
+
+<Rows>
+    <Markup Content="StepChart component is used for displaying chart graphics using points arrays."/>
+    <Newline/>
+
+    <Panel Title="StepChart" Border="BoxBorder.Rounded">
+        <Rows>
+            <StepChart Width="40" Title="Three charts" Height="12" ShowAxes="true"
+                       Series="@GenerateChartSeries()"/>
+        </Rows>
+    </Panel>
+</Rows>
+
+@code{
+
+    private const string StepChartExampleCode = @"
+<StepChart Width=""40"" Height=""12"" Title=""Three charts"" ShowAxes=""true""
+           Series=""@GenerateChartSeries()""/>
+";
+
+    private const string StepChartDocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/StepChart.razor";
+
+    private List<StepChart.ChartSeries> GenerateChartSeries()
+    {
+        return
+        [
+            new(Color.FromHex("#FBF3A8"), [new(1, 4), new(2, 5), new(3, 5), new(4, 4), new(5, 5), new(6, 6), new(7, 7), new(8, 8)]),
+            new(Color.Blue, [new(1, 2), new(2, 2), new(3, 2), new(4, 3), new(5, 3), new(6, 4), new(7, 5), new(8, 6)]),
+            new(Color.FromHex("#fc034e"), [new(1, 0), new(2, 0), new(3, 0), new(4, 1), new(5, 2), new(6, 2), new(7, 2), new(8, 3)])
+        ];
+    }
+}

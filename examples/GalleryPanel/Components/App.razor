@@ -1,0 +1,41 @@
+@namespace GalleryPanel.Components
+
+<Rows>
+    <Markup Content="Panel surfaces information inside a framed container with optional title, padding, size, and border configuration." Foreground="@Color.Grey70" />
+    <Newline />
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <Columns>
+            <Panel Title="Release"
+                   TitleColor="@Color.Chartreuse1"
+                   Border="@BoxBorder.Double"
+                   BorderColor="@Color.Chartreuse1"
+                   Expand="false"
+                   Width="28">
+                    <Markup Content="Version 1.4.0" />
+                    <Newline />
+                    <Markup Content="Ready for publication"
+                            Foreground="@Color.Chartreuse1"
+                            Decoration="@Decoration.Bold" />
+            </Panel>
+        </Columns>
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly string _exampleCode = @"
+<Columns Expand=""true"">
+    <Panel Title=""Release""
+           TitleColor=""Color.Chartreuse1""
+           Border=""BoxBorder.Double""
+           BorderColor=""Color.Chartreuse1""
+           Expand=""false"" Width=""28"">
+        <Markup Content=""Version 1.4.0"" />
+        <Newline />
+        <Markup Content=""Ready for publication""
+               Foreground=""Color.Chartreuse1""
+               Decoration=""Decoration.Bold"" />
+    </Panel>
+</Columns>".Trim();
+
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Panel.razor";
+}

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core.Extensions;
+using RazorConsole.Core.Layout;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Vdom;
@@ -19,7 +20,13 @@ namespace RazorConsole.Core.Rendering;
 internal sealed class ConsoleRenderer(
     IServiceProvider services,
     ILoggerFactory loggerFactory,
-    Translation.Contexts.TranslationContext translationContext)
+    Translation.Contexts.TranslationContext translationContext,
+    ConsoleAppOptions? options = null,
+    WidgetTranslationContext? widgetTranslationContext = null,
+    LayoutEngine? layoutEngine = null,
+    VNodeIdAccessor? vnodeIdAccessor = null,
+    VNodeLayoutAccessor? vnodeLayoutAccessor = null,
+    TerminalMonitor? terminalMonitor = null)
     : Renderer(services, loggerFactory),
     IObservable<ConsoleRenderer.RenderSnapshot>
 {
@@ -64,6 +71,12 @@ internal sealed class ConsoleRenderer(
     private readonly ILogger<ConsoleRenderer> _logger = loggerFactory?.CreateLogger<ConsoleRenderer>()
         ?? throw new ArgumentNullException(nameof(loggerFactory));
     private readonly Translation.Contexts.TranslationContext _translationContext = translationContext;
+    private readonly ConsoleAppOptions _options = options ?? new ConsoleAppOptions();
+    private readonly WidgetTranslationContext _widgetTranslationContext = widgetTranslationContext ?? new WidgetTranslationContext();
+    private readonly LayoutEngine _layoutEngine = layoutEngine ?? new LayoutEngine();
+    private readonly VNodeIdAccessor? _vnodeIdAccessor = vnodeIdAccessor;
+    private readonly VNodeLayoutAccessor? _vnodeLayoutAccessor = vnodeLayoutAccessor;
+    private readonly TerminalMonitor? _terminalMonitor = terminalMonitor;
     private readonly Lock _observersSync = new();
     private readonly List<IObserver<RenderSnapshot>> _observers = [];
 
@@ -75,6 +88,15 @@ internal sealed class ConsoleRenderer(
     public override Dispatcher Dispatcher => DispatcherInstance;
 
     internal Translation.Contexts.TranslationContext GetTranslationContext() => _translationContext;
+
+    internal RenderSnapshot RefreshSnapshot()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        var snapshot = CreateSnapshot();
+        _lastSnapshot = snapshot;
+        return snapshot;
+    }
 
     public Task<RenderSnapshot> MountComponentAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(ParameterView parameters, CancellationToken cancellationToken)
         where TComponent : IComponent
@@ -480,13 +502,20 @@ internal sealed class ConsoleRenderer(
         {
             if (_rootComponentId == -1 || !_componentRoots.TryGetValue(_rootComponentId, out var componentNode))
             {
+                UpdateSnapshotAccessors(null, null);
                 return RenderSnapshot.Empty;
             }
 
             var rootNode = CreateRenderableRoot(componentNode);
             if (rootNode is null)
             {
+                UpdateSnapshotAccessors(null, null);
                 return RenderSnapshot.Empty;
+            }
+
+            if (_options.RenderingPipeline == RazorConsoleRenderingPipeline.WidgetLayout)
+            {
+                return CreateWidgetLayoutSnapshot(rootNode);
             }
 
             _translationContext.CollectedOverlays.Clear();
@@ -498,6 +527,8 @@ internal sealed class ConsoleRenderer(
                 ? new OverlayRenderable(mainRenderable, _translationContext.CollectedOverlays)
                 : mainRenderable;
 
+            UpdateSnapshotAccessors(rootNode, layouts: null);
+
             return new RenderSnapshot(rootNode, finalRenderable, _translationContext.AnimatedRenderables);
         }
         catch (Exception ex)
@@ -506,6 +537,41 @@ internal sealed class ConsoleRenderer(
             return RenderSnapshot.Empty;
         }
     }
+
+    private RenderSnapshot CreateWidgetLayoutSnapshot(VNode rootNode)
+    {
+        _translationContext.AnimatedRenderables.Clear();
+        _widgetTranslationContext.ClearAnimatedRenderables();
+
+        var widgetRoot = _widgetTranslationContext.Translate(rootNode);
+        var layoutResult = _layoutEngine.Layout(widgetRoot, CreateViewportConstraints());
+        var renderable = layoutResult.PaintToRenderable();
+        var layouts = layoutResult.EnumerateLayoutInfos();
+        var layoutParents = layoutResult.EnumerateLayoutParentIds();
+
+        UpdateSnapshotAccessors(rootNode, layouts, layoutParents);
+
+        return new RenderSnapshot(rootNode, renderable, _widgetTranslationContext.AnimatedRenderables.ToArray());
+    }
+
+    private BoxConstraints CreateViewportConstraints()
+    {
+        const int fallbackWidth = 80;
+        const int fallbackHeight = 1000;
+        var width = _terminalMonitor?.Width > 0 ? _terminalMonitor.Width : fallbackWidth;
+        var height = _terminalMonitor?.Height > 0 ? _terminalMonitor.Height : fallbackHeight;
+        return new BoxConstraints(0, width, 0, height);
+    }
+
+    private void UpdateSnapshotAccessors(
+        VNode? rootNode,
+        IReadOnlyCollection<VNodeLayoutInfo>? layouts,
+        IReadOnlyDictionary<string, string?>? layoutParents = null)
+    {
+        _vnodeIdAccessor?.UpdateSnapshot(rootNode);
+        _vnodeLayoutAccessor?.UpdateSnapshot(rootNode, layouts, layoutParents);
+    }
+
     private VNode? CreateRenderableRoot(VNode node)
     {
         var visitedComponents = new HashSet<int>();

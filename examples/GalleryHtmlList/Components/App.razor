@@ -1,0 +1,72 @@
+@namespace GalleryHtmlList.Components
+
+<Rows>
+    <Markup Content="HTML list tags (<ul> and <ol>) render as styled lists with bullets or numbers." Foreground="@Color.Grey70" />
+    <Markup Content="Documentation: Built-in HTML list support" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="https://github.com/LittleLittleCloud/RazorConsole/blob/main/design-doc/builtin-components.md" />
+    <Newline />
+<Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <Rows>
+            <Markup Content="Unordered List:" Decoration="@Decoration.Bold" />
+            <ul>
+                <li>First item</li>
+                <li>Second item</li>
+                <li>Third item</li>
+            </ul>
+            <Newline />
+            <Markup Content="Ordered List:" Decoration="@Decoration.Bold" />
+            <ol>
+                <li>Initialize the application</li>
+                <li>Configure dependencies</li>
+                <li>Run the main loop</li>
+            </ol>
+            <Newline />
+            <Markup Content="Shopping List:" Decoration="@Decoration.Bold" />
+            <ul>
+                <li>Milk</li>
+                <li>Eggs</li>
+                <li>Bread</li>
+                <li>Coffee</li>
+            </ul>
+            <Newline />
+            <Markup Content="Ordered List with start=50:" Decoration="@Decoration.Bold" />
+            <ol start="50">
+                <li>Coffee</li>
+                <li>Tea</li>
+                <li>Milk</li>
+            </ol>
+        </Rows>
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly string _example = @"<Rows>
+    <Markup Content=""Unordered List:"" Decoration=""Decoration.Bold"" />
+    <ul>
+        <li>First item</li>
+        <li>Second item</li>
+        <li>Third item</li>
+    </ul>
+    <Newline />
+    <Markup Content=""Ordered List:"" Decoration=""Decoration.Bold"" />
+    <ol>
+        <li>Initialize the application</li>
+        <li>Configure dependencies</li>
+        <li>Run the main loop</li>
+    </ol>
+    <Newline />
+    <Markup Content=""Shopping List:"" Decoration=""Decoration.Bold"" />
+    <ul>
+        <li>Milk</li>
+        <li>Eggs</li>
+        <li>Bread</li>
+        <li>Coffee</li>
+    </ul>
+    <Newline />
+    <Markup Content=""Ordered List with start=50:"" Decoration=""Decoration.Bold"" />
+    <ol start=""50"">
+        <li>Coffee</li>
+        <li>Tea</li>
+        <li>Milk</li>
+    </ol>
+</Rows>".Trim();
+}
