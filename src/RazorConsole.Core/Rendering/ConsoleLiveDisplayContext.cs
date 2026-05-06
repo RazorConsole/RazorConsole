@@ -117,24 +117,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         }
     }
 
-    private void HandleTerminalResize()
-    {
-        try
-        {
-            var snapshot = _renderer.RefreshSnapshot();
-            var view = ConsoleViewResult.FromSnapshot(snapshot);
-            lock (_sync)
-            {
-                _canvas.UpdateTarget(view.Renderable);
-                _currentView = view;
-                UpdateAnimations(view.AnimatedRenderables);
-            }
-        }
-        catch
-        {
-            _canvas.Refresh();
-        }
-    }
+    private void HandleTerminalResize() => _canvas.Refresh();
 
     public void Dispose()
     {

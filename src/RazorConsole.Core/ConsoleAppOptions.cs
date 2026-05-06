@@ -5,12 +5,6 @@ using RazorConsole.Core.Rendering;
 
 namespace RazorConsole.Core;
 
-public enum RazorConsoleRenderingPipeline
-{
-    LegacySpectre,
-    WidgetLayout,
-}
-
 /// <summary>
 /// Options that control how console applications render output.
 /// </summary>
@@ -31,8 +25,6 @@ public sealed class ConsoleAppOptions
     public bool EnableTerminalResizing { get; set; } = false;
 
     public ConsoleLiveDisplayOptions ConsoleLiveDisplayOptions { get; } = ConsoleLiveDisplayOptions.Default;
-
-    public RazorConsoleRenderingPipeline RenderingPipeline { get; set; } = RazorConsoleRenderingPipeline.LegacySpectre;
 
     /// <summary>
     /// Callback invoked after a component has been rendered.

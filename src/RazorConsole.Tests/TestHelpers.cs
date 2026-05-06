@@ -3,10 +3,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using RazorConsole.Core;
-using RazorConsole.Core.Layout;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Rendering.Translation.Contexts;
-using RazorConsole.Core.Vdom;
 
 namespace RazorConsole.Tests;
 
@@ -36,16 +34,7 @@ internal static class TestHelpers
         }
 
         var translationContext = serviceProvider.GetRequiredService<TranslationContext>();
-        return new ConsoleRenderer(
-            serviceProvider,
-            NullLoggerFactory.Instance,
-            translationContext,
-            serviceProvider.GetService<ConsoleAppOptions>(),
-            serviceProvider.GetService<WidgetTranslationContext>(),
-            serviceProvider.GetService<LayoutEngine>(),
-            serviceProvider.GetService<VNodeIdAccessor>(),
-                serviceProvider.GetService<VNodeLayoutAccessor>(),
-                serviceProvider.GetService<TerminalMonitor>());
+        return new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance, translationContext);
     }
 
     public static TranslationContext CreateTestTranslationContext(IServiceProvider? serviceProvider = null)
