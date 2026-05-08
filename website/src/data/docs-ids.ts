@@ -10,6 +10,11 @@ export const docTopicIds = [
         filePath: "website/src/docs/built-in-components.md",
     },
     {
+        id: "widget-layout",
+        title: "Widget Layout",
+        filePath: "website/src/docs/widget-layout.md",
+    },
+    {
         id: "hot-reload",
         title: "Hot Reload",
         filePath: "website/src/docs/hot-reload.md",
