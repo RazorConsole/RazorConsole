@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 #pragma warning disable BL0006 // RenderTree types are "internal-ish"; acceptable for console renderer tests.
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
@@ -211,8 +212,11 @@ public sealed class ConsoleRendererTests
             }
         }));
 
-        component.UpdateOffset(10);
-        component.Ready();
+        await renderer.Dispatcher.InvokeAsync(() =>
+        {
+            component.UpdateOffset(10);
+            component.Ready();
+        });
 
         // Assert
         var updatedSnapshot = await tcs.Task.WaitAsync(TestContext.Current.CancellationToken);
@@ -229,6 +233,44 @@ public sealed class ConsoleRendererTests
             child.Children[0].Text.ShouldBe("10");
             child.Children[1].Text.ShouldBe("10");
         }
+    }
+
+    [Fact]
+    public async Task ObserverNotifications_CoalesceWhilePreviousNotificationIsRunning()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var component = new BurstRenderComponent();
+        await renderer.MountComponentAsync(component, ParameterView.Empty, CancellationToken.None);
+
+        var observer = new BlockingObserver();
+        using var subscription = renderer.Subscribe(observer);
+
+        await component.SetValueAsync(1);
+        await observer.WaitUntilBlockedAsync(TestContext.Current.CancellationToken);
+
+        for (var i = 2; i <= 50; i++)
+        {
+            await component.SetValueAsync(i);
+        }
+
+        observer.Release();
+        await observer.WaitForValueAsync(50, TestContext.Current.CancellationToken);
+
+        observer.Values.Count.ShouldBeLessThanOrEqualTo(3);
+        observer.Values.ShouldContain(50);
+    }
+
+    [Fact]
+    public async Task Dispatcher_ConcurrentStateUpdates_SerializesRenderTreeDiffs()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var component = new BurstRenderComponent();
+        await renderer.MountComponentAsync(component, ParameterView.Empty, CancellationToken.None);
+
+        await Task.WhenAll(Enumerable.Range(0, 100).Select(_ => component.IncrementAsync()));
+
+        var snapshot = renderer.RefreshSnapshot();
+        ReadText(snapshot.Root).ShouldBe("100");
     }
 
 
@@ -317,6 +359,9 @@ public sealed class ConsoleRendererTests
         }
     }
 
+    private static string ReadText(VNode? root)
+        => root?.Children.FirstOrDefault()?.Text ?? string.Empty;
+
     private sealed class ContainerComponent : ComponentBase
     {
         protected override void BuildRenderTree(RenderTreeBuilder builder)
@@ -345,6 +390,85 @@ public sealed class ConsoleRendererTests
             builder.OpenElement(0, "div");
             builder.AddContent(1, "Simple");
             builder.CloseElement();
+        }
+    }
+
+    private sealed class BurstRenderComponent : ComponentBase
+    {
+        private int _value;
+
+        public Task SetValueAsync(int value)
+            => InvokeAsync(() =>
+            {
+                _value = value;
+                StateHasChanged();
+            });
+
+        public Task IncrementAsync()
+            => InvokeAsync(() =>
+            {
+                _value++;
+                StateHasChanged();
+            });
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddContent(1, _value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            builder.CloseElement();
+        }
+    }
+
+    private sealed class BlockingObserver : IObserver<ConsoleRenderer.RenderSnapshot>
+    {
+        private readonly TaskCompletionSource _blocked = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly ConcurrentQueue<int> _values = new();
+        private int _notificationCount;
+
+        public IReadOnlyCollection<int> Values => _values.ToArray();
+
+        public void OnCompleted()
+        {
+        }
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnNext(ConsoleRenderer.RenderSnapshot value)
+        {
+            var count = Interlocked.Increment(ref _notificationCount);
+            var snapshotValue = ReadValue(value.Root);
+            _values.Enqueue(snapshotValue);
+
+            if (count == 2)
+            {
+                _blocked.TrySetResult();
+                _released.Task.GetAwaiter().GetResult();
+            }
+        }
+
+        public Task WaitUntilBlockedAsync(CancellationToken cancellationToken)
+            => _blocked.Task.WaitAsync(cancellationToken);
+
+        public async Task WaitForValueAsync(int value, CancellationToken cancellationToken)
+        {
+            while (!_values.Contains(value))
+            {
+                await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        public void Release()
+            => _released.TrySetResult();
+
+        private static int ReadValue(VNode? root)
+        {
+            var text = root?.Children.FirstOrDefault()?.Text;
+            return int.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value)
+                ? value
+                : -1;
         }
     }
 

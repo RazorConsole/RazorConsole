@@ -145,6 +145,11 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         DisposeAnimations();
         _terminalMonitor.OnResized -= HandleTerminalResize;
         _snapshotSubscription?.Dispose();
+        if (_canvas is IDisposable disposableCanvas)
+        {
+            disposableCanvas.Dispose();
+        }
+
         _disposed = true;
     }
 

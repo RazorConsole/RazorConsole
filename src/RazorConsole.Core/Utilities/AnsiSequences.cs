@@ -23,6 +23,11 @@ public static class AnsiSequences
     public const int DECTCEM = 25;
 
     /// <summary>
+    /// Alternate screen buffer.
+    /// </summary>
+    public const int DECALTSCR = 1049;
+
+    /// <summary>
     /// This control function selects one or more character attributes at the same time.
     /// </summary>
     /// <remarks>

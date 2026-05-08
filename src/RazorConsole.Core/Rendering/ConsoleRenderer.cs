@@ -30,44 +30,9 @@ internal sealed class ConsoleRenderer(
     : Renderer(services, loggerFactory),
     IObservable<ConsoleRenderer.RenderSnapshot>
 {
-    private sealed class ImmediateDispatcher : Dispatcher
-    {
-        public override bool CheckAccess() => true;
-
-        public override Task InvokeAsync(Action workItem)
-        {
-            workItem?.Invoke();
-            return Task.CompletedTask;
-        }
-
-        public override Task InvokeAsync(Func<Task> workItem)
-            => workItem?.Invoke() ?? Task.CompletedTask;
-
-        public override Task<TResult> InvokeAsync<TResult>(Func<TResult> workItem)
-        {
-            if (workItem is null)
-            {
-                throw new ArgumentNullException(nameof(workItem));
-            }
-
-            return Task.FromResult(workItem());
-        }
-
-        public override Task<TResult> InvokeAsync<TResult>(Func<Task<TResult>> workItem)
-        {
-            if (workItem is null)
-            {
-                throw new ArgumentNullException(nameof(workItem));
-            }
-
-            return workItem();
-        }
-    }
-
-    private static readonly ImmediateDispatcher DispatcherInstance = new();
-
     private readonly Dictionary<int, VNode> _componentRoots = [];
     private readonly Stack<VNode> _cursor = new();
+    private readonly Dispatcher _dispatcher = Dispatcher.CreateDefault();
     private readonly ILogger<ConsoleRenderer> _logger = loggerFactory?.CreateLogger<ConsoleRenderer>()
         ?? throw new ArgumentNullException(nameof(loggerFactory));
     private readonly Translation.Contexts.TranslationContext _translationContext = translationContext;
@@ -79,13 +44,16 @@ internal sealed class ConsoleRenderer(
     private readonly TerminalMonitor? _terminalMonitor = terminalMonitor;
     private readonly Lock _observersSync = new();
     private readonly List<IObserver<RenderSnapshot>> _observers = [];
+    private readonly Lock _observerNotificationSync = new();
 
     private TaskCompletionSource<RenderSnapshot>? _pendingRender;
+    private RenderSnapshot? _pendingObserverSnapshot;
     private int _rootComponentId = -1;
+    private bool _observerNotificationScheduled;
     private RenderSnapshot _lastSnapshot = RenderSnapshot.Empty;
     private bool _disposed;
 
-    public override Dispatcher Dispatcher => DispatcherInstance;
+    public override Dispatcher Dispatcher => _dispatcher;
 
     internal Translation.Contexts.TranslationContext GetTranslationContext() => _translationContext;
 
@@ -93,7 +61,9 @@ internal sealed class ConsoleRenderer(
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var snapshot = CreateSnapshot();
+        var snapshot = Dispatcher.CheckAccess()
+            ? CreateSnapshot()
+            : Dispatcher.InvokeAsync(CreateSnapshot).GetAwaiter().GetResult();
         _lastSnapshot = snapshot;
         return snapshot;
     }
@@ -122,7 +92,10 @@ internal sealed class ConsoleRenderer(
 
         try
         {
-            await RenderRootComponentAsync(componentId, parameters).ConfigureAwait(false);
+            await Dispatcher.InvokeAsync(async () =>
+            {
+                await RenderRootComponentAsync(componentId, parameters).ConfigureAwait(false);
+            }).ConfigureAwait(false);
             _lastSnapshot = await tcs.Task.ConfigureAwait(false);
             return _lastSnapshot;
         }
@@ -211,18 +184,7 @@ internal sealed class ConsoleRenderer(
             _pendingRender?.TrySetResult(snapshot);
             _pendingRender = null;
 
-            // Notify observers asynchronously with proper error handling
-            _ = Task.Run(() =>
-            {
-                try
-                {
-                    NotifyObservers(snapshot);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogErrorNotifyingObserverOfSnapshot(ex);
-                }
-            });
+            EnqueueObserverNotification(snapshot);
 
             return Task.CompletedTask;
         }
@@ -778,6 +740,50 @@ internal sealed class ConsoleRenderer(
         NotifyObserversInternal(observer => observer.OnNext(snapshot), ex => _logger.LogErrorNotifyingObserverOfSnapshot(ex));
     }
 
+    private void EnqueueObserverNotification(RenderSnapshot snapshot)
+    {
+        lock (_observerNotificationSync)
+        {
+            _pendingObserverSnapshot = snapshot;
+            if (_observerNotificationScheduled)
+            {
+                return;
+            }
+
+            _observerNotificationScheduled = true;
+        }
+
+        _ = Task.Run(ProcessObserverNotifications);
+    }
+
+    private void ProcessObserverNotifications()
+    {
+        while (true)
+        {
+            RenderSnapshot snapshot;
+            lock (_observerNotificationSync)
+            {
+                if (_pendingObserverSnapshot is not { } pendingSnapshot)
+                {
+                    _observerNotificationScheduled = false;
+                    return;
+                }
+
+                snapshot = pendingSnapshot;
+                _pendingObserverSnapshot = null;
+            }
+
+            try
+            {
+                NotifyObservers(snapshot);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogErrorNotifyingObserverOfSnapshot(ex);
+            }
+        }
+    }
+
     private void NotifyError(Exception exception)
     {
         NotifyObserversInternal(observer => observer.OnError(exception), ex => _logger.LogErrorNotifyingObserverOfError(ex));
@@ -825,7 +831,7 @@ internal sealed class ConsoleRenderer(
 
         try
         {
-            return base.DispatchEventAsync(handlerId, default, eventArgs);
+            return Dispatcher.InvokeAsync(() => base.DispatchEventAsync(handlerId, default, eventArgs));
         }
         catch (Exception ex)
         {
@@ -896,6 +902,10 @@ internal sealed class ConsoleRenderer(
             _cursor.Clear();
             _pendingRender?.TrySetCanceled();
             _pendingRender = null;
+            lock (_observerNotificationSync)
+            {
+                _pendingObserverSnapshot = null;
+            }
         }
 
         base.Dispose(disposing);
