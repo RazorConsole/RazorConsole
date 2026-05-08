@@ -31,7 +31,7 @@ Native widgets such as rows, columns, padding, alignment, panels, tables, text i
 
 Starting in 0.6.0, WidgetLayout is used by default when no rendering pipeline is configured. To run an app with the legacy Spectre pipeline, set `RAZORCONSOLE_RENDERING_PIPELINE` before launching the app:
 
-```powershell
+```sh
 $env:RAZORCONSOLE_RENDERING_PIPELINE = "LegacySpectre"
 dotnet run
 ```

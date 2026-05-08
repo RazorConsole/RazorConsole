@@ -15,6 +15,11 @@ export const docTopicIds = [
         filePath: "website/src/docs/widget-layout.md",
     },
     {
+        id: "alternate-screen-buffer",
+        title: "Alternate Screen Buffer",
+        filePath: "website/src/docs/alternate-screen-buffer.md",
+    },
+    {
         id: "hot-reload",
         title: "Hot Reload",
         filePath: "website/src/docs/hot-reload.md",
