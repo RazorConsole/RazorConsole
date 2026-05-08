@@ -9,6 +9,7 @@ namespace RazorConsole.Core.Layout;
 public sealed class TerminalCanvas
 {
     private readonly TerminalCell[,] _cells;
+    private readonly Stack<LayoutRect> _clipStack = new();
 
     public TerminalCanvas(int width, int height)
     {
@@ -32,6 +33,10 @@ public sealed class TerminalCanvas
 
     public int Height { get; }
 
+    private LayoutRect ClipBounds => _clipStack.TryPeek(out var clip)
+        ? clip
+        : new LayoutRect(0, 0, Width, Height);
+
     public TerminalCell this[int x, int y]
     {
         get
@@ -46,7 +51,7 @@ public sealed class TerminalCanvas
 
     public void Fill(LayoutRect rect, char ch, Style? style = null)
     {
-        var clipped = rect.Intersect(new LayoutRect(0, 0, Width, Height));
+        var clipped = rect.Intersect(ClipBounds).Intersect(new LayoutRect(0, 0, Width, Height));
         if (clipped.IsEmpty)
         {
             return;
@@ -72,7 +77,8 @@ public sealed class TerminalCanvas
             throw new ArgumentNullException(nameof(segments));
         }
 
-        if (y < 0 || y >= Height || maxWidth == 0)
+        var clip = ClipBounds;
+        if (y < clip.Y || y >= clip.Bottom || y < 0 || y >= Height || maxWidth == 0)
         {
             return;
         }
@@ -98,12 +104,12 @@ public sealed class TerminalCanvas
                     return;
                 }
 
-                if (cursor >= Width)
+                if (cursor >= Math.Min(Width, clip.Right))
                 {
                     return;
                 }
 
-                if (cursor >= 0)
+                if (cursor >= Math.Max(0, clip.X))
                 {
                     _cells[y, cursor] = new TerminalCell(rune.ToString(), segment.Style);
                 }
@@ -116,7 +122,8 @@ public sealed class TerminalCanvas
 
     public void Write(int x, int y, string? text, int? maxWidth, Style? style = null)
     {
-        if (string.IsNullOrEmpty(text) || y < 0 || y >= Height || maxWidth == 0)
+        var clip = ClipBounds;
+        if (string.IsNullOrEmpty(text) || y < clip.Y || y >= clip.Bottom || y < 0 || y >= Height || maxWidth == 0)
         {
             return;
         }
@@ -135,12 +142,12 @@ public sealed class TerminalCanvas
                 return;
             }
 
-            if (cursor >= Width)
+            if (cursor >= Math.Min(Width, clip.Right))
             {
                 return;
             }
 
-            if (cursor >= 0)
+            if (cursor >= Math.Max(0, clip.X))
             {
                 _cells[y, cursor] = new TerminalCell(rune.ToString(), style);
             }
@@ -152,6 +159,13 @@ public sealed class TerminalCanvas
 
     public IRenderable ToRenderable()
         => new CanvasRenderable(this);
+
+    public IDisposable PushClip(LayoutRect rect)
+    {
+        var clipped = rect.Intersect(ClipBounds).Intersect(new LayoutRect(0, 0, Width, Height));
+        _clipStack.Push(clipped);
+        return new ClipScope(this);
+    }
 
     internal IEnumerable<Segment> RenderSegments(int maxWidth)
     {
@@ -219,6 +233,25 @@ public sealed class TerminalCanvas
         if (y < 0 || y >= Height)
         {
             throw new ArgumentOutOfRangeException(nameof(y));
+        }
+    }
+
+    private void PopClip()
+        => _clipStack.Pop();
+
+    private sealed class ClipScope(TerminalCanvas canvas) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            canvas.PopClip();
+            _disposed = true;
         }
     }
 }

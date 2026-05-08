@@ -3,6 +3,7 @@
 using System.Globalization;
 using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Renderables;
+using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Utilities;
@@ -14,11 +15,15 @@ namespace RazorConsole.Core.Layout;
 public sealed class WidgetTranslationContext
 {
     private readonly IReadOnlyList<ITranslationMiddleware> _spectreFallbackMiddlewares;
+    private readonly ScrollableLayoutCoordinator? _scrollableLayoutCoordinator;
     private readonly HashSet<IAnimatedConsoleRenderable> _animatedRenderables = [];
 
-    public WidgetTranslationContext(IEnumerable<ITranslationMiddleware>? spectreFallbackMiddlewares = null)
+    public WidgetTranslationContext(
+        IEnumerable<ITranslationMiddleware>? spectreFallbackMiddlewares = null,
+        ScrollableLayoutCoordinator? scrollableLayoutCoordinator = null)
     {
         _spectreFallbackMiddlewares = spectreFallbackMiddlewares?.ToArray() ?? [];
+        _scrollableLayoutCoordinator = scrollableLayoutCoordinator;
     }
 
     public IReadOnlyCollection<IAnimatedConsoleRenderable> AnimatedRenderables => _animatedRenderables;
@@ -60,11 +65,6 @@ public sealed class WidgetTranslationContext
                 node.Key,
                 node.Attributes,
                 zIndex);
-        }
-
-        if (IsTruthy(GetAttribute(node, "data-text-input")))
-        {
-            return CreateTextInputWidget(node, zIndex);
         }
 
         if (string.Equals(className, "figlet", StringComparison.OrdinalIgnoreCase))
@@ -115,27 +115,84 @@ public sealed class WidgetTranslationContext
                 zIndex: zIndex);
         }
 
+        if (string.Equals(node.TagName, "view-height-scrollable", StringComparison.OrdinalIgnoreCase))
+        {
+            var child = ComposeChildren(node, children);
+            var scrollbarNode = node.Children.FirstOrDefault(IsScrollbarNode);
+            var linesToRender = TryGetIntAttribute(node, "data-lines-to-render", 1);
+            return new ScrollableWidget(
+                node.ID,
+                child,
+                itemsCount: 0,
+                offset: TryGetIntAttribute(node, "data-offset", 0),
+                pageSize: Math.Max(1, linesToRender),
+                enableEmbedded: IsTruthy(GetAttribute(node, "data-enable-embedded")),
+                trackChar: scrollbarNode is null ? '│' : ParseChar(GetAttribute(scrollbarNode, "data-track-char"), '│'),
+                thumbChar: scrollbarNode is null ? '█' : ParseChar(GetAttribute(scrollbarNode, "data-thumb-char"), '█'),
+                trackStyle: scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-track-color")),
+                thumbStyle: scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-thumb-color")),
+                minThumbHeight: scrollbarNode is null ? 1 : Math.Max(1, TryGetIntAttribute(scrollbarNode, "data-min-thumb-height", 1)),
+                showScrollbar: scrollbarNode is not null,
+                cropLines: true,
+                autoPageSize: linesToRender == 0,
+                layoutCoordinator: _scrollableLayoutCoordinator,
+                scrollId: GetAttribute(node, "data-scroll-id"),
+                attributes: node.Attributes,
+                zIndex: zIndex);
+        }
+
         if (string.Equals(className, "rows", StringComparison.OrdinalIgnoreCase))
         {
-            return new StackWidget(node.ID, children, attributes: node.Attributes, zIndex: zIndex);
+            return new FlexWidget(
+                node.ID,
+                children,
+                direction: FlexDirection.Column,
+                expand: IsTruthy(GetAttribute(node, "data-expand")),
+                attributes: node.Attributes,
+                zIndex: zIndex);
         }
 
         if (string.Equals(className, "columns", StringComparison.OrdinalIgnoreCase))
         {
-            return new RowWidget(node.ID, children, gap: 1, attributes: node.Attributes, zIndex: zIndex);
+            return new FlexWidget(
+                node.ID,
+                children,
+                direction: FlexDirection.Row,
+                align: FlexAlign.Stretch,
+                gap: 1,
+                expand: IsTruthy(GetAttribute(node, "data-expand")),
+                attributes: node.Attributes,
+                zIndex: zIndex);
+        }
+
+        if (IsFlexNode(node, className))
+        {
+            return new FlexWidget(
+                node.ID,
+                children,
+                direction: ParseEnum(GetAttribute(node, "data-direction"), FlexDirection.Row),
+                justify: ParseEnum(GetAttribute(node, "data-justify"), FlexJustify.Start),
+                align: ParseEnum(GetAttribute(node, "data-align"), FlexAlign.Start),
+                wrap: ParseEnum(GetAttribute(node, "data-wrap"), FlexWrap.NoWrap),
+                gap: Math.Max(0, TryGetIntAttribute(node, "data-gap", 0)),
+                expand: IsTruthy(GetAttribute(node, "data-expand")),
+                width: TryParsePositiveInt(GetAttribute(node, "data-width")),
+                height: TryParsePositiveInt(GetAttribute(node, "data-height")),
+                attributes: node.Attributes,
+                zIndex: zIndex);
         }
 
         if (string.Equals(className, "padder", StringComparison.OrdinalIgnoreCase))
         {
             var child = ComposeChildren(node, children);
             var padding = ParsePadding(GetAttribute(node, "data-padding"));
-            return new PaddingWidget(
+            return new BoxWidget(
                 node.ID,
                 child,
-                padding.Left,
-                padding.Top,
-                padding.Right,
-                padding.Bottom,
+                paddingLeft: padding.Left,
+                paddingTop: padding.Top,
+                paddingRight: padding.Right,
+                paddingBottom: padding.Bottom,
                 attributes: node.Attributes,
                 zIndex: zIndex);
         }
@@ -171,6 +228,23 @@ public sealed class WidgetTranslationContext
                 height: TryParsePositiveInt(GetAttribute(node, "data-height")),
                 expand: IsTruthy(GetAttribute(node, "data-expand")),
                 borderStyle: TryParseStyle(GetAttribute(node, "data-border-color")),
+                attributes: node.Attributes,
+                zIndex: zIndex);
+        }
+
+        if (IsBoxNode(node, className))
+        {
+            var child = ComposeChildren(node, children);
+            var padding = ParsePadding(GetAttribute(node, "data-padding"));
+            return new BoxWidget(
+                node.ID,
+                child,
+                paddingLeft: padding.Left,
+                paddingTop: padding.Top,
+                paddingRight: padding.Right,
+                paddingBottom: padding.Bottom,
+                width: TryParsePositiveInt(GetAttribute(node, "data-width")),
+                height: TryParsePositiveInt(GetAttribute(node, "data-height")),
                 attributes: node.Attributes,
                 zIndex: zIndex);
         }
@@ -250,6 +324,14 @@ public sealed class WidgetTranslationContext
             || string.Equals(node.TagName, "breakdownchart", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsFlexNode(VNode node, string? className)
+        => string.Equals(className, "flex", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(GetAttribute(node, "data-layout"), "flex", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsBoxNode(VNode node, string? className)
+        => string.Equals(className, "box", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(GetAttribute(node, "data-layout"), "box", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsHtmlElementRequiringInlineOrBlockSemantics(VNode node)
     {
         if (!string.IsNullOrWhiteSpace(GetAttribute(node, "class"))
@@ -304,80 +386,6 @@ public sealed class WidgetTranslationContext
             _ => new StackWidget(owner.ID + "-content", children),
         };
 
-    private Widget CreateTextInputWidget(VNode node, int zIndex)
-    {
-        var panel = FindFirstDescendant(node, IsPanelNode);
-        var textNodes = EnumerateDescendants(node)
-            .Where(candidate => IsTruthy(GetAttribute(candidate, "data-text")))
-            .ToArray();
-        var label = textNodes.ElementAtOrDefault(0);
-        var display = textNodes.ElementAtOrDefault(1) ?? label;
-
-        var children = new List<Widget>();
-        if (label is not null && display is not null && !ReferenceEquals(label, display))
-        {
-            children.Add(new TextWidget(
-                label.ID,
-                GetAttribute(label, "data-content"),
-                TryParseStyle(GetAttribute(label, "data-style")),
-                label.Key,
-                label.Attributes,
-                zIndex));
-        }
-
-        if (display is not null)
-        {
-            var displayText = new TextWidget(
-                display.ID,
-                GetAttribute(display, "data-content"),
-                TryParseStyle(GetAttribute(display, "data-style")),
-                display.Key,
-                display.Attributes,
-                zIndex);
-            var contentPadding = FindNearestAncestor(node, display, candidate => string.Equals(GetAttribute(candidate, "class"), "padder", StringComparison.OrdinalIgnoreCase)) is { } padder
-                ? ParsePadding(GetAttribute(padder, "data-padding"))
-                : (Left: 0, Top: 0, Right: 0, Bottom: 0);
-            children.Add(new PaddingWidget(
-                display.ID + "-padding",
-                displayText,
-                contentPadding.Left,
-                contentPadding.Top,
-                contentPadding.Right,
-                contentPadding.Bottom,
-                attributes: display.Attributes,
-                zIndex: zIndex));
-        }
-
-        var content = children.Count switch
-        {
-            0 => new TextWidget(node.ID + "-content", string.Empty),
-            1 => children[0],
-            _ => new RowWidget(node.ID + "-content", children, attributes: node.Attributes, zIndex: zIndex),
-        };
-
-        if (panel is null)
-        {
-            return new StackWidget(node.ID, [content], attributes: node.Attributes, zIndex: zIndex);
-        }
-
-        var padding = ParsePadding(GetAttribute(panel, "data-padding"));
-        return new PanelWidget(
-            panel.ID,
-            content,
-            title: GetAttribute(panel, "data-header"),
-            border: ParsePanelBorder(GetAttribute(panel, "data-border")),
-            paddingLeft: padding.Left,
-            paddingTop: padding.Top,
-            paddingRight: padding.Right,
-            paddingBottom: padding.Bottom,
-            width: TryParsePositiveInt(GetAttribute(panel, "data-width")),
-            height: TryParsePositiveInt(GetAttribute(panel, "data-height")),
-            expand: IsTruthy(GetAttribute(panel, "data-expand")),
-            borderStyle: TryParseStyle(GetAttribute(panel, "data-border-color")),
-            attributes: node.Attributes,
-            zIndex: zIndex);
-    }
-
     private Widget CreateHtmlListWidget(VNode node, int zIndex)
     {
         var isOrdered = string.Equals(node.TagName, "ol", StringComparison.OrdinalIgnoreCase);
@@ -414,54 +422,6 @@ public sealed class WidgetTranslationContext
     private static string? GetAttribute(VNode node, string name)
         => node.Attributes.TryGetValue(name, out var value) ? value : null;
 
-    private static bool IsPanelNode(VNode node)
-        => node.Kind == VNodeKind.Element
-            && string.Equals(GetAttribute(node, "class"), "panel", StringComparison.OrdinalIgnoreCase);
-
-    private static VNode? FindFirstDescendant(VNode node, Func<VNode, bool> predicate)
-        => EnumerateDescendants(node).FirstOrDefault(predicate);
-
-    private static IEnumerable<VNode> EnumerateDescendants(VNode node)
-    {
-        foreach (var child in node.Children)
-        {
-            yield return child;
-
-            foreach (var descendant in EnumerateDescendants(child))
-            {
-                yield return descendant;
-            }
-        }
-    }
-
-    private static VNode? FindNearestAncestor(VNode root, VNode target, Func<VNode, bool> predicate)
-    {
-        var path = new List<VNode>();
-        return TryFindPath(root, target, path)
-            ? path.AsEnumerable().Reverse().Skip(1).FirstOrDefault(predicate)
-            : null;
-    }
-
-    private static bool TryFindPath(VNode current, VNode target, List<VNode> path)
-    {
-        path.Add(current);
-        if (ReferenceEquals(current, target))
-        {
-            return true;
-        }
-
-        foreach (var child in current.Children)
-        {
-            if (TryFindPath(child, target, path))
-            {
-                return true;
-            }
-        }
-
-        path.RemoveAt(path.Count - 1);
-        return false;
-    }
-
     private static int TryGetIntAttribute(VNode node, string name, int fallback)
         => int.TryParse(GetAttribute(node, name), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
             ? value
@@ -471,6 +431,18 @@ public sealed class WidgetTranslationContext
         => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed > 0
             ? parsed
             : null;
+
+    private static TEnum ParseEnum<TEnum>(string? value, TEnum fallback) where TEnum : struct
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        return Enum.TryParse<TEnum>(value, ignoreCase: true, out var parsed)
+            ? parsed
+            : fallback;
+    }
 
     private static (int Left, int Top, int Right, int Bottom) ParsePadding(
         string? value,

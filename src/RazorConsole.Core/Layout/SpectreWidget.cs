@@ -69,38 +69,42 @@ public sealed class SpectreWidget : Widget
 
         var options = CreateRenderOptions(maxWidth, maxHeight);
         var lines = new List<RenderedLine>();
-        var current = new List<Segment>();
-        var currentWidth = 0;
+        var sourceLines = Segment.SplitLines(_renderable.Render(options, maxWidth));
 
-        foreach (var segment in _renderable.Render(options, maxWidth))
+        foreach (var line in sourceLines)
         {
-            if (segment.IsLineBreak)
-            {
-                lines.Add(new RenderedLine(current.ToArray()));
-                current.Clear();
-                currentWidth = 0;
-
-                if (lines.Count >= maxHeight)
-                {
-                    break;
-                }
-
-                continue;
-            }
-
-            AppendWrappedSegment(segment, maxWidth, maxHeight, lines, current, ref currentWidth);
+            AppendWrappedLine(line, maxWidth, maxHeight, lines);
             if (lines.Count >= maxHeight)
             {
                 break;
             }
         }
 
-        if (lines.Count < maxHeight && current.Count > 0)
+        return lines;
+    }
+
+    private static void AppendWrappedLine(
+        IReadOnlyList<Segment> source,
+        int maxWidth,
+        int maxHeight,
+        List<RenderedLine> lines)
+    {
+        var current = new List<Segment>();
+        var currentWidth = 0;
+
+        foreach (var segment in source)
+        {
+            AppendWrappedSegment(segment, maxWidth, maxHeight, lines, current, ref currentWidth);
+            if (lines.Count >= maxHeight)
+            {
+                return;
+            }
+        }
+
+        if (lines.Count < maxHeight)
         {
             lines.Add(new RenderedLine(current.ToArray()));
         }
-
-        return lines;
     }
 
     private static void AppendWrappedSegment(

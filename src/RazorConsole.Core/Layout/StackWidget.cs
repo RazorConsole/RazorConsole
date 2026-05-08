@@ -8,6 +8,7 @@ public sealed class StackWidget : Widget
         string vnodeId,
         IReadOnlyList<Widget> children,
         int gap = 0,
+        bool expand = false,
         string? key = null,
         IReadOnlyDictionary<string, string?>? attributes = null,
         int zIndex = 0)
@@ -19,9 +20,12 @@ public sealed class StackWidget : Widget
         }
 
         Gap = gap;
+        Expand = expand;
     }
 
     public int Gap { get; }
+
+    public bool Expand { get; }
 
     protected override LayoutSize MeasureCore(LayoutContext context, BoxConstraints constraints)
     {
@@ -54,11 +58,20 @@ public sealed class StackWidget : Widget
             flowIndex++;
         }
 
-        return constraints.Constrain(new LayoutSize(width, height));
+        return constraints.Constrain(new LayoutSize(width, Expand ? constraints.MaxHeight : height));
     }
 
     protected override void ArrangeCore(LayoutContext context, LayoutRect bounds)
     {
+        var flowChildren = Children.Where(child => !IsAbsolutePositioned(child)).ToArray();
+        var expandingChildren = flowChildren.Where(IsExpanding).ToArray();
+        var totalGaps = Math.Max(0, flowChildren.Length - 1) * Gap;
+        var fixedHeight = flowChildren
+            .Where(child => !IsExpanding(child))
+            .Sum(child => child.DesiredSize.Height);
+        var remainingHeight = Math.Max(0, bounds.Height - fixedHeight - totalGaps);
+        var expandHeight = expandingChildren.Length == 0 ? 0 : remainingHeight / expandingChildren.Length;
+        var expandRemainder = expandingChildren.Length == 0 ? 0 : remainingHeight % expandingChildren.Length;
         var y = bounds.Y;
         foreach (var child in Children)
         {
@@ -68,8 +81,12 @@ public sealed class StackWidget : Widget
                 continue;
             }
 
-            var childHeight = Math.Min(child.DesiredSize.Height, Math.Max(0, bounds.Bottom - y));
-            var childWidth = Math.Min(child.DesiredSize.Width, bounds.Width);
+            var expands = IsExpanding(child);
+            var allocatedHeight = expands
+                ? expandHeight + (expandRemainder-- > 0 ? 1 : 0)
+                : child.DesiredSize.Height;
+            var childHeight = Math.Min(allocatedHeight, Math.Max(0, bounds.Bottom - y));
+            var childWidth = expands ? bounds.Width : Math.Min(child.DesiredSize.Width, bounds.Width);
             child.Arrange(context, new LayoutRect(bounds.X, y, childWidth, childHeight));
             y += childHeight + Gap;
         }
@@ -109,6 +126,10 @@ public sealed class StackWidget : Widget
     private static bool IsAbsolutePositioned(Widget child)
         => child.Attributes.TryGetValue("position", out var value)
             && string.Equals(value, "absolute", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsExpanding(Widget child)
+        => child.Attributes.TryGetValue("data-expand", out var value)
+            && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 
     private static int? TryGetIntAttribute(Widget child, string name)
     {

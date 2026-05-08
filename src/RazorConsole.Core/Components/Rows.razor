@@ -1,11 +1,12 @@
 @namespace RazorConsole.Components
-@using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components
+@using RazorConsole.Core.Renderables
 
-<div class="rows"
-    data-expand="@ExpandAttribute">
+<Flex Class="rows"
+    Direction="FlexDirection.Column"
+    Expand="Expand">
     @ChildContent
-</div>
+</Flex>
 
 @code {
     /// <summary>
@@ -19,7 +20,6 @@
     /// See the <see href="https://spectreconsole.net/widgets/rows">Spectre.Console Rows documentation</see> for more information.
     /// </para>
     /// </remarks>
-
     /// <summary>
     /// Whether rows should expand to fill available vertical space. Default is <c>false</c>.
     /// </summary>
@@ -31,6 +31,4 @@
     /// </summary>
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
-
-    private string? ExpandAttribute => Expand ? "true" : "false";
 }

@@ -129,8 +129,9 @@ public sealed class PanelWidget : Widget
 
         var availableWidth = Math.Max(0, bounds.Width - leftInset - rightInset);
         var availableHeight = Math.Max(0, bounds.Height - topInset - bottomInset);
-        var childWidth = Math.Min(Child.DesiredSize.Width, availableWidth);
-        var childHeight = Math.Min(Child.DesiredSize.Height, availableHeight);
+        var expandChild = IsExpanding(Child);
+        var childWidth = expandChild ? availableWidth : Math.Min(Child.DesiredSize.Width, availableWidth);
+        var childHeight = expandChild ? availableHeight : Math.Min(Child.DesiredSize.Height, availableHeight);
         Child.Arrange(context, new LayoutRect(bounds.X + leftInset, bounds.Y + topInset, childWidth, childHeight));
     }
 
@@ -201,6 +202,10 @@ public sealed class PanelWidget : Widget
             PanelBorderStyle.Ascii => new BorderChars('-', '|', '+', '+', '+', '+'),
             _ => new BorderChars('─', '│', '┌', '┐', '└', '┘'),
         };
+
+    private static bool IsExpanding(Widget child)
+        => child.Attributes.TryGetValue("data-expand", out var value)
+            && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 
     private readonly record struct BorderChars(
         char Horizontal,

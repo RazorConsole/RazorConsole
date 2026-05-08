@@ -1,14 +1,13 @@
 @namespace RazorConsole.Components
 
-@using System.Globalization
 @using Microsoft.AspNetCore.Components
-@using RazorConsole.Core.Rendering.ComponentMarkup
 @using Spectre.Console
 
-<div class="padder"
-     data-padding="@PaddingAttribute">
+<Box Class="padder"
+    Padding="Padding"
+    Expand="Expand">
     @ChildContent
-</div>
+</Box>
 
 @code {
     /// <summary>
@@ -37,20 +36,9 @@
     [Parameter]
     public Padding Padding { get; set; } = NoPadding;
 
-    private string? PaddingAttribute
-    {
-        get
-        {
-            if (Padding.Left == 0 && Padding.Top == 0 && Padding.Right == 0 && Padding.Bottom == 0)
-            {
-                return null;
-            }
-
-            return string.Join(",",
-                Padding.Left.ToString(CultureInfo.InvariantCulture),
-                Padding.Top.ToString(CultureInfo.InvariantCulture),
-                Padding.Right.ToString(CultureInfo.InvariantCulture),
-                Padding.Bottom.ToString(CultureInfo.InvariantCulture));
-        }
-    }
+    /// <summary>
+    /// Whether the padder should expand to fill available space in native widget layout containers.
+    /// </summary>
+    [Parameter]
+    public bool Expand { get; set; }
 }

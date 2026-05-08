@@ -21,9 +21,15 @@ public sealed class TextInputTests
         var root = snapshot.Root.ShouldBeOfType<RazorConsole.Core.Vdom.VNode>();
         root.TagName.ShouldBe("div");
         root.Attributes["data-focusable"].ShouldBe("true");
-        root.Attributes.ContainsKey("data-text-input").ShouldBeTrue();
+        root.Attributes.ContainsKey("data-text-input").ShouldBeFalse();
         root.Attributes["value"].ShouldBe("Alice");
         root.Attributes["data-has-value"].ShouldBe("true");
+
+        var panel = FindNode(root, static node =>
+            node.Attributes.TryGetValue("class", out var className) &&
+            className == "panel");
+        panel.ShouldNotBeNull();
+        panel!.Attributes.ContainsKey("data-header").ShouldBeFalse();
     }
 
     [Fact]

@@ -4,6 +4,7 @@ using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using RazorConsole.Core;
 using RazorConsole.Core.Layout;
+using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -122,6 +123,21 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void SpectreWidget_Layout_MeasuresFigletHeightFromSpectreLines()
+    {
+        var figlet = new FigletText("Component Gallery") { Justification = Justify.Center, Color = Color.Default };
+        var widget = new SpectreWidget("figlet-1", figlet);
+        var engine = new LayoutEngine();
+        const int width = 120;
+        var expectedHeight = Segment.SplitLines(((IRenderable)figlet).Render(CreateRenderOptions(width, 25), width)).Count;
+
+        var result = engine.Layout(widget, new BoxConstraints(0, width, 0, 25));
+
+        result.Size.Height.ShouldBe(expectedHeight);
+        RenderToText(result.PaintToRenderable(), maxWidth: width).Split('\n').Length.ShouldBe(expectedHeight);
+    }
+
+    [Fact]
     public void SpectreWidget_Layout_WrapsLongSegmentsToMeasuredWidth()
     {
         var widget = new SpectreWidget("markup", new Markup("alpha beta gamma"));
@@ -165,10 +181,10 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
-    public void WidgetTranslationContext_TranslatesTextInputWithInlineLabelAndContent()
+    public void WidgetTranslationContext_TranslatesTextInputAsVisualComposition()
     {
         var node = VNode.CreateElement("div");
-        node.SetAttribute("data-text-input", "true");
+        node.SetAttribute("class", "text-input");
         node.SetAttribute("data-expand", "true");
 
         var panel = VNode.CreateElement("div");
@@ -188,10 +204,11 @@ public sealed class WidgetLayoutTests
         var widget = context.Translate(node);
         var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 40, 0, 5));
 
-        widget.ShouldBeOfType<PanelWidget>();
+        widget.ShouldBeOfType<StackWidget>();
         RenderToText(result.PaintToRenderable(), maxWidth: 40).ShouldBe(
             "╭──────────────────────────────────────╮\n" +
-            "│Username Enter your username          │\n" +
+            "│ Username                             │\n" +
+            "│  Enter your username                 │\n" +
             "╰──────────────────────────────────────╯");
     }
 
@@ -222,8 +239,49 @@ public sealed class WidgetLayoutTests
         var widget = context.Translate(node);
         var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 5));
 
-        widget.ShouldBeOfType<RowWidget>();
+        var flex = widget.ShouldBeOfType<FlexWidget>();
+        flex.Direction.ShouldBe(FlexDirection.Row);
+        flex.Gap.ShouldBe(1);
         RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("A B");
+    }
+
+    [Fact]
+    public void WidgetTranslationContext_TranslatesFlexPrimitive()
+    {
+        var node = VNode.CreateElement("div");
+        node.SetAttribute("class", "flex");
+        node.SetAttribute("data-layout", "flex");
+        node.SetAttribute("data-direction", "column");
+        node.SetAttribute("data-gap", "1");
+        node.AddChild(CreateTextElement("A"));
+        node.AddChild(CreateTextElement("B"));
+        var context = new WidgetTranslationContext();
+
+        var widget = context.Translate(node);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 5));
+
+        var flex = widget.ShouldBeOfType<FlexWidget>();
+        flex.Direction.ShouldBe(FlexDirection.Column);
+        flex.Gap.ShouldBe(1);
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("A\n \nB");
+    }
+
+    [Fact]
+    public void WidgetTranslationContext_TranslatesBoxPrimitive()
+    {
+        var node = VNode.CreateElement("div");
+        node.SetAttribute("class", "box");
+        node.SetAttribute("data-layout", "box");
+        node.SetAttribute("data-padding", "1,1,1,0");
+        node.AddChild(CreateTextElement("x"));
+        var context = new WidgetTranslationContext();
+
+        var widget = context.Translate(node);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 5));
+
+        widget.ShouldBeOfType<BoxWidget>();
+        result.Size.ShouldBe(new LayoutSize(3, 2));
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("   \n x ");
     }
 
     [Fact]
@@ -404,6 +462,118 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void ScrollableWidget_Layout_CropsLinesToArrangedHeightWhenAutoPageSize()
+    {
+        var widget = new ScrollableWidget(
+            "scroll-1",
+            new StackWidget(
+                "rows-1",
+                [
+                    new TextWidget("text-1", "One"),
+                    new TextWidget("text-2", "Two"),
+                    new TextWidget("text-3", "Three"),
+                    new TextWidget("text-4", "Four"),
+                    new TextWidget("text-5", "Five"),
+                ]),
+            itemsCount: 0,
+            offset: 1,
+            pageSize: 1,
+            enableEmbedded: false,
+            showScrollbar: true,
+            cropLines: true,
+            autoPageSize: true);
+        var engine = new LayoutEngine();
+
+        var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 3));
+
+        result.Size.ShouldBe(new LayoutSize(7, 3));
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("Two   █\nThree █\nFour  │");
+    }
+
+    [Fact]
+    public void ScrollableWidget_Paint_ClipsChildContentToBounds()
+    {
+        var widget = new ScrollableWidget(
+            "scroll-1",
+            new StackWidget(
+                "rows-1",
+                [
+                    new TextWidget("text-1", "One"),
+                    new TextWidget("text-2", "Two"),
+                    new TextWidget("text-3", "Three"),
+                    new TextWidget("text-4", "Four"),
+                ]),
+            itemsCount: 0,
+            offset: 0,
+            pageSize: 1,
+            enableEmbedded: false,
+            showScrollbar: false,
+            cropLines: true,
+            autoPageSize: true);
+        var layoutContext = new LayoutContext();
+        widget.Measure(layoutContext, new BoxConstraints(0, 10, 0, 2));
+        widget.Arrange(layoutContext, new LayoutRect(0, 1, 10, 2));
+        var canvas = new TerminalCanvas(10, 5);
+
+        widget.Paint(new PaintContext(canvas));
+
+        RenderToText(canvas.ToRenderable(), maxWidth: 10).ShouldBe(
+            "          \n" +
+            "One       \n" +
+            "Two       \n" +
+            "          \n" +
+            "          ");
+    }
+
+    [Fact]
+    public void StackWidget_Layout_AllocatesRemainingHeightToExpandingChildren()
+    {
+        var widget = new StackWidget(
+            "stack-1",
+            [
+                new TextWidget("header", "Header"),
+                new TextWidget(
+                    "body",
+                    "Body",
+                    attributes: new Dictionary<string, string?> { ["data-expand"] = "true" }),
+                new TextWidget("footer", "Footer"),
+            ],
+            expand: true);
+        var engine = new LayoutEngine();
+
+        var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 6));
+        var boxes = result.EnumerateLayoutBoxes();
+
+        result.Size.ShouldBe(new LayoutSize(6, 6));
+        boxes.ShouldContain(box => box.VNodeId == "body" && box.Bounds == new LayoutRect(0, 1, 6, 4));
+        boxes.ShouldContain(box => box.VNodeId == "footer" && box.Bounds == new LayoutRect(0, 5, 6, 1));
+    }
+
+    [Fact]
+    public void RowWidget_Layout_AllocatesRemainingWidthToExpandingChildren()
+    {
+        var widget = new RowWidget(
+            "row-1",
+            [
+                new TextWidget("nav", "Nav"),
+                new TextWidget(
+                    "body",
+                    "Body",
+                    attributes: new Dictionary<string, string?> { ["data-expand"] = "true" }),
+            ],
+            gap: 1,
+            expand: true);
+        var engine = new LayoutEngine();
+
+        var result = engine.Layout(widget, new BoxConstraints(0, 12, 0, 3));
+        var boxes = result.EnumerateLayoutBoxes();
+
+        result.Size.ShouldBe(new LayoutSize(12, 1));
+        boxes.ShouldContain(box => box.VNodeId == "nav" && box.Bounds == new LayoutRect(0, 0, 3, 1));
+        boxes.ShouldContain(box => box.VNodeId == "body" && box.Bounds == new LayoutRect(4, 0, 8, 1));
+    }
+
+    [Fact]
     public void WidgetTranslationContext_TranslatesScrollableWithScrollbar()
     {
         var node = VNode.CreateElement("scrollable");
@@ -579,9 +749,68 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void FlexWidget_Layout_ArrangesChildrenHorizontallyWithGap()
+    {
+        var widget = new FlexWidget(
+            "flex-1",
+            [
+                new TextWidget("text-1", "one"),
+                new TextWidget("text-2", "two"),
+            ],
+            direction: FlexDirection.Row,
+            gap: 2);
+        var engine = new LayoutEngine();
+
+        var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 5));
+        var boxes = result.EnumerateLayoutBoxes();
+
+        result.Size.ShouldBe(new LayoutSize(8, 1));
+        boxes[1].Bounds.ShouldBe(new LayoutRect(0, 0, 3, 1));
+        boxes[2].Bounds.ShouldBe(new LayoutRect(5, 0, 3, 1));
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("one  two");
+    }
+
+    [Fact]
+    public void FlexWidget_Layout_ArrangesChildrenVerticallyWithGap()
+    {
+        var widget = new FlexWidget(
+            "flex-1",
+            [
+                new TextWidget("text-1", "one"),
+                new TextWidget("text-2", "two"),
+            ],
+            direction: FlexDirection.Column,
+            gap: 1);
+        var engine = new LayoutEngine();
+
+        var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 5));
+        var boxes = result.EnumerateLayoutBoxes();
+
+        result.Size.ShouldBe(new LayoutSize(3, 3));
+        boxes[1].Bounds.ShouldBe(new LayoutRect(0, 0, 3, 1));
+        boxes[2].Bounds.ShouldBe(new LayoutRect(0, 2, 3, 1));
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("one\n   \ntwo");
+    }
+
+    [Fact]
     public void PaddingWidget_Layout_OffsetsChildAndAddsBlankSpace()
     {
         var widget = new PaddingWidget("padder-1", new TextWidget("text-1", "x"), left: 2, top: 1, right: 1, bottom: 1);
+        var engine = new LayoutEngine();
+
+        var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 5));
+        var boxes = result.EnumerateLayoutBoxes();
+
+        result.Size.ShouldBe(new LayoutSize(4, 3));
+        boxes[0].Bounds.ShouldBe(new LayoutRect(0, 0, 4, 3));
+        boxes[1].Bounds.ShouldBe(new LayoutRect(2, 1, 1, 1));
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("    \n  x \n    ");
+    }
+
+    [Fact]
+    public void BoxWidget_Layout_OffsetsChildAndAddsBlankSpace()
+    {
+        var widget = new BoxWidget("box-1", new TextWidget("text-1", "x"), paddingLeft: 2, paddingTop: 1, paddingRight: 1, paddingBottom: 1);
         var engine = new LayoutEngine();
 
         var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 5));
@@ -739,6 +968,13 @@ public sealed class WidgetLayoutTests
 
     private static string RenderToText(IRenderable renderable, int maxWidth)
     {
+        var options = CreateRenderOptions(maxWidth, 25);
+        var segments = renderable.Render(options, maxWidth);
+        return string.Concat(segments.Select(segment => segment.IsLineBreak ? "\n" : segment.Text));
+    }
+
+    private static RenderOptions CreateRenderOptions(int maxWidth, int height)
+    {
         var console = AnsiConsole.Create(new AnsiConsoleSettings
         {
             Ansi = AnsiSupport.No,
@@ -746,9 +982,7 @@ public sealed class WidgetLayoutTests
             Out = new AnsiConsoleOutput(TextWriter.Null),
         });
 
-        var options = new RenderOptions(console.Profile.Capabilities, new Spectre.Console.Size(maxWidth, 25));
-        var segments = renderable.Render(options, maxWidth);
-        return string.Concat(segments.Select(segment => segment.IsLineBreak ? "\n" : segment.Text));
+        return new RenderOptions(console.Profile.Capabilities, new Spectre.Console.Size(maxWidth, height));
     }
 
     private sealed class SegmentedRenderable : IRenderable

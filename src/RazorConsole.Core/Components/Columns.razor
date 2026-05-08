@@ -1,14 +1,15 @@
 @namespace RazorConsole.Components
 
-@using System.Globalization
 @using Microsoft.AspNetCore.Components
-@using RazorConsole.Core.Rendering.ComponentMarkup
-@using Spectre.Console
+@using RazorConsole.Core.Renderables
 
-<div class="columns"
-    data-expand="@ExpandAttribute">
+<Flex Class="columns"
+    Direction="FlexDirection.Row"
+    Align="FlexAlign.Stretch"
+    Gap="1"
+    Expand="Expand">
     @ChildContent
-</div>
+</Flex>
 
 @code {
     /// <summary>
@@ -22,9 +23,6 @@
     /// See the <see href="https://spectreconsole.net/widgets/columns">Spectre.Console Columns documentation</see> for more information.
     /// </para>
     /// </remarks>
-
-    private string ExpandAttribute => Expand ? "true" : "false";
-
     /// <summary>
     /// Whether columns should expand to fill available horizontal space. Default is <c>false</c>.
     /// </summary>

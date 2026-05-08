@@ -8,6 +8,7 @@ public sealed class RowWidget : Widget
         string vnodeId,
         IReadOnlyList<Widget> children,
         int gap = 0,
+        bool expand = false,
         string? key = null,
         IReadOnlyDictionary<string, string?>? attributes = null,
         int zIndex = 0)
@@ -19,9 +20,12 @@ public sealed class RowWidget : Widget
         }
 
         Gap = gap;
+        Expand = expand;
     }
 
     public int Gap { get; }
+
+    public bool Expand { get; }
 
     protected override LayoutSize MeasureCore(LayoutContext context, BoxConstraints constraints)
     {
@@ -46,15 +50,27 @@ public sealed class RowWidget : Widget
             }
         }
 
-        return constraints.Constrain(new LayoutSize(width, height));
+        return constraints.Constrain(new LayoutSize(Expand ? constraints.MaxWidth : width, height));
     }
 
     protected override void ArrangeCore(LayoutContext context, LayoutRect bounds)
     {
+        var expandingChildren = Children.Where(IsExpanding).ToArray();
+        var totalGaps = Math.Max(0, Children.Count - 1) * Gap;
+        var fixedWidth = Children
+            .Where(child => !IsExpanding(child))
+            .Sum(child => child.DesiredSize.Width);
+        var remainingWidth = Math.Max(0, bounds.Width - fixedWidth - totalGaps);
+        var expandWidth = expandingChildren.Length == 0 ? 0 : remainingWidth / expandingChildren.Length;
+        var expandRemainder = expandingChildren.Length == 0 ? 0 : remainingWidth % expandingChildren.Length;
         var x = bounds.X;
         foreach (var child in Children)
         {
-            var childWidth = Math.Min(child.DesiredSize.Width, Math.Max(0, bounds.Right - x));
+            var expands = IsExpanding(child);
+            var allocatedWidth = expands
+                ? expandWidth + (expandRemainder-- > 0 ? 1 : 0)
+                : child.DesiredSize.Width;
+            var childWidth = Math.Min(allocatedWidth, Math.Max(0, bounds.Right - x));
             child.Arrange(context, new LayoutRect(x, bounds.Y, childWidth, bounds.Height));
             x += childWidth + Gap;
         }
@@ -67,4 +83,8 @@ public sealed class RowWidget : Widget
             child.Paint(context);
         }
     }
+
+    private static bool IsExpanding(Widget child)
+        => child.Attributes.TryGetValue("data-expand", out var value)
+            && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 }

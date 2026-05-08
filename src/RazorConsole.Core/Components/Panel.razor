@@ -1,22 +1,19 @@
 @namespace RazorConsole.Components
 
-@using System.Collections.Generic
-@using System.Globalization
 @using Microsoft.AspNetCore.Components
-@using RazorConsole.Core.Rendering.ComponentMarkup
 @using Spectre.Console
 
-<div class="panel"
-     data-header="@TitleAttribute"
-     data-header-color="@HeaderColorAttribute"
-     data-border-color="@BorderColorAttribute"
-     data-expand="@ExpandAttribute"
-     data-border="@BorderAttribute"
-     data-padding="@PaddingAttribute"
-     data-height="@HeightAttribute"
-     data-width="@WidthAttribute">
+<Box Class="panel"
+    Title="@Title"
+    TitleColor="@TitleColor"
+    BorderColor="@BorderColor"
+    Border="@Border"
+    Padding="@Padding"
+    Width="@Width"
+    Height="@Height"
+    Expand="@Expand">
     @ChildContent
-</div>
+</Box>
 
 @code {
     /// <summary>
@@ -37,17 +34,6 @@
     /// </summary>
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
-
-    private static readonly IReadOnlyDictionary<BoxBorder, string> BorderNames = new Dictionary<BoxBorder, string>
-{
-        { BoxBorder.Square, "square" },
-        { BoxBorder.Rounded, "rounded" },
-        { BoxBorder.Double, "double" },
-        { BoxBorder.Heavy, "heavy" },
-        { BoxBorder.Ascii, "ascii" },
-        { BoxBorder.None, "none" },
-    };
-
     /// <summary>
     /// Title text displayed at the top of the panel border. If <c>null</c> or empty, no title is shown.
     /// </summary>
@@ -95,55 +81,4 @@
     /// </summary>
     [Parameter]
     public bool Expand { get; set; }
-
-    private string? TitleAttribute => string.IsNullOrWhiteSpace(Title) ? null : Title;
-
-    private string? HeaderColorAttribute => TitleColor?.ToMarkup();
-
-    private string? BorderColorAttribute => BorderColor?.ToMarkup();
-
-    private string? BorderAttribute
-    {
-        get
-        {
-            if (Border is null)
-            {
-                return null;
-            }
-
-            if (BorderNames.TryGetValue(Border, out var name))
-            {
-                return name;
-            }
-
-            return Border.GetType().Name.ToLowerInvariant();
-        }
-    }
-
-    private string ExpandAttribute => Expand ? "true" : "false";
-
-    private string? PaddingAttribute
-    {
-        get
-        {
-            if (Padding is not { } padding)
-            {
-                return null;
-            }
-
-            return string.Join(",",
-                padding.Left.ToString(CultureInfo.InvariantCulture),
-                padding.Top.ToString(CultureInfo.InvariantCulture),
-                padding.Right.ToString(CultureInfo.InvariantCulture),
-                padding.Bottom.ToString(CultureInfo.InvariantCulture));
-        }
-    }
-
-    private string? HeightAttribute => Height.HasValue && Height.Value > 0
-        ? Height.Value.ToString(CultureInfo.InvariantCulture)
-        : null;
-
-    private string? WidthAttribute => Width.HasValue && Width.Value > 0
-        ? Width.Value.ToString(CultureInfo.InvariantCulture)
-        : null;
 }

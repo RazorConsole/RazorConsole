@@ -8,6 +8,7 @@
 - [x] Added layout result enumeration so committed `LayoutBox` values can be projected to `VNodeLayoutInfo`, including resolved `ZIndex`.
 - [x] Added native `RowWidget`, `PaddingWidget`, and `AlignWidget` with clipping-aware text painting and focused layout tests.
 - [x] Added native `PanelWidget` with border styles, title rendering, padding, explicit sizing support, and focused layout tests.
+- [x] Added first-pass `FlexWidget` and `BoxWidget` primitives, then routed `Rows`/`Columns` and `Padder` widget translation through them.
 - [x] Wired the widget pipeline into `ConsoleRenderer` behind `ConsoleAppOptions.RenderingPipeline = WidgetLayout`.
 - [x] Added higher-level widget translation mappings for `Rows`, `Columns`, `Padder`, `Align`, and `Panel`.
 - [x] Populated `IVNodeIdAccessor` and `IVNodeLayoutAccessor` from committed widget layout boxes.
@@ -152,17 +153,40 @@ Start with a small set that maps existing semantics:
 | `TextWidget` | `TextNodeTranslator`, `Markup` text | Handles wrapping, style spans, inline measurement. |
 | `BlockWidget` | generic `div`, paragraph | Vertical normal-flow container. |
 | `InlineWidget` | inline spans/text | Inline flow and line wrapping. |
-| `StackWidget` | `Rows` / column-direction flex | Vertical stacking with gap/alignment. |
-| `RowWidget` | `Columns` / row-direction flex | Horizontal layout with gap/alignment. |
+| `FlexWidget` | `Rows`, `Columns`, future native `FlexBox` | Owns child flow along a main axis: row/column direction, gap, justification, cross-axis alignment, and remaining-space allocation. |
+| `BoxWidget` | `Padder`, future `Panel`, `Align`, scroll containers | Owns the CSS-like box concerns around a single child: padding, border, explicit size, alignment, clipping, overflow, and scrollbar painting. |
+| `StackWidget` | legacy/internal vertical container | Kept during migration for specialized fallback composition; new public row/column primitives should prefer `FlexWidget`. |
+| `RowWidget` | legacy/internal horizontal container | Kept during migration for specialized fallback composition; new public horizontal flow should prefer `FlexWidget`. |
 | `GridWidget` | `Grid` | Owns track sizing; outputs child boxes. |
-| `PanelWidget` | `Panel` | Measures border/header/padding itself, paints box characters. |
-| `PaddingWidget` | `Padder` | Adjusts constraints and child bounds. |
-| `AlignWidget` | `Align` | Positions child within given bounds. |
+| `PanelWidget` | `Panel` | Current native panel; should converge toward `BoxWidget` border/title/padding behavior once parity is proven. |
+| `PaddingWidget` | legacy/internal `Padder` equivalent | Kept during migration; `Padder` translation now targets `BoxWidget`. |
+| `AlignWidget` | `Align` | Current native alignment widget; should converge toward `BoxWidget` child alignment. |
 | `OverlayWidget` | absolute/modal overlay collection | Participates in z-index and top/left/right/bottom placement. |
 | `ScrollableWidget` | `ScrollableRenderable` | Computes viewport, content bounds, scrollbar bounds. |
 | `SpectreWidget` | charts, figlet, legacy adapters | Escape hatch for hard-to-port components. |
 
 `SpectreWidget` is important for incremental migration. It wraps an existing `IRenderable` as a leaf widget: measure through `IRenderable.Measure(...)`, render to segments at paint time, and record only the leaf bounds. This keeps charts/syntax/figlet working while layout containers migrate first.
+
+### Flex and box primitives
+
+`FlexWidget` and `BoxWidget` are the preferred long-term primitives for normal layout. They mirror the useful split from browser layout without trying to recreate every CSS detail:
+
+- `FlexWidget` is responsible for arranging siblings. It decides where children go relative to each other, how gaps are applied, and how extra space is allocated to expanding children.
+- `BoxWidget` is responsible for the rectangle around one child. It decides how padding, border, title/header space, explicit size, alignment, clipping, overflow, and scrollbars affect the child bounds.
+
+This means scrollbars belong to the box layer, not the flex layer. A flex container may decide that a child receives a 40x10 rectangle; the child box decides whether its content overflows, whether to clip it, and whether to paint horizontal/vertical scrollbar gutters or embedded scrollbars inside that rectangle.
+
+Initial mapping:
+
+| VDOM/component surface | Native widget target | Status |
+|---|---|---|
+| `<Rows>` / `class="rows"` | `FlexWidget(Direction = Column)` | Implemented for first-pass normal flow. |
+| `<Columns>` / `class="columns"` | `FlexWidget(Direction = Row, Gap = 1)` | Implemented for first-pass normal flow. |
+| `<FlexBox>` / `class="flexbox"` | `FlexWidget` | Planned after parity for justify/align/wrap and gallery examples is proven. Current path remains Spectre fallback. |
+| `<Padder>` / `class="padder"` | `BoxWidget(Padding = ...)` | Implemented for first-pass padding behavior. |
+| `<Panel>` / `class="panel"` | `BoxWidget(Border + Padding + Title)` | Planned; `PanelWidget` remains the parity-preserving native implementation today. |
+| `<Align>` / `class="align"` | `BoxWidget(ChildAlignment = ...)` | Planned; `AlignWidget` remains the parity-preserving native implementation today. |
+| `<Scrollable>` / `<ViewHeightScrollable>` | `BoxWidget(OverflowX/OverflowY + Scrollbar)` | Planned; `ScrollableWidget` remains the parity-preserving native implementation today. |
 
 ## Layout Algorithm
 

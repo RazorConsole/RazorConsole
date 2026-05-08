@@ -55,7 +55,9 @@ public sealed class FlexBoxElementTranslator : ITranslationMiddleware
     private static bool CanHandle(VNode node)
         => node.Kind == VNodeKind.Element
            && node.Attributes.TryGetValue("class", out var value)
-           && string.Equals(value, "flexbox", StringComparison.OrdinalIgnoreCase);
+           && (string.Equals(value, "flexbox", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "flex", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(VdomSpectreTranslator.GetAttribute(node, "data-layout"), "flex", StringComparison.OrdinalIgnoreCase));
 
     private static TEnum ParseEnum<TEnum>(string? value, TEnum fallback) where TEnum : struct
     {
