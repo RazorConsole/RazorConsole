@@ -12,7 +12,6 @@ var builder = Host.CreateDefaultBuilder(args)
             services.Configure<ConsoleAppOptions>(options =>
             {
                 options.EnableTerminalResizing = true;
-                options.RenderingPipeline = ResolveRenderingPipeline(args);
             });
         });
     });
@@ -20,20 +19,3 @@ var builder = Host.CreateDefaultBuilder(args)
 var host = builder.Build();
 
 await host.RunAsync();
-
-static RazorConsoleRenderingPipeline ResolveRenderingPipeline(string[] args)
-{
-    if (args.Any(arg => string.Equals(arg, "--widget-layout", StringComparison.OrdinalIgnoreCase)))
-    {
-        return RazorConsoleRenderingPipeline.WidgetLayout;
-    }
-
-    var value = Environment.GetEnvironmentVariable("RAZORCONSOLE_RENDERING_PIPELINE");
-    if (string.Equals(value, "WidgetLayout", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(value, "widget", StringComparison.OrdinalIgnoreCase))
-    {
-        return RazorConsoleRenderingPipeline.WidgetLayout;
-    }
-
-    return RazorConsoleRenderingPipeline.LegacySpectre;
-}
