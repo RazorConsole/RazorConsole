@@ -215,11 +215,15 @@ public sealed class WidgetTranslationContext
         {
             var child = ComposeChildren(node, children);
             var padding = ParsePadding(GetAttribute(node, "data-padding"), fallback: (1, 0, 1, 0));
-            return new PanelWidget(
+            return new BoxWidget(
                 node.ID,
                 child,
                 title: GetAttribute(node, "data-header"),
                 border: ParsePanelBorder(GetAttribute(node, "data-border")),
+                borderTop: ParseOptionalBoxBorder(GetAttribute(node, "data-border-top")),
+                borderRight: ParseOptionalBoxBorder(GetAttribute(node, "data-border-right")),
+                borderBottom: ParseOptionalBoxBorder(GetAttribute(node, "data-border-bottom")),
+                borderLeft: ParseOptionalBoxBorder(GetAttribute(node, "data-border-left")),
                 paddingLeft: padding.Left,
                 paddingTop: padding.Top,
                 paddingRight: padding.Right,
@@ -245,6 +249,14 @@ public sealed class WidgetTranslationContext
                 paddingBottom: padding.Bottom,
                 width: TryParsePositiveInt(GetAttribute(node, "data-width")),
                 height: TryParsePositiveInt(GetAttribute(node, "data-height")),
+                expand: IsTruthy(GetAttribute(node, "data-expand")),
+                title: GetAttribute(node, "data-header"),
+                border: ParseBoxBorder(GetAttribute(node, "data-border"), fallback: BoxBorderStyle.None),
+                borderTop: ParseOptionalBoxBorder(GetAttribute(node, "data-border-top")),
+                borderRight: ParseOptionalBoxBorder(GetAttribute(node, "data-border-right")),
+                borderBottom: ParseOptionalBoxBorder(GetAttribute(node, "data-border-bottom")),
+                borderLeft: ParseOptionalBoxBorder(GetAttribute(node, "data-border-left")),
+                borderStyle: TryParseStyle(GetAttribute(node, "data-border-color")),
                 attributes: node.Attributes,
                 zIndex: zIndex);
         }
@@ -495,18 +507,26 @@ public sealed class WidgetTranslationContext
                 _ => VerticalAlignment.Top,
             };
 
-    private static PanelBorderStyle ParsePanelBorder(string? value)
+    private static BoxBorderStyle ParsePanelBorder(string? value)
+        => ParseBoxBorder(value, fallback: BoxBorderStyle.Square);
+
+    private static BoxBorderStyle ParseBoxBorder(string? value, BoxBorderStyle fallback)
         => string.IsNullOrWhiteSpace(value)
-            ? PanelBorderStyle.Square
+            ? fallback
             : value.ToLowerInvariant() switch
             {
-                "rounded" => PanelBorderStyle.Rounded,
-                "double" => PanelBorderStyle.Double,
-                "heavy" => PanelBorderStyle.Heavy,
-                "ascii" => PanelBorderStyle.Ascii,
-                "none" => PanelBorderStyle.None,
-                _ => PanelBorderStyle.Square,
+                "rounded" => BoxBorderStyle.Rounded,
+                "double" => BoxBorderStyle.Double,
+                "heavy" => BoxBorderStyle.Heavy,
+                "ascii" => BoxBorderStyle.Ascii,
+                "none" or "false" => BoxBorderStyle.None,
+                _ => BoxBorderStyle.Square,
             };
+
+    private static BoxBorderStyle? ParseOptionalBoxBorder(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? null
+            : ParseBoxBorder(value, fallback: BoxBorderStyle.Square);
 
     private static Style? TryParseStyle(string? value)
     {

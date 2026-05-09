@@ -25,11 +25,20 @@ public sealed class TextInputTests
         root.Attributes["value"].ShouldBe("Alice");
         root.Attributes["data-has-value"].ShouldBe("true");
 
-        var panel = FindNode(root, static node =>
+        var box = FindNode(root, static node =>
             node.Attributes.TryGetValue("class", out var className) &&
-            className == "panel");
-        panel.ShouldNotBeNull();
-        panel!.Attributes.ContainsKey("data-header").ShouldBeFalse();
+            className == "box" &&
+            node.Attributes.TryGetValue("data-border", out var border) &&
+            border == "rounded");
+        box.ShouldNotBeNull();
+        box!.Attributes.ContainsKey("data-header").ShouldBeFalse();
+
+        var flex = FindNode(root, static node =>
+            node.Attributes.TryGetValue("class", out var className) &&
+            className == "flex" &&
+            node.Attributes.TryGetValue("data-direction", out var direction) &&
+            direction == "row");
+        flex.ShouldNotBeNull();
     }
 
     [Fact]

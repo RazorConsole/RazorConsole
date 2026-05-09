@@ -324,7 +324,7 @@ public sealed class WidgetLayoutTests
         var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 10, 0, 5));
         var boxes = result.EnumerateLayoutBoxes();
 
-        widget.ShouldBeOfType<PanelWidget>();
+        widget.ShouldBeOfType<BoxWidget>();
         result.Size.ShouldBe(new LayoutSize(10, 3));
         boxes[1].Bounds.ShouldBe(new LayoutRect(2, 1, 1, 1));
         RenderToText(result.PaintToRenderable(), maxWidth: 10).ShouldBe("╭─Counte─╮\n│ X      │\n╰────────╯");
@@ -881,9 +881,9 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
-    public void PanelWidget_Layout_DrawsSquareBorderAndArrangesChildInside()
+    public void BoxWidget_Layout_DrawsSquareBorderAndArrangesChildInside()
     {
-        var widget = new PanelWidget("panel-1", new TextWidget("text-1", "x"));
+        var widget = new BoxWidget("panel-1", new TextWidget("text-1", "x"), border: BoxBorderStyle.Square);
         var engine = new LayoutEngine();
 
         var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 10));
@@ -896,12 +896,13 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
-    public void PanelWidget_Layout_AppliesPaddingAndTitle()
+    public void BoxWidget_Layout_AppliesPaddingAndTitle()
     {
-        var widget = new PanelWidget(
+        var widget = new BoxWidget(
             "panel-1",
             new TextWidget("text-1", "x"),
             title: "Hi",
+            border: BoxBorderStyle.Square,
             paddingLeft: 1,
             paddingTop: 1,
             paddingRight: 1,
@@ -917,12 +918,13 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
-    public void PanelWidget_Layout_ExpandedPanelPreservesChildDesiredWidth()
+    public void BoxWidget_Layout_ExpandedPanelPreservesChildDesiredWidth()
     {
-        var widget = new PanelWidget(
+        var widget = new BoxWidget(
             "outer",
-            new PanelWidget("inner", new TextWidget("text", "content"), title: "Inner"),
+            new BoxWidget("inner", new TextWidget("text", "content"), title: "Inner", border: BoxBorderStyle.Square),
             title: "Outer",
+            border: BoxBorderStyle.Square,
             expand: true);
         var engine = new LayoutEngine();
 
@@ -936,12 +938,12 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
-    public void PanelWidget_Layout_WithoutBorder_UsesPaddingOnly()
+    public void BoxWidget_Layout_WithoutBorder_UsesPaddingOnly()
     {
-        var widget = new PanelWidget(
+        var widget = new BoxWidget(
             "panel-1",
             new TextWidget("text-1", "x"),
-            border: PanelBorderStyle.None,
+            border: BoxBorderStyle.None,
             paddingLeft: 1,
             paddingRight: 1);
         var engine = new LayoutEngine();
@@ -952,6 +954,24 @@ public sealed class WidgetLayoutTests
         result.Size.ShouldBe(new LayoutSize(3, 1));
         boxes[1].Bounds.ShouldBe(new LayoutRect(1, 0, 1, 1));
         RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe(" x ");
+    }
+
+    [Fact]
+    public void BoxWidget_Layout_DrawsPerSideBorders()
+    {
+        var widget = new BoxWidget(
+            "box-1",
+            new TextWidget("text-1", "x"),
+            borderTop: BoxBorderStyle.Square,
+            borderBottom: BoxBorderStyle.Double);
+        var engine = new LayoutEngine();
+
+        var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 10));
+        var boxes = result.EnumerateLayoutBoxes();
+
+        result.Size.ShouldBe(new LayoutSize(1, 3));
+        boxes[1].Bounds.ShouldBe(new LayoutRect(0, 1, 1, 1));
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("─\nx\n═");
     }
 
     private static string RenderToText(IRenderable renderable, int maxWidth)

@@ -7,7 +7,7 @@
 - [x] Added a minimal `LayoutEngine` plus native `TextWidget` and vertical `StackWidget` to prove measure/arrange/paint flow end to end.
 - [x] Added layout result enumeration so committed `LayoutBox` values can be projected to `VNodeLayoutInfo`, including resolved `ZIndex`.
 - [x] Added native `AlignWidget` with clipping-aware text painting and focused layout tests. (`RowWidget` and `PaddingWidget` removed; their behavior is covered by `FlexWidget` and `BoxWidget`.)
-- [x] Added native `PanelWidget` with border styles, title rendering, padding, explicit sizing support, and focused layout tests.
+- [x] Added `BoxWidget` border styles, per-side borders, title rendering, padding, explicit sizing support, and focused layout tests. (`PanelWidget` removed; panel translation now targets `BoxWidget`.)
 - [x] Added first-pass `FlexWidget` and `BoxWidget` primitives, then routed `Rows`/`Columns` and `Padder` widget translation through them.
 - [x] Wired the widget pipeline into `ConsoleRenderer` behind `ConsoleAppOptions.RenderingPipeline = WidgetLayout`.
 - [x] Added higher-level widget translation mappings for `Rows`, `Columns`, `Padder`, `Align`, and `Panel`.
@@ -158,7 +158,7 @@ Start with a small set that maps existing semantics:
 | `StackWidget` | legacy/internal vertical container | Kept during migration for specialized fallback composition; new public row/column primitives should prefer `FlexWidget`. |
 | ~~`RowWidget`~~ | *(removed)* | Superseded by `FlexWidget` with `FlexDirection.Row`. |
 | `GridWidget` | `Grid` | Owns track sizing; outputs child boxes. |
-| `PanelWidget` | `Panel` | Current native panel; should converge toward `BoxWidget` border/title/padding behavior once parity is proven. |
+| ~~`PanelWidget`~~ | *(removed)* | Superseded by `BoxWidget` border/title/padding behavior. |
 | ~~`PaddingWidget`~~ | *(removed)* | Superseded by `BoxWidget` padding. |
 | `AlignWidget` | `Align` | Current native alignment widget; should converge toward `BoxWidget` child alignment. |
 | `OverlayWidget` | absolute/modal overlay collection | Participates in z-index and top/left/right/bottom placement. |
@@ -184,7 +184,7 @@ Initial mapping:
 | `<Columns>` / `class="columns"` | `FlexWidget(Direction = Row, Gap = 1)` | Implemented for first-pass normal flow. |
 | `<FlexBox>` / `class="flexbox"` | `FlexWidget` | Planned after parity for justify/align/wrap and gallery examples is proven. Current path remains Spectre fallback. |
 | `<Padder>` / `class="padder"` | `BoxWidget(Padding = ...)` | Implemented for first-pass padding behavior. |
-| `<Panel>` / `class="panel"` | `BoxWidget(Border + Padding + Title)` | Planned; `PanelWidget` remains the parity-preserving native implementation today. |
+| `<Panel>` / `class="panel"` | `BoxWidget(Border + Padding + Title)` | Implemented; panel translation targets `BoxWidget`. |
 | `<Align>` / `class="align"` | `BoxWidget(ChildAlignment = ...)` | Planned; `AlignWidget` remains the parity-preserving native implementation today. |
 | `<Scrollable>` / `<ViewHeightScrollable>` | `BoxWidget(OverflowX/OverflowY + Scrollbar)` | Planned; `ScrollableWidget` remains the parity-preserving native implementation today. |
 
@@ -347,7 +347,7 @@ Add deterministic layout tests that do not need a terminal:
 
 - `RowsWidget` child bounds.
 - `ColumnsWidget` child bounds.
-- `PanelWidget` border/padding/header sizing.
+- `BoxWidget` border/padding/header sizing.
 - `BoxWidget` padding constraint reduction and child offset.
 - `AlignWidget` center/end placement.
 - `FlexBoxWidget` wrap/gap/justify/align placement.
