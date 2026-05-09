@@ -6,7 +6,7 @@
 - [x] Added deterministic unit coverage for layout geometry and canvas rendering/clipping.
 - [x] Added a minimal `LayoutEngine` plus native `TextWidget` and vertical `StackWidget` to prove measure/arrange/paint flow end to end.
 - [x] Added layout result enumeration so committed `LayoutBox` values can be projected to `VNodeLayoutInfo`, including resolved `ZIndex`.
-- [x] Added native `PaddingWidget` and `AlignWidget` with clipping-aware text painting and focused layout tests. (`RowWidget` removed; its behavior is covered by `FlexWidget` with `FlexDirection.Row`.)
+- [x] Added native `AlignWidget` with clipping-aware text painting and focused layout tests. (`RowWidget` and `PaddingWidget` removed; their behavior is covered by `FlexWidget` and `BoxWidget`.)
 - [x] Added native `PanelWidget` with border styles, title rendering, padding, explicit sizing support, and focused layout tests.
 - [x] Added first-pass `FlexWidget` and `BoxWidget` primitives, then routed `Rows`/`Columns` and `Padder` widget translation through them.
 - [x] Wired the widget pipeline into `ConsoleRenderer` behind `ConsoleAppOptions.RenderingPipeline = WidgetLayout`.
@@ -159,7 +159,7 @@ Start with a small set that maps existing semantics:
 | ~~`RowWidget`~~ | *(removed)* | Superseded by `FlexWidget` with `FlexDirection.Row`. |
 | `GridWidget` | `Grid` | Owns track sizing; outputs child boxes. |
 | `PanelWidget` | `Panel` | Current native panel; should converge toward `BoxWidget` border/title/padding behavior once parity is proven. |
-| `PaddingWidget` | legacy/internal `Padder` equivalent | Kept during migration; `Padder` translation now targets `BoxWidget`. |
+| ~~`PaddingWidget`~~ | *(removed)* | Superseded by `BoxWidget` padding. |
 | `AlignWidget` | `Align` | Current native alignment widget; should converge toward `BoxWidget` child alignment. |
 | `OverlayWidget` | absolute/modal overlay collection | Participates in z-index and top/left/right/bottom placement. |
 | `ScrollableWidget` | `ScrollableRenderable` | Computes viewport, content bounds, scrollbar bounds. |
@@ -348,7 +348,7 @@ Add deterministic layout tests that do not need a terminal:
 - `RowsWidget` child bounds.
 - `ColumnsWidget` child bounds.
 - `PanelWidget` border/padding/header sizing.
-- `PaddingWidget` constraint reduction and child offset.
+- `BoxWidget` padding constraint reduction and child offset.
 - `AlignWidget` center/end placement.
 - `FlexBoxWidget` wrap/gap/justify/align placement.
 - `GridWidget` track sizing.

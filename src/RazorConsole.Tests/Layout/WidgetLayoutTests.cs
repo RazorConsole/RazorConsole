@@ -795,21 +795,6 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
-    public void PaddingWidget_Layout_OffsetsChildAndAddsBlankSpace()
-    {
-        var widget = new PaddingWidget("padder-1", new TextWidget("text-1", "x"), left: 2, top: 1, right: 1, bottom: 1);
-        var engine = new LayoutEngine();
-
-        var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 5));
-        var boxes = result.EnumerateLayoutBoxes();
-
-        result.Size.ShouldBe(new LayoutSize(4, 3));
-        boxes[0].Bounds.ShouldBe(new LayoutRect(0, 0, 4, 3));
-        boxes[1].Bounds.ShouldBe(new LayoutRect(2, 1, 1, 1));
-        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("    \n  x \n    ");
-    }
-
-    [Fact]
     public void BoxWidget_Layout_OffsetsChildAndAddsBlankSpace()
     {
         var widget = new BoxWidget("box-1", new TextWidget("text-1", "x"), paddingLeft: 2, paddingTop: 1, paddingRight: 1, paddingBottom: 1);
