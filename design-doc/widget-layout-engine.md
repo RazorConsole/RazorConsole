@@ -6,7 +6,7 @@
 - [x] Added deterministic unit coverage for layout geometry and canvas rendering/clipping.
 - [x] Added a minimal `LayoutEngine` plus native `TextWidget` and vertical `StackWidget` to prove measure/arrange/paint flow end to end.
 - [x] Added layout result enumeration so committed `LayoutBox` values can be projected to `VNodeLayoutInfo`, including resolved `ZIndex`.
-- [x] Added native `RowWidget`, `PaddingWidget`, and `AlignWidget` with clipping-aware text painting and focused layout tests.
+- [x] Added native `PaddingWidget` and `AlignWidget` with clipping-aware text painting and focused layout tests. (`RowWidget` removed; its behavior is covered by `FlexWidget` with `FlexDirection.Row`.)
 - [x] Added native `PanelWidget` with border styles, title rendering, padding, explicit sizing support, and focused layout tests.
 - [x] Added first-pass `FlexWidget` and `BoxWidget` primitives, then routed `Rows`/`Columns` and `Padder` widget translation through them.
 - [x] Wired the widget pipeline into `ConsoleRenderer` behind `ConsoleAppOptions.RenderingPipeline = WidgetLayout`.
@@ -156,7 +156,7 @@ Start with a small set that maps existing semantics:
 | `FlexWidget` | `Rows`, `Columns`, future native `FlexBox` | Owns child flow along a main axis: row/column direction, gap, justification, cross-axis alignment, and remaining-space allocation. |
 | `BoxWidget` | `Padder`, future `Panel`, `Align`, scroll containers | Owns the CSS-like box concerns around a single child: padding, border, explicit size, alignment, clipping, overflow, and scrollbar painting. |
 | `StackWidget` | legacy/internal vertical container | Kept during migration for specialized fallback composition; new public row/column primitives should prefer `FlexWidget`. |
-| `RowWidget` | legacy/internal horizontal container | Kept during migration for specialized fallback composition; new public horizontal flow should prefer `FlexWidget`. |
+| ~~`RowWidget`~~ | *(removed)* | Superseded by `FlexWidget` with `FlexDirection.Row`. |
 | `GridWidget` | `Grid` | Owns track sizing; outputs child boxes. |
 | `PanelWidget` | `Panel` | Current native panel; should converge toward `BoxWidget` border/title/padding behavior once parity is proven. |
 | `PaddingWidget` | legacy/internal `Padder` equivalent | Kept during migration; `Padder` translation now targets `BoxWidget`. |

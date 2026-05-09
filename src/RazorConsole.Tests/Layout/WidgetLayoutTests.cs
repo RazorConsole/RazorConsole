@@ -550,9 +550,9 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
-    public void RowWidget_Layout_AllocatesRemainingWidthToExpandingChildren()
+    public void FlexWidget_Row_AllocatesRemainingWidthToExpandingChildren()
     {
-        var widget = new RowWidget(
+        var widget = new FlexWidget(
             "row-1",
             [
                 new TextWidget("nav", "Nav"),
@@ -561,6 +561,7 @@ public sealed class WidgetLayoutTests
                     "Body",
                     attributes: new Dictionary<string, string?> { ["data-expand"] = "true" }),
             ],
+            direction: FlexDirection.Row,
             gap: 1,
             expand: true);
         var engine = new LayoutEngine();
@@ -728,14 +729,15 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
-    public void RowWidget_Layout_ArrangesChildrenHorizontallyWithGap()
+    public void FlexWidget_Row_ArrangesChildrenHorizontallyWithGap()
     {
-        var widget = new RowWidget(
+        var widget = new FlexWidget(
             "row-1",
             [
                 new TextWidget("text-1", "one"),
                 new TextWidget("text-2", "two"),
             ],
+            direction: FlexDirection.Row,
             gap: 2);
         var engine = new LayoutEngine();
 
@@ -878,12 +880,13 @@ public sealed class WidgetLayoutTests
     [Fact]
     public void TextWidget_Paint_DoesNotOverflowArrangedBounds()
     {
-        var widget = new RowWidget(
+        var widget = new FlexWidget(
             "row-1",
             [
                 new TextWidget("text-1", "hello"),
                 new TextWidget("text-2", "z"),
             ],
+            direction: FlexDirection.Row,
             gap: 0);
         var engine = new LayoutEngine();
 
