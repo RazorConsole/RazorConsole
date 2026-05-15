@@ -4,7 +4,9 @@
 
 <Flex Class="rows"
     Direction="FlexDirection.Column"
-    Expand="Expand">
+    Expand="Expand"
+    FillWidth="FillWidth"
+    FillHeight="FillHeight">
     @ChildContent
 </Flex>
 
@@ -25,6 +27,18 @@
     /// </summary>
     [Parameter]
     public bool Expand { get; set; } = false;
+
+    /// <summary>
+    /// Whether rows should fill the width offered by their parent.
+    /// </summary>
+    [Parameter]
+    public bool FillWidth { get; set; }
+
+    /// <summary>
+    /// Whether rows should fill the height offered by their parent.
+    /// </summary>
+    [Parameter]
+    public bool FillHeight { get; set; }
 
     /// <summary>
     /// Content to arrange in rows.

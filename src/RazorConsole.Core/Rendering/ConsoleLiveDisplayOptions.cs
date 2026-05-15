@@ -31,7 +31,10 @@ public sealed class ConsoleLiveDisplayOptions
     /// <summary>
     /// Gets or sets a value indicating whether the live display should use the terminal alternate screen buffer.
     /// </summary>
-    public bool UseAlternateScreenBuffer { get; set; }
+    /// <remarks>
+    /// By default, is true
+    /// </remarks>
+    public bool UseAlternateScreenBuffer { get; set; } = true;
 
     /// <summary>
     /// Creates a new instance with default settings.

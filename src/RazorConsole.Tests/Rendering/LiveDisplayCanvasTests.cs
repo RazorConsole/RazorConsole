@@ -33,7 +33,7 @@ public sealed class LiveDisplayCanvasTests
     {
         var captured = new List<IRenderable>();
         var ansiConsole = CreateConsole(captured);
-        using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions(), ansiConsole);
+        using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, ansiConsole);
 
         canvas.UpdateTarget(new TextRenderable("hello"));
 

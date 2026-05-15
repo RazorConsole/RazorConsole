@@ -9,9 +9,12 @@
     BorderColor="@BorderColor"
     Border="@Border"
     Padding="@Padding"
+    Margin="@Margin"
     Width="@Width"
     Height="@Height"
-    Expand="@Expand">
+    Expand="@Expand"
+    FillWidth="@FillWidth"
+    FillHeight="@FillHeight">
     @ChildContent
 </Box>
 
@@ -71,6 +74,12 @@
     public Padding? Padding { get; set; }
 
     /// <summary>
+    /// Margin outside the panel border as (left, top, right, bottom). If <c>null</c>, no margin is applied.
+    /// </summary>
+    [Parameter]
+    public Padding? Margin { get; set; }
+
+    /// <summary>
     /// Width of the panel in characters. If <c>null</c> or less than 1, width is automatically determined by content.
     /// </summary>
     [Parameter]
@@ -81,4 +90,16 @@
     /// </summary>
     [Parameter]
     public bool Expand { get; set; }
+
+    /// <summary>
+    /// Whether the panel should fill the width offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillWidth { get; set; }
+
+    /// <summary>
+    /// Whether the panel should fill the height offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillHeight { get; set; }
 }

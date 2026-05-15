@@ -285,6 +285,55 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void WidgetTranslationContext_TranslatesBoxMarginAndFillPrimitive()
+    {
+        var node = VNode.CreateElement("div");
+        node.SetAttribute("class", "box");
+        node.SetAttribute("data-layout", "box");
+        node.SetAttribute("data-margin", "1,1,2,1");
+        node.SetAttribute("data-fill-width", "true");
+        node.SetAttribute("data-fill-height", "true");
+        node.AddChild(CreateTextElement("x"));
+        var context = new WidgetTranslationContext();
+
+        var widget = context.Translate(node);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 8, 0, 5));
+        var boxes = result.EnumerateLayoutBoxes();
+
+        var box = widget.ShouldBeOfType<BoxWidget>();
+        box.MarginLeft.ShouldBe(1);
+        box.MarginTop.ShouldBe(1);
+        box.MarginRight.ShouldBe(2);
+        box.MarginBottom.ShouldBe(1);
+        box.FillWidth.ShouldBeTrue();
+        box.FillHeight.ShouldBeTrue();
+        result.Size.ShouldBe(new LayoutSize(8, 5));
+        boxes[1].Bounds.ShouldBe(new LayoutRect(1, 1, 1, 1));
+        RenderToText(result.PaintToRenderable(), maxWidth: 8).ShouldBe("        \n x      \n        \n        \n        ");
+    }
+
+    [Fact]
+    public void WidgetTranslationContext_TranslatesFlexFillPrimitive()
+    {
+        var node = VNode.CreateElement("div");
+        node.SetAttribute("class", "flex");
+        node.SetAttribute("data-layout", "flex");
+        node.SetAttribute("data-direction", "column");
+        node.SetAttribute("data-fill-width", "true");
+        node.SetAttribute("data-fill-height", "true");
+        node.AddChild(CreateTextElement("A"));
+        var context = new WidgetTranslationContext();
+
+        var widget = context.Translate(node);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 6, 0, 4));
+
+        var flex = widget.ShouldBeOfType<FlexWidget>();
+        flex.FillWidth.ShouldBeTrue();
+        flex.FillHeight.ShouldBeTrue();
+        result.Size.ShouldBe(new LayoutSize(6, 4));
+    }
+
+    [Fact]
     public void WidgetTranslationContext_TranslatesHtmlListsWithBulletsAndNumbers()
     {
         var unordered = VNode.CreateElement("ul");
@@ -795,6 +844,47 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void FlexWidget_Layout_FillsWidthAndHeight()
+    {
+        var widget = new FlexWidget(
+            "flex-1",
+            [new TextWidget("text-1", "x")],
+            direction: FlexDirection.Column,
+            fillWidth: true,
+            fillHeight: true);
+        var engine = new LayoutEngine();
+
+        var result = engine.Layout(widget, new BoxConstraints(0, 10, 0, 4));
+
+        result.Size.ShouldBe(new LayoutSize(10, 4));
+    }
+
+    [Fact]
+    public void FlexWidget_Layout_DistributesRemainingHeightToFillHeightChildren()
+    {
+        var widget = new FlexWidget(
+            "flex-1",
+            [
+                new TextWidget("header", "Top"),
+                new TextWidget(
+                    "body",
+                    "Body",
+                    attributes: new Dictionary<string, string?> { ["data-fill-height"] = "true", ["data-fill-width"] = "true" }),
+            ],
+            direction: FlexDirection.Column,
+            fillWidth: true,
+            fillHeight: true);
+        var engine = new LayoutEngine();
+
+        var result = engine.Layout(widget, new BoxConstraints(0, 8, 0, 5));
+        var boxes = result.EnumerateLayoutBoxes();
+
+        result.Size.ShouldBe(new LayoutSize(8, 5));
+        boxes.ShouldContain(box => box.VNodeId == "header" && box.Bounds == new LayoutRect(0, 0, 3, 1));
+        boxes.ShouldContain(box => box.VNodeId == "body" && box.Bounds == new LayoutRect(0, 1, 8, 4));
+    }
+
+    [Fact]
     public void BoxWidget_Layout_OffsetsChildAndAddsBlankSpace()
     {
         var widget = new BoxWidget("box-1", new TextWidget("text-1", "x"), paddingLeft: 2, paddingTop: 1, paddingRight: 1, paddingBottom: 1);
@@ -807,6 +897,57 @@ public sealed class WidgetLayoutTests
         boxes[0].Bounds.ShouldBe(new LayoutRect(0, 0, 4, 3));
         boxes[1].Bounds.ShouldBe(new LayoutRect(2, 1, 1, 1));
         RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("    \n  x \n    ");
+    }
+
+    [Fact]
+    public void BoxWidget_Layout_AppliesMarginOutsideBorder()
+    {
+        var widget = new BoxWidget(
+            "box-1",
+            new TextWidget("text-1", "x"),
+            marginLeft: 1,
+            marginTop: 1,
+            marginRight: 2,
+            marginBottom: 1,
+            border: BoxBorderStyle.Square);
+        var engine = new LayoutEngine();
+
+        var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 10));
+        var boxes = result.EnumerateLayoutBoxes();
+
+        result.Size.ShouldBe(new LayoutSize(6, 5));
+        boxes[0].Bounds.ShouldBe(new LayoutRect(0, 0, 6, 5));
+        boxes[1].Bounds.ShouldBe(new LayoutRect(2, 2, 1, 1));
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("      \n ┌─┐  \n │x│  \n └─┘  \n      ");
+    }
+
+    [Fact]
+    public void BoxWidget_Layout_FillsWidthAndHeightInsideMargin()
+    {
+        var widget = new BoxWidget(
+            "box-1",
+            new TextWidget("text-1", "x"),
+            marginLeft: 1,
+            marginTop: 1,
+            marginRight: 1,
+            marginBottom: 1,
+            fillWidth: true,
+            fillHeight: true,
+            border: BoxBorderStyle.Square);
+        var engine = new LayoutEngine();
+
+        var result = engine.Layout(widget, new BoxConstraints(0, 10, 0, 6));
+        var boxes = result.EnumerateLayoutBoxes();
+
+        result.Size.ShouldBe(new LayoutSize(10, 6));
+        boxes[1].Bounds.ShouldBe(new LayoutRect(2, 2, 1, 1));
+        RenderToText(result.PaintToRenderable(), maxWidth: 10).ShouldBe(
+            "          \n" +
+            " ┌──────┐ \n" +
+            " │x     │ \n" +
+            " │      │ \n" +
+            " └──────┘ \n" +
+            "          ");
     }
 
     [Fact]

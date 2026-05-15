@@ -15,6 +15,8 @@ public sealed class FlexWidget : Widget
         FlexWrap wrap = FlexWrap.NoWrap,
         int gap = 0,
         bool expand = false,
+        bool fillWidth = false,
+        bool fillHeight = false,
         int? width = null,
         int? height = null,
         string? key = null,
@@ -43,6 +45,8 @@ public sealed class FlexWidget : Widget
         Wrap = wrap;
         Gap = gap;
         Expand = expand;
+        FillWidth = fillWidth || (expand && direction == FlexDirection.Row);
+        FillHeight = fillHeight || (expand && direction == FlexDirection.Column);
         Width = width;
         Height = height;
     }
@@ -58,6 +62,10 @@ public sealed class FlexWidget : Widget
     public int Gap { get; }
 
     public bool Expand { get; }
+
+    public bool FillWidth { get; }
+
+    public bool FillHeight { get; }
 
     public int? Width { get; }
 
@@ -105,8 +113,8 @@ public sealed class FlexWidget : Widget
             height += totalGap;
         }
 
-        width = Width ?? (Expand && Direction == FlexDirection.Row ? constraints.MaxWidth : width);
-        height = Height ?? (Expand && Direction == FlexDirection.Column ? constraints.MaxHeight : height);
+        width = Width ?? (FillWidth ? constraints.MaxWidth : width);
+        height = Height ?? (FillHeight ? constraints.MaxHeight : height);
 
         return constraints.Constrain(new LayoutSize(width, height));
     }
@@ -134,7 +142,7 @@ public sealed class FlexWidget : Widget
     private void ArrangeRow(LayoutContext context, LayoutRect bounds)
     {
         var flowChildren = Children.Where(child => !IsAbsolutePositioned(child)).ToArray();
-        var mainSizes = ResolveMainSizes(flowChildren, bounds.Width, child => child.DesiredSize.Width);
+        var mainSizes = ResolveMainSizes(flowChildren, bounds.Width, child => child.DesiredSize.Width, FillsMainAxis);
         var occupiedWidth = mainSizes.Sum() + Math.Max(0, flowChildren.Length - 1) * Gap;
         var x = bounds.X + ResolveJustifyOffset(bounds.Width, occupiedWidth);
         var spacing = ResolveGap(flowChildren.Length, bounds.Width, occupiedWidth);
@@ -150,7 +158,7 @@ public sealed class FlexWidget : Widget
             }
 
             var childWidth = Math.Min(mainSizes[flowIndex++], Math.Max(0, bounds.Right - x));
-            var childHeight = Align == FlexAlign.Stretch ? bounds.Height : Math.Min(child.DesiredSize.Height, bounds.Height);
+            var childHeight = FillsCrossAxis(child) || Align == FlexAlign.Stretch ? bounds.Height : Math.Min(child.DesiredSize.Height, bounds.Height);
             var y = bounds.Y + ResolveCrossOffset(bounds.Height, childHeight);
             child.Arrange(context, new LayoutRect(x, y, childWidth, childHeight));
             x += childWidth + spacing;
@@ -160,7 +168,7 @@ public sealed class FlexWidget : Widget
     private void ArrangeColumn(LayoutContext context, LayoutRect bounds)
     {
         var flowChildren = Children.Where(child => !IsAbsolutePositioned(child)).ToArray();
-        var mainSizes = ResolveMainSizes(flowChildren, bounds.Height, child => child.DesiredSize.Height);
+        var mainSizes = ResolveMainSizes(flowChildren, bounds.Height, child => child.DesiredSize.Height, FillsMainAxis);
         var occupiedHeight = mainSizes.Sum() + Math.Max(0, flowChildren.Length - 1) * Gap;
         var y = bounds.Y + ResolveJustifyOffset(bounds.Height, occupiedHeight);
         var spacing = ResolveGap(flowChildren.Length, bounds.Height, occupiedHeight);
@@ -176,26 +184,30 @@ public sealed class FlexWidget : Widget
             }
 
             var childHeight = Math.Min(mainSizes[flowIndex++], Math.Max(0, bounds.Bottom - y));
-            var childWidth = IsExpanding(child) || Align == FlexAlign.Stretch ? bounds.Width : Math.Min(child.DesiredSize.Width, bounds.Width);
+            var childWidth = FillsCrossAxis(child) || Align == FlexAlign.Stretch ? bounds.Width : Math.Min(child.DesiredSize.Width, bounds.Width);
             var x = bounds.X + ResolveCrossOffset(bounds.Width, childWidth);
             child.Arrange(context, new LayoutRect(x, y, childWidth, childHeight));
             y += childHeight + spacing;
         }
     }
 
-    private int[] ResolveMainSizes(IReadOnlyList<Widget> children, int availableMainSize, Func<Widget, int> getDesiredMainSize)
+    private int[] ResolveMainSizes(
+        IReadOnlyList<Widget> children,
+        int availableMainSize,
+        Func<Widget, int> getDesiredMainSize,
+        Func<Widget, bool> fillsMainAxis)
     {
-        var expandingChildren = children.Where(IsExpanding).ToArray();
+        var expandingChildren = children.Where(fillsMainAxis).ToArray();
         var totalGap = Math.Max(0, children.Count - 1) * Gap;
         var fixedSize = children
-            .Where(child => !IsExpanding(child))
+            .Where(child => !fillsMainAxis(child))
             .Sum(getDesiredMainSize);
         var remainingSize = Math.Max(0, availableMainSize - fixedSize - totalGap);
         var expandSize = expandingChildren.Length == 0 ? 0 : remainingSize / expandingChildren.Length;
         var expandRemainder = expandingChildren.Length == 0 ? 0 : remainingSize % expandingChildren.Length;
 
         return children
-            .Select(child => IsExpanding(child)
+            .Select(child => fillsMainAxis(child)
                 ? expandSize + (expandRemainder-- > 0 ? 1 : 0)
                 : getDesiredMainSize(child))
             .ToArray();
@@ -233,8 +245,18 @@ public sealed class FlexWidget : Widget
             _ => 0,
         };
 
-    private static bool IsExpanding(Widget child)
-        => child.Attributes.TryGetValue("data-expand", out var value)
+    private bool FillsMainAxis(Widget child)
+        => Direction == FlexDirection.Row
+            ? IsTruthy(child, "data-expand") || IsTruthy(child, "data-fill-width")
+            : IsTruthy(child, "data-expand") || IsTruthy(child, "data-fill-height");
+
+    private bool FillsCrossAxis(Widget child)
+        => Direction == FlexDirection.Row
+            ? IsTruthy(child, "data-fill-height")
+            : IsTruthy(child, "data-expand") || IsTruthy(child, "data-fill-width");
+
+    private static bool IsTruthy(Widget child, string name)
+        => child.Attributes.TryGetValue(name, out var value)
             && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsAbsolutePositioned(Widget child)

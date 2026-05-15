@@ -23,6 +23,14 @@ public static class AnsiSequences
     public const int DECTCEM = 25;
 
     /// <summary>
+    /// Autowrap mode.
+    /// </summary>
+    /// <remarks>
+    /// See <see href="https://vt100.net/docs/vt510-rm/DECAWM.html"/>.
+    /// </remarks>
+    public const int DECAWM = 7;
+
+    /// <summary>
     /// Alternate screen buffer.
     /// </summary>
     public const int DECALTSCR = 1049;

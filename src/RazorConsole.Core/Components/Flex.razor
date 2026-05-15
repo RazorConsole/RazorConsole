@@ -1,10 +1,12 @@
 @namespace RazorConsole.Components
 
+@using System.Collections.Generic
 @using System.Globalization
 @using Microsoft.AspNetCore.Components
 @using RazorConsole.Core.Renderables
 
 <div class="@Class"
+    @attributes="AdditionalAttributes"
     data-layout="flex"
     data-direction="@DirectionAttribute"
     data-justify="@JustifyAttribute"
@@ -12,6 +14,8 @@
     data-wrap="@WrapAttribute"
     data-gap="@GapAttribute"
     data-expand="@ExpandAttribute"
+    data-fill-width="@FillWidthAttribute"
+    data-fill-height="@FillHeightAttribute"
     data-width="@WidthAttribute"
     data-height="@HeightAttribute">
     @ChildContent
@@ -61,10 +65,22 @@
     public int Gap { get; set; }
 
     /// <summary>
-    /// Whether the flex container should expand along its main axis.
+    /// Whether the flex container should expand along its main axis. Prefer <see cref="FillWidth"/> and <see cref="FillHeight"/> for new code.
     /// </summary>
     [Parameter]
     public bool Expand { get; set; }
+
+    /// <summary>
+    /// Whether the flex container should fill the width offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillWidth { get; set; }
+
+    /// <summary>
+    /// Whether the flex container should fill the height offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillHeight { get; set; }
 
     /// <summary>
     /// Explicit width in terminal cells.
@@ -78,6 +94,12 @@
     [Parameter]
     public int? Height { get; set; }
 
+    /// <summary>
+    /// Additional attributes applied to the emitted flex element.
+    /// </summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
+
     private string DirectionAttribute => Direction.ToString().ToLowerInvariant();
 
     private string JustifyAttribute => Justify.ToString().ToLowerInvariant();
@@ -89,6 +111,10 @@
     private string GapAttribute => Math.Max(0, Gap).ToString(CultureInfo.InvariantCulture);
 
     private string ExpandAttribute => Expand ? "true" : "false";
+
+    private string FillWidthAttribute => FillWidth ? "true" : "false";
+
+    private string FillHeightAttribute => FillHeight ? "true" : "false";
 
     private string? WidthAttribute => Width.HasValue && Width.Value > 0
         ? Width.Value.ToString(CultureInfo.InvariantCulture)

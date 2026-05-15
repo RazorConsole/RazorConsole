@@ -1,0 +1,22 @@
+// Copyright (c) RazorConsole. All rights reserved.
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using RazorConsole.Core;
+
+var builder = Host.CreateDefaultBuilder(args)
+    .UseRazorConsole<Layout.Components.App>(configure: hostBuilder =>
+    {
+        hostBuilder.ConfigureServices(services =>
+        {
+            services.Configure<ConsoleAppOptions>(options =>
+            {
+                options.EnableTerminalResizing = true;
+                options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
+            });
+        });
+    });
+
+var host = builder.Build();
+
+await host.RunAsync();

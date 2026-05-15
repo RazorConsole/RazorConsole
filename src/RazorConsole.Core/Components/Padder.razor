@@ -5,7 +5,10 @@
 
 <Box Class="padder"
     Padding="Padding"
-    Expand="Expand">
+    Margin="Margin"
+    Expand="Expand"
+    FillWidth="FillWidth"
+    FillHeight="FillHeight">
     @ChildContent
 </Box>
 
@@ -37,8 +40,26 @@
     public Padding Padding { get; set; } = NoPadding;
 
     /// <summary>
+    /// Margin to apply outside the padded content.
+    /// </summary>
+    [Parameter]
+    public Padding Margin { get; set; } = NoPadding;
+
+    /// <summary>
     /// Whether the padder should expand to fill available space in native widget layout containers.
     /// </summary>
     [Parameter]
     public bool Expand { get; set; }
+
+    /// <summary>
+    /// Whether the padder should fill the width offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillWidth { get; set; }
+
+    /// <summary>
+    /// Whether the padder should fill the height offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillHeight { get; set; }
 }

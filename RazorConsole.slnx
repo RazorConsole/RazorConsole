@@ -9,6 +9,7 @@
     <Project Path="examples/FileExplorer/FileExplorer.csproj" />
     <Project Path="examples/LLMAgentTUI/LLMAgentTUI.csproj" />
     <Project Path="examples/LoginForm/LoginForm.csproj" />
+    <Project Path="examples/Layout/Layout.csproj" />
     <Project Path="examples/MultipageApp/MultipageApp.csproj" />
     <Project Path="examples/TableWidget/TableWidget.csproj" />
     <Project Path="examples/GalleryAlign/GalleryAlign.csproj" />

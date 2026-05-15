@@ -7,7 +7,9 @@
     Direction="FlexDirection.Row"
     Align="FlexAlign.Stretch"
     Gap="1"
-    Expand="Expand">
+    Expand="Expand"
+    FillWidth="FillWidth"
+    FillHeight="FillHeight">
     @ChildContent
 </Flex>
 
@@ -28,6 +30,18 @@
     /// </summary>
     [Parameter]
     public bool Expand { get; set; } = false;
+
+    /// <summary>
+    /// Whether columns should fill the width offered by their parent.
+    /// </summary>
+    [Parameter]
+    public bool FillWidth { get; set; }
+
+    /// <summary>
+    /// Whether columns should fill the height offered by their parent.
+    /// </summary>
+    [Parameter]
+    public bool FillHeight { get; set; }
 
     /// <summary>
     /// Content to arrange in columns.

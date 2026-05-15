@@ -148,6 +148,8 @@ public sealed class WidgetTranslationContext
                 children,
                 direction: FlexDirection.Column,
                 expand: IsTruthy(GetAttribute(node, "data-expand")),
+                fillWidth: IsTruthy(GetAttribute(node, "data-fill-width")),
+                fillHeight: IsTruthy(GetAttribute(node, "data-fill-height")),
                 attributes: node.Attributes,
                 zIndex: zIndex);
         }
@@ -161,6 +163,8 @@ public sealed class WidgetTranslationContext
                 align: FlexAlign.Stretch,
                 gap: 1,
                 expand: IsTruthy(GetAttribute(node, "data-expand")),
+                fillWidth: IsTruthy(GetAttribute(node, "data-fill-width")),
+                fillHeight: IsTruthy(GetAttribute(node, "data-fill-height")),
                 attributes: node.Attributes,
                 zIndex: zIndex);
         }
@@ -176,6 +180,8 @@ public sealed class WidgetTranslationContext
                 wrap: ParseEnum(GetAttribute(node, "data-wrap"), FlexWrap.NoWrap),
                 gap: Math.Max(0, TryGetIntAttribute(node, "data-gap", 0)),
                 expand: IsTruthy(GetAttribute(node, "data-expand")),
+                fillWidth: IsTruthy(GetAttribute(node, "data-fill-width")),
+                fillHeight: IsTruthy(GetAttribute(node, "data-fill-height")),
                 width: TryParsePositiveInt(GetAttribute(node, "data-width")),
                 height: TryParsePositiveInt(GetAttribute(node, "data-height")),
                 attributes: node.Attributes,
@@ -186,6 +192,7 @@ public sealed class WidgetTranslationContext
         {
             var child = ComposeChildren(node, children);
             var padding = ParsePadding(GetAttribute(node, "data-padding"));
+            var margin = ParsePadding(GetAttribute(node, "data-margin"));
             return new BoxWidget(
                 node.ID,
                 child,
@@ -193,6 +200,10 @@ public sealed class WidgetTranslationContext
                 paddingTop: padding.Top,
                 paddingRight: padding.Right,
                 paddingBottom: padding.Bottom,
+                marginLeft: margin.Left,
+                marginTop: margin.Top,
+                marginRight: margin.Right,
+                marginBottom: margin.Bottom,
                 attributes: node.Attributes,
                 zIndex: zIndex);
         }
@@ -215,6 +226,7 @@ public sealed class WidgetTranslationContext
         {
             var child = ComposeChildren(node, children);
             var padding = ParsePadding(GetAttribute(node, "data-padding"), fallback: (1, 0, 1, 0));
+            var margin = ParsePadding(GetAttribute(node, "data-margin"));
             return new BoxWidget(
                 node.ID,
                 child,
@@ -228,9 +240,15 @@ public sealed class WidgetTranslationContext
                 paddingTop: padding.Top,
                 paddingRight: padding.Right,
                 paddingBottom: padding.Bottom,
+                marginLeft: margin.Left,
+                marginTop: margin.Top,
+                marginRight: margin.Right,
+                marginBottom: margin.Bottom,
                 width: TryParsePositiveInt(GetAttribute(node, "data-width")),
                 height: TryParsePositiveInt(GetAttribute(node, "data-height")),
                 expand: IsTruthy(GetAttribute(node, "data-expand")),
+                fillWidth: IsTruthy(GetAttribute(node, "data-fill-width")),
+                fillHeight: IsTruthy(GetAttribute(node, "data-fill-height")),
                 borderStyle: TryParseStyle(GetAttribute(node, "data-border-color")),
                 attributes: node.Attributes,
                 zIndex: zIndex);
@@ -240,6 +258,7 @@ public sealed class WidgetTranslationContext
         {
             var child = ComposeChildren(node, children);
             var padding = ParsePadding(GetAttribute(node, "data-padding"));
+            var margin = ParsePadding(GetAttribute(node, "data-margin"));
             return new BoxWidget(
                 node.ID,
                 child,
@@ -247,9 +266,15 @@ public sealed class WidgetTranslationContext
                 paddingTop: padding.Top,
                 paddingRight: padding.Right,
                 paddingBottom: padding.Bottom,
+                marginLeft: margin.Left,
+                marginTop: margin.Top,
+                marginRight: margin.Right,
+                marginBottom: margin.Bottom,
                 width: TryParsePositiveInt(GetAttribute(node, "data-width")),
                 height: TryParsePositiveInt(GetAttribute(node, "data-height")),
                 expand: IsTruthy(GetAttribute(node, "data-expand")),
+                fillWidth: IsTruthy(GetAttribute(node, "data-fill-width")),
+                fillHeight: IsTruthy(GetAttribute(node, "data-fill-height")),
                 title: GetAttribute(node, "data-header"),
                 border: ParseBoxBorder(GetAttribute(node, "data-border"), fallback: BoxBorderStyle.None),
                 borderTop: ParseOptionalBoxBorder(GetAttribute(node, "data-border-top")),

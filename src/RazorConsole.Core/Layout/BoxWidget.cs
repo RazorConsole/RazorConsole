@@ -40,12 +40,18 @@ public sealed class BoxWidget : Widget
         int paddingTop = 0,
         int paddingRight = 0,
         int paddingBottom = 0,
+        int marginLeft = 0,
+        int marginTop = 0,
+        int marginRight = 0,
+        int marginBottom = 0,
         int? width = null,
         int? height = null,
         string? key = null,
         IReadOnlyDictionary<string, string?>? attributes = null,
         int zIndex = 0,
         bool expand = false,
+        bool fillWidth = false,
+        bool fillHeight = false,
         string? title = null,
         BoxBorderStyle border = BoxBorderStyle.None,
         BoxBorderStyle? borderTop = null,
@@ -75,6 +81,26 @@ public sealed class BoxWidget : Widget
             throw new ArgumentOutOfRangeException(nameof(paddingBottom), "Padding cannot be negative.");
         }
 
+        if (marginLeft < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(marginLeft), "Margin cannot be negative.");
+        }
+
+        if (marginTop < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(marginTop), "Margin cannot be negative.");
+        }
+
+        if (marginRight < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(marginRight), "Margin cannot be negative.");
+        }
+
+        if (marginBottom < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(marginBottom), "Margin cannot be negative.");
+        }
+
         if (width is <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(width), "Width must be positive when specified.");
@@ -89,9 +115,15 @@ public sealed class BoxWidget : Widget
         PaddingTop = paddingTop;
         PaddingRight = paddingRight;
         PaddingBottom = paddingBottom;
+        MarginLeft = marginLeft;
+        MarginTop = marginTop;
+        MarginRight = marginRight;
+        MarginBottom = marginBottom;
         Width = width;
         Height = height;
         Expand = expand;
+        FillWidth = fillWidth || expand;
+        FillHeight = fillHeight;
         Title = string.IsNullOrWhiteSpace(title) ? null : title;
         Border = new BoxBorder(
             borderTop ?? border,
@@ -111,11 +143,23 @@ public sealed class BoxWidget : Widget
 
     public int PaddingBottom { get; }
 
+    public int MarginLeft { get; }
+
+    public int MarginTop { get; }
+
+    public int MarginRight { get; }
+
+    public int MarginBottom { get; }
+
     public int? Width { get; }
 
     public int? Height { get; }
 
     public bool Expand { get; }
+
+    public bool FillWidth { get; }
+
+    public bool FillHeight { get; }
 
     public string? Title { get; }
 
@@ -137,17 +181,27 @@ public sealed class BoxWidget : Widget
         var topInset = BorderTopThickness + PaddingTop;
         var rightInset = BorderRightThickness + PaddingRight;
         var bottomInset = BorderBottomThickness + PaddingBottom;
-        var childConstraints = constraints.Deflate(leftInset, topInset, rightInset, bottomInset);
+        var outerHorizontalInset = MarginLeft + MarginRight;
+        var outerVerticalInset = MarginTop + MarginBottom;
+        var childConstraints = constraints.Deflate(
+            MarginLeft + leftInset,
+            MarginTop + topInset,
+            MarginRight + rightInset,
+            MarginBottom + bottomInset);
         var childSize = Child.Measure(context, childConstraints);
 
-        var width = Width ?? (Expand ? constraints.MaxWidth : childSize.Width + leftInset + rightInset);
+        var contentWidth = childSize.Width + leftInset + rightInset;
+        var contentHeight = childSize.Height + topInset + bottomInset;
+        var width = Width ?? (FillWidth ? Math.Max(0, constraints.MaxWidth - outerHorizontalInset) : contentWidth);
         if (Title is not null && Border.Top != BoxBorderStyle.None)
         {
             width = Math.Max(width, Segment.CellCount([new Segment(Title)]) + 4);
         }
 
-        var height = Height ?? childSize.Height + topInset + bottomInset;
-        return constraints.Constrain(new LayoutSize(width, height));
+        var height = Height ?? (FillHeight ? Math.Max(0, constraints.MaxHeight - outerVerticalInset) : contentHeight);
+        return constraints.Constrain(new LayoutSize(
+            width + outerHorizontalInset,
+            height + outerVerticalInset));
     }
 
     protected override void ArrangeCore(LayoutContext context, LayoutRect bounds)
@@ -156,31 +210,39 @@ public sealed class BoxWidget : Widget
         var topInset = BorderTopThickness + PaddingTop;
         var rightInset = BorderRightThickness + PaddingRight;
         var bottomInset = BorderBottomThickness + PaddingBottom;
-        var childX = bounds.X + leftInset;
-        var childY = bounds.Y + topInset;
-        var availableWidth = Math.Max(0, bounds.Width - leftInset - rightInset);
-        var availableHeight = Math.Max(0, bounds.Height - topInset - bottomInset);
-        var expandChild = IsExpanding(Child);
-        var childWidth = expandChild ? availableWidth : Math.Min(Child.DesiredSize.Width, availableWidth);
-        var childHeight = expandChild ? availableHeight : Math.Min(Child.DesiredSize.Height, availableHeight);
+        var contentBounds = GetContentBounds(bounds);
+        var childX = contentBounds.X + leftInset;
+        var childY = contentBounds.Y + topInset;
+        var availableWidth = Math.Max(0, contentBounds.Width - leftInset - rightInset);
+        var availableHeight = Math.Max(0, contentBounds.Height - topInset - bottomInset);
+        var childWidth = FillsWidth(Child) ? availableWidth : Math.Min(Child.DesiredSize.Width, availableWidth);
+        var childHeight = FillsHeight(Child) ? availableHeight : Math.Min(Child.DesiredSize.Height, availableHeight);
         Child.Arrange(context, new LayoutRect(childX, childY, childWidth, childHeight));
     }
 
     protected override void PaintCore(PaintContext context)
     {
-        if (Bounds.IsEmpty)
+        var contentBounds = GetContentBounds(Bounds);
+        if (contentBounds.IsEmpty)
         {
             return;
         }
 
-        PaintBorder(context.Canvas);
+        PaintBorder(context.Canvas, contentBounds);
         Child.Paint(context);
     }
 
-    private void PaintBorder(TerminalCanvas canvas)
+    private LayoutRect GetContentBounds(LayoutRect bounds)
+        => new(
+            bounds.X + MarginLeft,
+            bounds.Y + MarginTop,
+            Math.Max(0, bounds.Width - MarginLeft - MarginRight),
+            Math.Max(0, bounds.Height - MarginTop - MarginBottom));
+
+    private void PaintBorder(TerminalCanvas canvas, LayoutRect bounds)
     {
-        var right = Bounds.Right - 1;
-        var bottom = Bounds.Bottom - 1;
+        var right = bounds.Right - 1;
+        var bottom = bounds.Bottom - 1;
         var hasTop = Border.Top != BoxBorderStyle.None;
         var hasRight = Border.Right != BoxBorderStyle.None;
         var hasBottom = Border.Bottom != BoxBorderStyle.None;
@@ -189,50 +251,50 @@ public sealed class BoxWidget : Widget
         if (hasTop)
         {
             var chars = ResolveBorderChars(Border.Top);
-            canvas.Fill(new LayoutRect(Bounds.X, Bounds.Y, Bounds.Width, 1), chars.Horizontal, BorderStyle);
+            canvas.Fill(new LayoutRect(bounds.X, bounds.Y, bounds.Width, 1), chars.Horizontal, BorderStyle);
         }
 
         if (hasBottom)
         {
             var chars = ResolveBorderChars(Border.Bottom);
-            canvas.Fill(new LayoutRect(Bounds.X, bottom, Bounds.Width, 1), chars.Horizontal, BorderStyle);
+            canvas.Fill(new LayoutRect(bounds.X, bottom, bounds.Width, 1), chars.Horizontal, BorderStyle);
         }
 
         if (hasLeft)
         {
             var chars = ResolveBorderChars(Border.Left);
-            var y = Bounds.Y + (hasTop ? 1 : 0);
-            var height = Math.Max(0, Bounds.Height - (hasTop ? 1 : 0) - (hasBottom ? 1 : 0));
-            canvas.Fill(new LayoutRect(Bounds.X, y, 1, height), chars.Vertical, BorderStyle);
+            var y = bounds.Y + (hasTop ? 1 : 0);
+            var height = Math.Max(0, bounds.Height - (hasTop ? 1 : 0) - (hasBottom ? 1 : 0));
+            canvas.Fill(new LayoutRect(bounds.X, y, 1, height), chars.Vertical, BorderStyle);
         }
 
         if (hasRight)
         {
             var chars = ResolveBorderChars(Border.Right);
-            var y = Bounds.Y + (hasTop ? 1 : 0);
-            var height = Math.Max(0, Bounds.Height - (hasTop ? 1 : 0) - (hasBottom ? 1 : 0));
+            var y = bounds.Y + (hasTop ? 1 : 0);
+            var height = Math.Max(0, bounds.Height - (hasTop ? 1 : 0) - (hasBottom ? 1 : 0));
             canvas.Fill(new LayoutRect(right, y, 1, height), chars.Vertical, BorderStyle);
         }
 
-        PaintCorners(canvas, right, bottom, hasTop, hasRight, hasBottom, hasLeft);
-        PaintTitle(canvas);
+        PaintCorners(canvas, bounds, right, bottom, hasTop, hasRight, hasBottom, hasLeft);
+        PaintTitle(canvas, bounds);
     }
 
-    private void PaintCorners(TerminalCanvas canvas, int right, int bottom, bool hasTop, bool hasRight, bool hasBottom, bool hasLeft)
+    private void PaintCorners(TerminalCanvas canvas, LayoutRect bounds, int right, int bottom, bool hasTop, bool hasRight, bool hasBottom, bool hasLeft)
     {
         if (hasTop && hasLeft)
         {
-            canvas.Write(Bounds.X, Bounds.Y, ResolveBorderChars(Border.Top).TopLeft.ToString(), BorderStyle);
+            canvas.Write(bounds.X, bounds.Y, ResolveBorderChars(Border.Top).TopLeft.ToString(), BorderStyle);
         }
 
         if (hasTop && hasRight)
         {
-            canvas.Write(right, Bounds.Y, ResolveBorderChars(Border.Top).TopRight.ToString(), BorderStyle);
+            canvas.Write(right, bounds.Y, ResolveBorderChars(Border.Top).TopRight.ToString(), BorderStyle);
         }
 
         if (hasBottom && hasLeft)
         {
-            canvas.Write(Bounds.X, bottom, ResolveBorderChars(Border.Bottom).BottomLeft.ToString(), BorderStyle);
+            canvas.Write(bounds.X, bottom, ResolveBorderChars(Border.Bottom).BottomLeft.ToString(), BorderStyle);
         }
 
         if (hasBottom && hasRight)
@@ -241,15 +303,15 @@ public sealed class BoxWidget : Widget
         }
     }
 
-    private void PaintTitle(TerminalCanvas canvas)
+    private void PaintTitle(TerminalCanvas canvas, LayoutRect bounds)
     {
-        if (Title is null || Border.Top == BoxBorderStyle.None || Bounds.Width <= 4)
+        if (Title is null || Border.Top == BoxBorderStyle.None || bounds.Width <= 4)
         {
             return;
         }
 
-        var maxTitleWidth = Math.Max(0, Bounds.Width - 4);
-        canvas.Write(Bounds.X + 2, Bounds.Y, Title, maxTitleWidth, BorderStyle);
+        var maxTitleWidth = Math.Max(0, bounds.Width - 4);
+        canvas.Write(bounds.X + 2, bounds.Y, Title, maxTitleWidth, BorderStyle);
     }
 
     private static BorderChars ResolveBorderChars(BoxBorderStyle border)
@@ -262,8 +324,14 @@ public sealed class BoxWidget : Widget
             _ => new BorderChars('─', '│', '┌', '┐', '└', '┘'),
         };
 
-    private static bool IsExpanding(Widget child)
-        => child.Attributes.TryGetValue("data-expand", out var value)
+    private static bool FillsWidth(Widget child)
+        => IsTruthy(child, "data-expand") || IsTruthy(child, "data-fill-width");
+
+    private static bool FillsHeight(Widget child)
+        => IsTruthy(child, "data-expand") || IsTruthy(child, "data-fill-height");
+
+    private static bool IsTruthy(Widget child, string name)
+        => child.Attributes.TryGetValue(name, out var value)
             && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 
     private readonly record struct BorderChars(

@@ -1,0 +1,27 @@
+@namespace Layout.Components
+
+@using RazorConsole.Components
+@using RazorConsole.Core.Renderables
+@using Spectre.Console
+
+<Box Border="BoxBorder.Rounded" BorderColor="Color.Grey70" Padding="new(1)" FillWidth="true" FillHeight="true">
+    <Flex Direction="FlexDirection.Column" FillWidth="true" FillHeight="true" Align="FlexAlign.Center"
+          Justify="FlexJustify.Center">
+        <Markup Content="Layout: full width and height" Foreground="Color.DeepSkyBlue1" Decoration="Decoration.Bold" />
+        <Newline />
+        <Markup Content="Outer Flex fills the viewport; Box fills its allocation; inner Flex centers content."
+                Foreground="Color.Grey70" />
+        <Newline />
+        <Columns>
+            <Box Border="BoxBorder.Square" Padding="new(1, 0, 1, 0)">
+                <Markup Content="Fill width" Foreground="Color.Green" />
+            </Box>
+            <Box Border="BoxBorder.Square" Padding="new(1, 0, 1, 0)">
+                <Markup Content="Fill height" Foreground="Color.Yellow" />
+            </Box>
+            <Box Border="BoxBorder.Square" Padding="new(1, 0, 1, 0)">
+                <Markup Content="Centered child" Foreground="Color.MediumOrchid" />
+            </Box>
+        </Columns>
+    </Flex>
+</Box>

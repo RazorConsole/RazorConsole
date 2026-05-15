@@ -3,37 +3,34 @@
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Web
 @using RazorConsole.Components
+@using RazorConsole.Core.Renderables;
 @using Spectre.Console
 
-<Figlet Content="Counter Example" />
-<Newline />
+<Box Border="BoxBorder.Rounded" Padding="new (1)">
+    <Flex Direction="FlexDirection.Column" Expand="true" Align="FlexAlign.Center" Justify="FlexJustify.Center">
 
-<Panel Title="Counter" Border="BoxBorder.Rounded" Expand="true">
-    <Rows>
-        <Columns>
-            <Markup Content="Current count:" Foreground="@Color.Grey70" />
-            <Markup Content="@currentCount.ToString()" Foreground="@Color.Green" Decoration="@Decoration.Bold" />
-        </Columns>
+        <Rows>
+            <Columns>
+                <Markup Content="Current count:" Foreground="@Color.Grey70" />
+                <Markup Content="@currentCount.ToString()" Foreground="@Color.Green" Decoration="@Decoration.Bold" />
+            </Columns>
+            <Newline />
+            <Columns>
+                <TextButton Content="Increment" OnClick="IncrementCount" BackgroundColor="@Color.Grey"
+                            FocusedColor="@Color.Blue" />
+                <TextButton Content="Decrement" OnClick="DecrementCount" BackgroundColor="@Color.Grey"
+                            FocusedColor="@Color.Red" />
+                <TextButton Content="Reset" OnClick="ResetCount" BackgroundColor="@Color.Grey"
+                            FocusedColor="@Color.Yellow" />
+            </Columns>
+        </Rows>
+
         <Newline />
-        <Columns>
-            <TextButton Content="Increment"
-                        OnClick="IncrementCount"
-                        BackgroundColor="@Color.Grey"
-                        FocusedColor="@Color.Blue" />
-            <TextButton Content="Decrement"
-                        OnClick="DecrementCount"
-                        BackgroundColor="@Color.Grey"
-                        FocusedColor="@Color.Red" />
-            <TextButton Content="Reset"
-                        OnClick="ResetCount"
-                        BackgroundColor="@Color.Grey"
-                        FocusedColor="@Color.Yellow" />
-        </Columns>
-    </Rows>
-</Panel>
+        <Markup Content="Press Tab to change focus • Press Enter to click • Press Ctrl+C to exit"
+                Foreground="@Color.Grey58" />
 
-<Newline />
-<Markup Content="Press Tab to change focus • Press Enter to click • Press Ctrl+C to exit" Foreground="@Color.Grey58" />
+    </Flex>
+</Box>
 
 @code {
     private int currentCount = 0;

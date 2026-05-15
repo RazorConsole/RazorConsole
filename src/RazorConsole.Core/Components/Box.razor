@@ -7,9 +7,13 @@
 @using Spectre.Console
 
 <div class="@Class"
+    @attributes="AdditionalAttributes"
     data-layout="box"
     data-padding="@PaddingAttribute"
+    data-margin="@MarginAttribute"
     data-expand="@ExpandAttribute"
+    data-fill-width="@FillWidthAttribute"
+    data-fill-height="@FillHeightAttribute"
     data-width="@WidthAttribute"
     data-height="@HeightAttribute"
     data-header="@TitleAttribute"
@@ -53,10 +57,28 @@
     public Padding? Padding { get; set; }
 
     /// <summary>
-    /// Whether the box should expand when a parent container allocates remaining space.
+    /// Margin outside the box border.
+    /// </summary>
+    [Parameter]
+    public Padding? Margin { get; set; }
+
+    /// <summary>
+    /// Whether the box should expand when a parent container allocates remaining space. Prefer <see cref="FillWidth"/> and <see cref="FillHeight"/> for new code.
     /// </summary>
     [Parameter]
     public bool Expand { get; set; }
+
+    /// <summary>
+    /// Whether the box should fill the width offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillWidth { get; set; }
+
+    /// <summary>
+    /// Whether the box should fill the height offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillHeight { get; set; }
 
     /// <summary>
     /// Explicit width in terminal cells.
@@ -106,7 +128,17 @@
     [Parameter]
     public VerticalAlignment? Vertical { get; set; }
 
+    /// <summary>
+    /// Additional attributes applied to the emitted box element.
+    /// </summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
+
     private string ExpandAttribute => Expand ? "true" : "false";
+
+    private string FillWidthAttribute => FillWidth ? "true" : "false";
+
+    private string FillHeightAttribute => FillHeight ? "true" : "false";
 
     private string? TitleAttribute => string.IsNullOrWhiteSpace(Title) ? null : Title;
 
@@ -137,21 +169,23 @@
     private string? VerticalAttribute => Vertical?.ToString().ToLowerInvariant();
 
     private string? PaddingAttribute
-    {
-        get
-        {
-            var padding = Padding ?? NoPadding;
-            if (padding.Left == 0 && padding.Top == 0 && padding.Right == 0 && padding.Bottom == 0)
-            {
-                return null;
-            }
+        => FormatSpacing(Padding ?? NoPadding);
 
-            return string.Join(",",
-                padding.Left.ToString(CultureInfo.InvariantCulture),
-                padding.Top.ToString(CultureInfo.InvariantCulture),
-                padding.Right.ToString(CultureInfo.InvariantCulture),
-                padding.Bottom.ToString(CultureInfo.InvariantCulture));
+    private string? MarginAttribute
+        => FormatSpacing(Margin ?? NoPadding);
+
+    private static string? FormatSpacing(Padding spacing)
+    {
+        if (spacing.Left == 0 && spacing.Top == 0 && spacing.Right == 0 && spacing.Bottom == 0)
+        {
+            return null;
         }
+
+        return string.Join(",",
+            spacing.Left.ToString(CultureInfo.InvariantCulture),
+            spacing.Top.ToString(CultureInfo.InvariantCulture),
+            spacing.Right.ToString(CultureInfo.InvariantCulture),
+            spacing.Bottom.ToString(CultureInfo.InvariantCulture));
     }
 
     private string? WidthAttribute => Width.HasValue && Width.Value > 0
