@@ -5,23 +5,83 @@
 @using Spectre.Console
 
 <Box Border="BoxBorder.Rounded" BorderColor="Color.Grey70" Padding="new(1)" FillWidth="true" FillHeight="true">
-    <Flex Direction="FlexDirection.Column" FillWidth="true" FillHeight="true" Align="FlexAlign.Center"
-          Justify="FlexJustify.Center">
-        <Markup Content="Layout: full width and height" Foreground="Color.DeepSkyBlue1" Decoration="Decoration.Bold" />
-        <Newline />
-        <Markup Content="Outer Flex fills the viewport; Box fills its allocation; inner Flex centers content."
-                Foreground="Color.Grey70" />
-        <Newline />
-        <Columns>
-            <Box Border="BoxBorder.Square" Padding="new(1, 0, 1, 0)">
-                <Markup Content="Fill width" Foreground="Color.Green" />
-            </Box>
-            <Box Border="BoxBorder.Square" Padding="new(1, 0, 1, 0)">
-                <Markup Content="Fill height" Foreground="Color.Yellow" />
-            </Box>
-            <Box Border="BoxBorder.Square" Padding="new(1, 0, 1, 0)">
-                <Markup Content="Centered child" Foreground="Color.MediumOrchid" />
-            </Box>
-        </Columns>
+    <Flex Direction="FlexDirection.Column" FillWidth="true" FillHeight="true" Gap="1">
+        <Box Border="BoxBorder.Square" BorderColor="Color.Grey58" Padding="new(1)" FillWidth="true" FillHeight="true">
+            @switch (_selectedLayout)
+            {
+                case LayoutScenario.Centered:
+                    <CenteredLayout />
+                    break;
+                case LayoutScenario.BodyFooter:
+                    <BodyFooterLayout />
+                    break;
+                case LayoutScenario.Sidebar:
+                    <SidebarLayout />
+                    break;
+                case LayoutScenario.Dashboard:
+                    <DashboardLayout />
+                    break;
+                case LayoutScenario.Split:
+                    <SplitLayout />
+                    break;
+            }
+        </Box>
+
+        <Box data-border-top="square" Padding="new(0, 1, 0, 0)" FillWidth="true">
+            <Flex Direction="FlexDirection.Row" Wrap="FlexWrap.Wrap" Gap="1" FillWidth="true">
+                @foreach (var scenario in _scenarios)
+                {
+                    <TextButton Content="@ButtonText(scenario)"
+                                OnClick="@(() => SelectLayout(scenario))"
+                                BackgroundColor="@ButtonBackground(scenario)"
+                                FocusedColor="@Color.DeepSkyBlue1" />
+                }
+            </Flex>
+        </Box>
     </Flex>
 </Box>
+
+@code {
+    private readonly LayoutScenario[] _scenarios =
+    [
+        LayoutScenario.Centered,
+        LayoutScenario.BodyFooter,
+        LayoutScenario.Sidebar,
+        LayoutScenario.Dashboard,
+        LayoutScenario.Split,
+    ];
+
+    private LayoutScenario _selectedLayout = LayoutScenario.Centered;
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+        => firstRender ? InvokeAsync(StateHasChanged) : Task.CompletedTask;
+
+    private void SelectLayout(LayoutScenario scenario)
+        => _selectedLayout = scenario;
+
+    private string ButtonText(LayoutScenario scenario)
+        => scenario == _selectedLayout ? $"[{ScenarioTitle(scenario)}]" : ScenarioTitle(scenario);
+
+    private Color ButtonBackground(LayoutScenario scenario)
+        => scenario == _selectedLayout ? Color.Grey27 : Color.Default;
+
+    private static string ScenarioTitle(LayoutScenario scenario)
+        => scenario switch
+        {
+            LayoutScenario.Centered => "Centered",
+            LayoutScenario.BodyFooter => "Body/Footer",
+            LayoutScenario.Sidebar => "Sidebar",
+            LayoutScenario.Dashboard => "Dashboard",
+            LayoutScenario.Split => "Split",
+            _ => scenario.ToString(),
+        };
+
+    private enum LayoutScenario
+    {
+        Centered,
+        BodyFooter,
+        Sidebar,
+        Dashboard,
+        Split,
+    }
+}

@@ -2,7 +2,9 @@
 
 Focused sample for investigating RazorConsole layout behavior.
 
-The first scenario renders a rounded `Box` using `FillWidth` and `FillHeight`, with child content centered by an inner `Flex`.
+The app uses a body/footer shell. The body renders the selected layout, and the footer uses a wrapping row of `TextButton` controls to switch layouts.
+
+Each layout centers a compact dimension label in its main area so resizing the terminal shows how `Box`, `Flex`, `FillWidth`, and `FillHeight` allocate space.
 
 ## Run
 

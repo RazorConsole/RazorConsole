@@ -1,0 +1,21 @@
+@namespace Layout.Components
+
+@using RazorConsole.Components
+@using RazorConsole.Core.Renderables
+@using Spectre.Console
+
+<Flex data-vnode-hook="layout-body-footer"
+      Direction="FlexDirection.Column"
+      FillWidth="true"
+      FillHeight="true"
+      Gap="1">
+    <Box data-border-bottom="square" Padding="new(1, 0, 1, 0)" FillWidth="true">
+        <Markup Content="Body area" Foreground="Color.Grey70" />
+    </Box>
+    <Box data-vnode-hook="layout-body-footer-body" Border="BoxBorder.Rounded" FillWidth="true" FillHeight="true">
+        <LayoutDimensionLabel HookKey="layout-body-footer-body" Label="Body" />
+    </Box>
+    <Box data-border-top="square" Padding="new(1, 0, 1, 0)" FillWidth="true">
+        <Markup Content="Footer stays content-sized" Foreground="Color.Grey58" />
+    </Box>
+</Flex>
