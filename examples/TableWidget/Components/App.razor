@@ -1,0 +1,109 @@
+@namespace TableWidgetExample.Components
+
+@using RazorConsole.Components
+@using Spectre.Console
+
+<Rows>
+    <Markup Content="TableWidget coverage example" Foreground="Color.Aqua" />
+
+    <SpectreTable Expand="true" Border="TableBorder.Rounded" BorderColor="Color.Grey70">
+        <SpectreTHead>
+            <SpectreTR>
+                <SpectreTH Align="Justify.Left" Width="18">Item</SpectreTH>
+                <SpectreTH Align="Justify.Center" Width="12">Status</SpectreTH>
+                <SpectreTH Align="Justify.Right" Width="8">Count</SpectreTH>
+                <SpectreTH Align="Justify.Center" Width="20">Notes</SpectreTH>
+            </SpectreTR>
+        </SpectreTHead>
+        <SpectreTBody>
+            @foreach (var row in _rows)
+            {
+                <SpectreTR>
+                    <SpectreTD Align="Justify.Left">
+                        <Markup Content="@row.Item" Foreground="@row.Color" />
+                    </SpectreTD>
+                    <SpectreTD Align="Justify.Center">
+                        <Markup Content="@row.Status" Foreground="@row.Color" />
+                    </SpectreTD>
+                    <SpectreTD Align="Justify.Right">
+                        <Markup Content="@row.Count.ToString()" Foreground="Color.Yellow" />
+                    </SpectreTD>
+                    <SpectreTD Align="Justify.Center">
+                        <Markup Content="@row.Notes" Foreground="Color.Grey70" />
+                    </SpectreTD>
+                </SpectreTR>
+            }
+            <SpectreTR>
+                <SpectreTD Align="Justify.Left" data-padding="2,0,2,0">
+                    <Markup Content="Padded cell" Foreground="Color.Green" />
+                </SpectreTD>
+                <SpectreTD Align="Justify.Center">
+                    <Markup Content="custom" Foreground="Color.Green" />
+                </SpectreTD>
+                <SpectreTD Align="Justify.Right">
+                    <Markup Content="42" Foreground="Color.Yellow" />
+                </SpectreTD>
+                <SpectreTD Align="Justify.Center">
+                    <TextButton Content="Focusable child" BackgroundColor="Color.Black" FocusedColor="Color.Blue" />
+                </SpectreTD>
+            </SpectreTR>
+        </SpectreTBody>
+        <SpectreTFoot>
+            <SpectreTR>
+                <SpectreTD Align="Justify.Left">
+                    <Markup Content="Footer" Foreground="Color.Grey70" />
+                </SpectreTD>
+                <SpectreTD Align="Justify.Center">
+                    <Markup Content="summary" Foreground="Color.Grey70" />
+                </SpectreTD>
+                <SpectreTD Align="Justify.Right">
+                    <Markup Content="@_rows.Sum(row => row.Count).ToString()" Foreground="Color.Yellow" />
+                </SpectreTD>
+                <SpectreTD Align="Justify.Center">
+                    <Markup Content="tfoot row" Foreground="Color.Grey70" />
+                </SpectreTD>
+            </SpectreTR>
+        </SpectreTFoot>
+    </SpectreTable>
+
+    <SpectreTable Border="TableBorder.Square" ShowHeaders="false">
+        <SpectreTBody>
+            <SpectreTR>
+                <SpectreTD Align="Justify.Left"><Markup Content="No header" /></SpectreTD>
+                <SpectreTD Align="Justify.Center"><Markup Content="square border" /></SpectreTD>
+                <SpectreTD Align="Justify.Right"><Markup Content="right" /></SpectreTD>
+            </SpectreTR>
+            <SpectreTR>
+                <SpectreTD Align="Justify.Left"><Markup Content="compact" /></SpectreTD>
+                <SpectreTD Align="Justify.Center"><Markup Content="body only" /></SpectreTD>
+                <SpectreTD Align="Justify.Right"><Markup Content="123" /></SpectreTD>
+            </SpectreTR>
+        </SpectreTBody>
+    </SpectreTable>
+
+    <SpectreTable Border="TableBorder.Ascii" Width="36">
+        <SpectreTHead>
+            <SpectreTR>
+                <SpectreTH Align="Justify.Left">Fixed</SpectreTH>
+                <SpectreTH Align="Justify.Right">Width</SpectreTH>
+            </SpectreTR>
+        </SpectreTHead>
+        <SpectreTBody>
+            <SpectreTR>
+                <SpectreTD Align="Justify.Left"><Markup Content="ASCII border" /></SpectreTD>
+                <SpectreTD Align="Justify.Right"><Markup Content="36" /></SpectreTD>
+            </SpectreTR>
+        </SpectreTBody>
+    </SpectreTable>
+</Rows>
+
+@code {
+    private readonly TableRow[] _rows =
+    [
+        new("Native layout", "ready", 3, "rounded + expand", Color.Green),
+        new("Alignment", "covered", 7, "left/center/right", Color.Aqua),
+        new("Cell widgets", "mixed", 2, "markup + button", Color.Blue),
+    ];
+
+    private sealed record TableRow(string Item, string Status, int Count, string Notes, Color Color);
+}

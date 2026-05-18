@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core.Extensions;
+using RazorConsole.Core.Layout;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Vdom;
@@ -19,62 +20,53 @@ namespace RazorConsole.Core.Rendering;
 internal sealed class ConsoleRenderer(
     IServiceProvider services,
     ILoggerFactory loggerFactory,
-    Translation.Contexts.TranslationContext translationContext)
+    Translation.Contexts.TranslationContext translationContext,
+    ConsoleAppOptions? options = null,
+    WidgetTranslationContext? widgetTranslationContext = null,
+    LayoutEngine? layoutEngine = null,
+    VNodeIdAccessor? vnodeIdAccessor = null,
+    VNodeLayoutAccessor? vnodeLayoutAccessor = null,
+    TerminalMonitor? terminalMonitor = null)
     : Renderer(services, loggerFactory),
     IObservable<ConsoleRenderer.RenderSnapshot>
 {
-    private sealed class ImmediateDispatcher : Dispatcher
-    {
-        public override bool CheckAccess() => true;
-
-        public override Task InvokeAsync(Action workItem)
-        {
-            workItem?.Invoke();
-            return Task.CompletedTask;
-        }
-
-        public override Task InvokeAsync(Func<Task> workItem)
-            => workItem?.Invoke() ?? Task.CompletedTask;
-
-        public override Task<TResult> InvokeAsync<TResult>(Func<TResult> workItem)
-        {
-            if (workItem is null)
-            {
-                throw new ArgumentNullException(nameof(workItem));
-            }
-
-            return Task.FromResult(workItem());
-        }
-
-        public override Task<TResult> InvokeAsync<TResult>(Func<Task<TResult>> workItem)
-        {
-            if (workItem is null)
-            {
-                throw new ArgumentNullException(nameof(workItem));
-            }
-
-            return workItem();
-        }
-    }
-
-    private static readonly ImmediateDispatcher DispatcherInstance = new();
-
     private readonly Dictionary<int, VNode> _componentRoots = [];
     private readonly Stack<VNode> _cursor = new();
+    private readonly Dispatcher _dispatcher = Dispatcher.CreateDefault();
     private readonly ILogger<ConsoleRenderer> _logger = loggerFactory?.CreateLogger<ConsoleRenderer>()
         ?? throw new ArgumentNullException(nameof(loggerFactory));
     private readonly Translation.Contexts.TranslationContext _translationContext = translationContext;
+    private readonly ConsoleAppOptions _options = options ?? new ConsoleAppOptions();
+    private readonly WidgetTranslationContext _widgetTranslationContext = widgetTranslationContext ?? new WidgetTranslationContext();
+    private readonly LayoutEngine _layoutEngine = layoutEngine ?? new LayoutEngine();
+    private readonly VNodeIdAccessor? _vnodeIdAccessor = vnodeIdAccessor;
+    private readonly VNodeLayoutAccessor? _vnodeLayoutAccessor = vnodeLayoutAccessor;
+    private readonly TerminalMonitor? _terminalMonitor = terminalMonitor;
     private readonly Lock _observersSync = new();
     private readonly List<IObserver<RenderSnapshot>> _observers = [];
+    private readonly Lock _observerNotificationSync = new();
 
     private TaskCompletionSource<RenderSnapshot>? _pendingRender;
+    private RenderSnapshot? _pendingObserverSnapshot;
     private int _rootComponentId = -1;
+    private bool _observerNotificationScheduled;
     private RenderSnapshot _lastSnapshot = RenderSnapshot.Empty;
     private bool _disposed;
 
-    public override Dispatcher Dispatcher => DispatcherInstance;
+    public override Dispatcher Dispatcher => _dispatcher;
 
     internal Translation.Contexts.TranslationContext GetTranslationContext() => _translationContext;
+
+    internal RenderSnapshot RefreshSnapshot()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        var snapshot = Dispatcher.CheckAccess()
+            ? CreateSnapshot()
+            : Dispatcher.InvokeAsync(CreateSnapshot).GetAwaiter().GetResult();
+        _lastSnapshot = snapshot;
+        return snapshot;
+    }
 
     public Task<RenderSnapshot> MountComponentAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(ParameterView parameters, CancellationToken cancellationToken)
         where TComponent : IComponent
@@ -100,7 +92,10 @@ internal sealed class ConsoleRenderer(
 
         try
         {
-            await RenderRootComponentAsync(componentId, parameters).ConfigureAwait(false);
+            await Dispatcher.InvokeAsync(async () =>
+            {
+                await RenderRootComponentAsync(componentId, parameters).ConfigureAwait(false);
+            }).ConfigureAwait(false);
             _lastSnapshot = await tcs.Task.ConfigureAwait(false);
             return _lastSnapshot;
         }
@@ -189,18 +184,7 @@ internal sealed class ConsoleRenderer(
             _pendingRender?.TrySetResult(snapshot);
             _pendingRender = null;
 
-            // Notify observers asynchronously with proper error handling
-            _ = Task.Run(() =>
-            {
-                try
-                {
-                    NotifyObservers(snapshot);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogErrorNotifyingObserverOfSnapshot(ex);
-                }
-            });
+            EnqueueObserverNotification(snapshot);
 
             return Task.CompletedTask;
         }
@@ -480,13 +464,20 @@ internal sealed class ConsoleRenderer(
         {
             if (_rootComponentId == -1 || !_componentRoots.TryGetValue(_rootComponentId, out var componentNode))
             {
+                UpdateSnapshotAccessors(null, null);
                 return RenderSnapshot.Empty;
             }
 
             var rootNode = CreateRenderableRoot(componentNode);
             if (rootNode is null)
             {
+                UpdateSnapshotAccessors(null, null);
                 return RenderSnapshot.Empty;
+            }
+
+            if (_options.RenderingPipeline == RazorConsoleRenderingPipeline.WidgetLayout)
+            {
+                return CreateWidgetLayoutSnapshot(rootNode);
             }
 
             _translationContext.CollectedOverlays.Clear();
@@ -498,6 +489,8 @@ internal sealed class ConsoleRenderer(
                 ? new OverlayRenderable(mainRenderable, _translationContext.CollectedOverlays)
                 : mainRenderable;
 
+            UpdateSnapshotAccessors(rootNode, layouts: null);
+
             return new RenderSnapshot(rootNode, finalRenderable, _translationContext.AnimatedRenderables);
         }
         catch (Exception ex)
@@ -506,6 +499,41 @@ internal sealed class ConsoleRenderer(
             return RenderSnapshot.Empty;
         }
     }
+
+    private RenderSnapshot CreateWidgetLayoutSnapshot(VNode rootNode)
+    {
+        _translationContext.AnimatedRenderables.Clear();
+        _widgetTranslationContext.ClearAnimatedRenderables();
+
+        var widgetRoot = _widgetTranslationContext.Translate(rootNode);
+        var layoutResult = _layoutEngine.Layout(widgetRoot, CreateViewportConstraints());
+        var renderable = layoutResult.PaintToRenderable();
+        var layouts = layoutResult.EnumerateLayoutInfos();
+        var layoutParents = layoutResult.EnumerateLayoutParentIds();
+
+        UpdateSnapshotAccessors(rootNode, layouts, layoutParents);
+
+        return new RenderSnapshot(rootNode, renderable, _widgetTranslationContext.AnimatedRenderables.ToArray());
+    }
+
+    private BoxConstraints CreateViewportConstraints()
+    {
+        const int fallbackWidth = 80;
+        const int fallbackHeight = 1000;
+        var width = _terminalMonitor?.Width > 0 ? _terminalMonitor.Width : fallbackWidth;
+        var height = _terminalMonitor?.Height > 0 ? _terminalMonitor.Height : fallbackHeight;
+        return new BoxConstraints(0, width, 0, height);
+    }
+
+    private void UpdateSnapshotAccessors(
+        VNode? rootNode,
+        IReadOnlyCollection<VNodeLayoutInfo>? layouts,
+        IReadOnlyDictionary<string, string?>? layoutParents = null)
+    {
+        _vnodeIdAccessor?.UpdateSnapshot(rootNode);
+        _vnodeLayoutAccessor?.UpdateSnapshot(rootNode, layouts, layoutParents);
+    }
+
     private VNode? CreateRenderableRoot(VNode node)
     {
         var visitedComponents = new HashSet<int>();
@@ -712,6 +740,50 @@ internal sealed class ConsoleRenderer(
         NotifyObserversInternal(observer => observer.OnNext(snapshot), ex => _logger.LogErrorNotifyingObserverOfSnapshot(ex));
     }
 
+    private void EnqueueObserverNotification(RenderSnapshot snapshot)
+    {
+        lock (_observerNotificationSync)
+        {
+            _pendingObserverSnapshot = snapshot;
+            if (_observerNotificationScheduled)
+            {
+                return;
+            }
+
+            _observerNotificationScheduled = true;
+        }
+
+        _ = Task.Run(ProcessObserverNotifications);
+    }
+
+    private void ProcessObserverNotifications()
+    {
+        while (true)
+        {
+            RenderSnapshot snapshot;
+            lock (_observerNotificationSync)
+            {
+                if (_pendingObserverSnapshot is not { } pendingSnapshot)
+                {
+                    _observerNotificationScheduled = false;
+                    return;
+                }
+
+                snapshot = pendingSnapshot;
+                _pendingObserverSnapshot = null;
+            }
+
+            try
+            {
+                NotifyObservers(snapshot);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogErrorNotifyingObserverOfSnapshot(ex);
+            }
+        }
+    }
+
     private void NotifyError(Exception exception)
     {
         NotifyObserversInternal(observer => observer.OnError(exception), ex => _logger.LogErrorNotifyingObserverOfError(ex));
@@ -759,7 +831,7 @@ internal sealed class ConsoleRenderer(
 
         try
         {
-            return base.DispatchEventAsync(handlerId, default, eventArgs);
+            return Dispatcher.InvokeAsync(() => base.DispatchEventAsync(handlerId, default, eventArgs));
         }
         catch (Exception ex)
         {
@@ -830,6 +902,10 @@ internal sealed class ConsoleRenderer(
             _cursor.Clear();
             _pendingRender?.TrySetCanceled();
             _pendingRender = null;
+            lock (_observerNotificationSync)
+            {
+                _pendingObserverSnapshot = null;
+            }
         }
 
         base.Dispose(disposing);

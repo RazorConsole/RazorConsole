@@ -35,11 +35,15 @@ public class ViewHeightScrollableTranslator(ScrollableLayoutCoordinator scrollab
             return next(node);
         }
 
-        if (!VdomSpectreTranslator.TryParsePositiveInt(VdomSpectreTranslator.GetAttribute(node, "data-lines-to-render"),
-                out var linesToRender))
+        if (!int.TryParse(VdomSpectreTranslator.GetAttribute(node, "data-lines-to-render"), out var linesToRender)
+            || linesToRender < 0)
         {
             return next(node);
         }
+
+        linesToRender = linesToRender == 0
+            ? Math.Max(1, Console.WindowHeight)
+            : linesToRender;
 
         if (!VdomSpectreTranslator.TryGetBoolAttribute(node, "data-enable-embedded", out var enableEmbedded))
         {

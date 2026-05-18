@@ -11,6 +11,8 @@ namespace RazorConsole.Tests.Rendering;
 
 public sealed class ConsoleAppTests
 {
+    private const string RenderingPipelineEnvironmentVariableName = "RAZORCONSOLE_RENDERING_PIPELINE";
+
     [Fact]
     public async Task RunAsync_InvokesCustomAfterRenderCallback()
     {
@@ -50,6 +52,7 @@ public sealed class ConsoleAppTests
     [Fact]
     public async Task RunAsync_DefaultConsoleAppOptionsResolves()
     {
+        using var environment = new EnvironmentVariableScope(RenderingPipelineEnvironmentVariableName, null);
         using var cts = new CancellationTokenSource();
 
         var hostBuilder = Host.CreateApplicationBuilder();
@@ -65,7 +68,43 @@ public sealed class ConsoleAppTests
         await runTask;
 
         options.ShouldNotBeNull();
+        options.RenderingPipeline.ShouldBe(RazorConsoleRenderingPipeline.WidgetLayout);
         options.ShouldBeEquivalentTo(new ConsoleAppOptions());
+    }
+
+    [Fact]
+    public void ConsoleAppOptions_DefaultsToWidgetLayoutWhenRenderingPipelineEnvironmentVariableIsNotSet()
+    {
+        using var environment = new EnvironmentVariableScope(RenderingPipelineEnvironmentVariableName, null);
+
+        var options = new ConsoleAppOptions();
+
+        options.RenderingPipeline.ShouldBe(RazorConsoleRenderingPipeline.WidgetLayout);
+    }
+
+    [Theory]
+    [InlineData("LegacySpectre")]
+    [InlineData("legacy")]
+    [InlineData("spectre")]
+    public void ConsoleAppOptions_UsesLegacySpectreWhenRenderingPipelineEnvironmentVariableRequestsIt(string value)
+    {
+        using var environment = new EnvironmentVariableScope(RenderingPipelineEnvironmentVariableName, value);
+
+        var options = new ConsoleAppOptions();
+
+        options.RenderingPipeline.ShouldBe(RazorConsoleRenderingPipeline.LegacySpectre);
+    }
+
+    [Theory]
+    [InlineData("WidgetLayout")]
+    [InlineData("widget")]
+    public void ConsoleAppOptions_UsesWidgetLayoutWhenRenderingPipelineEnvironmentVariableRequestsIt(string value)
+    {
+        using var environment = new EnvironmentVariableScope(RenderingPipelineEnvironmentVariableName, value);
+
+        var options = new ConsoleAppOptions();
+
+        options.RenderingPipeline.ShouldBe(RazorConsoleRenderingPipeline.WidgetLayout);
     }
 
     private sealed class TestComponent : ComponentBase
@@ -80,6 +119,22 @@ public sealed class ConsoleAppTests
             builder.AddContent(2, Message ?? string.Empty);
             builder.CloseElement();
         }
+    }
+
+    private sealed class EnvironmentVariableScope : IDisposable
+    {
+        private readonly string _name;
+        private readonly string? _originalValue;
+
+        public EnvironmentVariableScope(string name, string? value)
+        {
+            _name = name;
+            _originalValue = Environment.GetEnvironmentVariable(name);
+            Environment.SetEnvironmentVariable(name, value);
+        }
+
+        public void Dispose()
+            => Environment.SetEnvironmentVariable(_name, _originalValue);
     }
 }
 

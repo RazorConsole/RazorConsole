@@ -1,0 +1,17 @@
+@namespace Layout.Components
+
+@using RazorConsole.Components
+@using RazorConsole.Core.Renderables
+
+<Flex data-vnode-hook="layout-split"
+      Direction="FlexDirection.Column"
+      FillWidth="true"
+      FillHeight="true"
+      Gap="1">
+    <Box data-vnode-hook="layout-split-top" Border="BoxBorder.Rounded" FillWidth="true" FillHeight="true">
+        <LayoutDimensionLabel HookKey="layout-split-top" Label="Top" />
+    </Box>
+    <Box data-vnode-hook="layout-split-bottom" Border="BoxBorder.Rounded" FillWidth="true" FillHeight="true">
+        <LayoutDimensionLabel HookKey="layout-split-bottom" Label="Bottom" />
+    </Box>
+</Flex>

@@ -21,9 +21,24 @@ public sealed class TextInputTests
         var root = snapshot.Root.ShouldBeOfType<RazorConsole.Core.Vdom.VNode>();
         root.TagName.ShouldBe("div");
         root.Attributes["data-focusable"].ShouldBe("true");
-        root.Attributes.ContainsKey("data-text-input").ShouldBeTrue();
+        root.Attributes.ContainsKey("data-text-input").ShouldBeFalse();
         root.Attributes["value"].ShouldBe("Alice");
         root.Attributes["data-has-value"].ShouldBe("true");
+
+        var box = FindNode(root, static node =>
+            node.Attributes.TryGetValue("class", out var className) &&
+            className == "box" &&
+            node.Attributes.TryGetValue("data-border", out var border) &&
+            border == "rounded");
+        box.ShouldNotBeNull();
+        box!.Attributes.ContainsKey("data-header").ShouldBeFalse();
+
+        var flex = FindNode(root, static node =>
+            node.Attributes.TryGetValue("class", out var className) &&
+            className == "flex" &&
+            node.Attributes.TryGetValue("data-direction", out var direction) &&
+            direction == "row");
+        flex.ShouldNotBeNull();
     }
 
     [Fact]

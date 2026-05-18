@@ -1,0 +1,27 @@
+@namespace Layout.Components
+
+@using RazorConsole.Components
+@using RazorConsole.Core.Renderables
+
+<Flex data-vnode-hook="layout-dashboard"
+      Direction="FlexDirection.Column"
+      FillWidth="true"
+      FillHeight="true"
+      Gap="1">
+    <Flex Direction="FlexDirection.Row" FillWidth="true" FillHeight="true" Gap="1">
+        <Box data-vnode-hook="layout-dashboard-a" Border="BoxBorder.Rounded" FillWidth="true" FillHeight="true">
+            <LayoutDimensionLabel HookKey="layout-dashboard-a" Label="Metric A" />
+        </Box>
+        <Box data-vnode-hook="layout-dashboard-b" Border="BoxBorder.Rounded" FillWidth="true" FillHeight="true">
+            <LayoutDimensionLabel HookKey="layout-dashboard-b" Label="Metric B" />
+        </Box>
+    </Flex>
+    <Flex Direction="FlexDirection.Row" FillWidth="true" FillHeight="true" Gap="1">
+        <Box data-vnode-hook="layout-dashboard-c" Border="BoxBorder.Rounded" FillWidth="true" FillHeight="true">
+            <LayoutDimensionLabel HookKey="layout-dashboard-c" Label="Metric C" />
+        </Box>
+        <Box data-vnode-hook="layout-dashboard-d" Border="BoxBorder.Rounded" FillWidth="true" FillHeight="true">
+            <LayoutDimensionLabel HookKey="layout-dashboard-d" Label="Metric D" />
+        </Box>
+    </Flex>
+</Flex>

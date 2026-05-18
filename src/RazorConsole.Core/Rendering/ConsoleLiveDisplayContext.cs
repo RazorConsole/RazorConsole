@@ -117,7 +117,24 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         }
     }
 
-    private void HandleTerminalResize() => _canvas.Refresh();
+    private void HandleTerminalResize()
+    {
+        try
+        {
+            var snapshot = _renderer.RefreshSnapshot();
+            var view = ConsoleViewResult.FromSnapshot(snapshot);
+            lock (_sync)
+            {
+                _canvas.UpdateTarget(view.Renderable);
+                _currentView = view;
+                UpdateAnimations(view.AnimatedRenderables);
+            }
+        }
+        catch
+        {
+            _canvas.Refresh();
+        }
+    }
 
     public void Dispose()
     {
@@ -128,6 +145,11 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         DisposeAnimations();
         _terminalMonitor.OnResized -= HandleTerminalResize;
         _snapshotSubscription?.Dispose();
+        if (_canvas is IDisposable disposableCanvas)
+        {
+            disposableCanvas.Dispose();
+        }
+
         _disposed = true;
     }
 

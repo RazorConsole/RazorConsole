@@ -37,7 +37,9 @@ public sealed class PadderElementTranslator : ITranslationMiddleware
     private static bool CanHandle(VNode node)
         => node.Kind == VNodeKind.Element
            && node.Attributes.TryGetValue("class", out var value)
-           && string.Equals(value, "padder", StringComparison.OrdinalIgnoreCase);
+           && (string.Equals(value, "padder", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "box", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(VdomSpectreTranslator.GetAttribute(node, "data-layout"), "box", StringComparison.OrdinalIgnoreCase));
 
     private static Padding ParsePadding(string? raw)
     {

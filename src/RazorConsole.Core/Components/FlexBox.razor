@@ -4,16 +4,16 @@
 @using Microsoft.AspNetCore.Components
 @using RazorConsole.Core.Renderables
 
-<div class="flexbox"
-    data-direction="@DirectionAttribute"
-    data-justify="@JustifyAttribute"
-    data-align="@AlignAttribute"
-    data-wrap="@WrapAttribute"
-    data-gap="@GapAttribute"
-    data-width="@WidthAttribute"
-    data-height="@HeightAttribute">
+<Flex Class="flexbox"
+    Direction="Direction"
+    Justify="Justify"
+    Align="Align"
+    Wrap="Wrap"
+    Gap="Gap"
+    Width="Width"
+    Height="Height">
     @ChildContent
-</div>
+</Flex>
 
 @code {
         /// <summary>
@@ -76,13 +76,4 @@
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
-    private string DirectionAttribute => Direction.ToString().ToLowerInvariant();
-    private string JustifyAttribute => Justify.ToString().ToLowerInvariant();
-    private string AlignAttribute => Align.ToString().ToLowerInvariant();
-    private string WrapAttribute => Wrap.ToString().ToLowerInvariant();
-    private string GapAttribute => Gap.ToString(CultureInfo.InvariantCulture);
-    private string? WidthAttribute => Width.HasValue && Width.Value > 0
-        ? Width.Value.ToString(CultureInfo.InvariantCulture) : null;
-    private string? HeightAttribute => Height.HasValue && Height.Value > 0
-        ? Height.Value.ToString(CultureInfo.InvariantCulture) : null;
 }

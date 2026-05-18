@@ -8,16 +8,18 @@
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Web
 @using RazorConsole.Components
+@using RazorConsole.Core.Renderables
 @using Spectre.Console
 
 <div class="text-input"
      @attributes="AdditionalAttributes"
      @key="@_generatedFocusKey"
-    data-text-input="true"
     data-focusable="@FocusableAttribute"
     data-focus-key="@_generatedFocusKey"
     data-focus-order="@FocusOrderAttribute"
     data-expand="@ExpandAttribute"
+    data-fill-width="@FillWidthAttribute"
+    data-fill-height="@FillHeightAttribute"
     data-placeholder="@PlaceholderAttribute"
     data-mask-input="@MaskInputAttribute"
     data-has-value="@HasValueAttribute"
@@ -26,17 +28,18 @@
     @onchange="HandleSubmitAsync"
     @onfocus="HandleFocusAsync"
     @onfocusout="HandleBlurAsync">
-    <Panel BorderColor="@CurrentBorderColor" Border="@BorderStyle" Padding="@BorderPadding" Expand="@Expand">
-        @if (!string.IsNullOrWhiteSpace(Label))
+    <Box BorderColor="@CurrentBorderColor" Border="@BorderStyle" Padding="@BorderPadding" Expand="@Expand" FillWidth="@FillWidth" FillHeight="@FillHeight">
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            @if (!string.IsNullOrWhiteSpace(Label))
             {
                 <Markup Content="@Label" Foreground="@LabelColor" Decoration="@LabelDecoration" />
             }
-            <Padder Padding="@ContentPadding">
-                <Markup Content="@DisplayContent"
-                        Foreground="@DisplayForeground"
-                        Decoration="@DisplayDecoration" />
-            </Padder>
-    </Panel>
+
+            <Markup Content="@DisplayContent"
+                    Foreground="@DisplayForeground"
+                    Decoration="@DisplayDecoration" />
+        </Flex>
+    </Box>
 </div>
 @code {
     /// <summary>
@@ -217,6 +220,18 @@
     public bool Expand { get; set; }
 
     /// <summary>
+    /// Whether the input should fill the width offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillWidth { get; set; }
+
+    /// <summary>
+    /// Whether the input should fill the height offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillHeight { get; set; }
+
+    /// <summary>
     /// Whether the input is disabled. When disabled, cannot receive focus or accept input.
     /// </summary>
     /// <remarks>
@@ -251,6 +266,10 @@
         : null;
 
     private string ExpandAttribute => Expand ? "true" : "false";
+
+    private string FillWidthAttribute => FillWidth ? "true" : "false";
+
+    private string FillHeightAttribute => FillHeight ? "true" : "false";
 
     private string? PlaceholderAttribute => string.IsNullOrWhiteSpace(Placeholder) ? null : Placeholder;
 

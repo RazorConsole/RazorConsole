@@ -27,6 +27,7 @@ The documentation uses various Mermaid diagram types:
 - `wasm-js-interop.md` - Browser/WASM interop
 - `custom-translators.md` - Custom translator development
 - `block-inline-renderable.md` - Block/inline rendering
+- `layout-box-flex.md` - Native layout model for Box, Flex, fill, padding, margin, borders, and diagnostics
 - `syntax-highlighter.md` - Syntax highlighting component
 
 ## Editing Diagrams

@@ -1,0 +1,41 @@
+@namespace Layout.Components
+
+@using Microsoft.AspNetCore.Components
+@using RazorConsole.Components
+@using RazorConsole.Core.Renderables
+@using RazorConsole.Core.Vdom
+@using Spectre.Console
+
+@inject IVNodeLayoutAccessor LayoutAccessor
+
+<Flex Direction="FlexDirection.Column"
+      FillWidth="true"
+      FillHeight="true"
+      Align="FlexAlign.Center"
+      Justify="FlexJustify.Center">
+    <Markup Content="@DimensionText" Foreground="Color.DeepSkyBlue1" Decoration="Decoration.Bold" />
+</Flex>
+
+@code {
+    [Parameter]
+    public string HookKey { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Label { get; set; } = string.Empty;
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+        => firstRender ? InvokeAsync(StateHasChanged) : Task.CompletedTask;
+
+    private string DimensionText
+    {
+        get
+        {
+            if (!LayoutAccessor.TryGetLayoutByHookKey(HookKey, out var layout))
+            {
+                return $"{Label}: measuring...";
+            }
+
+            return $"{Label}: {layout.Width}x{layout.Height} at {layout.Left},{layout.Top}";
+        }
+    }
+}

@@ -1,0 +1,282 @@
+@namespace RazorConsole.Components
+
+@using Microsoft.AspNetCore.Components
+@using RazorConsole.Core.Focus
+@using RazorConsole.Core.Vdom
+@using Spectre.Console
+
+@inject IVNodeIdAccessor VNodeIdAccessor
+@inject IVNodeLayoutAccessor LayoutAccessor
+@inject FocusManager FocusManager
+
+@implements IDisposable
+
+<div class="rows" data-vnode-hook="@EffectiveDiagnosticHookKey">
+    <Panel Title="@Title" Border="BoxBorder.Rounded" Expand="@Expand">
+        <Rows>
+            <Markup Content="@($"Target: {FormatTarget()}")" Foreground="@Color.Grey70" />
+            <Markup Content="@($"Target vnode: {ResolveTargetVNodeId() ?? "<missing>"}")" Foreground="@Color.Grey70" />
+            <Markup Content="@($"Layout: {FormatLayout()}")" Foreground="@LayoutColor" />
+
+            @if (ShowParentLayouts)
+            {
+                var ancestry = ResolveLayoutAncestryForDisplay();
+                <Markup Content="@($"Layout ancestry: {ancestry.Count}")" Foreground="@Color.Grey70" />
+                @foreach (var entry in ancestry.Select((layout, index) => new { Layout = layout, Index = index }))
+                {
+                    <Markup Content="@($"{entry.Index}: {FormatLayoutEntry(entry.Layout)}")" Foreground="@(entry.Index == 0 ? Color.Grey58 : Color.Grey70)" />
+                }
+            }
+
+            @if (ShowFocusMetadata)
+            {
+                <Markup Content="@($"Focus: {FormatFocus()}")" Foreground="@Color.Aqua" />
+                <Markup Content="@($"Has focusables: {FocusManager.HasFocusables}")" Foreground="@Color.Grey70" />
+            }
+
+            @if (ShowAttributes && TryGetFocusedAttributes(out var attributes))
+            {
+                <Markup Content="Focused attributes:" Foreground="@Color.Grey70" />
+                @foreach (var attribute in attributes.Take(MaxAttributes))
+                {
+                    <Markup Content="@($"- {attribute.Key}: {attribute.Value}")" Foreground="@Color.Grey58" />
+                }
+            }
+        </Rows>
+    </Panel>
+</div>
+
+@code {
+    private readonly string _generatedHookKey = $"layout-diagnostics-{Guid.NewGuid():N}";
+    private bool _disposed;
+
+    /// <summary>
+    /// Title shown on the diagnostics panel.
+    /// </summary>
+    [Parameter]
+    public string Title { get; set; } = "Layout Diagnostics";
+
+    /// <summary>
+    /// Hook key assigned to the diagnostics component root. When <see cref="TargetHookKey" /> is not set, this component diagnoses itself.
+    /// </summary>
+    [Parameter]
+    public string? DiagnosticHookKey { get; set; }
+
+    /// <summary>
+    /// Optional hook key to inspect. When omitted, the component inspects the current focused element when available,
+    /// then falls back to its own layout information.
+    /// </summary>
+    [Parameter]
+    public string? TargetHookKey { get; set; }
+
+    /// <summary>
+    /// Whether the panel should expand to the available width.
+    /// </summary>
+    [Parameter]
+    public bool Expand { get; set; } = true;
+
+    /// <summary>
+    /// Whether focus metadata should be rendered.
+    /// </summary>
+    [Parameter]
+    public bool ShowFocusMetadata { get; set; } = true;
+
+    /// <summary>
+    /// Whether parent layout metadata should be rendered from root to target.
+    /// </summary>
+    [Parameter]
+    public bool ShowParentLayouts { get; set; } = true;
+
+    /// <summary>
+    /// Whether focused target attributes should be rendered.
+    /// </summary>
+    [Parameter]
+    public bool ShowAttributes { get; set; }
+
+    /// <summary>
+    /// Maximum number of focused target attributes to render.
+    /// </summary>
+    [Parameter]
+    public int MaxAttributes { get; set; } = 8;
+
+    private string EffectiveDiagnosticHookKey => string.IsNullOrWhiteSpace(DiagnosticHookKey)
+        ? _generatedHookKey
+        : DiagnosticHookKey!;
+
+    private string? EffectiveTargetHookKey => string.IsNullOrWhiteSpace(TargetHookKey) ? null : TargetHookKey!;
+
+    private Color LayoutColor => TryResolveLayout(out _) ? Color.Green : Color.Yellow;
+
+    protected override void OnInitialized()
+    {
+        FocusManager.FocusChanged += OnFocusChanged;
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+        => firstRender ? InvokeAsync(StateHasChanged) : Task.CompletedTask;
+
+    public void Dispose()
+    {
+        _disposed = true;
+        FocusManager.FocusChanged -= OnFocusChanged;
+    }
+
+    private void OnFocusChanged(object? sender, FocusChangedEventArgs e)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private string? ResolveTargetVNodeId()
+    {
+        if (!string.IsNullOrWhiteSpace(EffectiveTargetHookKey))
+        {
+            return VNodeIdAccessor.GetVNodeIdOrDefault(EffectiveTargetHookKey);
+        }
+
+        if (FocusManager.TryGetFocusedTarget(out var target) && target is not null)
+        {
+            return TryResolveFocusedLayout(target, out var layout) ? layout.VNodeId : target.VNodeId;
+        }
+
+        return VNodeIdAccessor.GetVNodeIdOrDefault(EffectiveDiagnosticHookKey);
+    }
+
+    private string FormatTarget()
+    {
+        if (!string.IsNullOrWhiteSpace(EffectiveTargetHookKey))
+        {
+            return $"hook={EffectiveTargetHookKey}";
+        }
+
+        if (FocusManager.TryGetFocusedTarget(out var target) && target is not null)
+        {
+            return $"focused key={target.Key}";
+        }
+
+        return $"self hook={EffectiveDiagnosticHookKey}";
+    }
+
+    private string FormatLayout()
+    {
+        if (!TryResolveLayout(out var layout))
+        {
+            return "<not available in current snapshot>";
+        }
+
+        return FormatLayoutEntry(layout);
+    }
+
+    private IReadOnlyList<VNodeLayoutInfo> ResolveLayoutAncestry()
+    {
+        if (!string.IsNullOrWhiteSpace(EffectiveTargetHookKey))
+        {
+            return LayoutAccessor.GetLayoutAncestorsByHookKey(EffectiveTargetHookKey);
+        }
+
+        if (FocusManager.TryGetFocusedTarget(out var target) && target is not null)
+        {
+            if (target.Attributes.TryGetValue("data-focus-key", out var focusKey) && !string.IsNullOrWhiteSpace(focusKey))
+            {
+                var focusAncestry = LayoutAccessor.GetLayoutAncestorsByFocusKey(focusKey);
+                if (focusAncestry.Count > 0)
+                {
+                    return focusAncestry;
+                }
+            }
+
+            if (TryResolveFocusedLayout(target, out var layout))
+            {
+                var layoutAncestry = LayoutAccessor.GetLayoutAncestorsByVNodeId(layout.VNodeId);
+                return layoutAncestry.Count > 0 ? layoutAncestry : [layout];
+            }
+
+            return LayoutAccessor.GetLayoutAncestorsByVNodeId(target.VNodeId);
+        }
+
+        return LayoutAccessor.GetLayoutAncestorsByHookKey(EffectiveDiagnosticHookKey);
+    }
+
+    private IReadOnlyList<VNodeLayoutInfo> ResolveLayoutAncestryForDisplay()
+    {
+        var ancestry = ResolveLayoutAncestry();
+        if (ancestry.Count > 0)
+        {
+            return ancestry;
+        }
+
+        return TryResolveLayout(out var layout) ? [layout] : [];
+    }
+
+    private string FormatFocus()
+    {
+        if (FocusManager.TryGetFocusedTarget(out var target) && target is not null)
+        {
+            return $"key={target.Key}";
+        }
+
+        return FocusManager.CurrentFocusKey is null
+            ? "<none>"
+            : $"key={FocusManager.CurrentFocusKey}";
+    }
+
+    private bool TryResolveLayout(out VNodeLayoutInfo layout)
+    {
+        layout = default;
+
+        if (!string.IsNullOrWhiteSpace(EffectiveTargetHookKey)
+            && LayoutAccessor.TryGetLayoutByHookKey(EffectiveTargetHookKey, out layout))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(EffectiveTargetHookKey)
+            && FocusManager.TryGetFocusedTarget(out var target)
+            && target is not null
+            && TryResolveFocusedLayout(target, out layout))
+        {
+            return true;
+        }
+
+        var vnodeId = ResolveTargetVNodeId();
+        return !string.IsNullOrWhiteSpace(vnodeId)
+            && LayoutAccessor.TryGetLayoutByVNodeId(vnodeId, out layout);
+    }
+
+    private bool TryResolveFocusedLayout(FocusManager.FocusTarget target, out VNodeLayoutInfo layout)
+    {
+        if (target.Attributes.TryGetValue("data-focus-key", out var focusKey)
+            && !string.IsNullOrWhiteSpace(focusKey)
+            && LayoutAccessor.TryGetLayoutByFocusKey(focusKey, out layout))
+        {
+            return true;
+        }
+
+        return LayoutAccessor.TryGetLayoutByVNodeId(target.VNodeId, out layout);
+    }
+
+    private bool TryGetFocusedAttributes(out IReadOnlyDictionary<string, string?> attributes)
+    {
+        if (FocusManager.TryGetFocusedTarget(out var target) && target is not null)
+        {
+            attributes = target.Attributes;
+            return attributes.Count > 0;
+        }
+
+        attributes = new Dictionary<string, string?>(StringComparer.Ordinal);
+        return false;
+    }
+
+    private static string Format(int? value)
+        => value?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "?";
+
+    private static string FormatLayoutEntry(VNodeLayoutInfo layout)
+        => $"vnode={Shorten(layout.VNodeId)}, left={Format(layout.Left)}, top={Format(layout.Top)}, width={Format(layout.Width)}, height={Format(layout.Height)}, z={layout.ZIndex}, centered={layout.IsCentered}";
+
+    private static string Shorten(string value)
+        => value.Length <= 8 ? value : value[..8];
+}

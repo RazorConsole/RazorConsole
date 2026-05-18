@@ -1,0 +1,198 @@
+@namespace RazorConsole.Components
+
+@using System.Collections.Generic
+@using System.Globalization
+@using Microsoft.AspNetCore.Components
+@using RazorConsole.Core.Rendering.ComponentMarkup
+@using Spectre.Console
+
+<div class="@Class"
+    @attributes="AdditionalAttributes"
+    data-layout="box"
+    data-padding="@PaddingAttribute"
+    data-margin="@MarginAttribute"
+    data-expand="@ExpandAttribute"
+    data-fill-width="@FillWidthAttribute"
+    data-fill-height="@FillHeightAttribute"
+    data-width="@WidthAttribute"
+    data-height="@HeightAttribute"
+    data-header="@TitleAttribute"
+    data-header-color="@HeaderColorAttribute"
+    data-border-color="@BorderColorAttribute"
+    data-border="@BorderAttribute"
+    data-horizontal="@HorizontalAttribute"
+    data-vertical="@VerticalAttribute">
+    @ChildContent
+</div>
+
+@code {
+    private static readonly Padding NoPadding = new(0, 0, 0, 0);
+
+    private static readonly IReadOnlyDictionary<BoxBorder, string> BorderNames = new Dictionary<BoxBorder, string>
+    {
+        { BoxBorder.Square, "square" },
+        { BoxBorder.Rounded, "rounded" },
+        { BoxBorder.Double, "double" },
+        { BoxBorder.Heavy, "heavy" },
+        { BoxBorder.Ascii, "ascii" },
+        { BoxBorder.None, "none" },
+    };
+
+    /// <summary>
+    /// Content rendered inside the box.
+    /// </summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// CSS class emitted for translator compatibility. Default is <c>box</c>.
+    /// </summary>
+    [Parameter]
+    public string Class { get; set; } = "box";
+
+    /// <summary>
+    /// Padding around the child content.
+    /// </summary>
+    [Parameter]
+    public Padding? Padding { get; set; }
+
+    /// <summary>
+    /// Margin outside the box border.
+    /// </summary>
+    [Parameter]
+    public Padding? Margin { get; set; }
+
+    /// <summary>
+    /// Whether the box should expand when a parent container allocates remaining space. Prefer <see cref="FillWidth"/> and <see cref="FillHeight"/> for new code.
+    /// </summary>
+    [Parameter]
+    public bool Expand { get; set; }
+
+    /// <summary>
+    /// Whether the box should fill the width offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillWidth { get; set; }
+
+    /// <summary>
+    /// Whether the box should fill the height offered by its parent.
+    /// </summary>
+    [Parameter]
+    public bool FillHeight { get; set; }
+
+    /// <summary>
+    /// Explicit width in terminal cells.
+    /// </summary>
+    [Parameter]
+    public int? Width { get; set; }
+
+    /// <summary>
+    /// Explicit height in terminal rows.
+    /// </summary>
+    [Parameter]
+    public int? Height { get; set; }
+
+    /// <summary>
+    /// Optional title used by panel-compatible boxes.
+    /// </summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// Optional title color used by panel-compatible boxes.
+    /// </summary>
+    [Parameter]
+    public Color? TitleColor { get; set; }
+
+    /// <summary>
+    /// Optional border color used by panel-compatible boxes.
+    /// </summary>
+    [Parameter]
+    public Color? BorderColor { get; set; }
+
+    /// <summary>
+    /// Optional border style used by panel-compatible boxes.
+    /// </summary>
+    [Parameter]
+    public BoxBorder? Border { get; set; }
+
+    /// <summary>
+    /// Horizontal child alignment used by align-compatible boxes.
+    /// </summary>
+    [Parameter]
+    public HorizontalAlignment? Horizontal { get; set; }
+
+    /// <summary>
+    /// Vertical child alignment used by align-compatible boxes.
+    /// </summary>
+    [Parameter]
+    public VerticalAlignment? Vertical { get; set; }
+
+    /// <summary>
+    /// Additional attributes applied to the emitted box element.
+    /// </summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
+
+    private string ExpandAttribute => Expand ? "true" : "false";
+
+    private string FillWidthAttribute => FillWidth ? "true" : "false";
+
+    private string FillHeightAttribute => FillHeight ? "true" : "false";
+
+    private string? TitleAttribute => string.IsNullOrWhiteSpace(Title) ? null : Title;
+
+    private string? HeaderColorAttribute => TitleColor?.ToMarkup();
+
+    private string? BorderColorAttribute => BorderColor?.ToMarkup();
+
+    private string? BorderAttribute
+    {
+        get
+        {
+            if (Border is null)
+            {
+                return null;
+            }
+
+            if (BorderNames.TryGetValue(Border, out var name))
+            {
+                return name;
+            }
+
+            return Border.GetType().Name.ToLowerInvariant();
+        }
+    }
+
+    private string? HorizontalAttribute => Horizontal?.ToString().ToLowerInvariant();
+
+    private string? VerticalAttribute => Vertical?.ToString().ToLowerInvariant();
+
+    private string? PaddingAttribute
+        => FormatSpacing(Padding ?? NoPadding);
+
+    private string? MarginAttribute
+        => FormatSpacing(Margin ?? NoPadding);
+
+    private static string? FormatSpacing(Padding spacing)
+    {
+        if (spacing.Left == 0 && spacing.Top == 0 && spacing.Right == 0 && spacing.Bottom == 0)
+        {
+            return null;
+        }
+
+        return string.Join(",",
+            spacing.Left.ToString(CultureInfo.InvariantCulture),
+            spacing.Top.ToString(CultureInfo.InvariantCulture),
+            spacing.Right.ToString(CultureInfo.InvariantCulture),
+            spacing.Bottom.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private string? WidthAttribute => Width.HasValue && Width.Value > 0
+        ? Width.Value.ToString(CultureInfo.InvariantCulture)
+        : null;
+
+    private string? HeightAttribute => Height.HasValue && Height.Value > 0
+        ? Height.Value.ToString(CultureInfo.InvariantCulture)
+        : null;
+}

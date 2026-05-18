@@ -15,6 +15,7 @@ builder.UseRazorConsole<App>(configure: config =>
     config.Services.Configure<ConsoleAppOptions>(opt =>
     {
         opt.EnableTerminalResizing = true;
+        opt.ConsoleLiveDisplayOptions.UseAlternateScreenBuffer = true;
     });
 });
 

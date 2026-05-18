@@ -9,7 +9,9 @@ var builder = Host.CreateDefaultBuilder(args)
     {
         config.ConfigureServices(s =>
             s.Configure<ConsoleAppOptions>(opt =>
-                opt.EnableTerminalResizing = true
+            {
+                opt.EnableTerminalResizing = true;
+            }
             )
         );
     });

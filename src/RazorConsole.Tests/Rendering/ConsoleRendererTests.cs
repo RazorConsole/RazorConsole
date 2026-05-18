@@ -1,11 +1,16 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 #pragma warning disable BL0006 // RenderTree types are "internal-ish"; acceptable for console renderer tests.
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.Extensions.DependencyInjection;
+using RazorConsole.Core;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Vdom;
 using RazorConsole.Tests.TestComponents;
+using Spectre.Console;
+using Spectre.Console.Rendering;
 
 namespace RazorConsole.Tests.Rendering;
 
@@ -42,6 +47,63 @@ public sealed class ConsoleRendererTests
 
         snapshot.Root.ShouldNotBeNull();
         snapshot.Renderable.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task WidgetLayoutPipeline_WithSimpleComponent_ReturnsCanvasRenderableOutput()
+    {
+        using var renderer = CreateWidgetLayoutRenderer(out _);
+
+        var snapshot = await renderer.MountComponentAsync<SimpleComponent>(ParameterView.Empty, CancellationToken.None);
+
+        snapshot.Root.ShouldNotBeNull();
+        snapshot.Renderable.ShouldNotBeNull();
+        RenderToText(snapshot.Renderable!, maxWidth: 20).ShouldBe("Simple");
+    }
+
+    [Fact]
+    public async Task WidgetLayoutPipeline_CollectsAnimatedFallbackRenderables()
+    {
+        using var renderer = CreateWidgetLayoutRenderer(out _);
+
+        var snapshot = await renderer.MountComponentAsync<SpinnerComponent>(ParameterView.Empty, CancellationToken.None);
+
+        snapshot.Renderable.ShouldNotBeNull();
+        snapshot.AnimatedRenderables.Count.ShouldBe(1);
+        RenderToText(snapshot.Renderable!, maxWidth: 20).ShouldContain("Loading");
+    }
+
+    [Fact]
+    public async Task WidgetLayoutPipeline_PopulatesLayoutAccessorByHook()
+    {
+        using var renderer = CreateWidgetLayoutRenderer(out var serviceProvider);
+        var layoutAccessor = serviceProvider.GetRequiredService<IVNodeLayoutAccessor>();
+
+        await renderer.MountComponentAsync<HookedRowsComponent>(ParameterView.Empty, CancellationToken.None);
+
+        layoutAccessor.TryGetLayoutByHookKey("root-hook", out var rootLayout).ShouldBeTrue();
+        rootLayout.Top.ShouldBe(0);
+        rootLayout.Left.ShouldBe(0);
+        rootLayout.Width.ShouldBe(1);
+        rootLayout.Height.ShouldBe(2);
+
+        layoutAccessor.TryGetLayoutByHookKey("first-hook", out var firstLayout).ShouldBeTrue();
+        firstLayout.Top.ShouldBe(0);
+        firstLayout.Left.ShouldBe(0);
+        firstLayout.Width.ShouldBe(1);
+        firstLayout.Height.ShouldBe(1);
+
+        layoutAccessor.TryGetLayoutByFocusKey("first-focus", out var focusedLayout).ShouldBeTrue();
+        focusedLayout.VNodeId.ShouldBe(firstLayout.VNodeId);
+        focusedLayout.Top.ShouldBe(firstLayout.Top);
+        focusedLayout.Left.ShouldBe(firstLayout.Left);
+        focusedLayout.Width.ShouldBe(firstLayout.Width);
+        focusedLayout.Height.ShouldBe(firstLayout.Height);
+
+        var ancestry = layoutAccessor.GetLayoutAncestorsByFocusKey("first-focus");
+        ancestry.Count.ShouldBe(2);
+        ancestry[0].VNodeId.ShouldBe(rootLayout.VNodeId);
+        ancestry[1].VNodeId.ShouldBe(firstLayout.VNodeId);
     }
 
     [Fact]
@@ -150,8 +212,11 @@ public sealed class ConsoleRendererTests
             }
         }));
 
-        component.UpdateOffset(10);
-        component.Ready();
+        await renderer.Dispatcher.InvokeAsync(() =>
+        {
+            component.UpdateOffset(10);
+            component.Ready();
+        });
 
         // Assert
         var updatedSnapshot = await tcs.Task.WaitAsync(TestContext.Current.CancellationToken);
@@ -168,6 +233,44 @@ public sealed class ConsoleRendererTests
             child.Children[0].Text.ShouldBe("10");
             child.Children[1].Text.ShouldBe("10");
         }
+    }
+
+    [Fact]
+    public async Task ObserverNotifications_CoalesceWhilePreviousNotificationIsRunning()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var component = new BurstRenderComponent();
+        await renderer.MountComponentAsync(component, ParameterView.Empty, CancellationToken.None);
+
+        var observer = new BlockingObserver();
+        using var subscription = renderer.Subscribe(observer);
+
+        await component.SetValueAsync(1);
+        await observer.WaitUntilBlockedAsync(TestContext.Current.CancellationToken);
+
+        for (var i = 2; i <= 50; i++)
+        {
+            await component.SetValueAsync(i);
+        }
+
+        observer.Release();
+        await observer.WaitForValueAsync(50, TestContext.Current.CancellationToken);
+
+        observer.Values.Count.ShouldBeLessThanOrEqualTo(3);
+        observer.Values.ShouldContain(50);
+    }
+
+    [Fact]
+    public async Task Dispatcher_ConcurrentStateUpdates_SerializesRenderTreeDiffs()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var component = new BurstRenderComponent();
+        await renderer.MountComponentAsync(component, ParameterView.Empty, CancellationToken.None);
+
+        await Task.WhenAll(Enumerable.Range(0, 100).Select(_ => component.IncrementAsync()));
+
+        var snapshot = renderer.RefreshSnapshot();
+        ReadText(snapshot.Root).ShouldBe("100");
     }
 
 
@@ -192,6 +295,29 @@ public sealed class ConsoleRendererTests
             }
         }
         return null;
+    }
+
+    private static ConsoleRenderer CreateWidgetLayoutRenderer(out ServiceProvider serviceProvider)
+    {
+        var services = new ServiceCollection();
+        services.AddRazorConsoleServices();
+        services.Configure<ConsoleAppOptions>(options => options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout);
+        serviceProvider = services.BuildServiceProvider();
+        return TestHelpers.CreateTestRenderer(serviceProvider);
+    }
+
+    private static string RenderToText(IRenderable renderable, int maxWidth)
+    {
+        var console = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Ansi = AnsiSupport.No,
+            ColorSystem = ColorSystemSupport.NoColors,
+            Out = new AnsiConsoleOutput(TextWriter.Null),
+        });
+
+        var options = new RenderOptions(console.Profile.Capabilities, new Spectre.Console.Size(maxWidth, 25));
+        var segments = renderable.Render(options, maxWidth);
+        return string.Concat(segments.Select(segment => segment.IsLineBreak ? "\n" : segment.Text));
     }
 
     private sealed class RegionTestComponent : ComponentBase
@@ -233,6 +359,9 @@ public sealed class ConsoleRendererTests
         }
     }
 
+    private static string ReadText(VNode? root)
+        => root?.Children.FirstOrDefault()?.Text ?? string.Empty;
+
     private sealed class ContainerComponent : ComponentBase
     {
         protected override void BuildRenderTree(RenderTreeBuilder builder)
@@ -260,6 +389,120 @@ public sealed class ConsoleRendererTests
         {
             builder.OpenElement(0, "div");
             builder.AddContent(1, "Simple");
+            builder.CloseElement();
+        }
+    }
+
+    private sealed class BurstRenderComponent : ComponentBase
+    {
+        private int _value;
+
+        public Task SetValueAsync(int value)
+            => InvokeAsync(() =>
+            {
+                _value = value;
+                StateHasChanged();
+            });
+
+        public Task IncrementAsync()
+            => InvokeAsync(() =>
+            {
+                _value++;
+                StateHasChanged();
+            });
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddContent(1, _value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            builder.CloseElement();
+        }
+    }
+
+    private sealed class BlockingObserver : IObserver<ConsoleRenderer.RenderSnapshot>
+    {
+        private readonly TaskCompletionSource _blocked = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly ConcurrentQueue<int> _values = new();
+        private int _notificationCount;
+
+        public IReadOnlyCollection<int> Values => _values.ToArray();
+
+        public void OnCompleted()
+        {
+        }
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnNext(ConsoleRenderer.RenderSnapshot value)
+        {
+            var count = Interlocked.Increment(ref _notificationCount);
+            var snapshotValue = ReadValue(value.Root);
+            _values.Enqueue(snapshotValue);
+
+            if (count == 2)
+            {
+                _blocked.TrySetResult();
+                _released.Task.GetAwaiter().GetResult();
+            }
+        }
+
+        public Task WaitUntilBlockedAsync(CancellationToken cancellationToken)
+            => _blocked.Task.WaitAsync(cancellationToken);
+
+        public async Task WaitForValueAsync(int value, CancellationToken cancellationToken)
+        {
+            while (!_values.Contains(value))
+            {
+                await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        public void Release()
+            => _released.TrySetResult();
+
+        private static int ReadValue(VNode? root)
+        {
+            var text = root?.Children.FirstOrDefault()?.Text;
+            return int.TryParse(text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value)
+                ? value
+                : -1;
+        }
+    }
+
+    private sealed class SpinnerComponent : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "spinner");
+            builder.AddAttribute(2, "data-spinner", "true");
+            builder.AddAttribute(3, "data-spinner-type", "Dots");
+            builder.AddAttribute(4, "data-message", "Loading");
+            builder.CloseElement();
+        }
+    }
+
+    private sealed class HookedRowsComponent : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "rows");
+            builder.AddAttribute(2, IVNodeIdAccessor.HookAttributeName, "root-hook");
+
+            builder.OpenElement(3, "span");
+            builder.AddAttribute(4, IVNodeIdAccessor.HookAttributeName, "first-hook");
+            builder.AddAttribute(5, "data-focus-key", "first-focus");
+            builder.AddContent(6, "A");
+            builder.CloseElement();
+
+            builder.OpenElement(7, "span");
+            builder.AddContent(8, "B");
+            builder.CloseElement();
+
             builder.CloseElement();
         }
     }

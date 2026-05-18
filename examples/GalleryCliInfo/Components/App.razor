@@ -1,0 +1,149 @@
+@namespace GalleryCliInfo.Components
+
+@using System.Runtime.InteropServices
+@using System.Globalization
+
+
+<Rows>
+    <Markup Content="Information about current CLI (and some system info)" Foreground="@Color.Grey70" />
+    <SpectreTable Title="General" ShowHeaders="false" Expand="true">
+        @foreach (var item in _generalInfo)
+        {
+            <SpectreTR>
+                <SpectreTD>
+                    <Markup Content="@($"{item.Key}:")" />
+                </SpectreTD>
+                <SpectreTD>
+                    <Markup Content="@item.Value" Foreground="@Color.Green3" />
+                </SpectreTD>
+            </SpectreTR>
+        }
+    </SpectreTable>
+    <SpectreTable ShowHeaders="false" Expand="true">
+        <SpectreTR>
+            <SpectreTD>
+                <Markup Content="Foreground color:" />
+            </SpectreTD>
+            <SpectreTD>
+                <Markup Content="@Console.ForegroundColor.ToString()" />
+            </SpectreTD>
+        </SpectreTR>
+        <SpectreTR>
+            <SpectreTD>
+                <Markup Content="Background color:" />
+            </SpectreTD>
+            <SpectreTD>
+                <Markup Content="@Console.BackgroundColor.ToString()" />
+            </SpectreTD>
+        </SpectreTR>
+        <SpectreTR>
+            <SpectreTD>
+                <Markup Content="CLI size:" />
+            </SpectreTD>
+            <SpectreTD>
+                <Markup Content="@($"{_windowSizeX} X {_windowSizeY}")" />
+            </SpectreTD>
+        </SpectreTR>
+        <SpectreTR>
+            <SpectreTD>
+                <Markup Content="CLI buffer size:" />
+            </SpectreTD>
+            <SpectreTD>
+                <Markup Content="@($"{_bufferSizeX} x {_bufferSizeY}")" />
+            </SpectreTD>
+        </SpectreTR>
+    </SpectreTable>
+    <Panel>
+        <Rows>
+            <Columns>
+                <Padder Padding="@(new (0,0,1,0))">
+                    <Columns>
+                        <Markup Content="Input redirected:" />
+                        @{
+                            var isEnabled = Console.IsInputRedirected;
+                        }
+                        <Markup Content="@(isEnabled ? "✔️" : "✖")" Foreground="@(isEnabled? Color.Red: Color.Green)" />
+                    </Columns>
+                </Padder>
+                <Padder Padding="@(new (0,0,1,0))">
+                    <Columns>
+                        <Markup Content="Output redirected:" />
+                        @{
+                            var isEnabled = Console.IsOutputRedirected;
+                        }
+                        <Markup Content="@(isEnabled ? "✔️" : "✖")" Foreground="@(isEnabled? Color.Red: Color.Green)" />
+                    </Columns>
+                </Padder>
+                <Padder Padding="@(new (0,0,1,0))">
+                    <Columns>
+                        <Markup Content="Error redirected:" />
+                        @{
+                            var isEnabled = Console.IsErrorRedirected;
+                        }
+                        <Markup Content="@(isEnabled ? "✔️" : "✖")" Foreground="@(isEnabled? Color.Red: Color.Green)" />
+                    </Columns>
+                </Padder>
+            </Columns>
+        </Rows>
+    </Panel>
+    <SpectreTable Title="CLI Features" ShowHeaders="false" Expand="true">
+        @foreach (var item in _cliFeatures)
+        {
+            <SpectreTR>
+                <SpectreTD>
+                    <Markup Content="@($"{item.Key}:")" />
+                </SpectreTD>
+                <SpectreTD>
+                    <Markup Content="@item.Value.ToString()" />
+                </SpectreTD>
+            </SpectreTR>
+        }
+    </SpectreTable>
+</Rows>
+
+@code {
+    private sealed record RowData<TValue>(string Key, TValue Value);
+
+    private IReadOnlyList<RowData<string>> _generalInfo = [];
+    private IReadOnlyList<RowData<bool>> _cliFeatures = [];
+
+    private string _windowSizeX = "N/A";
+    private string _windowSizeY = "N/A";
+    private string _bufferSizeX = "N/A";
+    private string _bufferSizeY = "N/A";
+
+    protected override void OnInitialized()
+    {
+        _generalInfo = new List<RowData<string>>()
+        {
+            new ("OS architecture", RuntimeInformation.ProcessArchitecture.ToString()),
+            new ("OS description", RuntimeInformation.OSDescription),
+            new ("Framework", RuntimeInformation.FrameworkDescription),
+            new ("RID", RuntimeInformation.RuntimeIdentifier),
+            new ("UI culture", CultureInfo.CurrentUICulture.Name),
+            new ("Current culture", CultureInfo.CurrentCulture.Name),
+        };
+
+        var cliCapabilities = AnsiConsole.Console.Profile.Capabilities;
+        _cliFeatures = new List<RowData<bool>>()
+        {
+            new ("Alternate buffer", cliCapabilities.AlternateBuffer),
+            new ("Ansi", cliCapabilities.Ansi),
+            new ("Interactive", cliCapabilities.Interactive),
+            new ("Legacy", cliCapabilities.Legacy),
+            new ("Links", cliCapabilities.Links),
+            new ("Unicode", cliCapabilities.Unicode),
+        };
+
+        try
+        {
+            _windowSizeX = Console.WindowWidth.ToString();
+            _windowSizeY = Console.WindowHeight.ToString();
+            _bufferSizeX = Console.BufferWidth.ToString();
+            _bufferSizeY = Console.BufferHeight.ToString();
+        }
+        catch (Exception) { }
+
+    }
+
+}

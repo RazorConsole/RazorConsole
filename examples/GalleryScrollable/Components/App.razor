@@ -1,0 +1,187 @@
+@namespace GalleryScrollable.Components
+
+<Rows>
+    <Markup
+        Content="Scrollable component that adds ability to scroll through items and render limited count. Has scrollbar support using special component. Also, scrollbar has ability to be embedded in table and panel/border components."
+        Foreground="@Color.Grey70"/>
+    <Newline/>
+    <Markup
+        Content="ViewHeightScrollable component adds ability to scroll through physical lines of any content and render limited count. Has all functionalities of default Scrollable."
+        Foreground="@Color.Grey70"/>
+    <Newline/>
+
+    <Rows>
+<Rows>
+            <Panel Title="Embedded scrollbar" Border="BoxBorder.Rounded" Expand>
+                <Scrollable Scrollbar="new()" Items="@AlphabetData" PageSize="3">
+                    <SpectreTable Title="Table" Border="TableBorder.Rounded" Expand>
+                        <SpectreTHead>
+                            <SpectreTR>
+                                <SpectreTH Align="Justify.Left">N</SpectreTH>
+                                <SpectreTH Align="Justify.Center">Letter</SpectreTH>
+                            </SpectreTR>
+                        </SpectreTHead>
+                        <SpectreTBody>
+                            @foreach (var item in context)
+                            {
+                                <SpectreTR>
+                                    <SpectreTD>
+                                        <Markup Content="@item.Number.ToString()" Foreground="@item.Color"/>
+                                    </SpectreTD>
+                                    <SpectreTD>
+                                        <Markup Content="@item.Letter" Foreground="@item.Color"/>
+                                    </SpectreTD>
+                                </SpectreTR>
+                            }
+                        </SpectreTBody>
+                    </SpectreTable>
+
+                    <Markup Content=@($"Page: {context.CurrentOffset + 1} / {context.PagesCount}")/>
+                </Scrollable>
+
+                <Scrollable Scrollbar="@new()" Items="@AlphabetData" PageSize="6">
+                    <Panel Border="BoxBorder.Rounded" Title="Panel with list (ol)" Expand>
+                        <ol start="@(context.CurrentOffset + 1)">
+                            @foreach (var item in context)
+                            {
+                                <li>
+                                    <Markup Content=@($"{item.Letter}") Foreground="@item.Color"/>
+                                </li>
+                            }
+                        </ol>
+                    </Panel>
+
+                    <Markup Content=@($"Page: {context.CurrentOffset + 1} / {context.PagesCount}")/>
+                </Scrollable>
+            </Panel>
+
+            <Panel Title="Not embedded scrollbar - just list of markups" Border="BoxBorder.Rounded" Expand>
+                <Scrollable Scrollbar="new()" Items="@AlphabetData" PageSize="4">
+                    @foreach (var item in context)
+                    {
+                        <Markup Content=@($"{item.Letter}") Foreground="@item.Color"/>
+                    }
+                </Scrollable>
+            </Panel>
+
+            <ViewHeightScrollable Scrollbar="new()" LinesToRender="3">
+                <Panel Title="View Height scrollable" Border="BoxBorder.Rounded">
+                    <Markup Content="@_largeText"/>
+                </Panel>
+            </ViewHeightScrollable>
+
+        </Rows>
+    </Rows>
+</Rows>
+
+@code {
+    private const string ScrollableDocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Scrollable.razor";
+    private const string ViewHeightScrollableDocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/ViewHeightScrollable.razor";
+    private readonly string _largeText = string.Join("\n", [
+        "Start of line",
+        "Some text",
+        "Another text",
+        "Loren ipsum",
+        "Dolor sit amet",
+        "Consectetur adipiscing elit",
+        "Mauris sed congue dolor",
+        "Nunc nisl metus, mollis eu condimentum in",
+        "Accumsan sit amet nibh",
+        "Aenean eleifend a ipsum eget hendrerit",
+        "Nam gravida nulla tortor, sed rhoncus arcu aliquet sed",
+        "End of line"
+    ]);
+
+    private IReadOnlyList<(int Number, string Letter, Color Color)> AlphabetData => GetAlphabetData();
+
+    protected override void OnInitialized()
+    {
+        _ = _scrollableMarkup;
+    }
+
+    private IReadOnlyList<(int Number, string Letter, Color Color)> GetAlphabetData()
+    {
+        return
+        [
+            (1, "A", Color.Yellow),
+            (2, "B", Color.Red),
+            (3, "C", Color.Aqua),
+            (4, "D", Color.Orange1),
+            (5, "E", Color.Chartreuse1),
+            (6, "F", Color.Magenta1),
+            (7, "G", Color.Green3),
+            (8, "H", Color.Blue),
+            (9, "I", Color.Purple),
+            (10, "J", Color.Gold1),
+            (11, "K", Color.Turquoise2),
+            (12, "L", Color.HotPink),
+            (13, "M", Color.Lime),
+            (14, "N", Color.LightCoral),
+            (15, "O", Color.SkyBlue1)
+        ];
+    }
+
+    private readonly string _scrollableMarkup = @"
+<Panel Title=""Embedded scrollbar"" Border=""BoxBorder.Rounded"" Expand>
+    <Scrollable Items=""@AlphabetData"" PageSize=""3"">
+        <SpectreTable Title=""Table"" Border=""TableBorder.Rounded"" Expand>
+            <SpectreTHead>
+                <SpectreTR>
+                    <SpectreTH Align=""Justify.Left"">N</SpectreTH>
+                    <SpectreTH Align=""Justify.Center"">Letter</SpectreTH>
+                </SpectreTR>
+            </SpectreTHead>
+            <SpectreTBody>
+                @foreach (var item in context)
+                {
+                    <SpectreTR>
+                        <SpectreTD>
+                            <Markup Content=""@item.Number.ToString()"" Foreground=""@item.Color""/>
+                        </SpectreTD>
+                        <SpectreTD>
+                            <Markup Content=""@item.Letter"" Foreground=""@item.Color""/>
+                        </SpectreTD>
+                    </SpectreTR>
+                }
+            </SpectreTBody>
+        </SpectreTable>
+
+        <Markup Content=@($""Page: {context.CurrentOffset + 1} / {context.PagesCount}"")/>
+        <Scrollbar ScrollContext=""context""/>
+    </Scrollable>
+
+    <Scrollable Items=""@AlphabetData"" PageSize=""6"">
+        <Panel Border=""BoxBorder.Rounded"" Title=""Panel with list (ol)"" Expand>
+            <ol start=""@(context.CurrentOffset + 1)"">
+                @foreach (var item in context)
+                {
+                    <li>
+                        <Markup Content=@($""{item.Letter}"") Foreground=""@item.Color""/>
+                    </li>
+                }
+            </ol>
+        </Panel>
+
+        <Markup Content=@($""Page: {context.CurrentOffset + 1} / {context.PagesCount}"")/>
+        <Scrollbar ScrollContext=""context""/>
+    </Scrollable>
+</Panel>
+
+<Panel Title=""Not embedded scrollbar - just list of markups"" Border=""BoxBorder.Rounded"" Expand>
+    <Scrollable Items=""@AlphabetData"" PageSize=""4"">
+            @foreach (var item in context)
+            {
+                <Markup Content=@($""{item.Letter}"") Foreground=""@item.Color""/>
+            }
+        <Scrollbar ScrollContext=""context""/>
+    </Scrollable>
+</Panel>
+
+<ViewHeightScrollable Scrollbar=""new()"" LinesToRender=""3"">
+    <Panel Title=""View Height scrollable"" Border=""BoxBorder.Rounded"">
+        <Markup Content=""@_largeText""/>
+    </Panel>
+</ViewHeightScrollable>
+";
+
+}

@@ -43,7 +43,7 @@ internal class DiffRenderable
         _semaphore.Wait();
         try
         {
-            yield return Segment.Control(RM(DECTCEM));
+            yield return Segment.Control(RM(DECTCEM) + RM(DECAWM));
 
             bool widthChanged = _lastMaxWidth != -1 && _lastMaxWidth != maxWidth;
             _lastMaxWidth = maxWidth;
@@ -69,7 +69,7 @@ internal class DiffRenderable
             }
 
             // Move cursor to the first different line in the viewport
-            int linesToMoveUp = _shape.Height - renderFromLine;
+            int linesToMoveUp = Math.Max(0, _shape.Height - renderFromLine - 1);
 
             bool needFullClear = NeedsFullClear(linesToMoveUp) || widthChanged;
 
@@ -115,13 +115,25 @@ internal class DiffRenderable
                     }
                 }
 
-                yield return Segment.Control(NEL());
+                if (i < totalLines - 1)
+                {
+                    yield return Segment.Control(NEL());
+                }
+                else
+                {
+                    yield return Segment.Control("\r");
+                }
             }
 
             // Cleaning residual lines from below
             if (!needFullClear && previousLines.Count > totalLines)
             {
                 var remaining = previousLines.Count - totalLines;
+                if (totalLines > renderFromLine)
+                {
+                    yield return Segment.Control(NEL());
+                }
+
                 for (var i = 0; i < remaining; i++)
                 {
                     yield return Segment.Control(EL(2)); // Clean line
@@ -135,10 +147,7 @@ internal class DiffRenderable
             _previousLines = CloneLines(segmentLines);
             _shape = shape;
 
-            if (!_hideCursor)
-            {
-                yield return Segment.Control(SM(DECTCEM));
-            }
+            yield return Segment.Control(SM(DECAWM) + (_hideCursor ? string.Empty : SM(DECTCEM)));
         }
         finally
         {
@@ -154,7 +163,14 @@ internal class DiffRenderable
             return true;
         }
 
-        return linesToMoveUp > Console.CursorTop;
+        try
+        {
+            return linesToMoveUp > Console.CursorTop;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
     }
 
     private static bool LinesAreEqual(SegmentLine line1, SegmentLine line2)

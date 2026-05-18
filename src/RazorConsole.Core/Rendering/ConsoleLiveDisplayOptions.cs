@@ -21,10 +21,32 @@ public sealed class ConsoleLiveDisplayOptions
     public bool HideCursor { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether terminal mouse events should be enabled for the live display.
+    /// </summary>
+    /// <remarks>
+    /// Enabling mouse events also enters the alternate screen buffer so reported coordinates map to the rendered viewport.
+    /// </remarks>
+    public bool EnableMouseEvents { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the live display should use the terminal alternate screen buffer.
+    /// </summary>
+    /// <remarks>
+    /// By default, is true
+    /// </remarks>
+    public bool UseAlternateScreenBuffer { get; set; } = true;
+
+    /// <summary>
     /// Creates a new instance with default settings.
     /// </summary>
     public static ConsoleLiveDisplayOptions Default => new();
 
     internal ConsoleLiveDisplayOptions Clone()
-        => new() { AutoClear = AutoClear, HideCursor = HideCursor };
+        => new()
+        {
+            AutoClear = AutoClear,
+            HideCursor = HideCursor,
+            EnableMouseEvents = EnableMouseEvents,
+            UseAlternateScreenBuffer = UseAlternateScreenBuffer,
+        };
 }

@@ -1,0 +1,76 @@
+@namespace GalleryTable.Components
+
+<Rows>
+    <Markup Content="Table renders semantic HTML table markup via the Spectre.Console table translator." Foreground="@Color.Grey70" />
+    <Markup Content="Documentation: Table component" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="https://github.com/LittleLittleCloud/RazorConsole/blob/main/design-doc/builtin-components.md#table" />
+    <Newline />
+<Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <SpectreTable Expand="true" Title="Sprint Dashboard" Border="TableBorder.Rounded">
+            <SpectreTHead>
+                <SpectreTR>
+					<SpectreTH Align="Justify.Left">Task</SpectreTH>
+					<SpectreTH Align="Justify.Center">Owner</SpectreTH>
+					<SpectreTH Align="Justify.Right">Status</SpectreTH>
+				</SpectreTR>
+			</SpectreTHead>
+            <SpectreTBody>
+                <SpectreTR>
+					<SpectreTD>Implement table translator</SpectreTD>
+					<SpectreTD>A. Razor</SpectreTD>
+                    <SpectreTD>
+                        <Markup Content="Done" Foreground="@Color.Aqua" />
+					</SpectreTD>
+				</SpectreTR>
+                <SpectreTR>
+					<SpectreTD>Update gallery</SpectreTD>
+					<SpectreTD>S. Spectre</SpectreTD>
+                    <SpectreTD>
+                        <Markup Content="In Progress" Foreground="@Color.Yellow" />
+					</SpectreTD>
+				</SpectreTR>
+                <SpectreTR>
+					<SpectreTD>Write docs</SpectreTD>
+					<SpectreTD>C. Console</SpectreTD>
+                    <SpectreTD>
+                        <Markup Content="Pending" Foreground="@Color.Grey" />
+					</SpectreTD>
+				</SpectreTR>
+			</SpectreTBody>
+        </SpectreTable>
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly string _tableMarkup = @"<SpectreTable Expand=""true"" Title=""Sprint Dashboard"" Border=""TableBorder.Rounded"">
+    <SpectreTHead>
+        <SpectreTR>
+            <SpectreTH Align=""Justify.Left"">Task</SpectreTH>
+            <SpectreTH Align=""Justify.Center"">Owner</SpectreTH>
+            <SpectreTH Align=""Justify.Right"">Status</SpectreTH>
+        </SpectreTR>
+    </SpectreTHead>
+    <SpectreTBody>
+        <SpectreTR>
+            <SpectreTD>Implement table translator</SpectreTD>
+            <SpectreTD>A. Razor</SpectreTD>
+            <SpectreTD>
+                <Markup Content=""Done"" Foreground=""@Color.Aqua"" />
+            </SpectreTD>
+        </SpectreTR>
+        <SpectreTR>
+            <SpectreTD>Update gallery</SpectreTD>
+            <SpectreTD>S. Spectre</SpectreTD>
+            <SpectreTD>
+                <Markup Content=""In Progress"" Foreground=""@Color.Yellow"" />
+            </SpectreTD>
+        </SpectreTR>
+        <SpectreTR>
+            <SpectreTD>Write docs</SpectreTD>
+            <SpectreTD>C. Console</SpectreTD>
+            <SpectreTD>
+                <Markup Content=""Pending"" Foreground=""@Color.Grey"" />
+            </SpectreTD>
+        </SpectreTR>
+    </SpectreTBody>
+</SpectreTable>".Trim();
+}

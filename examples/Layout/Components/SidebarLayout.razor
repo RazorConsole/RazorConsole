@@ -1,0 +1,23 @@
+@namespace Layout.Components
+
+@using RazorConsole.Components
+@using RazorConsole.Core.Renderables
+@using Spectre.Console
+
+<Flex data-vnode-hook="layout-sidebar"
+      Direction="FlexDirection.Row"
+      FillWidth="true"
+      FillHeight="true"
+      Gap="1">
+    <Box Width="20" FillHeight="true" Border="BoxBorder.Rounded" Padding="new(1, 0, 1, 0)">
+        <Rows>
+            <Markup Content="Navigation" Foreground="Color.Grey70" />
+            <Markup Content="Overview" Foreground="Color.Grey58" />
+            <Markup Content="Details" Foreground="Color.Grey58" />
+            <Markup Content="Settings" Foreground="Color.Grey58" />
+        </Rows>
+    </Box>
+    <Box data-vnode-hook="layout-sidebar-content" Border="BoxBorder.Rounded" FillWidth="true" FillHeight="true">
+        <LayoutDimensionLabel HookKey="layout-sidebar-content" Label="Content" />
+    </Box>
+</Flex>

@@ -1,0 +1,86 @@
+@namespace GalleryMarkdown.Components
+
+<Rows>
+    <Markup Content="The Markdown component parses and renders markdown using Markdig with syntax highlighting for code blocks." Foreground="@Color.Grey70" />
+    <Newline />
+    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+        <Markdown Content="@_markdownSample" />
+    </Panel>
+</Rows>
+
+@code {
+    private static readonly string _exampleCode = @"
+<Markdown Content=""@markdownContent"" />
+".Trim();
+
+    private static string _markdownSample => @"# Welcome to Markdown
+
+This is a **bold** statement and this is *italic*. You can also have `inline code`.
+
+## Features
+
+Here's what you can do with markdown:
+
+- Create bullet lists
+- With multiple items
+- Like this one
+
+### Ordered Lists
+
+1. First item
+2. Second item
+3. Third item
+
+### Nested Lists
+- Top level item A
+  - Child item A.1
+	- Grandchild item `A.1.a`
+  - Child item A.2
+
+### Code Blocks
+
+```csharp
+public class HelloWorld
+{
+    public static void Main()
+    {
+        Console.WriteLine(""Hello, World!"");
+    }
+}
+```
+
+```python
+def greet(name):
+    print(f""Hello, {name}!"")
+
+greet(""World"")
+```
+
+### Quotes
+
+> This is a quote block.
+> It can span multiple lines.
+
+### Tables
+
+| Feature | Supported | Description |
+|---------|-----------|-------------|
+| Basic Tables | ✓ | Simple table formatting |
+| Column Alignment | ✓ | Left, center, right alignment |
+| Complex Content | ✓ | Code, links, and formatting in cells |
+
+Here's a more detailed table:
+
+| Language | Extension | Example Code | Performance |
+|:---------|:---------:|:-------------|------------:|
+| C# | `.cs` | `Console.WriteLine(""Hello"");` | Fast |
+| Python | `.py` | `print(""Hello"")` | Medium |
+| JavaScript | `.js` | `console.log(""Hello"");` | Variable |
+
+---
+
+That's a horizontal rule above!
+".Trim();
+
+    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Markdown.razor";
+}
