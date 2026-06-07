@@ -1,5 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Utilities;
 using Spectre.Console.Rendering;
 using static RazorConsole.Core.Utilities.AnsiSequences;
 
@@ -154,19 +155,20 @@ internal class DiffRenderable
             return true;
         }
 
-        // NEL is not supported pre win11, also moving the cursor outside the viewport causes rendering bugs
-        if (OperatingSystem.IsWindows() &&
-            !OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+        // The viewport and cursor movement are closely linked in conhost
+        // Therefore, it is also important to check whether the user has manually changed the visible area by scrolling.
+        // https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
+        if (OperatingSystem.IsWindows() && ExtendedCapabilities.IsConhost)
         {
             var windowHeight = Console.WindowHeight;
             var windowTop = Console.WindowTop;
-            //If rendered content is outside viewport -> need full clear
+            // If rendered content is outside viewport -> need full clear
             var onlyMovesInViewport = linesToMoveUp < windowHeight;
-            //If rendered normally and no user scroll -> console it a the bottom
-            //If then only parts of the currently visable viewports change -> not full clear needed
+            // If rendered normally and no user scroll -> console/cursor it a the bottom
+            // If then only parts of the currently visable viewports change -> not full clear needed
             var isConsoleAtBottom = windowTop + windowHeight - 1 == totalLines;
-            //If the console is however longer then the total lines 'isConsoleAtBottom' can never be 'true'
-            //-> Additional check
+            // If the console is however longer then the total lines 'isConsoleAtBottom' can never be 'true'
+            // -> Additional check
             var contentFullyFitsAndNotScrolled = windowHeight - 1 >= totalLines && windowTop == 0;
             return !onlyMovesInViewport || (!isConsoleAtBottom && !contentFullyFitsAndNotScrolled);
         }
@@ -261,15 +263,11 @@ internal class DiffRenderable
 
     private static string MoveToNextLine()
     {
-        //Only Windows and before Win11
-        if (OperatingSystem.IsWindows() &&
-            !OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+        // NEL is not supported in conhost prior to win11.
+        if (OperatingSystem.IsWindows() && ExtendedCapabilities.IsLegacyConhost)
         {
             //Hard "scroll" without NEL
-            return "\r\n";
-            //TODO:
-            //Check if maybe 'CSI + "1E"' yields a performance benefit,
-            //when 'needFullClear==false' (Move cursor only inside viewport)
+            return "\n";
         }
         return NEL();
     }
