@@ -54,11 +54,30 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
 
     public void Refresh()
     {
-        if (_current is not null)
+        var current = _current;
+        if (current is null)
+        {
+            return;
+        }
+
+        // Spectre's live rendering is not thread safe. Refresh runs on the animation timer
+        // and the resize handler, while UpdateTarget may be mutating this same renderable
+        // on the render dispatcher — so share its gate. Dropping a repaint of unchanged
+        // content is harmless; the next frame or tick paints it.
+        if (!_semaphore.Wait(100))
+        {
+            return;
+        }
+
+        try
         {
             ansiConsole.Write(new ControlCode(string.Empty));
-            ansiConsole.Write(_current);
+            ansiConsole.Write(current);
             Refreshed?.Invoke();
+        }
+        finally
+        {
+            _semaphore.Release();
         }
     }
 

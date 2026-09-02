@@ -2,8 +2,9 @@
 
 @using System.Collections.Generic
 @using Microsoft.AspNetCore.Components
+@using Spectre.Console
 
-<tr @attributes="AdditionalAttributes">
+<tr data-selected-bg="@SelectedBgAttr" @attributes="AdditionalAttributes">
     @ChildContent
 </tr>
 
@@ -13,6 +14,7 @@
     /// </summary>
     /// <remarks>
     /// Use within <see cref="SpectreTHead"/>, <see cref="SpectreTBody"/>, or <see cref="SpectreTFoot"/>. Contains <see cref="SpectreTH"/> or <see cref="SpectreTD"/> cells.
+    /// When inside a navigable <see cref="SpectreTBody"/>, set <see cref="RowIndex"/> to enable row highlighting.
     /// </remarks>
 
     /// <summary>
@@ -26,4 +28,24 @@
     /// </summary>
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
+
+    /// <summary>
+    /// Zero-based index of this row within the navigable tbody's visible rows.
+    /// Required when inside a navigable <see cref="SpectreTBody"/>.
+    /// </summary>
+    [Parameter]
+    public int RowIndex { get; set; } = -1;
+
+    /// <summary>
+    /// Background color applied to the row when it is selected. Default is <see cref="Color.DodgerBlue1"/>.
+    /// </summary>
+    [Parameter]
+    public Color SelectedBackground { get; set; } = Color.DodgerBlue1;
+
+    [CascadingParameter(Name = "TableNavSelectedIndex")]
+    public int? TableNavSelectedIndex { get; set; }
+
+    private bool IsSelected => RowIndex >= 0 && TableNavSelectedIndex.HasValue && TableNavSelectedIndex.Value == RowIndex;
+
+    private string? SelectedBgAttr => IsSelected ? SelectedBackground.ToHex() : null;
 }

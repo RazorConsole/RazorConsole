@@ -150,8 +150,12 @@ public sealed class ConsoleRendererTests
             }
         }));
 
-        component.UpdateOffset(10);
-        component.Ready();
+        // Both call StateHasChanged, so they have to run on the renderer's dispatcher.
+        await renderer.Dispatcher.InvokeAsync(() =>
+        {
+            component.UpdateOffset(10);
+            component.Ready();
+        });
 
         // Assert
         var updatedSnapshot = await tcs.Task.WaitAsync(TestContext.Current.CancellationToken);

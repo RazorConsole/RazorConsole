@@ -23,41 +23,7 @@ internal sealed class ConsoleRenderer(
     : Renderer(services, loggerFactory),
     IObservable<ConsoleRenderer.RenderSnapshot>
 {
-    private sealed class ImmediateDispatcher : Dispatcher
-    {
-        public override bool CheckAccess() => true;
-
-        public override Task InvokeAsync(Action workItem)
-        {
-            workItem?.Invoke();
-            return Task.CompletedTask;
-        }
-
-        public override Task InvokeAsync(Func<Task> workItem)
-            => workItem?.Invoke() ?? Task.CompletedTask;
-
-        public override Task<TResult> InvokeAsync<TResult>(Func<TResult> workItem)
-        {
-            if (workItem is null)
-            {
-                throw new ArgumentNullException(nameof(workItem));
-            }
-
-            return Task.FromResult(workItem());
-        }
-
-        public override Task<TResult> InvokeAsync<TResult>(Func<Task<TResult>> workItem)
-        {
-            if (workItem is null)
-            {
-                throw new ArgumentNullException(nameof(workItem));
-            }
-
-            return workItem();
-        }
-    }
-
-    private static readonly ImmediateDispatcher DispatcherInstance = new();
+    private readonly ConsoleDispatcher _dispatcher = new(loggerFactory);
 
     private readonly Dictionary<int, VNode> _componentRoots = [];
     private readonly Stack<VNode> _cursor = new();
@@ -72,7 +38,7 @@ internal sealed class ConsoleRenderer(
     private RenderSnapshot _lastSnapshot = RenderSnapshot.Empty;
     private bool _disposed;
 
-    public override Dispatcher Dispatcher => DispatcherInstance;
+    public override Dispatcher Dispatcher => _dispatcher;
 
     internal Translation.Contexts.TranslationContext GetTranslationContext() => _translationContext;
 
@@ -83,12 +49,18 @@ internal sealed class ConsoleRenderer(
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        TComponent component = (TComponent)InstantiateComponent(typeof(TComponent));
-
-        return MountComponentAsync(component, parameters, cancellationToken);
+        return _dispatcher.InvokeAsync(() =>
+        {
+            TComponent component = (TComponent)InstantiateComponent(typeof(TComponent));
+            return MountComponentCoreAsync(component, parameters, cancellationToken);
+        });
     }
 
-    internal async Task<RenderSnapshot> MountComponentAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(TComponent component, ParameterView parameters, CancellationToken cancellationToken)
+    internal Task<RenderSnapshot> MountComponentAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(TComponent component, ParameterView parameters, CancellationToken cancellationToken)
+        where TComponent : IComponent
+        => _dispatcher.InvokeAsync(() => MountComponentCoreAsync(component, parameters, cancellationToken));
+
+    private async Task<RenderSnapshot> MountComponentCoreAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(TComponent component, ParameterView parameters, CancellationToken cancellationToken)
         where TComponent : IComponent
     {
         var componentId = AssignRootComponentId(component);
@@ -757,15 +729,18 @@ internal sealed class ConsoleRenderer(
             throw new ArgumentNullException(nameof(eventArgs));
         }
 
-        try
+        return _dispatcher.InvokeAsync(() =>
         {
-            return base.DispatchEventAsync(handlerId, default, eventArgs);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogErrorDispatchingEvent(ex, handlerId);
-            throw;
-        }
+            try
+            {
+                return base.DispatchEventAsync(handlerId, default, eventArgs);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogErrorDispatchingEvent(ex, handlerId);
+                throw;
+            }
+        });
     }
 
     private void CompleteObservers()

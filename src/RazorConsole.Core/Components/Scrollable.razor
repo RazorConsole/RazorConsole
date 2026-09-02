@@ -24,7 +24,9 @@
         </div>
     }
 
-    @ChildContent(new ScrollContext<TItem>(VisibleItems, HandleKeyDown, ScrollOffset, PagesCount))
+    <CascadingValue Name="ScrollableSelection" Value="@_selectionCascade">
+        @ChildContent(new ScrollContext<TItem>(VisibleItems, HandleKeyDown, ScrollOffset, PagesCount))
+    </CascadingValue>
 </scrollable>
 
 
@@ -37,6 +39,11 @@
     /// This component manages pagination and keyboard navigation (arrow keys, page up/down, home/end)
     /// for large lists. It exposes only the currently visible items to the render fragment.
     /// The component is generic and works with any item type specified via the TItem type parameter.
+    ///
+    /// When <see cref="SelectedIndexChanged"/> is bound, the component enters selection mode:
+    /// arrow keys move the selected item and auto-scroll to keep it visible. A
+    /// <see cref="ScrollableSelection"/> is cascaded so child components (e.g. SpectreTBody)
+    /// can highlight the correct row and delegate navigation keys.
     /// </remarks>
 
     /// <summary>
@@ -86,6 +93,27 @@
     public EventCallback<int> ScrollOffsetChanged { get; set; }
 
     /// <summary>
+    /// Currently selected item index (absolute, zero-based into <see cref="Items"/>).
+    /// Only used when <see cref="SelectedIndexChanged"/> is bound.
+    /// </summary>
+    [Parameter]
+    public int SelectedIndex { get; set; }
+
+    /// <summary>
+    /// Raised when the selected item index changes via keyboard navigation.
+    /// When bound, the component enters selection mode: arrow keys move the selection
+    /// and auto-scroll to keep it visible.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> SelectedIndexChanged { get; set; }
+
+    /// <summary>
+    /// Raised when the user presses Enter on the selected item.
+    /// </summary>
+    [Parameter]
+    public EventCallback OnActivate { get; set; }
+
+    /// <summary>
     /// Scrollbar settings. If provided, the scrollbar is enabled.
     /// </summary>
     [Parameter]
@@ -102,13 +130,107 @@
     [Parameter]
     public bool IsScrollbarEmbedded { get; set; } = true;
 
+    private bool IsSelectionMode => SelectedIndexChanged.HasDelegate;
+
+    private ScrollableSelection? _selectionCascade;
+
     private IReadOnlyList<TItem> VisibleItems
         => Items.Skip(ScrollOffset).Take(PageSize).ToList();
 
     private int PagesCount => PageSize >= Items.Count ? 1 : Items.Count - PageSize + 1;
 
+    protected override void OnParametersSet()
+    {
+        if (IsSelectionMode)
+        {
+            EnsureSelectedVisible();
+            _selectionCascade = new ScrollableSelection(
+                SelectedIndex - ScrollOffset,
+                HandleSelectionKeyDown);
+        }
+        else
+        {
+            _selectionCascade = null;
+        }
+    }
+
+    private void EnsureSelectedVisible()
+    {
+        if (Items.Count == 0) return;
+        int sel = Math.Clamp(SelectedIndex, 0, Items.Count - 1);
+        int page = Math.Max(1, PageSize);
+        if (sel < ScrollOffset)
+            ScrollOffset = sel;
+        else if (sel >= ScrollOffset + page)
+            ScrollOffset = sel - page + 1;
+    }
+
+    private async Task HandleSelectionKeyDown(KeyboardEventArgs e)
+    {
+        int count = Items.Count;
+        if (count == 0) return;
+
+        int page = Math.Max(1, PageSize);
+        int newIndex = SelectedIndex;
+
+        switch (e.Key)
+        {
+            case "ArrowDown":
+            case "DownArrow":
+                newIndex = Math.Min(newIndex + 1, count - 1);
+                break;
+            case "ArrowUp":
+            case "UpArrow":
+                newIndex = Math.Max(newIndex - 1, 0);
+                break;
+            case "PageDown":
+            case " ":
+                newIndex = Math.Min(newIndex + page, count - 1);
+                break;
+            case "PageUp":
+                newIndex = Math.Max(newIndex - page, 0);
+                break;
+            case "Home":
+                newIndex = 0;
+                break;
+            case "End":
+                newIndex = count - 1;
+                break;
+            case "Enter":
+            case "Return":
+                if (OnActivate.HasDelegate)
+                    await OnActivate.InvokeAsync();
+                return;
+            default:
+                return;
+        }
+
+        if (newIndex != SelectedIndex)
+        {
+            SelectedIndex = newIndex;
+            EnsureSelectedVisible();
+
+            if (SelectedIndexChanged.HasDelegate)
+                await SelectedIndexChanged.InvokeAsync(newIndex);
+            if (ScrollOffsetChanged.HasDelegate)
+                await ScrollOffsetChanged.InvokeAsync(ScrollOffset);
+
+            _selectionCascade = new ScrollableSelection(
+                SelectedIndex - ScrollOffset,
+                HandleSelectionKeyDown);
+
+            StateHasChanged();
+        }
+    }
+
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
+        if (IsSelectionMode)
+        {
+            await HandleSelectionKeyDown(e);
+            return;
+        }
+
         int newOffset = ScrollOffset;
         int page = Math.Max(1, PageSize);
         int max = Math.Max(0, Items.Count - page);

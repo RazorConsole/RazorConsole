@@ -3,7 +3,8 @@
 @using Microsoft.AspNetCore.Components
 
 <div class="rows"
-    data-expand="@ExpandAttribute">
+    data-expand="@ExpandAttribute"
+    @attributes="AdditionalAttributes">
     @ChildContent
 </div>
 
@@ -31,6 +32,9 @@
     /// </summary>
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
 
     private string? ExpandAttribute => Expand ? "true" : "false";
 }
