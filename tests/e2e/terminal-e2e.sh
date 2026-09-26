@@ -65,12 +65,13 @@ start_example() {
     --no-build \
     --no-restore
 
-  tmux -L "$TMUX_SOCKET" new-session -d \
+  tmux -L "$TMUX_SOCKET" start-server \
+    \; set-option -g remain-on-exit on \
+    \; new-session -d \
     -x "$columns" \
     -y "$rows" \
     -s "$SESSION_NAME" \
     "cd ${quoted_root} && exec ${command}"
-  tmux -L "$TMUX_SOCKET" set-option -t "$SESSION_NAME" remain-on-exit on >/dev/null
 }
 
 stop_example() {
@@ -126,6 +127,11 @@ trap cleanup EXIT
 
 command -v tmux >/dev/null || {
   printf 'ERROR: tmux is required to run terminal E2E tests.\n' >&2
+  exit 1
+}
+
+command -v dotnet >/dev/null || {
+  printf 'ERROR: dotnet is required and must be available on PATH.\n' >&2
   exit 1
 }
 
