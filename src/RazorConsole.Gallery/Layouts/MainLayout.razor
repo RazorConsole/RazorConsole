@@ -14,8 +14,13 @@
               @onmousedown="StartDrag" @onmousemove="Drag" @onmouseup="EndDrag" @onkeydown="DividerKey"
               @onmouseenter="() => _hovered = true" @onmouseleave="() => _hovered = false"
               @onfocusin="() => _focused = true" @onfocusout="() => _focused = false">
-            <Markup Content="@string.Join('\n', Enumerable.Repeat("│", ContentHeight))"
-                    Foreground="@(_dragging || _hovered || _focused ? Color.DeepSkyBlue1 : Color.Grey58)" />
+            @for (var row = 0; row < ContentHeight; row++)
+            {
+                var handle = Math.Abs(row - ContentHeight / 2) <= 1;
+                <Markup Content="@(handle ? "⋮" : "│")"
+                        Foreground="@(handle && DividerActive ? Color.Black : DividerActive ? Color.DeepSkyBlue1 : Color.Grey58)"
+                        Background="@(handle && DividerActive ? Color.DeepSkyBlue1 : Color.Default)" />
+            }
         </Flex>
         <Flex Width="@Math.Max(1, Viewport.Width - NavigationWidth - 3)" Height="@ContentHeight" Direction="FlexDirection.Column" data-vnode-hook="gallery-main">
             <ViewHeightScrollable @key="Navigation.Uri" LinesToRender="@ContentHeight" Scrollbar="new()" IsScrollbarEmbedded="false">
@@ -32,6 +37,7 @@
     private bool _dragging;
     private bool _hovered;
     private bool _focused;
+    private bool DividerActive => _dragging || _hovered || _focused;
     private double _dragStart;
     private int _initialWidth;
     private int MaxNavigationWidth => Math.Max(1, Viewport.Width - 33);

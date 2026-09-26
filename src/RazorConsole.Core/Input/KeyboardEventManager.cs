@@ -500,21 +500,23 @@ internal sealed class KeyboardEventManager
             return;
         }
 
-        var previousFocusKey = _activeFocusKey;
-        if (previousFocusKey is not null && _buffers.TryRemove(previousFocusKey, out var previousBuffer))
+        _focusManager.TryGetFocusedTarget(out var target);
+        var nextKey = target?.Key;
+        var previousFocusKey = Interlocked.Exchange(ref _activeFocusKey, nextKey);
+        if (previousFocusKey == nextKey)
         {
-            previousBuffer.Clear();
-        }
-
-        if (!_focusManager.TryGetFocusedTarget(out var target) || target is null)
-        {
-            _activeFocusKey = null;
             return;
         }
+        // Focus notifications can arrive after input has already started. Never
+        // clear a live StringBuilder or replace typed text with a stale snapshot.
+        if (previousFocusKey is not null)
+        {
+            _buffers.TryRemove(previousFocusKey, out _);
+        }
 
-        _activeFocusKey = target.Key;
-        var buffer = GetOrCreateBuffer(target);
-        buffer.Clear();
-        buffer.Append(ResolveInitialValue(target));
+        if (target is not null)
+        {
+            GetOrCreateBuffer(target);
+        }
     }
 }
