@@ -245,7 +245,13 @@
 
     private async Task Key(KeyboardEventArgs e)
     {
-        if (OnPreviewKey is not null && await OnPreviewKey(e)) return;
+        if (OnPreviewKey is not null && await OnPreviewKey(e))
+        {
+            // Snapshot observers may still expose the previous ManageTab value.
+            // Report consumption directly so completion never also traverses focus.
+            if (e is RazorConsole.Core.Input.TerminalKeyboardEventArgs terminalKey) terminalKey.Handled = true;
+            return;
+        }
         if ((e.CtrlKey || e.MetaKey) && e.Key.Equals("c", StringComparison.OrdinalIgnoreCase) && Buffer.Selection.Length > 0)
         {
             await CopySelection();

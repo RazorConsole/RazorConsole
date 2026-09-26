@@ -13,6 +13,11 @@ using RazorConsole.Core.Vdom;
 
 namespace RazorConsole.Core.Input;
 
+internal sealed class TerminalKeyboardEventArgs : KeyboardEventArgs
+{
+    public bool Handled { get; set; }
+}
+
 internal interface IKeyboardEventDispatcher
 {
     Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken);
@@ -150,9 +155,9 @@ internal sealed class KeyboardEventManager
         // dispatch so the same key cannot also trigger default focus traversal.
         var managedKey = (keyInfo.Key != ConsoleKey.Tab || initialTarget.Attributes.GetValueOrDefault("data-manage-tab") == "true")
             && initialTarget.Attributes.TryGetValue("data-input-managed", out var managed) && managed == "true";
-        await DispatchKeyboardEventAsync(initialTarget, "onkeydown", keyInfo, token).ConfigureAwait(false);
+        var handled = await DispatchKeyboardEventAsync(initialTarget, "onkeydown", keyInfo, token).ConfigureAwait(false);
 
-        if (managedKey)
+        if (managedKey || handled)
         {
             await DispatchKeyboardEventAsync(initialTarget, "onkeyup", keyInfo, token).ConfigureAwait(false);
             return;
@@ -316,7 +321,7 @@ internal sealed class KeyboardEventManager
 
         var args = CreateKeyboardEventArgs(keyInfo, eventName);
         await DispatchAsync(nodeEvent, args, token).ConfigureAwait(false);
-        return true;
+        return args.Handled;
     }
 
     private bool TryApplyKeyToBuffer(FocusManager.FocusTarget target, ConsoleKeyInfo keyInfo, out string value)
@@ -367,7 +372,7 @@ internal sealed class KeyboardEventManager
         return string.Empty;
     }
 
-    private static KeyboardEventArgs CreateKeyboardEventArgs(ConsoleKeyInfo keyInfo, string eventName)
+    private static TerminalKeyboardEventArgs CreateKeyboardEventArgs(ConsoleKeyInfo keyInfo, string eventName)
     {
         var type = eventName.StartsWith("on", StringComparison.OrdinalIgnoreCase)
             ? eventName[2..]
@@ -375,7 +380,7 @@ internal sealed class KeyboardEventManager
 
         type = type.ToLowerInvariant();
 
-        return new KeyboardEventArgs
+        return new TerminalKeyboardEventArgs
         {
             Type = type,
             Key = ResolveKeyValue(keyInfo),

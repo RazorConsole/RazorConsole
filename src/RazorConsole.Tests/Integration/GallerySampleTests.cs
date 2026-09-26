@@ -66,7 +66,9 @@ public sealed class GallerySampleTests
     public async Task WheelBurst_WithRealDiffOutput_ResizeAndInput_RemainsResponsive()
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(15));
+        // Four frameworks run concurrently with coverage on CI. This is a
+        // deadlock watchdog, not a benchmark of the shared runner's throughput.
+        timeout.CancelAfter(TimeSpan.FromSeconds(60));
         var navigation = new ConsoleNavigationManager();
         navigation.NavigateTo("scrollable");
         await using var terminal = await TestTerminal.StartAsync<App>(100, 40,

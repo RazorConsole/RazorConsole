@@ -100,13 +100,13 @@ public class KeyboardEventManagerTests
 
         harness.Dispatcher.Events.Count.ShouldBe(4);
         harness.Dispatcher.Events[0].HandlerId.ShouldBe(10UL);
-        var keydownArgs = harness.Dispatcher.Events[0].Args.ShouldBeOfType<KeyboardEventArgs>();
+        var keydownArgs = harness.Dispatcher.Events[0].Args.ShouldBeAssignableTo<KeyboardEventArgs>();
         keydownArgs.Type.ShouldBe("keydown");
         keydownArgs.Key.ShouldBe("a");
         keydownArgs.Code.ShouldBe("KeyA");
 
         harness.Dispatcher.Events[1].HandlerId.ShouldBe(11UL);
-        var keypressArgs = harness.Dispatcher.Events[1].Args.ShouldBeOfType<KeyboardEventArgs>();
+        var keypressArgs = harness.Dispatcher.Events[1].Args.ShouldBeAssignableTo<KeyboardEventArgs>();
         keypressArgs.Type.ShouldBe("keypress");
         keypressArgs.Key.ShouldBe("a");
         keypressArgs.Code.ShouldBe("KeyA");
@@ -116,7 +116,7 @@ public class KeyboardEventManagerTests
         changeArgs.Value.ShouldBe("a");
 
         harness.Dispatcher.Events[3].HandlerId.ShouldBe(12UL);
-        var keyupArgs = harness.Dispatcher.Events[3].Args.ShouldBeOfType<KeyboardEventArgs>();
+        var keyupArgs = harness.Dispatcher.Events[3].Args.ShouldBeAssignableTo<KeyboardEventArgs>();
         keyupArgs.Type.ShouldBe("keyup");
         keyupArgs.Key.ShouldBe("a");
         keyupArgs.Code.ShouldBe("KeyA");
@@ -142,12 +142,12 @@ public class KeyboardEventManagerTests
 
         harness.Dispatcher.Events.Count.ShouldBe(2);
         harness.Dispatcher.Events[0].HandlerId.ShouldBe(21UL);
-        var keydownArgs = harness.Dispatcher.Events[0].Args.ShouldBeOfType<KeyboardEventArgs>();
+        var keydownArgs = harness.Dispatcher.Events[0].Args.ShouldBeAssignableTo<KeyboardEventArgs>();
         keydownArgs.Type.ShouldBe("keydown");
         keydownArgs.Key.ShouldBe("Tab");
 
         harness.Dispatcher.Events[1].HandlerId.ShouldBe(22UL);
-        var keyupArgs = harness.Dispatcher.Events[1].Args.ShouldBeOfType<KeyboardEventArgs>();
+        var keyupArgs = harness.Dispatcher.Events[1].Args.ShouldBeAssignableTo<KeyboardEventArgs>();
         keyupArgs.Type.ShouldBe("keyup");
         keyupArgs.Key.ShouldBe("Tab");
     }
@@ -605,11 +605,23 @@ public class KeyboardEventManagerTests
         public string TagName { get; }
     }
 
+    [Fact]
+    public async Task ConsumedTab_DoesNotTraverse_WhenSnapshotDoesNotManageTab()
+    {
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec("first", events: new Dictionary<string, ulong> { ["onkeydown"] = 21 }),
+            new FocusElementSpec("second"));
+        harness.Dispatcher.ConsumeKey = true;
+        await harness.Manager.HandleKeyAsync(new ConsoleKeyInfo('\t', ConsoleKey.Tab, false, false, false), CancellationToken.None);
+        harness.FocusManager.CurrentFocusKey.ShouldBe("first");
+    }
+
     private sealed class TestKeyboardEventDispatcher : IKeyboardEventDispatcher
     {
         private readonly List<DispatchedEvent> _events = new();
 
         public IReadOnlyList<DispatchedEvent> Events => _events;
+        public bool ConsumeKey { get; set; }
 
         public void Reset()
             => _events.Clear();
@@ -618,6 +630,11 @@ public class KeyboardEventManagerTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             _events.Add(new DispatchedEvent(handlerId, eventArgs));
+            if (ConsumeKey && eventArgs is TerminalKeyboardEventArgs key)
+            {
+                key.Handled = true;
+            }
+
             return Task.CompletedTask;
         }
     }

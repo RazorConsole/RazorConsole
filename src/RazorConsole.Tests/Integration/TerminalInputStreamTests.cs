@@ -60,7 +60,7 @@ public sealed class TerminalInputStreamTests
         await Task.Delay(80, TestContext.Current.CancellationToken);
         await terminal.SendTerminalInputAsync("", TestContext.Current.CancellationToken);
         await terminal.SendTerminalInputAsync("", TestContext.Current.CancellationToken);
-        events.ShouldHaveSingleItem().ShouldBeOfType<KeyboardEventArgs>().Key.ShouldBe("Escape");
+        events.ShouldHaveSingleItem().ShouldBeAssignableTo<KeyboardEventArgs>().Key.ShouldBe("Escape");
     }
 
     private static Task<TestTerminal> StartAsync(List<EventArgs> events)
