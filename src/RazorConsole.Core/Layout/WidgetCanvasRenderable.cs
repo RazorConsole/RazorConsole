@@ -17,8 +17,14 @@ internal sealed class WidgetCanvasRenderable(Widget root, LayoutSize size) : IRe
 
     public IEnumerable<Segment> Render(RenderOptions options, int maxWidth)
     {
+        var canvas = PaintToCanvas();
+        return canvas.RenderSegments(maxWidth);
+    }
+
+    internal TerminalCanvas PaintToCanvas()
+    {
         var canvas = new TerminalCanvas(_size.Width, _size.Height);
         _root.Paint(new PaintContext(canvas));
-        return canvas.RenderSegments(maxWidth);
+        return canvas;
     }
 }

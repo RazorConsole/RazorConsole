@@ -37,6 +37,44 @@ internal sealed class TerminalMonitor : IDisposable
         }
     }
 
+    internal TerminalMonitor(int width, int height)
+    {
+        if (width <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(width), "Terminal width must be positive.");
+        }
+
+        if (height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(height), "Terminal height must be positive.");
+        }
+
+        _width = width;
+        _height = height;
+    }
+
+    internal void Resize(int width, int height)
+    {
+        if (width <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(width), "Terminal width must be positive.");
+        }
+
+        if (height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(height), "Terminal height must be positive.");
+        }
+
+        if (_width == width && _height == height)
+        {
+            return;
+        }
+
+        _width = width;
+        _height = height;
+        OnResized?.Invoke();
+    }
+
     public void Start(CancellationToken cancellationToken)
     {
         lock (_sync)

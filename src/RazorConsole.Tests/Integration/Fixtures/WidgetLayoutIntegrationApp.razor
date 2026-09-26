@@ -1,0 +1,24 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+
+@using RazorConsole.Components
+@using RazorConsole.Core.Renderables
+@using Spectre.Console
+
+<Flex data-vnode-hook="root"
+      Direction="FlexDirection.Row"
+      Gap="2"
+      FillWidth="true"
+      Height="5">
+    <Box data-vnode-hook="navigation"
+         Width="10"
+         Height="5"
+         Border="BoxBorder.Square">
+        <Markup Content="NAV" />
+    </Box>
+    <Box data-vnode-hook="content"
+         FillWidth="true"
+         Height="5"
+         Border="BoxBorder.Square">
+        <Markup Content="CONTENT" />
+    </Box>
+</Flex>

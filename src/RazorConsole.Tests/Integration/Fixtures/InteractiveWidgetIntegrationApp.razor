@@ -1,0 +1,15 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+
+@using RazorConsole.Components
+
+<Rows>
+    <TextButton Content="Increment" OnClick="Increment" />
+    <Markup Content="@($"Count: {_count}")" />
+</Rows>
+
+@code {
+    private int _count;
+
+    private void Increment()
+        => _count++;
+}
