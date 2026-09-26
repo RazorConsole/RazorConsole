@@ -5,6 +5,7 @@
 @typeparam TItem
 
 <scrollable
+    @onwheel="HandleWheel" @onwheel:stopPropagation="true"
     data-items-count="@Items.Count"
     data-offset="@ScrollOffset"
     data-page-size="@PageSize"
@@ -106,6 +107,14 @@
         => Items.Skip(ScrollOffset).Take(PageSize).ToList();
 
     private int PagesCount => PageSize >= Items.Count ? 1 : Items.Count - PageSize + 1;
+
+    private async Task HandleWheel(WheelEventArgs e)
+    {
+        var next = Math.Clamp(ScrollOffset + (int)e.DeltaY, 0, Math.Max(0, Items.Count - PageSize));
+        if (next == ScrollOffset) return;
+        ScrollOffset = next;
+        await ScrollOffsetChanged.InvokeAsync(next);
+    }
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {

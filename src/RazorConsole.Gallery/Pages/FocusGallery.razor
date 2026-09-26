@@ -1,0 +1,32 @@
+@page "/issue-307-focus"
+
+<GalleryWorkbench Id="issue-307-focus" Title="Focus diagnostic" Description="Check focus when inputs are inserted or removed. Click a field or use Tab." Code="@SampleCode" OnReset="Reset">
+    <Preview>
+        <Rows>
+            <TextInput @key='"first"' Label="First" @bind-Value="_first" Placeholder="Type here" />
+            @if (_showSecond)
+            {
+                <TextInput @key='"second"' Label="Second" @bind-Value="_second" Placeholder="Then here" />
+            }
+            <Markup Content="@($"First: {_first}")" />
+            <Markup Content="@($"Second: {_second}")" />
+        </Rows>
+    </Preview>
+    <Properties>
+        <GalleryButton Id="focus-toggle" Text="@(_showSecond ? "Hide second input" : "Show second input")" Selected="@_showSecond" OnClick="() => _showSecond = !_showSecond" />
+    </Properties>
+</GalleryWorkbench>
+
+@code {
+    private string _first = "";
+    private string _second = "";
+    private bool _showSecond = true;
+    private void Reset() { _first = ""; _second = ""; _showSecond = true; }
+    private static readonly string SampleCode = @"
+        <TextInput @key='""first""' Label=""First"" @bind-Value=""_first"" Placeholder=""Type here"" />
+        @if (_showSecond)
+        {
+            <TextInput @key='""second""' Label=""Second"" @bind-Value=""_second"" Placeholder=""Then here"" />
+        }
+".Trim();
+}

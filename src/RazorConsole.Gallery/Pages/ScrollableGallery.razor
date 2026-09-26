@@ -1,33 +1,10 @@
 @page "/scrollable"
 
-<Rows>
-    <Markup
-        Content="Scrollable component that adds ability to scroll through items and render limited count. Has scrollbar support using special component. Also, scrollbar has ability to be embedded in table and panel/border components."
-        Foreground="@Color.Grey70"/>
-    <Newline/>
-    <Markup
-        Content="ViewHeightScrollable component adds ability to scroll through physical lines of any content and render limited count. Has all functionalities of default Scrollable."
-        Foreground="@Color.Grey70"/>
-    <Markup Content="Source Code: Scrollable.razor"
-            Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline"
-            link="@ScrollableDocumentationUrl"/>
-    <Markup Content="Source Code: ViewHeightScrollable.razor"
-            Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline"
-            link="@ViewHeightScrollableDocumentationUrl"/>
-    <Newline/>
-
-    <Rows>
-        <ViewHeightScrollable Scrollbar="new()" LinesToRender="10">
-            <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-                <SyntaxHighlighter Language="razor"
-                                   Code="@_scrollableMarkup"
-                                   ShowLineNumbers="true"/>
-            </Panel>
-        </ViewHeightScrollable>
-
+<GalleryWorkbench Id="scrollable" Title="Scrollable" Description="Wheel over each preview, or focus its scrollbar and use arrow keys." Code="@_scrollableMarkup" Source="Scrollable" OnReset="() => _resetVersion++">
+    <Preview>
         <Rows>
             <Panel Title="Embedded scrollbar" Border="BoxBorder.Rounded" Expand>
-                <Scrollable Scrollbar="new()" Items="@AlphabetData" PageSize="3">
+                <Scrollable @key="(_resetVersion, 0)" Scrollbar="new()" Items="@AlphabetData" PageSize="3">
                     <SpectreTable Title="Table" Border="TableBorder.Rounded" Expand>
                         <SpectreTHead>
                             <SpectreTR>
@@ -53,7 +30,7 @@
                     <Markup Content=@($"Page: {context.CurrentOffset + 1} / {context.PagesCount}")/>
                 </Scrollable>
 
-                <Scrollable Scrollbar="@new()" Items="@AlphabetData" PageSize="6">
+                <Scrollable @key="(_resetVersion, 1)" Scrollbar="@new()" Items="@AlphabetData" PageSize="6">
                     <Panel Border="BoxBorder.Rounded" Title="Panel with list (ol)" Expand>
                         <ol start="@(context.CurrentOffset + 1)">
                             @foreach (var item in context)
@@ -70,7 +47,7 @@
             </Panel>
 
             <Panel Title="Not embedded scrollbar - just list of markups" Border="BoxBorder.Rounded" Expand>
-                <Scrollable Scrollbar="new()" Items="@AlphabetData" PageSize="4">
+                <Scrollable @key="_resetVersion" Scrollbar="new()" Items="@AlphabetData" PageSize="4">
                     @foreach (var item in context)
                     {
                         <Markup Content=@($"{item.Letter}") Foreground="@item.Color"/>
@@ -78,17 +55,18 @@
                 </Scrollable>
             </Panel>
 
-            <ViewHeightScrollable Scrollbar="new()" LinesToRender="3">
+            <ViewHeightScrollable @key="_resetVersion" Scrollbar="new()" LinesToRender="3">
                 <Panel Title="View Height scrollable" Border="BoxBorder.Rounded">
                     <Markup Content="@_largeText"/>
                 </Panel>
             </ViewHeightScrollable>
 
         </Rows>
-    </Rows>
-</Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
+    private int _resetVersion;
     private const string ScrollableDocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Scrollable.razor";
     private const string ViewHeightScrollableDocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/ViewHeightScrollable.razor";
     private readonly string _largeText = string.Join("\n", [

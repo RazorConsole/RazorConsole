@@ -1,10 +1,10 @@
 @using System.Runtime.InteropServices
 @using System.Globalization
-
 @page "/cli-info"
 
-<Rows>
-    <Markup Content="Information about current CLI (and some system info)" Foreground="@Color.Grey70" />
+<GalleryWorkbench Id="cli-info" Title="CLI Info" Description="Inspect the current runtime and terminal capabilities. Reset refreshes the readings." Code="@SampleCode" OnReset="Refresh">
+    <Preview>
+        <Rows>
     <SpectreTable Title="General" ShowHeaders="false" Expand="true">
         @foreach (var item in _generalInfo)
         {
@@ -98,9 +98,12 @@
             </SpectreTR>
         }
     </SpectreTable>
-</Rows>
+        </Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
+    private const string SampleCode = "var runtime = RuntimeInformation.FrameworkDescription;\nvar capabilities = AnsiConsole.Console.Profile.Capabilities;\nvar width = Console.WindowWidth;\nvar height = Console.WindowHeight;";
     private sealed record RowData<TValue>(string Key, TValue Value);
 
     private IReadOnlyList<RowData<string>> _generalInfo = [];
@@ -111,7 +114,9 @@
     private string _bufferSizeX = "N/A";
     private string _bufferSizeY = "N/A";
 
-    protected override void OnInitialized()
+    protected override void OnInitialized() => Refresh();
+
+    private void Refresh()
     {
         _generalInfo = new List<RowData<string>>()
         {

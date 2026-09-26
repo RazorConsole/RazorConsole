@@ -1,0 +1,44 @@
+<Flex Direction="FlexDirection.Column" Gap="1">
+    <Markup Content="@Title" Decoration="Decoration.Bold" Foreground="Color.DeepSkyBlue1" />
+    <Markup Content="@Description" Foreground="Color.Grey58" />
+    <Flex Direction="FlexDirection.Row" Gap="1">
+        <GalleryButton Id="@($"{Id}-preview")" Text="Preview" Selected="@(!_code)" OnClick="() => _code = false" />
+        <GalleryButton Id="@($"{Id}-code")" Text="Code" Selected="@_code" OnClick="() => _code = true" />
+        @if (OnReset.HasDelegate)
+        {
+            <GalleryButton Id="@($"{Id}-reset")" Text="Reset" OnClick="OnReset" />
+        }
+    </Flex>
+    @Options
+    @if (_code)
+    {
+        <SyntaxHighlighter Language="razor" Code="@Code" ShowLineNumbers="true" />
+    }
+    else
+    {
+        @Preview
+        @if (Properties is not null)
+        {
+            <Markup Content="PROPERTIES · click or Tab + Enter" Foreground="Color.Grey58" />
+            @Properties
+        }
+    }
+    @if (!string.IsNullOrEmpty(Source))
+    {
+        <Markup Content="@($"Source Code: {Source}.razor")" Foreground="Color.DeepSkyBlue1" Decoration="Decoration.Underline"
+                link="@($"https://github.com/RazorConsole/RazorConsole/blob/main/src/RazorConsole.Core/Components/{Source}.razor")" />
+    }
+</Flex>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string Description { get; set; } = "";
+    [Parameter] public string Code { get; set; } = "";
+    [Parameter] public string? Source { get; set; }
+    [Parameter] public RenderFragment? Preview { get; set; }
+    [Parameter] public RenderFragment? Properties { get; set; }
+    [Parameter] public RenderFragment? Options { get; set; }
+    [Parameter] public EventCallback OnReset { get; set; }
+    private bool _code;
+}

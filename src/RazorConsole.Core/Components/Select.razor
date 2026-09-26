@@ -5,26 +5,42 @@
 @typeparam TItem
 
 <div @onfocus="OnFocus"
+     @key="_generatedFocusKey" data-focusable="true" data-focus-key="@_generatedFocusKey"
      @onfocusout="OnFocusOut"
      @onkeydown="OnKeyDown"
      @attributes="AdditionalAttributes">
     <Rows Expand="@Expand">
-        @foreach (var option in Options)
+        @for (var index = 0; index < Options.Length; index++)
         {
+            var option = Options[index];
             var isSelected = IsEqual(option, Value);
             var isFocused = IsEqual(option, FocusedValue);
             var indicator = isSelected ? SelectedIndicator : UnselectedIndicator;
             var formattedOption = Format(option);
-            <Columns>
+            <div data-focusable="false" @onclick="GetOptionClickHandler(index)">
                 <Markup Content="@($" {indicator} {formattedOption}")"
                         Foreground="@(isFocused ? GetFocusAdjustedColor(SelectedOptionForeground) : GetFocusAdjustedColor(OptionForeground))"
                         Decoration="@(isFocused ? GetFocusAdjustedDecoration(SelectedOptionDecoration) : GetFocusAdjustedDecoration(OptionDecoration))" />
-            </Columns>
+            </div>
         }
     </Rows>
 </div>
 
 @code {
+    private readonly string _generatedFocusKey = Guid.NewGuid().ToString("N");
+    private readonly List<Func<Task>> _optionClickHandlers = [];
+
+    // Keep delegates stable when focusing causes the parent to render again.
+    private Func<Task> GetOptionClickHandler(int index)
+    {
+        while (_optionClickHandlers.Count <= index)
+        {
+            var optionIndex = _optionClickHandlers.Count;
+            _optionClickHandlers.Add(() => optionIndex < Options.Length
+                ? SelectOptionAsync(Options[optionIndex]) : Task.CompletedTask);
+        }
+        return _optionClickHandlers[index];
+    }
     /// <summary>
     /// Additional attributes to apply to the root element.
     /// </summary>

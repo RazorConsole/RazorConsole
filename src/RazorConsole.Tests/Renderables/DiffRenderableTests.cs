@@ -76,7 +76,7 @@ public sealed class DiffRenderableTests
             .Select(segment => segment.Text)
             .ToList();
 
-        result.Count(text => string.Equals(text, nextLine, StringComparison.Ordinal)).ShouldBe(2);
+        result.ShouldNotContain(nextLine);
         result[^2].ShouldBe("\r");
     }
 
@@ -104,6 +104,36 @@ public sealed class DiffRenderableTests
         });
 
         return new RenderOptions(console.Profile.Capabilities, new Spectre.Console.Size(width, height));
+    }
+
+    [Fact]
+    public void Render_ResizeShrinkAndInvalidate_UseKnownCoordinatesWithoutScrollbackErase()
+    {
+        var diff = new DiffRenderable(new MultilineRenderable("one", "two", "three"), true);
+        string Paint(int height) => string.Concat(((IRenderable)diff).Render(CreateRenderOptions(20, height), 20).Select(s => s.Text));
+        Paint(3).ShouldContain(ED(2));
+        Paint(3).ShouldNotContain(ED(2));
+        diff.UpdateRenderable(new MultilineRenderable("one"));
+        var shrink = Paint(3);
+        shrink.ShouldContain(CUP(2, 1) + EL(2));
+        shrink.ShouldContain(CUP(3, 1) + EL(2));
+        var resize = Paint(2);
+        resize.ShouldContain(ED(2));
+        resize.ShouldNotContain(ED(3));
+        resize.ShouldNotContain("\u001b[6n");
+        diff.Invalidate();
+        Paint(2).ShouldContain(ED(2));
+    }
+
+    [Fact]
+    public void Render_ClipsOverflowWithoutScrollingAtBottomEdge()
+    {
+        var diff = new DiffRenderable(new MultilineRenderable("one", "two", "overflow"), true);
+        var output = string.Concat(((IRenderable)diff).Render(CreateRenderOptions(20, 2), 20).Select(s => s.Text));
+        output.ShouldNotContain("overflow");
+        output.ShouldNotContain(NEL());
+        output.ShouldNotContain(ED(3));
+        output.ShouldContain(CUP(2, 1));
     }
 
     private sealed class MultilineRenderable(params string[] lines) : IRenderable

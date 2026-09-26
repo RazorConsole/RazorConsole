@@ -3,11 +3,13 @@
 @namespace RazorConsole.Components
 
 <div @onfocus="OnFocus" @onfocusout="OnFocusOut" @onclick="OnClick"
+     @onmouseenter="() => _isHovered = true" @onmouseleave="() => _isHovered = false"
      data-focusable="true"
      data-focus-order="@FocusOrderAttribute"
      @key="@_generatedFocusKey"
      data-focus-key="@_generatedFocusKey">
-    <Markup Content="@Content" Background="@(_isFocused ? FocusedColor : BackgroundColor)"/>
+    <Markup Content="@Content" Background="@(_isFocused ? FocusedColor : IsHovered ? HoverColor : BackgroundColor)"
+            Foreground="@(IsHovered && !_isFocused ? HoverForegroundColor : Color.Default)" />
 </div>
 
 @code {
@@ -19,6 +21,12 @@
     /// Simple button implementation with focus and click support. Background color changes on focus for visual feedback.
     /// </remarks>
     private bool _isFocused = false;
+    private bool _isHovered;
+    private bool IsHovered => _isHovered && OnClick.HasDelegate;
+    /// <summary>Background used when the pointer is over an actionable button.</summary>
+    [Parameter] public Color HoverColor { get; set; } = Color.Grey70;
+    /// <summary>Text color paired with <see cref="HoverColor"/>.</summary>
+    [Parameter] public Color HoverForegroundColor { get; set; } = Color.Black;
 
     private readonly string _generatedFocusKey = Guid.NewGuid().ToString("N");
 

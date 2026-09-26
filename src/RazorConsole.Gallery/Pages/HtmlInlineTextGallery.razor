@@ -1,16 +1,7 @@
 @page "/html-inline"
 
-<Rows>
-    <Markup Content="HTML inline tags map to Spectre markup styles via the RazorConsole translator."
-        Foreground="@Color.Grey70" />
-    <Markup Content="Documentation: Built-in HTML inline styling" Foreground="@Color.DeepSkyBlue1"
-        Decoration="@Decoration.Underline"
-        link="https://github.com/LittleLittleCloud/RazorConsole/blob/main/design-doc/builtin-components.md" />
-    <Newline />
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor" Code="@_example" ShowLineNumbers="true" />
-    </Panel>
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+<GalleryWorkbench Id="html-inline" Title="HTML Inline" Description="HTML inline tags map to Spectre markup styles via the RazorConsole translator." Code="@_example">
+    <Preview>
         <div>
             <div>
                 <strong>Tip:</strong> combine <em>HTML emphasis</em>, <mark>callouts</mark>, and
@@ -27,8 +18,8 @@
                 Quote with <q>inline citation</q> and a <cite>reference</cite>.
             </div>
         </div>
-    </Panel>
-</Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
     private static readonly string _example = @"

@@ -1,18 +1,10 @@
 @page "/markdown"
 
-<Rows>
-    <Markup Content="The Markdown component parses and renders markdown using Markdig with syntax highlighting for code blocks." Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: Markdown.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-    <Newline />
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor"
-                           Code="@_exampleCode"
-                           ShowLineNumbers="true" />
-    </Panel>
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+<GalleryWorkbench Id="markdown" Title="Markdown" Description="The Markdown component parses and renders markdown using Markdig with syntax highlighting for code blocks." Code="@_exampleCode" Source="Markdown">
+    <Preview>
         <Markdown Content="@_markdownSample" />
-    </Panel>
-</Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
     private static readonly string _exampleCode = @"
@@ -87,6 +79,4 @@ Here's a more detailed table:
 
 That's a horizontal rule above!
 ".Trim();
-
-    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Markdown.razor";
 }

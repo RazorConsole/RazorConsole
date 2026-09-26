@@ -1,56 +1,45 @@
 @namespace RazorConsole.Gallery.Components
 @page "/table"
 
-<Rows>
-    <Markup Content="Table renders semantic HTML table markup via the Spectre.Console table translator." Foreground="@Color.Grey70" />
-    <Markup Content="Documentation: Table component" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="https://github.com/LittleLittleCloud/RazorConsole/blob/main/design-doc/builtin-components.md#table" />
-    <Newline />
-    <ViewHeightScrollable Scrollbar="new()">
-        <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-            <SyntaxHighlighter Language="razor"
-                               Code="@_tableMarkup"
-                               ShowLineNumbers="true" />
-        </Panel>
-    </ViewHeightScrollable>
-
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
-        <SpectreTable Expand="true" Title="Sprint Dashboard" Border="TableBorder.Rounded">
+<GalleryWorkbench Id="table" Title="Table" Description="Table renders semantic HTML table markup via the Spectre.Console table translator." Code="@_tableMarkup">
+    <Preview>
+        <SpectreTable Expand="true" Title="Sprint Dashboard" Border="TableBorder.Rounded" BorderColor="Color.Grey58">
             <SpectreTHead>
                 <SpectreTR>
-					<SpectreTH Align="Justify.Left">Task</SpectreTH>
-					<SpectreTH Align="Justify.Center">Owner</SpectreTH>
-					<SpectreTH Align="Justify.Right">Status</SpectreTH>
-				</SpectreTR>
-			</SpectreTHead>
+                    <SpectreTH Align="Justify.Left">Task</SpectreTH>
+                    <SpectreTH Align="Justify.Center">Owner</SpectreTH>
+                    <SpectreTH Align="Justify.Right">Status</SpectreTH>
+                </SpectreTR>
+            </SpectreTHead>
             <SpectreTBody>
                 <SpectreTR>
-					<SpectreTD>Implement table translator</SpectreTD>
-					<SpectreTD>A. Razor</SpectreTD>
+                    <SpectreTD>Implement table translator</SpectreTD>
+                    <SpectreTD>A. Razor</SpectreTD>
                     <SpectreTD>
                         <Markup Content="Done" Foreground="@Color.Aqua" />
-					</SpectreTD>
-				</SpectreTR>
+                    </SpectreTD>
+                </SpectreTR>
                 <SpectreTR>
-					<SpectreTD>Update gallery</SpectreTD>
-					<SpectreTD>S. Spectre</SpectreTD>
+                    <SpectreTD>Update gallery</SpectreTD>
+                    <SpectreTD>S. Spectre</SpectreTD>
                     <SpectreTD>
                         <Markup Content="In Progress" Foreground="@Color.Yellow" />
-					</SpectreTD>
-				</SpectreTR>
+                    </SpectreTD>
+                </SpectreTR>
                 <SpectreTR>
-					<SpectreTD>Write docs</SpectreTD>
-					<SpectreTD>C. Console</SpectreTD>
+                    <SpectreTD>Write docs</SpectreTD>
+                    <SpectreTD>C. Console</SpectreTD>
                     <SpectreTD>
                         <Markup Content="Pending" Foreground="@Color.Grey" />
-					</SpectreTD>
-				</SpectreTR>
-			</SpectreTBody>
+                    </SpectreTD>
+                </SpectreTR>
+            </SpectreTBody>
         </SpectreTable>
-    </Panel>
-</Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
-    private static readonly string _tableMarkup = @"<SpectreTable Expand=""true"" Title=""Sprint Dashboard"" Border=""TableBorder.Rounded"">
+    private static readonly string _tableMarkup = @"<SpectreTable Expand=""true"" Title=""Sprint Dashboard"" Border=""TableBorder.Rounded"" BorderColor=""Color.Grey58"">
     <SpectreTHead>
         <SpectreTR>
             <SpectreTH Align=""Justify.Left"">Task</SpectreTH>

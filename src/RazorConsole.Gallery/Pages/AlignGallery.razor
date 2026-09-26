@@ -1,69 +1,52 @@
 @page "/"
 @page "/align"
 
-<Rows>
-    <Markup Content="Align positions child content horizontally and vertically inside a fixed region." Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: Align.razor" Foreground="@Color.DeepSkyBlue1"
-            Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-    <Newline />
-	<Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-		<SyntaxHighlighter Language="razor"
-						   Code="@_sampleCode"
-						   ShowLineNumbers="true" />
-	</Panel>
-	<Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
-		<Columns Expand = "true">
-			<Border>
-			<Align Width="18" Height="5"
-				   Horizontal="@(HorizontalAlignment.Left)"
-				   Vertical="@(VerticalAlignment.Top)">
-				<Markup Content="Top / Left" />
-			</Align>
-			</Border>
-			<Border>
-			<Align Width="18" Height="5"
-				   Horizontal="@(HorizontalAlignment.Center)"
-				   Vertical="@(VerticalAlignment.Middle)">
-				<Markup Content="Center" />
-			</Align>
-			</Border>
-			<Border>
-			<Align Width="18" Height="5"
-				   Horizontal="@(HorizontalAlignment.Right)"
-				   Vertical="@(VerticalAlignment.Bottom)">
-				<Markup Content="Bottom / Right" />
-			</Align>
-			</Border>
-		</Columns>
-	</Panel>
-</Rows>
+<GalleryWorkbench Id="align" Title="Align" Description="Position content inside a fixed region." Code="@SampleCode" OnReset="Reset">
+    <Preview>
+        @if (_border)
+        {
+            <Border>@Preview</Border>
+        }
+        else
+        {
+            @Preview
+        }
+    </Preview>
+    <Properties>
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            @foreach (var value in Enum.GetValues<HorizontalAlignment>())
+            {
+                <GalleryButton Id="@($"align-h-{value}")" Text="@value.ToString()" Selected="@(value == _horizontal)" OnClick="() => _horizontal = value" />
+            }
+        </Flex>
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            @foreach (var value in Enum.GetValues<VerticalAlignment>())
+            {
+                <GalleryButton Id="@($"align-v-{value}")" Text="@value.ToString()" Selected="@(value == _vertical)" OnClick="() => _vertical = value" />
+            }
+        </Flex>
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            <GalleryButton Id="align-smaller" Text="Width −" OnClick="() => _width = Math.Max(12, _width - 4)" />
+            <GalleryButton Id="align-wider" Text="Width +" OnClick="() => _width = Math.Min(40, _width + 4)" />
+            <Markup Content="@_width.ToString()" />
+        </Flex>
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            <GalleryButton Id="align-shorter" Text="Height −" OnClick="() => _height = Math.Max(3, _height - 1)" />
+            <GalleryButton Id="align-taller" Text="Height +" OnClick="() => _height = Math.Min(8, _height + 1)" />
+            <GalleryButton Id="align-border" Text="@($"Border {(_border ? "on" : "off")}")" Selected="@_border" OnClick="() => _border = !_border" />
+        </Flex>
+    </Properties>
+</GalleryWorkbench>
 
 @code {
-	private string _sampleCode = @"
-<Columns Expand=""true"">
-	<Border>
-	<Align Width=""18"" Height=""5""
-		   Horizontal=""@(HorizontalAlignment.Left)""
-		   Vertical=""@(VerticalAlignment.Top)"">
-		<Markup Content=""Top / Left"" />
-	</Align>
-	</Border>
-	<Border>
-	<Align Width=""18"" Height=""5""
-		   Horizontal=""@(HorizontalAlignment.Center)""
-		   Vertical=""@(VerticalAlignment.Middle)"">
-		<Markup Content=""Center"" />
-	</Align>
-	</Border>
-	<Border>
-	<Align Width=""18"" Height=""5""
-		   Horizontal=""@(HorizontalAlignment.Right)""
-		   Vertical=""@(VerticalAlignment.Bottom)"">
-		<Markup Content=""Bottom / Right"" />
-	</Align>
-	</Border>
-</Columns>".Trim();
-
-    private const string DocumentationUrl =
-        "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Align.razor";
+    private bool _border = true;
+    private int _width = 28;
+    private int _height = 5;
+    private HorizontalAlignment _horizontal = HorizontalAlignment.Center;
+    private VerticalAlignment _vertical = VerticalAlignment.Middle;
+    private RenderFragment Preview => @<Align Width="@_width" Height="@_height" Horizontal="@_horizontal" Vertical="@_vertical"><Markup Content="Hello, layout!" /></Align>;
+    private string SampleCode => (_border ? "<Border>\n" : "")
+        + $"<Align Width=\"{_width}\" Height=\"{_height}\"\n       Horizontal=\"HorizontalAlignment.{_horizontal}\"\n       Vertical=\"VerticalAlignment.{_vertical}\">\n    <Markup Content=\"Hello, layout!\" />\n</Align>"
+        + (_border ? "\n</Border>" : "");
+    private void Reset() { _border = true; _width = 28; _height = 5; _horizontal = HorizontalAlignment.Center; _vertical = VerticalAlignment.Middle; }
 }

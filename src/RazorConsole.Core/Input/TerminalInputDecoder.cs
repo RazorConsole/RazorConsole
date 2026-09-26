@@ -95,6 +95,16 @@ internal sealed class TerminalInputDecoder
 
     private void Sequence(string sequence)
     {
+        // Cursor-position reports are protocol replies, not F3 key presses.
+        // No cursor queries are issued by the renderer; discard stale replies.
+        // SS3 R remains the unambiguous F3 keyboard encoding.
+        if (sequence.StartsWith("\u001b[", StringComparison.Ordinal) && sequence[^1] == 'R'
+            && sequence[2..^1].Split(';') is [var row, var column]
+            && int.TryParse(row.TrimStart('?'), out var cursorRow) && cursorRow > 0
+            && int.TryParse(column, out var cursorColumn) && cursorColumn > 0)
+        {
+            return;
+        }
         var fields = sequence[2..^1].Split(';');
         var modifiers = fields.Length > 1 && int.TryParse(fields[^1], out var modifier) ? modifier - 1 : 0;
         var flags = ((modifiers & 1) != 0 ? ConsoleModifiers.Shift : 0)

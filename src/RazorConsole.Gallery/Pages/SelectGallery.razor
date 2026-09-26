@@ -1,19 +1,11 @@
 @page "/select"
 
-<Rows>
-    <Markup Content="Select shows a focusable dropdown with keyboard navigation, callbacks for changes, and styling hooks for each option."
-            Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: Select.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline"
-            link="@DocumentationUrl" />
-    <Newline />
-    <Panel Title="String Select Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor" Code="@_exampleCode" ShowLineNumbers="true" />
-    </Panel>
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+<GalleryWorkbench Id="select" Title="Select" Description="Select shows a focusable dropdown with keyboard navigation, callbacks for changes, and styling hooks for each option." Code="@_exampleCode" Source="Select" OnReset="Reset">
+    <Preview>
         <Rows>
             <Select Options="@(new[] { "Align", "Border", "Columns", "Panel", "Select", "Text Input" })"
                     @bind-Value="Select" @bind-FocusedValue="FocusedOption" @bind-IsFocused="IsFocused"
-                    Expand="true" />
+                    SelectedIndicator="@('●')" Expand="false" />
             @if (IsFocused)
             {
                 <Markup Content=@($"Selected: {Select}") Foreground="@Color.Chartreuse1"
@@ -23,10 +15,12 @@
             }
 
         </Rows>
-    </Panel>
-</Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
+    private void Reset() { Select = "Align"; FocusedOption = null; IsFocused = false; }
+
     private string Select = "Align";
     private string? FocusedOption = null;
     private bool IsFocused;
@@ -35,7 +29,7 @@
                 @bind-Value=""Select""
                 @bind-FocusedValue=""FocusedOption""
                 @bind-IsFocused=""IsFocused""
-                Expand=""true"" />
+                SelectedIndicator=""@('●')"" Expand=""false"" />
         @if (IsFocused)
         {
                 <Markup Content=@($""Selected: {Select}"")
@@ -46,8 +40,4 @@
                         Decoration=""Decoration.Italic"" />
         }
 </Rows>".Trim();
-
-
-    private const string DocumentationUrl =
-    "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Select.razor";
 }

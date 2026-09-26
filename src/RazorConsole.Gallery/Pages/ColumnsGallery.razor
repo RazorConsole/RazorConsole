@@ -1,19 +1,8 @@
 @page "/columns"
 
-<Rows>
-    <Markup
-        Content="Columns lays out child content horizontally, optionally stretching items to fill the available width."
-        Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: Columns.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline"
-            link="@DocumentationUrl" />
-    <Newline />
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor"
-                           Code="@_exampleCode"
-                           ShowLineNumbers="true" />
-    </Panel>
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
-        <Columns Expand="true">
+<GalleryWorkbench Id="columns" Title="Columns" Description="Columns lays out child content horizontally, optionally stretching items to fill the available width." Code="@CurrentCode" OnReset="() => _expand = true" Source="Columns">
+    <Preview>
+        <Columns Expand="@_expand">
             <Rows>
                 <Markup Content="Column 1" Decoration="@Decoration.Bold" />
             </Rows>
@@ -24,10 +13,17 @@
                 <Markup Content="Column 3" Decoration="@Decoration.Bold" />
             </Rows>
         </Columns>
-    </Panel>
-</Rows>
+    </Preview>
+    <Properties>
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            <GalleryButton Id="columns-expand" Text="@($"Expand {(_expand ? "on" : "off")}")" Selected="@_expand" OnClick="() => _expand = !_expand" />
+        </Flex>
+    </Properties>
+</GalleryWorkbench>
 
 @code {
+    private bool _expand = true;
+    private string CurrentCode => _exampleCode.Replace("Expand=\"true\"", $"Expand=\"{_expand.ToString().ToLowerInvariant()}\"");
     private static readonly string _exampleCode = @"<Columns Expand=""true"">
     <Rows>
         <Markup Content=""Column 1"" Decoration=""Decoration.Bold"" />
@@ -39,7 +35,4 @@
         <Markup Content=""Column 3"" Decoration=""Decoration.Bold"" />
     </Rows>
 </Columns>".Trim();
-
-    private const string DocumentationUrl =
-    "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Columns.razor";
 }

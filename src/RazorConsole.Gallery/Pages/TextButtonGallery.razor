@@ -1,15 +1,7 @@
 @page "/textbutton"
 
-<Rows>
-    <Markup Content="TextButton renders clickable text with customizable focus and background colors." Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: TextButton.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-    <Newline />
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor"
-                           Code="@_exampleCode"
-                           ShowLineNumbers="true" />
-    </Panel>
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+<GalleryWorkbench Id="textbutton" Title="Text Button" Description="TextButton renders clickable text with customizable focus and background colors." Code="@_exampleCode" Source="TextButton" OnReset="Reset">
+    <Preview>
         <Columns>
             <TextButton Content="@_buttonLabel"
                         BackgroundColor="@_restingColor"
@@ -18,11 +10,11 @@
                     Foreground="@_statusColor"
                     Decoration="@_statusDecoration" />
         </Columns>
-    </Panel>
-</Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
-    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/TextButton.razor";
+    private async Task Reset() { _isActive = true; await ToggleAsync(); }
 
     private static readonly string _exampleCode = @"<Columns>
     <TextButton Content=""Toggle""

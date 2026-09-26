@@ -1,18 +1,7 @@
 @page "/html-list"
 
-<Rows>
-    <Markup Content="HTML list tags (<ul> and <ol>) render as styled lists with bullets or numbers." Foreground="@Color.Grey70" />
-    <Markup Content="Documentation: Built-in HTML list support" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="https://github.com/LittleLittleCloud/RazorConsole/blob/main/design-doc/builtin-components.md" />
-    <Newline />
-    <ViewHeightScrollable Scrollbar="new ()">
-        <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-            <SyntaxHighlighter Language="razor"
-                               Code="@_example"
-                               ShowLineNumbers="true" />
-        </Panel>
-    </ViewHeightScrollable>
-
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+<GalleryWorkbench Id="html-list" Title="HTML List" Description="HTML list tags (<ul> and <ol>) render as styled lists with bullets or numbers." Code="@_example">
+    <Preview>
         <Rows>
             <Markup Content="Unordered List:" Decoration="@Decoration.Bold" />
             <ul>
@@ -43,8 +32,8 @@
                 <li>Milk</li>
             </ol>
         </Rows>
-    </Panel>
-</Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
     private static readonly string _example = @"<Rows>

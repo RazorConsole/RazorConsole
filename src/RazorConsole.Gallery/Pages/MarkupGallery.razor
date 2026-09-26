@@ -1,27 +1,21 @@
 @page "/markup"
 
-<Rows>
-    <Markup Content="Markup renders styled text by combining colors, decorations, and optional hyperlinks." Foreground="@Color.Grey70" />
-	<Markup Content="Source Code: Markup.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-	<Newline />
-	<Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-		<SyntaxHighlighter Language="razor" Code="@_exampleCodeString" ShowLineNumbers="true" />
-	</Panel>
-	<Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
-	<Rows>
-		<Markup Content="Emphasize important labels"
-				 Foreground="@Color.Chartreuse1"
-				 Decoration="@Decoration.Bold" />
-		<Markup Content="Callouts can be dimmed"
-				Foreground="@Color.Grey70"
-				Decoration="@(Decoration.Dim | Decoration.Italic)" />
-		<Markup Content="Link to the repository"
-				Foreground="@Color.DeepSkyBlue1"
-				Decoration="@Decoration.Underline"
-				link="https://github.com/LittleLittleCloud/RazorConsole" />
-	</Rows>
-	</Panel>
-	</Rows>
+<GalleryWorkbench Id="markup" Title="Markup" Description="Markup renders styled text by combining colors, decorations, and optional hyperlinks." Code="@_exampleCodeString" Source="Markup">
+    <Preview>
+        <Rows>
+            <Markup Content="Emphasize important labels"
+                     Foreground="@Color.Chartreuse1"
+                     Decoration="@Decoration.Bold" />
+            <Markup Content="Callouts can be dimmed"
+                    Foreground="@Color.Grey70"
+                    Decoration="@(Decoration.Dim | Decoration.Italic)" />
+            <Markup Content="Link to the repository"
+                    Foreground="@Color.DeepSkyBlue1"
+                    Decoration="@Decoration.Underline"
+                    link="https://github.com/LittleLittleCloud/RazorConsole" />
+        </Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
 	private static readonly string _exampleCodeString = @"
@@ -36,6 +30,4 @@
 	   Decoration=""Decoration.Underline""
 	   link=""https://github.com/LittleLittleCloud/RazorConsole"" />
 ".Trim();
-
-    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Markup.razor";
 }

@@ -1,13 +1,6 @@
-@using RazorConsole.Components
-@using Spectre.Console
-
-<Figlet Content="Component Gallery" />
-<Align Horizontal="@HorizontalAlignment.Center">
-    <Rows>
-        <Columns>
-            <Markup Content="Repo link: RazorConsole" Foreground="@Color.DeepSkyBlue1" Decoration="Decoration.Underline" link="https://github.com/LittleLittleCloud/RazorConsole" />
-            <Markup Content="README" Foreground="@Color.DeepSkyBlue1" Decoration="Decoration.Underline" link="https://github.com/LittleLittleCloud/RazorConsole/blob/main/README.md" />
-            <Markup Content="Give us a star ⭐😺🔥" Foreground="@Color.LightYellow3" />
-        </Columns>
-    </Rows>
-</Align>
+<Flex Direction="FlexDirection.Row" Gap="2" Height="1">
+    <Markup Content="RazorConsole" Decoration="Decoration.Bold" Foreground="Color.DeepSkyBlue1" />
+    <Markup Content="Gallery" Decoration="Decoration.Bold" />
+    <Markup Content="@($"v{typeof(Header).Assembly.GetName().Version?.ToString(3)}")" Foreground="Color.Grey58" />
+    <Markup Content="Explore · interact · inspect" Foreground="Color.Grey58" />
+</Flex>

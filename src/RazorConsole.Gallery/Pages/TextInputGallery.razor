@@ -1,15 +1,7 @@
 @page "/textinput"
 
-<Rows>
-    <Markup Content="TextInput captures user text, supports masking, focus styling, and change/submit callbacks." Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: TextInput.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-    <Newline />
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor"
-                           Code="@_exampleCode"
-                           ShowLineNumbers="true" />
-    </Panel>
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+<GalleryWorkbench Id="textinput" Title="Text Input" Description="TextInput captures user text, supports masking, focus styling, and change/submit callbacks." Code="@_exampleCode" Source="TextInput" OnReset="Reset">
+    <Preview>
         <Rows>
             <TextInput Label="First Name"
                        Value="@_firstName"
@@ -31,10 +23,12 @@
                     Foreground="@Color.Grey70"
                     Decoration="@Decoration.Italic" />
         </Rows>
-    </Panel>
-</Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
+    private void Reset() { _firstName = ""; _secretNote = ""; }
+
     private static readonly Padding _inputPadding = new(1, 0, 1, 0);
 
     private string _firstName = string.Empty;
@@ -81,6 +75,4 @@
            Foreground=""Color.Grey70""
            Decoration=""Decoration.Italic"" />
 </Rows>".Trim();
-
-    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/TextInput.razor";
 }

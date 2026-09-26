@@ -1,22 +1,27 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject RazorConsole.Core.Rendering.ITerminalViewport Viewport
+@inject NavigationManager Navigation
 
-<Rows Expand="true">
-    <Header/>
-    <Panel Expand="true">
-        <Columns Expand="true">
-            <Padder Padding="@(new (1, 1, 1, 1))">
-                <NavBar @bind-IsFocused="NavBarIsFocused" />
-            </Padder>
-            <Padder Padding="@(new(0,1,0,0))" Expand="true">
-                <ViewHeightScrollable LinesToRender="0" Scrollbar="new()" IsScrollbarEmbedded="false">
-                    @Body
-                </ViewHeightScrollable>
-            </Padder>
-        </Columns>
-    </Panel>
-    <Footer NavBarIsFocused="NavBarIsFocused" />
-</Rows>
+<Flex Direction="FlexDirection.Column" Width="@Viewport.Width" Height="@Viewport.Height" Gap="1">
+    <Header />
+    <Flex Direction="FlexDirection.Row" Height="@ContentHeight" Gap="2">
+        <Flex Width="@NavigationWidth" Height="@ContentHeight" Direction="FlexDirection.Column">
+            <NavBar Height="@ContentHeight" Width="@NavigationWidth" />
+        </Flex>
+        <Flex Width="@Math.Max(10, Viewport.Width - NavigationWidth - 2)" Height="@ContentHeight" Direction="FlexDirection.Column">
+            <ViewHeightScrollable @key="Navigation.Uri" LinesToRender="@ContentHeight" Scrollbar="new()" IsScrollbarEmbedded="false">
+                @Body
+            </ViewHeightScrollable>
+        </Flex>
+    </Flex>
+    <Footer />
+</Flex>
 
 @code {
-    private bool NavBarIsFocused;
+    private int ContentHeight => Math.Max(5, Viewport.Height - 4);
+    private int NavigationWidth => Viewport.Width < 80 ? 20 : 25;
+    protected override void OnInitialized() => Viewport.OnResized += Resize;
+    private void Resize() => _ = InvokeAsync(StateHasChanged);
+    public void Dispose() => Viewport.OnResized -= Resize;
 }

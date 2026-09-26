@@ -1,15 +1,7 @@
 @page "/canvas"
 
-<Rows>
-    <Markup Content="SpectreCanvas renders an array of pixels with different colors."/>
-    <Markup Content="Source Code: SpectreCanvas.razor" Foreground="Color.DeepSkyBlue1"
-            Decoration="Decoration.Underline" link="@DocumentationUrl"/>
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor"
-                           Code="@_sampleCode"
-                           ShowLineNumbers="true"/>
-    </Panel>
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+<GalleryWorkbench Id="canvas" Title="Spectre Canvas" Description="SpectreCanvas renders an array of pixels with different colors." Code="@_sampleCode" Source="SpectreCanvas">
+    <Preview>
         <Columns>
             <Rows>
                 <Markup Content=@($"Heart ({HeartW}x{HeartH})") Decoration="Decoration.Bold"/>
@@ -35,8 +27,8 @@
                                Scale="false"/>
             </Rows>
         </Columns>
-    </Panel>
-</Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
     private const int CheckerW = 10;
@@ -54,10 +46,6 @@
 <SpectreCanvas Pixels=""@_pixelsChecker"" CanvasWidth=""{CheckerW}"" CanvasHeight=""{CheckerH}"" Scale=""true""/>
 <SpectreCanvas Pixels=""@_pixelsGradient"" CanvasWidth=""{GradientW}"" CanvasHeight=""{GradientH}"" PixelWidth=""1"" Scale=""false""/>
 ".Trim();
-
-    private const string DocumentationUrl =
-        "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/SpectreCanvas.razor";
-
     protected override void OnInitialized()
     {
         base.OnInitialized();

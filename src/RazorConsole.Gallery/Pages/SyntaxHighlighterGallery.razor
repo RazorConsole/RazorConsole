@@ -1,17 +1,8 @@
 @page "/syntax"
 
-<Rows>
-    <Markup Content="The SyntaxHighlighter component renders source code using ColorCode scopes and Spectre styles." Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: SyntaxHighlighter.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-    <Newline />
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor"
-                           Code="@DefaultUsageCode"
-                           ShowLineNumbers="true"/>
-    </Panel>
-
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
-        <Grid Columns="3">
+<GalleryWorkbench Id="syntax" Title="Syntax Highlight" Description="The SyntaxHighlighter component renders source code using ColorCode scopes and Spectre styles." Code="@DefaultUsageCode" Source="SyntaxHighlighter">
+    <Preview>
+        <Grid Columns="1">
             @* C# Example *@
             <Panel Title="C#" Border="BoxBorder.None">
                 <SyntaxHighlighter Language="csharp" Code="@CsharpCode" ShowLineNumbers="true"/>
@@ -42,12 +33,10 @@
                 <SyntaxHighlighter Language="razor" Code="@RazorCode" ShowLineNumbers="true"/>
             </Panel>
         </Grid>
-    </Panel>
-</Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
-    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/SyntaxHighlighter.razor";
-
     private static readonly string CsharpCode = @"
 public class OrderProcessor
 {

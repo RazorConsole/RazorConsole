@@ -7,6 +7,18 @@ namespace RazorConsole.Tests.Input;
 
 public sealed class TerminalMouseTests
 {
+    [Fact]
+    public void CursorReplies_AreConsumedWithoutKeyboardOrMouseLeakage()
+    {
+        var decoder = new TerminalInputDecoder();
+        decoder.Feed("\u001b[12;", 0);
+        decoder.Feed("40R\u001b[?1;1R\u001b[<65;10;10Mx\u001bOR", 1);
+        decoder.TryReadMouse(out var mouse).ShouldBeTrue();
+        mouse.Kind.ShouldBe(TerminalMouseKind.Wheel);
+        decoder.ReadKey().KeyChar.ShouldBe('x');
+        decoder.ReadKey().Key.ShouldBe(ConsoleKey.F3);
+        decoder.KeyAvailable.ShouldBeFalse();
+    }
     [Theory]
     [InlineData("\u001b[<0;3;22M", TerminalMouseKind.Down, 0, 0)]
     [InlineData("\u001b[<0;3;22m", TerminalMouseKind.Up, 0, 0)]

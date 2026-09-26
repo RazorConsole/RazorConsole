@@ -1,27 +1,19 @@
 @page "/newline"
 
-<Rows>
-    <Markup Content="Newline injects a line break into the render tree, letting you add intentional spacing between elements." Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: Newline.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-    <Newline />
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor"
-                           Code="@_exampleCode"
-                           ShowLineNumbers="true" />
-    </Panel>
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
-            <Rows>
-                <Markup Content="• Brew coffee" />
-                <Newline />
-                <Markup Content="• Review pull requests" />
-                <Newline />
-                <Newline />
-                <Markup Content="Break before stand-up"
-                        Foreground="@Color.Grey70"
-                        Decoration="@Decoration.Italic" />
-            </Rows>
-    </Panel>
-</Rows>
+<GalleryWorkbench Id="newline" Title="Newline" Description="Newline injects a line break into the render tree, letting you add intentional spacing between elements." Code="@_exampleCode" Source="Newline">
+    <Preview>
+        <Rows>
+            <Markup Content="• Brew coffee" />
+            <Newline />
+            <Markup Content="• Review pull requests" />
+            <Newline />
+            <Newline />
+            <Markup Content="Break before stand-up"
+                    Foreground="@Color.Grey70"
+                    Decoration="@Decoration.Italic" />
+        </Rows>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
     private static readonly string _exampleCode = @"
@@ -35,6 +27,4 @@
            Foreground=""Color.Grey70""
            Decoration=""Decoration.Italic"" />
 </Rows>".Trim();
-
-    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Newline.razor";
 }

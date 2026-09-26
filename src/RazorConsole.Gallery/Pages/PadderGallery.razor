@@ -1,32 +1,31 @@
 @page "/padder"
 
-<Rows>
-    <Markup Content="Padder adds outer spacing around its child content without modifying the child component itself." Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: Padder.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-    <Newline />
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor"
-                           Code="@_panelPaddedCode"
-                           ShowLineNumbers="true" />
-    </Panel>
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+<GalleryWorkbench Id="padder" Title="Padder" Description="Padder adds outer spacing around its child content without modifying the child component itself." Code="@CurrentCode" OnReset="() => _padding = 1" Source="Padder">
+    <Preview>
         <Panel Title="Padder adds space"
                Border="@BoxBorder.Square"
                Expand="false">
-            <Padder Padding="new Padding(1, 1, 1, 1)">
+            <Padder Padding="new Padding(_padding, _padding, _padding, _padding)">
                 <Markup Content="Comfortable breathing room." />
             </Padder>
         </Panel>
-    </Panel>
-</Rows>
+    </Preview>
+    <Properties>
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            <GalleryButton Id="padder-less" Text="Padding −" OnClick="() => _padding = Math.Max(0, _padding - 1)" />
+            <GalleryButton Id="padder-more" Text="Padding +" OnClick="() => _padding = Math.Min(3, _padding + 1)" />
+            <Markup Content="@_padding.ToString()" />
+        </Flex>
+    </Properties>
+</GalleryWorkbench>
 
 @code {
+    private int _padding = 1;
+    private string CurrentCode => _panelPaddedCode.Replace("new(1, 1, 1, 1)", $"new({_padding}, {_padding}, {_padding}, {_padding})");
     private static readonly string _panelPaddedCode = @"<Panel Title=""Padder adds space""
        Border=""BoxBorder.Square"" Expand=""false"">
     <Padder Padding=""new(1, 1, 1, 1)"">
         <Markup Content=""Comfortable breathing room."" />
     </Padder>
 </Panel>".Trim();
-
-    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Padder.razor";
 }

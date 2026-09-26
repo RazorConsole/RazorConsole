@@ -1,219 +1,111 @@
 @page "/zindex"
-@using System.Timers
+@implements IDisposable
 
-<Rows>
-    <Markup Content="Z-Index and absolute positioning"
-            Foreground="@Color.Grey70"/>
-    <Markup Content="Source Code: OverlayRenderable.cs" Foreground="@Color.DeepSkyBlue1"
-            Decoration="@Decoration.Underline"
-            link="@DocumentationUrl"/>
-    <Newline/>
-    <ViewHeightScrollable Scrollbar="new ()" LinesToRender="20">
-        <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-            <SyntaxHighlighter Language="razor"
-                               Code="@ExampleCode"
-                               ShowLineNumbers="true"/>
-        </Panel>
-    </ViewHeightScrollable>
-
-    <Panel Border="BoxBorder.Double" Title="Overlays operating menu:" TitleColor="Color.Orange1"
-           BorderColor="Color.Grey">
-        <Rows>
-            <Markup Content="Main flow text."/>
-            <Newline/>
-            <Rows>
-                <TextButton Content="Move Floating Modal" OnClick="MoveModal"/>
-                <TextButton Content="Swap Z-Indexes" OnClick="ChangeZIndexes"/>
-                <TextButton Content="Open/Close centered modal window" OnClick="ToggleModal"/>
-                <TextButton Content="Send Notification" OnClick="AddToastWithTimer"/>
-            </Rows>
-        </Rows>
-    </Panel>
-</Rows>
-
-<ModalWindow IsOpened="_isModalOpened">
-    <Panel Border="BoxBorder.Double" BorderColor="Color.Aqua" Title="Centered modal window">
-        <Rows>
-            <Markup Content="Z-Index is 9999 by default." Decoration="Decoration.Bold"/>
-            <Markup Content="Some text to make it bigger."/>
-        </Rows>
-    </Panel>
-</ModalWindow>
-
-<div position="absolute" top="@_floatingTop" left="@_floatingLeft" z-index="@_firstModalZIndex">
-    <Panel Border="BoxBorder.Rounded" BorderColor="Color.Red" Title="Layer A">
-        <Rows>
-            <Markup Content="Modal window A" Decoration="Decoration.Bold"/>
-            <Markup Content="@($"Z-Index: {_firstModalZIndex}")"/>
-            <Markup Content="I can be moved!"/>
-        </Rows>
-    </Panel>
-</div>
-
-<div position="absolute" top="5" left="40" z-index="@_secondModalZIndex">
-    <Panel Border="BoxBorder.Rounded" BorderColor="Color.Green" Title="Layer B">
-        <Rows>
-            <Markup Content="Modal window B" Decoration="Decoration.Bold"/>
-            <Markup Content="@($"Z-Index: {_secondModalZIndex}")"/>
-        </Rows>
-    </Panel>
-</div>
-
-<div position="absolute" top="20" left="40" z-index="1">
-    <Panel Border="BoxBorder.Rounded" BorderColor="Color.Green" Title="Layer C">
-        <Rows>
-            <Markup Content="Modal window C with Nested window E" Decoration="Decoration.Bold"/>
-            <Markup Content="Z-Index: 1"/>
-            <Markup Content="top=20 left=40"/>
-        </Rows>
-        <div position="absolute" top="2" left="20" z-index="2">
-            <Panel Border="BoxBorder.Rounded" BorderColor="Color.Green" Title="Layer E">
+<GalleryWorkbench Id="zindex" Title="Z-Index" Description="Move overlapping layers, swap their order and open a real modal." Code="@SampleCode" OnReset="Reset">
+    <Preview>
+        <Flex Width="44" Height="14" position="relative">
+            <div position="absolute" top="@_top" left="@_left" z-index="@_firstZ">
+                <Panel Width="24" Height="5" Title="Layer A" BorderColor="Color.Red">
+                    <Markup Content="@($"Movable · z={_firstZ}")" />
+                </Panel>
+            </div>
+            <div position="absolute" top="3" left="12" z-index="@_secondZ">
+                <Panel Width="26" Height="5" Title="Layer B" BorderColor="Color.Green">
+                    <Markup Content="@($"Overlap · z={_secondZ}")" />
+                </Panel>
+            </div>
+            <div position="absolute" top="9" left="0" z-index="1">
+                <Panel Width="40" Height="5" Title="Layer C" BorderColor="Color.DeepSkyBlue1">
+                    <Markup Content="Nested positioning" />
+                    <div position="absolute" top="1" left="19" z-index="2">
+                        <Panel Width="18" Title="Layer E"><Markup Content="Relative to C" /></Panel>
+                    </div>
+                </Panel>
+            </div>
+        </Flex>
+        <Markup Content="@($"Last action: {_lastAction}")" Foreground="Color.Grey58" />
+        @if (_notification)
+        {
+            <Markup Content="Notification received" Foreground="Color.Chartreuse1" />
+        }
+        <ModalWindow IsOpened="@_modal">
+            <Panel Title="Centered modal" BorderColor="Color.DeepSkyBlue1">
                 <Rows>
-                    <Markup Content="Modal window E that is nested in window C and relative to its position" Decoration="Decoration.Bold"/>
-                    <Markup Content="Z-Index: 2"/>
-                    <Markup Content="top=2 left=20"/>
+                    <Markup Content="Above the other layers" />
+                    <GalleryButton Id="zindex-close" Text="Close modal" OnClick="() => _modal = false" />
                 </Rows>
             </Panel>
-        </div>
-    </Panel>
-</div>
-
-
-@if (_toasts.Any())
-{
-    <div position="absolute" top="1" right="2" z-index="2000">
-        <Rows>
-            @foreach (var toast in _toasts)
-            {
-                <Panel Border="BoxBorder.Rounded" BorderColor="Color.Blue">
-                    <Markup Content="@($"🔔 {toast}")"/>
-                </Panel>
-            }
-        </Rows>
-    </div>
-}
-
-<div position="absolute" right="1" bottom="6" z-index="500">
-    <Panel Border="BoxBorder.Rounded">
-        <Columns>
-            <Markup Content="STATUS: READY" Decoration="Decoration.Bold" Foreground="Color.Green"/>
-            <Markup Content="@($"LOGS: {_lastAction} ")" Decoration="Decoration.Underline" Foreground="Color.Yellow"/>
-            <Markup Content="@($"TIME: {DateTime.Now:HH:mm:ss} ")"/>
-        </Columns>
-    </Panel>
-</div>
-
+        </ModalWindow>
+    </Preview>
+    <Properties>
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            <GalleryButton Id="zindex-move" Text="Move layer" OnClick="Move" />
+            <GalleryButton Id="zindex-swap" Text="Swap order" OnClick="Swap" />
+        </Flex>
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            <GalleryButton Id="zindex-modal" Text="Open modal" OnClick="() => _modal = true" />
+            <GalleryButton Id="zindex-notify" Text="Notify" OnClick="Notify" />
+        </Flex>
+    </Properties>
+</GalleryWorkbench>
 
 @code {
-    private int _firstModalZIndex = 10;
-    private int _secondModalZIndex = 20;
-    private int _floatingTop = 2;
-    private int _floatingLeft = 15;
+    private int _top = 1;
+    private int _left = 1;
+    private int _firstZ = 10;
+    private int _secondZ = 20;
+    private bool _modal;
+    private bool _notification;
     private string _lastAction = "None";
-    private bool _isModalOpened = false;
-
-    // ReSharper disable once NotAccessedPositionalProperty.Local
-    // Using for default ToString method implementation
-    private sealed record ToastItem(string Message, DateTime Expiry);
-
-    private readonly List<ToastItem> _toasts = new();
-    private System.Timers.Timer? _cleanupTimer;
-
-    private void ChangeZIndexes()
+    private readonly CancellationTokenSource _shutdown = new();
+    private int _notificationVersion;
+    private void Move() { _left = (_left + 2) % 12; _top = (_top + 1) % 4; _lastAction = $"Moved to {_left}, {_top}"; }
+    private void Swap() { (_firstZ, _secondZ) = (_secondZ, _firstZ); _lastAction = "Order swapped"; }
+    private void Reset() { _top = 1; _left = 1; _firstZ = 10; _secondZ = 20; _modal = false; _notification = false; _notificationVersion++; _lastAction = "None"; }
+    private void Notify()
     {
-        (_firstModalZIndex, _secondModalZIndex) = (_secondModalZIndex, _firstModalZIndex);
-        _lastAction = "Z-Indexes swapped";
-        StateHasChanged();
+        _notification = true;
+        _lastAction = "Notification sent";
+        _ = DismissNotificationAsync(++_notificationVersion);
     }
-
-    private void MoveModal()
+    private async Task DismissNotificationAsync(int version)
     {
-        _floatingLeft += 2;
-        _floatingTop += 1;
-        if (_floatingLeft > 60) _floatingLeft = 10;
-        if (_floatingTop > 15) _floatingTop = 2;
-
-        _lastAction = $"Moved to {_floatingTop}:{_floatingLeft}";
-        StateHasChanged();
-    }
-
-    protected override void OnInitialized()
-    {
-        _cleanupTimer = new System.Timers.Timer(1000);
-        _cleanupTimer.Elapsed += OnCleanupTimerElapsed;
-        _cleanupTimer.AutoReset = true;
-        _cleanupTimer.Enabled = true;
-    }
-
-    private void AddToastWithTimer()
-    {
-        var id = Guid.NewGuid().ToString()[..4];
-        _toasts.Add(new ToastItem($"Update {id}", DateTime.Now.AddSeconds(2)));
-
-        _lastAction = $"Toast {id} added";
-        StateHasChanged();
-    }
-
-    private void OnCleanupTimerElapsed(object? sender, ElapsedEventArgs e)
-    {
-        var now = DateTime.Now;
-        if (_toasts.Any(t => t.Expiry <= now))
+        try
         {
-            _toasts.RemoveAll(t => t.Expiry <= now);
-            InvokeAsync(StateHasChanged);
+            await Task.Delay(2000, _shutdown.Token);
+            await InvokeAsync(() => { if (version == _notificationVersion) _notification = false; StateHasChanged(); });
         }
+        catch (OperationCanceledException) { }
     }
-
-    private void ToggleModal() => _isModalOpened = !_isModalOpened;
-
-    private static readonly string ExampleCode = @"
-<ModalWindow IsOpened=""_isModalOpened"">
-    <Panel Border=""BoxBorder.Double"" BorderColor=""Color.Aqua"" Title=""Centered modal window"">
-        <Rows>
-            <Markup Content=""Z-Index is 9999 by default."" Decoration=""Decoration.Bold""/>
-            <Markup Content=""Some text to make it bigger.""/>
-        </Rows>
-    </Panel>
-</ModalWindow>
-<div position=""absolute"" top=""@_floatingTop"" left=""@_floatingLeft"" z-index=""@_firstModalZIndex"">
-    <Panel Border=""BoxBorder.Rounded"" BorderColor=""Color.Red"" Title=""Layer A"">
-        <Rows>
-            <Markup Content=""Modal window A"" Decoration=""Decoration.Bold""/>
-            <Markup Content=""@($""Z-Index: {_firstModalZIndex}"")""/>
-            <Markup Content=""I can be moved!""/>
-        </Rows>
-    </Panel>
-</div>
-<div position=""absolute"" top=""5"" left=""40"" z-index=""@_secondModalZIndex"">
-    <Panel Border=""BoxBorder.Rounded"" BorderColor=""Color.Green"" Title=""Layer B"">
-        <Rows>
-            <Markup Content=""Modal window B"" Decoration=""Decoration.Bold""/>
-            <Markup Content=""@($""Z-Index: {_secondModalZIndex}"")""/>
-        </Rows>
-    </Panel>
-</div>
-@if (_toasts.Any()) {
-    <div position=""absolute"" top=""1"" right=""2"" z-index=""2000"">
-        <Rows>
-            @foreach (var toast in _toasts)
-            {
-                <Panel Border=""BoxBorder.Rounded"" BorderColor=""Color.Blue"">
-                    <Markup Content=""@($""🔔 {toast}"")""/>
+    public void Dispose() { _shutdown.Cancel(); _shutdown.Dispose(); }
+    private string SampleCode => $@"
+        <Flex Width=""44"" Height=""14"" position=""relative"">
+            <div position=""absolute"" top=""{_top}"" left=""{_left}"" z-index=""{_firstZ}"">
+                <Panel Width=""24"" Height=""5"" Title=""Layer A"" BorderColor=""Color.Red"">
+                    <Markup Content=""Movable · z={_firstZ}"" />
                 </Panel>
-            }
-        </Rows>
-    </div>
-}
-<div position=""absolute"" right=""1"" bottom=""6"" z-index=""500"">
-    <Panel Border=""BoxBorder.Rounded"">
-        <Columns>
-            <Markup Content=""STATUS: READY"" Decoration=""Decoration.Bold"" Foreground=""Color.Green""/>
-            <Markup Content=""@($""LOGS: {_lastAction} "")"" Decoration=""Decoration.Underline"" Foreground=""Color.Yellow""/>
-            <Markup Content=""@($""TIME: {DateTime.Now:HH:mm:ss} "")""/>
-        </Columns>
-    </Panel>
-</div>
+            </div>
+            <div position=""absolute"" top=""3"" left=""12"" z-index=""{_secondZ}"">
+                <Panel Width=""26"" Height=""5"" Title=""Layer B"" BorderColor=""Color.Green"">
+                    <Markup Content=""Overlap · z={_secondZ}"" />
+                </Panel>
+            </div>
+            <div position=""absolute"" top=""9"" left=""0"" z-index=""1"">
+                <Panel Width=""40"" Height=""5"" Title=""Layer C"" BorderColor=""Color.DeepSkyBlue1"">
+                    <Markup Content=""Nested positioning"" />
+                    <div position=""absolute"" top=""1"" left=""19"" z-index=""2"">
+                        <Panel Width=""18"" Title=""Layer E""><Markup Content=""Relative to C"" /></Panel>
+                    </div>
+                </Panel>
+            </div>
+        </Flex>
+        <ModalWindow IsOpened=""@_modal"">
+            <Panel Title=""Centered modal"" BorderColor=""Color.DeepSkyBlue1"">
+                <Rows>
+                    <Markup Content=""Above the other layers"" />
+                    <GalleryButton Id=""zindex-close"" Text=""Close modal"" OnClick=""() => _modal = false"" />
+                </Rows>
+            </Panel>
+        </ModalWindow>
 ".Trim();
-
-    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Renderables/OverlayRenderable.cs";
 }

@@ -6,6 +6,7 @@
 @inject ScrollableLayoutCoordinator LayoutCoordinator;
 
 <view-height-scrollable
+    @onwheel="HandleWheel" @onwheel:stopPropagation="true"
     data-offset="@ScrollOffset"
     data-lines-to-render="@LinesToRender"
     data-enable-embedded="@IsScrollbarEmbedded.ToString()"
@@ -102,6 +103,16 @@
             if (ScrollOffsetChanged.HasDelegate)
                 await ScrollOffsetChanged.InvokeAsync(newOffset);
             StateHasChanged();
+        }
+    }
+
+    private async Task HandleWheel(WheelEventArgs e)
+    {
+        var next = Math.Clamp(ScrollOffset + (int)e.DeltaY, 0, LayoutCoordinator.GetMaxOffset(_scrollId));
+        if (next != ScrollOffset)
+        {
+            ScrollOffset = next;
+            await ScrollOffsetChanged.InvokeAsync(next);
         }
     }
 

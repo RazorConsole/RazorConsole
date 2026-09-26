@@ -1,22 +1,14 @@
 @page "/panel"
 
-<Rows>
-    <Markup Content="Panel surfaces information inside a framed container with optional title, padding, size, and border configuration." Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: Panel.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-    <Newline />
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor"
-                           Code="@_exampleCode"
-                           ShowLineNumbers="true" />
-    </Panel>
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
+<GalleryWorkbench Id="panel" Title="Panel" Description="Panel surfaces information inside a framed container with optional title, padding, size, and border configuration." Code="@CurrentCode" OnReset="Reset" Source="Panel">
+    <Preview>
         <Columns>
-            <Panel Title="Release"
+            <Panel Title="@(_title ? "Release" : "")"
                    TitleColor="@Color.Chartreuse1"
                    Border="@BoxBorder.Double"
                    BorderColor="@Color.Chartreuse1"
                    Expand="false"
-                   Width="28">
+                   Width="@_width">
                     <Markup Content="Version 1.4.0" />
                     <Newline />
                     <Markup Content="Ready for publication"
@@ -24,12 +16,26 @@
                             Decoration="@Decoration.Bold" />
             </Panel>
         </Columns>
-    </Panel>
-</Rows>
+    </Preview>
+    <Properties>
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            <GalleryButton Id="panel-title" Text="@($"Title {(_title ? "on" : "off")}")" Selected="@_title" OnClick="() => _title = !_title" />
+        </Flex>
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            <GalleryButton Id="panel-less" Text="Width −" OnClick="() => _width = Math.Max(24, _width - 4)" />
+            <GalleryButton Id="panel-more" Text="Width +" OnClick="() => _width = Math.Min(44, _width + 4)" />
+            <Markup Content="@_width.ToString()" />
+        </Flex>
+    </Properties>
+</GalleryWorkbench>
 
 @code {
+    private bool _title = true;
+    private int _width = 28;
+    private void Reset() { _title = true; _width = 28; }
+    private string CurrentCode => _exampleCode.Replace("Title=\"Release\"", $"Title=\"{(_title ? "Release" : "")}\"").Replace("Width=\"28\"", $"Width=\"{_width}\"");
     private static readonly string _exampleCode = @"
-<Columns Expand=""true"">
+<Columns>
     <Panel Title=""Release""
            TitleColor=""Color.Chartreuse1""
            Border=""BoxBorder.Double""
@@ -42,6 +48,4 @@
                Decoration=""Decoration.Bold"" />
     </Panel>
 </Columns>".Trim();
-
-    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Panel.razor";
 }

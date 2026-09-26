@@ -1,93 +1,96 @@
 @inject NavigationManager Nav
+@inject RazorConsole.Core.Focus.FocusManager Focus
+@implements IDisposable
 
-<Select
-    TItem="Tab"
-    Options="_tabs"
-    Formatter="@(t => t.Label)"
-    Value="@_selectedTab"
-    ValueChanged="@SelectTab"
-    IsFocused="@IsFocused"
-    IsFocusedChanged="@OnSelectFocusChanged"
-    Expand="false"/>
+<Flex Direction="FlexDirection.Column" Width="@Width" Height="@Height" @onwheel="Wheel" @onkeydown="Key">
+    <Border BorderColor="@(_searchFocused ? Color.DeepSkyBlue1 : Color.Grey58)">
+        <TextArea Buffer="@_search" Width="@(Width - 2)" Height="1" Editable="@_searchFocused" Hook="gallery-search"
+                  Placeholder="@(_searchFocused ? "Type to search…" : "/ Search components")"
+                  PlaceholderForeground="Color.Grey58" IsFocusedChanged="value => _searchFocused = value"
+                  RowStyle="@(_ => new Style(foreground: _searchFocused ? Color.Default : Color.Grey58))" OnChanged="Search" />
+    </Border>
+    @foreach (var item in Visible)
+    {
+        <GalleryButton @key="item.Key" Id="@($"nav-{item.Key}")" Width="@Width"
+                       Text="@(item.Group ? $"{(_collapsed.Contains(item.Key) ? "+" : "−")} {item.Label}" : item.Label)"
+                       Selected="@(!item.Group && item.Key == _selected)" OnClick="() => Activate(item)" OnKeyDown="Key" />
+    }
+    @if (Entries.Count == 0)
+    {
+        <Markup Content="No matching components" Foreground="Color.Grey58" />
+    }
+    <Flex Direction="FlexDirection.Row">
+        <GalleryButton Id="nav-up" Text="↑" OnClick="() => Scroll(-PageSize)" />
+        <GalleryButton Id="nav-down" Text="↓" OnClick="() => Scroll(PageSize)" />
+        <Markup Content="@($"{Math.Min(_offset + PageSize, Entries.Count)}/{Entries.Count}")" Foreground="Color.Grey58" />
+    </Flex>
+</Flex>
 
 @code {
-
-    private class Tab
-    {
-        public Tab(string key, string label)
-        {
-            Key = key;
-            Label = label;
-        }
-        public string Key { get; set; }
-        public string Label { get; set; }
-    }
-
-    private Tab? _selectedTab;
-    private readonly Tab[] _tabs =
-    [
-        new("align", "Align"),
-        new("border", "Border"),
-        new("columns", "Columns"),
-        new("figlet", "Figlet"),
-        new("flexbox", "FlexBox"),
-        new("grid", "Grid"),
-        new("table", "Table"),
-        new("html-inline", "HTML Inline"),
-        new("html-list", "HTML List"),
-        new("markup", "Markup"),
-        new("markdown", "Markdown"),
-        new("syntax", "Syntax Highlight"),
-        new("newline", "Newline"),
-        new("canvas", "Spectre Canvas"),
-        new("small-charts", "Small Charts"),
-        new("step-chart", "Step Chart"),
-        new("padder", "Padder"),
-        new("panel", "Panel"),
-        new("rows", "Rows"),
-        new("select", "Select"),
-        new("spinner", "Spinner"),
-        new("scrollable", "Scrollable"),
-        new("textbutton", "Text Button"),
-        new("textinput", "Text Input"),
-        new("zindex", "Z-Index"),
-        new("cli-info", "CLI Info"),
-        new("issue-307-focus", "Issue 307 Focus")
-    ];
-
+    [Parameter] public int Height { get; set; } = 25;
+    [Parameter] public int Width { get; set; } = 25;
+    private readonly RazorConsole.Core.Input.TextSelectionState _search = new();
+    private bool _searchFocused;
+    private string _query => _search.Text.Trim();
+    private string _selected = "align";
+    private int _offset;
+    private readonly HashSet<string> _collapsed = ["Diagnostics"];
+    private sealed record Entry(string Key, string Label, string Category, bool Group = false);
+    private static readonly Entry[] Items = [
+        new("align", "Align", "Layout"), new("border", "Border", "Layout"),
+        new("columns", "Columns", "Layout"), new("flexbox", "FlexBox", "Layout"),
+        new("grid", "Grid", "Layout"), new("padder", "Padder", "Layout"),
+        new("panel", "Panel", "Layout"), new("rows", "Rows", "Layout"),
+        new("scrollable", "Scrollable", "Layout"),
+        new("textbutton", "Text Button", "Input"), new("textinput", "Text Input", "Input"), new("select", "Select", "Input"),
+        new("markup", "Markup", "Content"), new("markdown", "Markdown", "Content"),
+        new("table", "Table", "Content"), new("syntax", "Syntax Highlight", "Content"),
+        new("html-inline", "HTML Inline", "Content"), new("html-list", "HTML List", "Content"),
+        new("newline", "Newline", "Content"), new("figlet", "Figlet", "Content"),
+        new("canvas", "Spectre Canvas", "Content"),
+        new("spinner", "Spinner", "Feedback"), new("small-charts", "Small Charts", "Feedback"),
+        new("step-chart", "Step Chart", "Feedback"), new("zindex", "Z-Index", "Advanced"),
+        new("drag", "Drag", "Advanced"),
+        new("cli-info", "CLI Info", "Diagnostics"), new("issue-307-focus", "Issue 307 Focus", "Diagnostics")];
+    private int PageSize => Math.Max(1, Height - 4);
+    private List<Entry> Entries => Items.Where(x => x.Label.Contains(_query, StringComparison.OrdinalIgnoreCase)
+        || x.Category.Contains(_query, StringComparison.OrdinalIgnoreCase)).GroupBy(x => x.Category)
+        .SelectMany(g => new[] { new Entry(g.Key, g.Key, g.Key, true) }
+            .Concat(_query.Length > 0 || !_collapsed.Contains(g.Key) ? g : Enumerable.Empty<Entry>())).ToList();
+    private IEnumerable<Entry> Visible => Entries.Skip(Math.Min(_offset, Math.Max(0, Entries.Count - PageSize))).Take(PageSize);
     protected override void OnInitialized()
     {
-        base.OnInitialized();
-        _selectedTab = _tabs.FirstOrDefault();
+        SyncSelection();
+        Nav.LocationChanged += LocationChanged;
     }
-
-    private void SelectTab(Tab tab)
+    private void SyncSelection() => _selected = Nav.ToBaseRelativePath(Nav.Uri).Trim('/') is { Length: > 0 } path ? path : "align";
+    private void LocationChanged(object? sender, LocationChangedEventArgs e) { SyncSelection(); _ = InvokeAsync(StateHasChanged); }
+    public void Dispose() => Nav.LocationChanged -= LocationChanged;
+    private void Search() => _offset = 0;
+    private void Activate(Entry entry)
     {
-        _selectedTab = tab;
-        Nav.NavigateTo(tab.Key);
+        if (entry.Group)
+        {
+            if (!_collapsed.Add(entry.Key)) _collapsed.Remove(entry.Key);
+        }
+        else if (entry.Key != _selected) Nav.NavigateTo(entry.Key);
     }
-
-    [Parameter]
-    public bool IsFocused { get; set; }
-
-    [Parameter]
-    public EventCallback<bool> IsFocusedChanged { get; set; }
-
-    private async Task OnSelectFocusChanged(bool isFocused)
+    private void Scroll(int delta) => _offset = Math.Clamp(_offset + delta, 0, Math.Max(0, Entries.Count - PageSize));
+    private void Wheel(WheelEventArgs e) => Scroll((int)e.DeltaY);
+    private async Task Key(KeyboardEventArgs e)
     {
-        if (IsFocused == isFocused)
+        if (e.Key == "PageDown") Scroll(PageSize);
+        if (e.Key == "PageUp") Scroll(-PageSize);
+        if (e.Key is "ArrowDown" or "ArrowUp" && Focus.CurrentFocusKey?.StartsWith("nav-", StringComparison.Ordinal) == true)
         {
-            return;
+            var entries = Entries;
+            if (entries.Count == 0) return;
+            var current = entries.FindIndex(x => $"nav-{x.Key}" == Focus.CurrentFocusKey);
+            var next = Math.Clamp(current + (e.Key == "ArrowDown" ? 1 : -1), 0, entries.Count - 1);
+            if (next < _offset) _offset = next;
+            if (next >= _offset + PageSize) _offset = next - PageSize + 1;
+            await InvokeAsync(StateHasChanged);
+            await Focus.FocusAsync($"nav-{entries[next].Key}");
         }
-
-        IsFocused = isFocused;
-
-        if (IsFocusedChanged.HasDelegate)
-        {
-            await IsFocusedChanged.InvokeAsync(isFocused).ConfigureAwait(false);
-        }
-
-        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
-
 }

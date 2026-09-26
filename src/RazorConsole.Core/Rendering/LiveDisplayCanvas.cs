@@ -41,13 +41,13 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
             if (_current is null && renderable is not null)
             {
                 _current = new DiffRenderable(renderable, hideCursor: options.HideCursor);
-                ansiConsole.Write(_current);
+                WriteCurrent();
                 Refreshed?.Invoke();
             }
             else if (_current is not null && renderable is not null)
             {
                 _current.UpdateRenderable(renderable);
-                ansiConsole.Write(_current);
+                WriteCurrent();
                 Refreshed?.Invoke();
             }
         }
@@ -60,12 +60,32 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
 
     public void Refresh()
     {
-        if (_current is not null)
+        _semaphore.Wait();
+        try
         {
-            EnterAlternateScreenBufferIfNeeded();
-            ansiConsole.Write(new ControlCode(string.Empty));
-            ansiConsole.Write(_current);
-            Refreshed?.Invoke();
+            if (_current is not null && !_disposed)
+            {
+                EnterAlternateScreenBufferIfNeeded();
+                WriteCurrent();
+                Refreshed?.Invoke();
+            }
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    private void WriteCurrent()
+    {
+        try
+        {
+            ansiConsole.Write(_current!);
+        }
+        catch
+        {
+            _current?.Invalidate();
+            throw;
         }
     }
 

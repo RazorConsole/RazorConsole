@@ -1,32 +1,29 @@
 @page "/rows"
 
-<Rows>
-    <Markup Content="Rows stacks child content vertically and can optionally expand height to fill the available space." Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: Rows.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-    <Newline />
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor"
-                           Code="@_exampleCode"
-                           ShowLineNumbers="true" />
-    </Panel>
-    <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
-                <Rows>
-                    <Markup Content="Morning: Daily sync" />
-                    <Markup Content="Afternoon: Pair with teammates" />
-                    <Markup Content="Evening: Ship features"
-                            Foreground="@Color.Chartreuse1" />
-                </Rows>
-    </Panel>
-</Rows>
+<GalleryWorkbench Id="rows" Title="Rows" Description="Rows stacks child content vertically and can optionally expand height to fill the available space." Code="@CurrentCode" OnReset="() => _reverse = false" Source="Rows">
+    <Preview>
+        <Rows>
+            @foreach (var line in _reverse ? Enumerable.Reverse(_lines) : _lines)
+            {
+                <Markup Content="@line" />
+            }
+        </Rows>
+    </Preview>
+    <Properties>
+        <Flex Direction="FlexDirection.Row" Gap="1">
+            <GalleryButton Id="rows-reverse" Text="Reverse order" Selected="@_reverse" OnClick="() => _reverse = !_reverse" />
+        </Flex>
+    </Properties>
+</GalleryWorkbench>
 
 @code {
+    private bool _reverse;
+    private static readonly string[] _lines = ["Morning: Daily sync", "Afternoon: Pair with teammates", "Evening: Ship features"];
+    private string CurrentCode => "<Rows>\n" + string.Join("\n", (_reverse ? Enumerable.Reverse(_lines) : _lines).Select(line => $"    <Markup Content=\"{line}\" />")) + "\n</Rows>";
     private static readonly string _exampleCode = @"
 <Rows>
     <Markup Content=""Morning: Daily sync"" />
     <Markup Content=""Afternoon: Pair with teammates"" />
     <Markup Content=""Evening: Ship features""
            Foreground=""Color.Chartreuse1"" />
-</Rows>".Trim();
-
-    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Rows.razor";
-}
+</Rows>".Trim();}

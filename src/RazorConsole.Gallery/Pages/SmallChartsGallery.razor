@@ -1,62 +1,42 @@
 @page "/small-charts"
 
-<Rows>
-    <Markup Content="Small Charts components are used for displaying statistics info in charts view."/>
-    <Newline/>
-
-    <Panel Title="BarChart" Border="BoxBorder.Rounded">
-        <Rows>
-            <Markup
-                Content="BarChart component is used for displaying some statistics info in bar charts to the console."
-                Foreground="@Color.Grey70"/>
-            <Markup Content="Source Code: BarChart.razor" Foreground="@Color.DeepSkyBlue1"
-                    Decoration="@Decoration.Underline" link="@BarChartDocumentationUrl"/>
-            <Newline/>
-
-            <Panel Title="Code" Border="BoxBorder.Rounded">
-                <SyntaxHighlighter Language="razor"
-                                   Code="@BarChartExampleCode"
-                                   ShowLineNumbers="true"/>
-            </Panel>
-
-            <Panel Title="Preview" Border="BoxBorder.Rounded">
+<GalleryWorkbench Id="small-charts" Title="Small Charts" Description="Compare bar and breakdown charts with real data." Code="@CurrentCode" OnReset="() => _selected = 0">
+    <Options>
+        <Flex Direction="FlexDirection.Column">
+            @for (var i = 0; i < _names.Length; i++)
+            {
+                var index = i;
+                <GalleryButton Id="@($"small-charts-sample-{index}")" Text="@_names[index]" Selected="@(_selected == index)" OnClick="() => _selected = index" />
+            }
+        </Flex>
+    </Options>
+    <Preview>
+        @switch (_selected)
+        {
+            case 0:
                 <BarChart BarChartItems="@GenerateFruits()"
                           Label="Fruits" LabelAlignment="Justify.Left" LabelForeground="Color.Red"
                           LabelDecoration="Decoration.Italic"
                           Width="60"
                           ShowValues="true"/>
-            </Panel>
-        </Rows>
-    </Panel>
-
-    <Panel Title="BreakdownChart" Border="BoxBorder.Rounded">
-        <Rows>
-            <Markup
-                Content="BreakdownChart component is used for displaying some statistics info in breakdown charts to the console."
-                Foreground="@Color.Grey70"/>
-            <Markup Content="Source Code: BreakdownChart.razor" Foreground="@Color.DeepSkyBlue1"
-                    Decoration="@Decoration.Underline" link="@BreakdownChartDocumentationUrl"/>
-            <Newline/>
-
-            <Panel Title="Code" Border="BoxBorder.Rounded">
-                <SyntaxHighlighter Language="razor"
-                                   Code="@BreakdownChartExampleCode"
-                                   ShowLineNumbers="true"/>
-            </Panel>
-
-            <Panel Title="Preview" Border="BoxBorder.Rounded">
+                break;
+            case 1:
                 <BreakdownChart BreakdownChartItems="@GenerateProgrammingLanguages()"
                                 Width="60"
                                 ValueColor="Color.Chartreuse1"
                                 ShowTags="true"
                                 ShowTagValues="true"
                                 ShowTagValuesPercentage="true"/>
-            </Panel>
-        </Rows>
-    </Panel>
-</Rows>
+                break;
+        }
+    </Preview>
+</GalleryWorkbench>
 
-@code{
+@code {
+    private int _selected;
+    private static readonly string[] _names = ["BarChart", "BreakdownChart"];
+    private string CurrentCode => _selected switch { 0 => BarChartExampleCode, 1 => BreakdownChartExampleCode, _ => BarChartExampleCode };
+
 
     private const string BarChartExampleCode = @"
 <BarChart BarChartItems=""@GenerateFruits()""

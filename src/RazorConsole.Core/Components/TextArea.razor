@@ -11,7 +11,7 @@
 <Flex @key="Hook" Direction="FlexDirection.Column" Width="@Width" Height="@Height" data-vnode-hook="@Hook"
       data-focusable="true" data-focus-key="@Hook" data-focus-order="@(Editable ? "0" : "1")" data-input-managed="true" data-manage-tab="@(ManageTab ? "true" : "false")"
       @onmousedown="Down" @onmousemove="Move" @onmouseup="Up" @onwheel="Wheel" @onkeydown="Key"
-      @onfocusin="() => _focused = true" @onfocusout="() => _focused = false">
+      @onfocusin="() => SetFocused(true)" @onfocusout="() => SetFocused(false)">
     @foreach (var row in VisibleRows())
     {
         <Flex Direction="FlexDirection.Row" Height="1" FillWidth="true">
@@ -19,7 +19,7 @@
             {
                 <Markup Content="@(new string(' ', row.Indent))" Background="@StyleAt(row.Start).Background" />
             }
-            @if (Editable && Buffer.Text.Length == 0 && Placeholder.Length > 0)
+            @if (Buffer.Text.Length == 0 && Placeholder.Length > 0)
             {
                 <Markup Content="@PlaceholderText" Foreground="PlaceholderForeground" Background="Background" />
             }
@@ -59,6 +59,7 @@
     [Parameter] public EventCallback<KeyboardEventArgs> OnCommand { get; set; }
     [Parameter] public Func<KeyboardEventArgs, Task<bool>>? OnPreviewKey { get; set; }
     [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public EventCallback<bool> IsFocusedChanged { get; set; }
     [Parameter] public Func<int, bool>? CanActivatePosition { get; set; }
     [Parameter] public EventCallback<int> OnActivatePosition { get; set; }
     private long _lastClick;
@@ -67,6 +68,11 @@
     private int _pressedPosition;
     private bool _moved;
     private bool _focused;
+    private async Task SetFocused(bool value)
+    {
+        _focused = value;
+        await IsFocusedChanged.InvokeAsync(value);
+    }
     private readonly CancellationTokenSource _shutdown = new();
     private Task? _autoscroll;
     private MouseEventArgs? _dragPointer;
@@ -86,7 +92,7 @@
     private string PlaceholderText => Placeholder[..Math.Min(Placeholder.Length, Math.Max(0, Width))];
     private string RowPadding(TextSelectionState.TextRow row)
     {
-        var cells = Editable && Buffer.Text.Length == 0 && Placeholder.Length > 0
+        var cells = Buffer.Text.Length == 0 && Placeholder.Length > 0
             ? TextSelectionState.CellWidth(PlaceholderText)
             : TextSelectionState.CellWidth(Buffer.Text[row.Start..row.End]);
         if (Editable && _focused && Buffer.Selection.Length == 0 && Buffer.Cursor == row.End && Buffer.Text.Length > 0) cells++;

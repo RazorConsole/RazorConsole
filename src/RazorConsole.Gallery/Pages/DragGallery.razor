@@ -1,0 +1,67 @@
+@page "/drag"
+
+<GalleryWorkbench Id="drag" Title="Drag" Description="Drag the blue card. Focus it and use arrow keys for precise movement." Code="@SampleCode" OnReset="Reset">
+    <Preview>
+        <Border BorderColor="Color.Grey58">
+            <Flex Width="44" Height="10" position="relative" data-vnode-hook="drag-surface">
+                <div @key='"drag-card"' position="absolute" left="@_x" top="@_y"
+                     data-vnode-hook="drag-card" data-focus-key="drag-card" data-focusable="true"
+                     @onmousedown="Down" @onmousemove="Move" @onmouseup="Up" @onkeydown="Key"
+                     @onfocusin="() => _focused = true" @onfocusout="() => _focused = false">
+                    <Panel Width="16" Height="3" BorderColor="@(_dragging || _focused ? Color.DeepSkyBlue1 : Color.Grey58)">
+                        <Markup Content="@(_dragging ? "Dragging…" : "Drag me")" Foreground="Color.DeepSkyBlue1" />
+                    </Panel>
+                </div>
+            </Flex>
+        </Border>
+        <Markup Content="@($"Position: {_x}, {_y} · {(_dragging ? "Dragging" : "Ready")}")" />
+        <Markup Content="Release outside the card: capture keeps the drag active." Foreground="Color.Grey58" />
+    </Preview>
+</GalleryWorkbench>
+
+@code {
+    private int _x = 2;
+    private int _y = 1;
+    private double _startX;
+    private double _startY;
+    private int _originX;
+    private int _originY;
+    private bool _dragging;
+    private bool _focused;
+    private void Down(MouseEventArgs e)
+    {
+        if (e.Button != 0) return;
+        _dragging = true;
+        _startX = e.ClientX;
+        _startY = e.ClientY;
+        _originX = _x;
+        _originY = _y;
+    }
+    private void Move(MouseEventArgs e)
+    {
+        if (!_dragging) return;
+        _x = Math.Clamp(_originX + (int)(e.ClientX - _startX), 0, 28);
+        _y = Math.Clamp(_originY + (int)(e.ClientY - _startY), 0, 7);
+    }
+    private void Up(MouseEventArgs e) { Move(e); _dragging = false; }
+    private void Key(KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowLeft") _x = Math.Max(0, _x - 1);
+        if (e.Key == "ArrowRight") _x = Math.Min(28, _x + 1);
+        if (e.Key == "ArrowUp") _y = Math.Max(0, _y - 1);
+        if (e.Key == "ArrowDown") _y = Math.Min(7, _y + 1);
+        if (e.Key == "Escape") _dragging = false;
+    }
+    private void Reset() { _x = 2; _y = 1; _dragging = false; }
+    private const string SampleCode = @"<Flex Width=""44"" Height=""10"" position=""relative"">
+    <div position=""absolute"" left=""@_x"" top=""@_y""
+         @onmousedown=""Down"" @onmousemove=""Move"" @onmouseup=""Up"">
+        <Panel Width=""16"" Height=""3""><Markup Content=""Drag me"" /></Panel>
+    </div>
+</Flex>
+
+// Down: remember pointer ClientX/ClientY and initial card position.
+// Move: apply pointer delta, clamped to canvas minus card dimensions.
+// Up: apply final delta and end the drag.
+// Core captures the mousedown handler so move/up work outside the card.";
+}

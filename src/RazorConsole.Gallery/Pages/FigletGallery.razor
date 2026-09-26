@@ -1,22 +1,15 @@
 @page "/figlet"
 
-<Rows>
-    <Markup Content="Figlet renders large ASCII art text using Figlet fonts. " Foreground="@Color.Grey70"/>
-    <Markup Content="Source Code: Figlet.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline"
-            link="@DocumentationUrl"/>
-    <Newline/>
-    <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-        <SyntaxHighlighter Language="razor"
-                           Code="@_exampleCode"
-                           ShowLineNumbers="true"/>
-    </Panel>
-    <Panel Title="Figlet" Border="BoxBorder.Rounded" Expand="true">
+<GalleryWorkbench Id="figlet" Title="Figlet" Description="Figlet renders large ASCII art text using Figlet fonts. " Code="@_exampleCode" Source="Figlet">
+    <Preview>
+        <Panel Title="Figlet" Border="BoxBorder.Rounded" Expand="true">
         <Figlet Content="Default color"/>
         <Figlet Content="Color.Aqua" Color="Color.Aqua"/>
         <Figlet Content="Justify.Left" Justify="Justify.Left"/>
         <Figlet Font="Fonts/Slant Relief.flf" Color="Color.Orange1" Content="Custom"/>
-    </Panel>
-</Rows>
+        </Panel>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
 
@@ -26,7 +19,4 @@
     <Figlet Content=""Color.Aqua"" Color=""Color.Aqua""/>
     <Figlet Content=""Justify.Left"" Justify=""Justify.Left""/>
     <Figlet Font=""Fonts/Slant Relief.flf"" Color=""Color.Orange1"" Content=""Custom""/>
-</Panel>".Trim();
-
-    private const string DocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Figlet.razor";
-}
+</Panel>".Trim();}

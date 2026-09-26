@@ -69,6 +69,23 @@ jobs:
       - name: Test
         run: dotnet test --configuration Release --no-build -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
 
+      - name: Terminal wheel regression (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/razorconsole-pty"
+          "$RUNNER_TEMP/razorconsole-pty/bin/pip" install pyte==0.8.2
+          "$RUNNER_TEMP/razorconsole-pty/bin/python" tests/e2e/gallery-scroll-pty.py --dotnet "$(command -v dotnet)" --framework net11.0
+
+      - name: Upload test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-diagnostics-${{ matrix.os }}
+          path: artifacts/bin/RazorConsole.Tests/**/TestResults/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4
         with:

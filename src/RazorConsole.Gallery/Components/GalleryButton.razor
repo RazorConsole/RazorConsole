@@ -1,0 +1,27 @@
+@inject RazorConsole.Core.Focus.FocusManager Focus
+
+<Flex @key="Id" Height="1" Width="@Width" data-vnode-hook="@Id" data-focusable="true" data-focus-key="@Id" data-focus-order="0"
+      @onclick="OnClick" @onkeydown="Key" @onfocusin="() => _focused = true" @onfocusout="() => _focused = false">
+    <Flex @onmouseenter="() => _hovered = true" @onmouseleave="() => _hovered = false">
+        <Markup Content="@Label" Foreground="@(_focused || Hovered ? Color.Black : Selected ? Color.DeepSkyBlue1 : Color.Default)"
+                Background="@(_focused ? Color.DeepSkyBlue1 : Hovered ? Color.Grey70 : Color.Default)" Decoration="@(Selected ? Decoration.Bold : Decoration.None)" />
+    </Flex>
+</Flex>
+
+@code {
+    [Parameter] public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    [Parameter] public string Text { get; set; } = "";
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public int? Width { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public EventCallback<KeyboardEventArgs> OnKeyDown { get; set; }
+    private bool _focused;
+    private bool _hovered;
+    private bool Hovered => _hovered && OnClick.HasDelegate;
+    private async Task Key(KeyboardEventArgs e)
+    {
+        if (e.Key == "/") await Focus.FocusAsync("gallery-search");
+        else await OnKeyDown.InvokeAsync(e);
+    }
+    private string Label => $" {(Selected ? "●" : " ")} {Text}".PadRight(Width ?? 0);
+}

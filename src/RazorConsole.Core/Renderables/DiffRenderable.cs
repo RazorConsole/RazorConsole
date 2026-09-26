@@ -11,9 +11,9 @@ internal class DiffRenderable
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private IRenderable _renderable;
     private readonly bool _hideCursor;
-    private SegmentShape _shape = new(0, 0);
     private List<SegmentLine> _previousLines = new();
     private int _lastMaxWidth = -1;
+    private int _lastHeight = -1;
 
     /// <summary>
     /// Initializes a new instance of the DiffRenderable class to display the differences between two renderable objects
@@ -38,116 +38,14 @@ internal class DiffRenderable
         }
     }
 
-    protected override IEnumerable<Segment> Render(RenderOptions options, int maxWidth)
+    // The live canvas owns the viewport. Never query the terminal for its cursor:
+    // input belongs exclusively to the input decoder, including protocol replies.
+    public void Invalidate()
     {
         _semaphore.Wait();
         try
         {
-            yield return Segment.Control(RM(DECTCEM) + RM(DECAWM));
-
-            bool widthChanged = _lastMaxWidth != -1 && _lastMaxWidth != maxWidth;
-            _lastMaxWidth = maxWidth;
-
-            var segments = _renderable.Render(options, maxWidth);
-            var segmentLines = Segment.SplitLines(segments);
-            var shape = SegmentShape.Calculate(options, segmentLines);
-
-            var previousLines = _previousLines;
-            var totalLines = segmentLines.Count;
-
-            int renderFromLine;
-            for (renderFromLine = 0; renderFromLine < totalLines; renderFromLine++)
-            {
-                var line = segmentLines[renderFromLine];
-                var previousLine = renderFromLine < previousLines.Count
-                    ? previousLines[renderFromLine]
-                    : EmptyLine;
-                if (!LinesAreEqual(line, previousLine))
-                {
-                    break;
-                }
-            }
-
-            // Move cursor to the first different line in the viewport
-            int linesToMoveUp = Math.Max(0, _shape.Height - renderFromLine - 1);
-
-            bool needFullClear = NeedsFullClear(linesToMoveUp) || widthChanged;
-
-            if (needFullClear)
-            {
-                // The previous content is larger than the current console height, OR resize happened.
-                // We need to clear everything to avoid artifacts.
-                yield return Segment.Control(ED(2) + ED(3) + CUP(1, 1));
-                previousLines = EmptyLines;
-                renderFromLine = 0;
-            }
-            else
-            {
-                for (var i = 0; i < linesToMoveUp; i++)
-                {
-                    var previousLineIndex = previousLines.Count - i;
-                    if (previousLineIndex >= totalLines)
-                    {
-                        // The previous line is beyond the current total lines, move up and clear
-                        yield return Segment.Control(EL(2) + CUU(1));
-                    }
-                    else
-                    {
-                        // just move up
-                        yield return Segment.Control(CUU(1));
-                    }
-                }
-            }
-
-            // Render from the first different line
-            for (var i = renderFromLine; i < totalLines; i++)
-            {
-                var line = segmentLines[i];
-                var previousLine = i < previousLines.Count
-                    ? previousLines[i]
-                    : EmptyLine;
-
-                if (!LinesAreEqual(line, previousLine))
-                {
-                    foreach (var segment in RenderLineDiff(line, previousLine))
-                    {
-                        yield return segment;
-                    }
-                }
-
-                if (i < totalLines - 1)
-                {
-                    yield return Segment.Control(NEL());
-                }
-                else
-                {
-                    yield return Segment.Control("\r");
-                }
-            }
-
-            // Cleaning residual lines from below
-            if (!needFullClear && previousLines.Count > totalLines)
-            {
-                var remaining = previousLines.Count - totalLines;
-                if (totalLines > renderFromLine)
-                {
-                    yield return Segment.Control(NEL());
-                }
-
-                for (var i = 0; i < remaining; i++)
-                {
-                    yield return Segment.Control(EL(2)); // Clean line
-                    yield return Segment.Control(NEL()); // Go to next line
-                }
-
-                yield return Segment.Control(CUU(remaining));
-            }
-
-            // Update the previous lines for next comparison
-            _previousLines = CloneLines(segmentLines);
-            _shape = shape;
-
-            yield return Segment.Control(SM(DECAWM) + (_hideCursor ? string.Empty : SM(DECTCEM)));
+            _lastMaxWidth = -1;
         }
         finally
         {
@@ -155,21 +53,51 @@ internal class DiffRenderable
         }
     }
 
-    private bool NeedsFullClear(int linesToMoveUp)
+    protected override IEnumerable<Segment> Render(RenderOptions options, int maxWidth)
     {
-        // Console.CursorTop is not supported in WebAssembly, always full clear
-        if (OperatingSystem.IsBrowser())
-        {
-            return true;
-        }
-
+        _semaphore.Wait();
         try
         {
-            return linesToMoveUp > Console.CursorTop;
+            yield return Segment.Control(RM(DECTCEM) + RM(DECAWM));
+            var height = Math.Max(1, options.ConsoleSize.Height);
+            var fullRedraw = _lastMaxWidth != maxWidth || _lastHeight != height;
+            var lines = Segment.SplitLines(_renderable.Render(options, maxWidth)).Take(height).ToList();
+            var previous = fullRedraw ? EmptyLines : _previousLines;
+            if (fullRedraw)
+            {
+                // Erase only the visible viewport, never the user's scrollback.
+                yield return Segment.Control(ED(2) + CUP(1, 1));
+            }
+
+            for (var row = 0; row < lines.Count; row++)
+            {
+                var before = row < previous.Count ? previous[row] : EmptyLine;
+                if (!LinesAreEqual(lines[row], before))
+                {
+                    yield return Segment.Control(CUP(row + 1, 1));
+                    foreach (var segment in RenderLineDiff(lines[row], before))
+                    {
+                        yield return segment;
+                    }
+                }
+            }
+            for (var row = lines.Count; row < previous.Count; row++)
+            {
+                yield return Segment.Control(CUP(row + 1, 1) + EL(2));
+            }
+
+            // Absolute addressing also recovers from cursor movement outside the
+            // renderer. No newline at the bottom edge: it would scroll the screen.
+            yield return Segment.Control(CUP(Math.Max(1, lines.Count), 1));
+            yield return Segment.Control("\r");
+            _previousLines = CloneLines(lines);
+            _lastMaxWidth = maxWidth;
+            _lastHeight = height;
+            yield return Segment.Control(SM(DECAWM) + (_hideCursor ? string.Empty : SM(DECTCEM)));
         }
-        catch (IOException)
+        finally
         {
-            return true;
+            _semaphore.Release();
         }
     }
 

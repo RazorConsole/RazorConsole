@@ -1,33 +1,26 @@
 @page "/border"
 
-<Rows>
-    <Markup Content="Border wraps child content with a Spectre.Console panel using the configured border style, color, and padding." Foreground="@Color.Grey70" />
-    <Markup Content="Source Code: Border.razor" Foreground="@Color.DeepSkyBlue1" Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-    <Newline />
-    @for (var index = 0; index < _examples.Length; index++)
-    {
-        var example = _examples[index];
-        <Markup Content="@example.Title" Decoration="@Decoration.Bold" />
-        <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-            <SyntaxHighlighter Language="razor"
-                               Code="@example.Code"
-                               ShowLineNumbers="true" />
-        </Panel>
-        <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
-            <Border BoxBorder="@example.Border"
-                    BorderColor="@example.BorderColor"
-                    Padding="new Padding(1, 0, 1, 0)">
-                <Markup Content="@example.Description" />
-            </Border>
-        </Panel>
-        @if (index < _examples.Length - 1)
-        {
-            <Newline />
-        }
-    }
-</Rows>
+<GalleryWorkbench Id="border" Title="Border" Description="Compare border styles, color and padding." Code="@Current.Code" Source="Border" OnReset="() => _selected = 0">
+    <Options>
+        <Flex Direction="FlexDirection.Column">
+            @for (var i = 0; i < _examples.Length; i++)
+            {
+                var index = i;
+                <GalleryButton Id="@($"border-sample-{index}")" Text="@_examples[index].Title" Selected="@(_selected == index)" OnClick="() => _selected = index" />
+            }
+        </Flex>
+    </Options>
+    <Preview>
+        <Border BoxBorder="@Current.Border" BorderColor="@Current.BorderColor" Padding="new Padding(1, 0, 1, 0)">
+            <Markup Content="@Current.Description" />
+        </Border>
+    </Preview>
+</GalleryWorkbench>
 
 @code {
+    private int _selected;
+    private BorderExample Current => _examples[_selected];
+
     private sealed record BorderExample(string Title, string Description, BoxBorder Border, Color BorderColor, string Code);
 
     private static readonly BorderExample[] _examples =

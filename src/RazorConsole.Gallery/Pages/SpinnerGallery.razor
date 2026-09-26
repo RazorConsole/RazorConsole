@@ -1,40 +1,24 @@
-@using RazorConsole.Components
-@using Spectre.Console
-
 @page "/spinner"
 
-<Rows>
-    <Markup
-        Content="Spinner renders Spectre.Console spinner animations with optional message, style, and auto-dismiss configuration."
-        Foreground="@Color.Grey70" />
-    <Markup Content="On Windows terminals, enable UTF-8 output might be required to ensure spinners render correctly." Foreground="@Color.Gold3_1" />
-    <Markup Content="See Spectre.Console best practices for more tips." Foreground="@Color.Gold3_1" link="https://spectreconsole.net/best-practices" />
-    <Markup Content="Source Code: Spinner.razor" Foreground="@Color.DeepSkyBlue1"
-            Decoration="@Decoration.Underline" link="@DocumentationUrl" />
-    <Newline />
-    @for (var index = 0; index < _examples.Length; index++)
-    {
-        var example = _examples[index];
-        <Markup Content="@example.Title" Decoration="@Decoration.Bold" />
-        <Panel Title="Code" Border="BoxBorder.Rounded" Expand="true">
-            <SyntaxHighlighter Language="razor"
-                               Code="@example.Code"
-                               ShowLineNumbers="true" />
-        </Panel>
-        <Panel Title="Preview" Border="BoxBorder.Rounded" Expand="true">
-            <Spinner SpinnerType="@example.SpinnerType" />
-        </Panel>
-        @if (index < _examples.Length - 1)
-        {
-            <Newline />
-        }
-    }
-    <Newline />
-    <Markup Content="Browse more spinner styles" Foreground="@Color.DeepSkyBlue1"
-            link="https://spectreconsole.net/appendix/spinners" Decoration="@Decoration.Underline" />
-</Rows>
+<GalleryWorkbench Id="spinner" Title="Spinner" Description="Try animated spinner styles. Use UTF-8 output on Windows." Code="@Current.Code" Source="Spinner" OnReset="() => _selected = 0">
+    <Options>
+        <Flex Direction="FlexDirection.Column">
+            @for (var i = 0; i < _examples.Length; i++)
+            {
+                var index = i;
+                <GalleryButton Id="@($"spinner-sample-{index}")" Text="@_examples[index].Title" Selected="@(_selected == index)" OnClick="() => _selected = index" />
+            }
+        </Flex>
+    </Options>
+    <Preview>
+        <Spinner @key="_selected" SpinnerType="@Current.SpinnerType" />
+    </Preview>
+</GalleryWorkbench>
 
 @code {
+    private int _selected;
+    private SpinnerExample Current => _examples[_selected];
+
     private sealed record SpinnerExample(string Title, global::Spectre.Console.Spinner SpinnerType, string Code);
 
     private static readonly SpinnerExample[] _examples =

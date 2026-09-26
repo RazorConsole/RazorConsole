@@ -1,25 +1,17 @@
 @page "/step-chart"
 
-<Rows>
-    <Markup Content="StepChart component is used for displaying chart graphics using points arrays."/>
-    <Markup Content="Source Code: StepChart.razor" Foreground="@Color.DeepSkyBlue1"
-            Decoration="@Decoration.Underline" link="@StepChartDocumentationUrl"/>
-    <Newline/>
+<GalleryWorkbench Id="step-chart" Title="Step Chart" Description="Plot multiple series and toggle the axes." Code="@CurrentCode" Source="StepChart" OnReset="() => _axes = true">
+    <Preview>
+        <StepChart Width="40" Title="Three charts" Height="12" ShowAxes="@_axes" Series="@GenerateChartSeries()" />
+    </Preview>
+    <Properties>
+        <GalleryButton Id="step-chart-axes" Text="@($"Axes {(_axes ? "on" : "off")}")" Selected="@_axes" OnClick="() => _axes = !_axes" />
+    </Properties>
+</GalleryWorkbench>
 
-    <Panel Title="StepChart" Border="BoxBorder.Rounded">
-        <Rows>
-            <Panel Title="Code" Border="BoxBorder.Rounded">
-                <SyntaxHighlighter Language="razor"
-                                   Code="@StepChartExampleCode"
-                                   ShowLineNumbers="true"/>
-            </Panel>
-            <StepChart Width="40" Title="Three charts" Height="12" ShowAxes="true"
-                       Series="@GenerateChartSeries()"/>
-        </Rows>
-    </Panel>
-</Rows>
-
-@code{
+@code {
+    private bool _axes = true;
+    private string CurrentCode => StepChartExampleCode.Replace("ShowAxes=\"true\"", $"ShowAxes=\"{_axes.ToString().ToLowerInvariant()}\"");
 
     private const string StepChartExampleCode = @"
 <StepChart Width=""40"" Height=""12"" Title=""Three charts"" ShowAxes=""true""

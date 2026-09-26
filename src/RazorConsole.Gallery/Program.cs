@@ -16,6 +16,7 @@ builder.UseRazorConsole<App>(configure: config =>
     {
         opt.EnableTerminalResizing = true;
         opt.ConsoleLiveDisplayOptions.UseAlternateScreenBuffer = true;
+        opt.ConsoleLiveDisplayOptions.EnableMouseEvents = true;
     });
 });
 
