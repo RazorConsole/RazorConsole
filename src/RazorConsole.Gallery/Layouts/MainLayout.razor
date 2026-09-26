@@ -16,10 +16,10 @@
               @onfocusin="() => _focused = true" @onfocusout="() => _focused = false">
             @for (var row = 0; row < ContentHeight; row++)
             {
-                var handle = Math.Abs(row - ContentHeight / 2) <= 1;
+                var handle = row == ContentHeight / 2;
                 <Markup Content="@(handle ? "⋮" : "│")"
-                        Foreground="@(handle && DividerActive ? Color.Black : DividerActive ? Color.DeepSkyBlue1 : Color.Grey58)"
-                        Background="@(handle && DividerActive ? Color.DeepSkyBlue1 : Color.Default)" />
+                        Foreground="@(handle ? Color.Black : DividerActive ? Color.DeepSkyBlue1 : Color.Grey58)"
+                        Background="@(handle ? DividerActive ? Color.DeepSkyBlue1 : Color.Grey70 : Color.Default)" />
             }
         </Flex>
         <Flex Width="@Math.Max(1, Viewport.Width - NavigationWidth - 3)" Height="@ContentHeight" Direction="FlexDirection.Column" data-vnode-hook="gallery-main">

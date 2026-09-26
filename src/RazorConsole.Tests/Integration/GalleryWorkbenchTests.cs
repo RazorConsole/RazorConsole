@@ -18,11 +18,14 @@ public sealed class GalleryWorkbenchTests
         var y = divider.Top!.Value + 3;
         var handleY = divider.Top.Value + divider.Height!.Value / 2;
         terminal.Snapshot[x, handleY].Text.ShouldBe("⋮");
+        terminal.Snapshot[x, handleY - 1].Text.ShouldBe("│");
+        terminal.Snapshot[x, handleY + 1].Text.ShouldBe("│");
+        terminal.Snapshot[x, handleY].Style!.Background.ShouldBe(Spectre.Console.Color.Grey70);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Move, x, y), token);
         terminal.Snapshot[x, y].Style!.Foreground.ShouldBe(Spectre.Console.Color.DeepSkyBlue1);
         terminal.Snapshot[x, handleY].Style!.Background.ShouldBe(Spectre.Console.Color.DeepSkyBlue1);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Move, 99, 34), token);
-        (terminal.Snapshot[x, handleY].Style?.Background ?? Spectre.Console.Color.Default).ShouldBe(Spectre.Console.Color.Default);
+        terminal.Snapshot[x, handleY].Style!.Background.ShouldBe(Spectre.Console.Color.Grey70);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, x, y), token);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Move, x + 8, y), token);
         terminal.GetLayout("gallery-sidebar").Width.ShouldBe(33);
