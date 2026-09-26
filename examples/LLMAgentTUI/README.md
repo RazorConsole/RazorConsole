@@ -1,112 +1,189 @@
-# LLM Agent TUI Example
+# LLMAgentTUI
 
-![alt text](../../assets/example/chatbot.png)
+A Codex CLI-inspired agent interface built from real RazorConsole components.
+The same `App` is used with a live provider and with a scripted session.
+Only session responses, tool results, usage data and approvals are simulated.
+The layout and styling follow the supplied Codex 0.157.0 reference, but the
+application brand is LLMAgentTUI and the version comes from its own assembly.
+Model and directory labels come from session data, not the reference screenshot.
+The scripted model label is fixture data, not a model connection.
 
-This example demonstrates how to build an AI-powered chat application using RazorConsole and Microsoft.Extensions.AI SDK. The interface is inspired by Claude Code's terminal UI.
-
-## Features
-
-- Interactive chat interface with AI agents
-- Support for multiple LLM providers (OpenAI, Ollama)
-- Clean, responsive console UI using RazorConsole components
-- Conversation history tracking
-- Real-time streaming responses
-
-## Prerequisites
-
-Choose one of the following options:
-
-### Option 1: Use OpenAI
-
-Set your OpenAI API key as an environment variable:
+## Run
 
 ```bash
-export OPENAI_API_KEY="your-api-key-here"
+dotnet run --project examples/LLMAgentTUI --framework net10.0 -- --mock
 ```
 
-### Option 2: Use Ollama (Local)
+No API key, Ollama server or network connection is needed in scripted mode.
+Type a prompt and press Enter. F6 advances one scripted event. When the approval
+prompt appears, enter 1 to approve or 2 to decline. No command is executed.
 
-1. Install Ollama: https://ollama.ai/
-2. Pull a model (e.g., llama3.2):
-   ```bash
-   ollama pull llama3.2
-   ```
-3. Make sure Ollama is running on `http://localhost:11434`
-
-If you see `Connection refused (localhost:11434)`, start Ollama first:
+Without `--mock`, a real `ChatClientAgent` uses the `Agent` section in
+`appsettings.json`. The default is DeepSeek (`deepseek-flash`) with an intentionally
+invalid `dummy` API key. Replace the key via User Secrets or an environment
+variable before making real requests; no credential is committed.
 
 ```bash
-ollama serve
+dotnet run --project examples/LLMAgentTUI --framework net10.0
 ```
 
-Then pull the default model if needed:
+The example also targets net8.0 and net9.0.
+
+## Configuration
+
+Configuration is loaded beside the built application, so running from the
+repository root still finds the correct JSON. The coding workspace remains
+the current working directory, not the binary directory.
+
+Override order (highest first): command-line arguments, environment variables,
+`appsettings.local.json`, User Secrets in Development, environment-specific JSON,
+`appsettings.json`.
+The launch profile enables Development for `dotnet run`; direct DLL execution
+needs `DOTNET_ENVIRONMENT=Development` to load User Secrets.
+
+For workspace-local configuration, edit
+`examples/LLMAgentTUI/appsettings.local.json`:
+
+```json
+{
+  "Agent": {
+    "ApiKey": "YOUR_DEEPSEEK_KEY"
+  }
+}
+```
+
+This optional file is ignored by Git, copied to the build output for `dotnet run`,
+and excluded from publish output. It is loaded in every environment, not only
+Development. Restart/rebuild after changing it (do not use `--no-build` for that
+run). It remains plaintext; do not share the local file or build artifacts.
+The local `ApiKey` overrides User Secrets, so remove that property if you prefer
+User Secrets instead. New clones can create this file using the example above.
+
+Alternatively, store a real API key outside the repository:
 
 ```bash
-ollama pull llama3.2
+dotnet user-secrets set "Agent:ApiKey" "YOUR_DEEPSEEK_KEY" --project examples/LLMAgentTUI
 ```
 
-## Running the Example
+Or supply `Agent__ApiKey` via the environment. Other configuration keys are
+`Agent__Provider`, `Agent__Endpoint`, and `Agent__Model`. All providers currently
+use the OpenAI-compatible Chat Completions protocol. For Ollama, set endpoint
+`http://localhost:11434/v1`, the installed model name, and a nonempty dummy key.
+The old `OPENAI_API_KEY` / `LLMAGENT_*` variables are no longer read. `.env` is
+not automatically loaded. Do not put a real key in tracked JSON or launch settings;
+User Secrets are outside the repository but are not encrypted.
+
+## Interaction
+
+Typing `/` opens an unboxed two-column command picker. Type to filter, use
+Up/Down to select, Tab to complete, Enter or a mouse click to execute, and Esc
+to dismiss without changing the draft. Hover and mouse wheel change selection.
+Only implemented local commands are listed; the menu is not a list of placeholder
+Codex features.
+
+Markdown pipe tables use aligned, width-aware columns, gold headers and horizontal
+rules. Cells wrap by terminal display width (including CJK text) and preserve inline
+styles and selection. Extremely narrow tables fall back to labeled rows. Lists
+preserve ordered starts, nesting, and hanging indentation on wrapped items.
+
+Permission modes are **Ask for approval** (every tool), **Workspace files**
+(auto-approve the guarded read/write/edit tools, ask for shell commands), and
+**Full access** (auto-approve all registered coding tools). Unknown tools still
+require approval. This is an approval policy, **not an OS sandbox**: shell
+commands run with the process's permissions, including outside-workspace and
+network access. Direct file-tool workspace guardrails remain in every mode.
+The default is Ask for approval on each new session.
+
+For DeepSeek, the client adapter preserves `reasoning_content` in assistant
+history and reconnects native approval-split tool calls with their reasoning.
+It does not disable thinking or expose model reasoning in the transcript.
+Regression tests exercise the real SDK and agent against an offline HTTP handler,
+including approval/denial, responses without visible text, and the next turn.
+See [DeepSeek thinking/tool-call requirements](https://api-docs.deepseek.com/guides/thinking_mode/).
+
+- Enter submits; Shift/Alt+Enter inserts a newline when the terminal reports it.
+- Mouse click positions the draft cursor; drag selects text.
+- Double/triple click selects a word/logical line; typing replaces the selection.
+- Wheel scrolls the transcript. Dragging beyond a text viewport scrolls it.
+- Right click copies selected text; transcript links can be clicked or Ctrl-clicked.
+- Click a tool heading or use F7 to expand its output.
+- Click Back to bottom to return to the latest transcript rows.
+- `/usage` opens usage reports, with clickable tabs/controls and a scrollable body.
+- `/permission` opens session-local tool permissions (alias: `/permissions`).
+  Use arrows or 1–3 to select, Enter to apply, or click a row then Enter.
+  Esc closes without changing the policy. Full access requires a second Enter.
+  Permissions cannot change during a running request or pending approval.
+- Click notifications to inspect session notices; Esc returns to the conversation.
+- Tab changes focus; PageUp/PageDown scroll; Ctrl+C exits.
+
+Copy and URL opening use Core's terminal actions. Clipboard support depends on
+the terminal accepting OSC 52. Automated tests record these external effects so
+they do not overwrite the developer's clipboard or launch a browser.
+
+## Architecture
+
+- `Components/App.razor`: shared application UI.
+- `Components/UsageView.razor`: usage UI, populated from session data.
+- `Services/AgentSession.cs`: UI state contract (not the framework's session).
+- `Services/ChatClientAgentController.cs`: native framework session, streaming,
+  tool calls/results, approval responses, cancellation and token usage.
+- `Services/CodingTools.cs`: approval-required read/write/edit and bash or
+  PowerShell tools; tools belong to the app, not the rendering framework.
+- `Services/ScriptedAgentSession.cs`: deterministic offline session.
+- `Services/AgentViewState.cs`: real draft, transcript selection and disclosure state.
+- Core `TextArea`, `TextSelectionState`, mouse routing and terminal actions:
+  production interaction behavior shared with other apps.
+
+Framework behavior is not mocked. The TestTerminal mounts this application's
+real root component and sends input through the production event managers.
+Live execution no longer uses IChatService. The framework manages conversation
+history and tool invocation. See [AGENT-TOOLS.md](AGENT-TOOLS.md) for the pinned
+pi source research, implemented subset, package versions and safety boundaries.
+Approve individual tools with 1/2 or the approval buttons. Scroll their arguments
+before approving. Escape cancels; shell commands are **not sandboxed**.
+
+## Tests and diagnostics
 
 ```bash
-cd examples/LLMAgentTUI
-dotnet run
+dotnet test src/RazorConsole.Tests/RazorConsole.Tests.csproj --framework net10.0
 ```
 
-To compare the widget layout pipeline:
+Integration coverage includes fixed viewport layouts, resizing, selection/editing,
+scrolling, copying, links, usage controls and a complete scripted approval flow.
+Existing fast unit tests remain.
+
+The empty-session reference test compares every text row at 87 columns by 35
+rows and checks header typography, footer colors, composer coordinates and all
+composer background cells. The light colors follow the supplied screenshot.
+This is cell/style regression coverage, not a completed pixel-diff acceptance:
+the exact terminal, font, font size, display scale, palette and cursor rendering
+must also be matched before comparing screenshots. Other conversation states
+still require their own reference captures.
+
+TestTerminal exposes immutable cell/style snapshots, frame history, focus and
+named widget bounds. `DumpDiagnostics()` also includes the last mouse dispatch.
+The scripted session exposes an event log; tests control advancement explicitly.
+
+On macOS/Linux, mouse-enabled applications read the terminal byte stream before
+key decoding; SGR mouse reports never pass through `Console.ReadKey`. Non-mouse
+applications retain the existing console input path. The decoder preserves partial
+packets across reads and separates keyboard and mouse events in arrival order.
+
+Optional native Unix input regression (no tmux, no model network access):
 
 ```bash
-dotnet run -- --widget-layout
+dotnet build examples/LLMAgentTUI -c Release -f net10.0
+uv run --with pyte python tests/e2e/terminal-input-pty.py
 ```
 
-The application will automatically detect if you have an OpenAI API key set. If not, it will use Ollama with the llama3.2 model.
+This launches the real application in a PTY with `--mock`, sends 201 wheel reports
+(including delayed fragments), checks draft preservation, exercises arrow/Tab menu
+selection, and checks that Ctrl+C disables mouse reporting. Pass `--dotnet PATH`
+if the SDK is not on PATH. Linux still needs native validation; current native
+execution evidence is macOS, in addition to the cross-target .NET unit tests.
 
-## Usage
-
-1. Type your message in the input field
-2. Press Enter or click the "Send" button to submit
-3. Wait for the AI response
-4. Continue the conversation
-5. Press Ctrl+C to exit
-
-## Project Structure
-
-- `Program.cs` - Application entry point and service configuration
-- `Components/App.razor` - Main UI component with chat interface
-- `Services/IChatService.cs` - Chat service interface
-- `Services/ChatService.cs` - Chat service implementation using M.E.AI
-
-## Customization
-
-### Changing the Model
-
-Edit `Program.cs` to use a different model:
-
-```csharp
-// For Ollama
-services.AddChatClient(client =>
-    new OllamaChatClient(new Uri("http://localhost:11434"), "your-model-name"));
-
-// For OpenAI
-services.AddChatClient(client =>
-    new OpenAIClient(apiKey).AsChatClient("gpt-4"));
-```
-
-### Customizing the UI
-
-The UI is built using RazorConsole components. You can modify `Components/App.razor` to:
-- Change colors and styling
-- Add more panels or sections
-- Customize the message display format
-- Add additional features like message history export
-
-## Technologies Used
-
-- **RazorConsole.Core** - Console UI framework with Razor components
-- **Microsoft.Extensions.AI** - Unified AI abstraction layer
-- **Microsoft.Extensions.AI.OpenAI** - OpenAI provider
-- **Microsoft.Extensions.AI.Ollama** - Ollama provider
-- **Spectre.Console** - Rich console rendering
-
-## License
-
-This example is part of the RazorConsole project and follows the same MIT license.
+The reference version and the full acceptance inventory are in
+[CODEX-PARITY.md](CODEX-PARITY.md). The inventory distinguishes implemented
+headless behavior from native terminal validation; it is not a claim of complete
+cross-platform parity. The older DESIGN.md and SCREENSHOT.md describe the
+previous chatbot design and are not the visual reference for this interface.

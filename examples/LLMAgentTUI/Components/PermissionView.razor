@@ -1,0 +1,79 @@
+@namespace LLMAgentTUI.Components
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+@using RazorConsole.Core.Input
+@using RazorConsole.Core.Focus
+@using RazorConsole.Core.Renderables
+@using Spectre.Console
+@using LLMAgentTUI.Services
+@inject FocusManager Focus
+
+<Flex @key='"permissions"' Direction="FlexDirection.Column" Width="Width" Height="Height" data-vnode-hook="permission-menu"
+      data-focusable="true" data-focus-key="permissions" data-focus-order="0" data-input-managed="true" @onkeydown="Key">
+    <Box Height="@Math.Max(0, Height - PanelHeight)" />
+    <Markup Content="@Pad("")" Background="Surface" />
+    <Markup Content="@Pad("  Update Model Permissions")" Background="Surface" Decoration="Decoration.Bold" />
+    <Markup Content="@Pad("")" Background="Surface" />
+    @for (var i = 0; i < 3; i++)
+    {
+        var index = i;
+        <Flex Direction="FlexDirection.Column" data-vnode-hook="@($"permission-{index}")" @onmousedown="(MouseEventArgs e) => Click(e, index)">
+            @foreach (var line in Lines(index))
+            {
+                <Markup Content="@line" Background="@(index == _selected ? Highlight : Surface)" Foreground="@(index == _selected ? Color.Black : Color.Default)" />
+            }
+        </Flex>
+    }
+    <Markup Content="@Pad("")" Background="Surface" />
+    <Markup Content="@(_confirm ? "Full access runs commands without approval. Enter again to confirm; Esc cancels." : "↑/↓ or 1–3 select · enter apply · esc back")" />
+    <Markup Content="@_error" Foreground="Color.Red" />
+</Flex>
+
+@code {
+    [Parameter] public AgentSession Session { get; set; } = default!;
+    [Parameter] public int Width { get; set; }
+    [Parameter] public int Height { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    private int _selected;
+    private bool _confirm;
+    private string _error = "";
+    private static readonly Color Surface = new(239, 239, 241);
+    private static readonly Color Highlight = new(163, 204, 250);
+    private static readonly string[] Names = ["Ask for approval", "Workspace files", "Full access"];
+    private static readonly string[] Descriptions = ["Ask before every tool execution.", "Allow read/write/edit within the workspace; ask before shell commands.", "Allow all registered tools, including shell commands with network and outside-workspace access."];
+    private int PanelHeight => 6 + Enumerable.Range(0, 3).Sum(i => Lines(i).Count()) + (_confirm ? 2 : 0);
+    protected override void OnInitialized() => _selected = (int)Session.Permission;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await Focus.FocusAsync("permissions");
+    }
+    private string Pad(string text) => text.PadRight(Math.Max(1, Width));
+    private IEnumerable<string> Lines(int index)
+    {
+        var label = $"{(index == _selected ? "›" : " ")} {index + 1}. {Names[index]}{((int)Session.Permission == index ? " (current)" : "")}";
+        var text = Width >= 70 ? Descriptions[index] : label + "\n   " + Descriptions[index];
+        var buffer = new TextSelectionState();
+        buffer.SetText(text);
+        return buffer.Wrap(Math.Max(1, Width >= 70 ? Width - 33 : Width), wordWrap: true).Select((row, i) => Pad((Width >= 70 ? (i == 0 ? label : "").PadRight(33) : "") + text[row.Start..row.End]));
+    }
+    private void Click(MouseEventArgs e, int index)
+    {
+        if (e.Button != 0) return;
+        _selected = index;
+        _confirm = false;
+    }
+    private async Task Key(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") { await OnClose.InvokeAsync(); return; }
+        if (e.Key is "ArrowUp" or "ArrowDown" or "1" or "2" or "3")
+        {
+            _selected = e.Key switch { "ArrowUp" => (_selected + 2) % 3, "ArrowDown" => (_selected + 1) % 3, _ => int.Parse(e.Key) - 1 };
+            _confirm = false;
+        }
+        if (e.Key != "Enter") return;
+        if (Session.Running || Session.AwaitingApproval) { _error = "Finish or cancel the current request before changing permissions."; return; }
+        if (_selected == 2 && !_confirm) { _confirm = true; return; }
+        if (Session.TrySetPermission((ToolPermission)_selected)) await OnClose.InvokeAsync();
+    }
+}

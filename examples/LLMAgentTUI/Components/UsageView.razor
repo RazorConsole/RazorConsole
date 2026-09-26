@@ -1,0 +1,72 @@
+@namespace LLMAgentTUI.Components
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+@using RazorConsole.Core.Input
+@using RazorConsole.Core.Renderables
+@using LLMAgentTUI.Services
+
+<Flex Direction="FlexDirection.Column" Width="@Width" Height="@Height" data-vnode-hook="usage">
+    <Markup Content="Usage" />
+    <Flex Direction="FlexDirection.Row" Gap="2" Wrap="FlexWrap.Wrap" Width="@Width">
+        @foreach (var section in Sections)
+        {
+            <div @onmousedown="(MouseEventArgs e) => Select(section, e)" data-vnode-hook="@($"usage-{section}")">
+                <Markup Content="@(section == _section ? $"[{section}]" : section)" />
+            </div>
+        }
+    </Flex>
+    <Flex Direction="FlexDirection.Row" Gap="2" Wrap="FlexWrap.Wrap" Width="@Width">
+        @foreach (var control in AvailableControls)
+        {
+            <div @onmousedown="(MouseEventArgs e) => Activate(control, e)" data-vnode-hook="@($"usage-{control}")">
+                <Markup Content="@($"{control}:{_values.GetValueOrDefault(control)}")" />
+            </div>
+        }
+    </Flex>
+    <TextArea Buffer="_body" Width="@Width" Height="@Math.Max(1, Height - 5)" Hook="usage-body" OnCommand="OnCommand" />
+</Flex>
+
+@code {
+    [Parameter, EditorRequired] public AgentSession Session { get; set; } = default!;
+    [Parameter] public int Width { get; set; }
+    [Parameter] public int Height { get; set; }
+    [Parameter] public EventCallback<KeyboardEventArgs> OnCommand { get; set; }
+    private static readonly string[] Sections = ["Overview", "Usage", "Messages", "Plugins", "Skills", "Chats", "Plan"];
+    private readonly Dictionary<string, int> _offsets = [];
+    private readonly Dictionary<string, int> _values = [];
+    private readonly TextSelectionState _body = new();
+    private string _section = "Overview";
+    private IEnumerable<string> AvailableControls => _section switch
+    {
+        "Plan" => ["Dashboard", "PlanWindow"],
+        "Usage" => ["Range", "Group", "Model", "Dashboard"],
+        "Chats" => ["Range", "Group", "Metric", "Dashboard", "ZeroCredit"],
+        _ => ["Range", "Group", "Dashboard"],
+    };
+    protected override void OnParametersSet() => Populate();
+    private void Select(string section, MouseEventArgs e)
+    {
+        if (e.Button != 0) return;
+        _offsets[_section] = _body.Offset;
+        _section = section;
+        Populate();
+        _body.Offset = _offsets.GetValueOrDefault(section);
+    }
+    private void Activate(string control, MouseEventArgs e)
+    {
+        if (e.Button != 0) return;
+        _values[control] = (_values.GetValueOrDefault(control) + 1) % 3;
+        Populate();
+    }
+    private void Populate()
+    {
+        var filters = AvailableControls.ToDictionary(c => c, c => _values.GetValueOrDefault(c));
+        var report = Session.GetUsage(_section, filters);
+        var maximum = Math.Max(1, report.Rows.Select(row => row.Tokens).DefaultIfEmpty(0).Max());
+        var scale = Math.Max(1, Math.Min(20, Width - 25));
+        var rows = report.Rows.Select(row => $"  {row.Name,-14} {new string('▇', row.Tokens * scale / maximum)}  {row.Tokens} tokens");
+        _body.SetText($"{_section} · {string.Join(" / ", filters.Select(pair => $"{pair.Key} {pair.Value}"))}\n"
+            + (report.Notice is null ? "" : report.Notice + "\n") + string.Join('\n', rows));
+    }
+}

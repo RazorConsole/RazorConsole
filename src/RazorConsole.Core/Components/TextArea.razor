@@ -1,0 +1,307 @@
+@namespace RazorConsole.Components
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Core.Input
+@using RazorConsole.Components
+@using RazorConsole.Core.Renderables
+@using Spectre.Console
+@implements IDisposable
+@inject ITerminalActions TerminalActions
+
+<Flex @key="Hook" Direction="FlexDirection.Column" Width="@Width" Height="@Height" data-vnode-hook="@Hook"
+      data-focusable="true" data-focus-key="@Hook" data-focus-order="@(Editable ? "0" : "1")" data-input-managed="true" data-manage-tab="@(ManageTab ? "true" : "false")"
+      @onmousedown="Down" @onmousemove="Move" @onmouseup="Up" @onwheel="Wheel" @onkeydown="Key"
+      @onfocusin="() => _focused = true" @onfocusout="() => _focused = false">
+    @foreach (var row in VisibleRows())
+    {
+        <Flex Direction="FlexDirection.Row" Height="1" FillWidth="true">
+            @if (row.Indent > 0)
+            {
+                <Markup Content="@(new string(' ', row.Indent))" Background="@StyleAt(row.Start).Background" />
+            }
+            @if (Editable && Buffer.Text.Length == 0 && Placeholder.Length > 0)
+            {
+                <Markup Content="@PlaceholderText" Foreground="PlaceholderForeground" Background="Background" />
+            }
+            else
+            {
+            @foreach (var part in StyledParts(row))
+            {
+                <Markup Content="@part.Text" Background="@(part.Selected ? Color.Grey35 : part.Style.Background)" Foreground="@part.Style.Foreground" Decoration="@part.Style.Decoration" />
+            }
+            }
+            <Markup Content="@RowPadding(row)" Background="@StyleAt(row.Start).Background" />
+        </Flex>
+    }
+</Flex>
+
+@code {
+    [Parameter, EditorRequired] public TextSelectionState Buffer { get; set; } = default!;
+    [Parameter] public EventCallback<string> OnCopy { get; set; }
+    [Parameter] public EventCallback<string> OnOpenLink { get; set; }
+    [Parameter] public string Hook { get; set; } = "text";
+    [Parameter] public int Width { get; set; } = 80;
+    [Parameter] public int Height { get; set; } = 10;
+    [Parameter] public int ContinuationIndent { get; set; }
+    [Parameter] public Func<int, int>? ContinuationIndentAt { get; set; }
+    [Parameter] public bool WordWrap { get; set; }
+    [Parameter] public bool Editable { get; set; }
+    [Parameter] public bool CanSubmit { get; set; } = true;
+    [Parameter] public bool ManageTab { get; set; }
+    [Parameter] public string Placeholder { get; set; } = string.Empty;
+    [Parameter] public Color PlaceholderForeground { get; set; } = Color.Grey;
+    [Parameter] public Color Background { get; set; } = Color.Default;
+    [Parameter] public Func<int, Style>? RowStyle { get; set; }
+    [Parameter] public Func<int, Style>? CharacterStyle { get; set; }
+    private Style StyleAt(int position) => RowStyle?.Invoke(position) ?? new Style(background: Background);
+    [Parameter] public bool FollowOutput { get; set; }
+    [Parameter] public EventCallback<string> OnSubmit { get; set; }
+    [Parameter] public EventCallback<KeyboardEventArgs> OnCommand { get; set; }
+    [Parameter] public Func<KeyboardEventArgs, Task<bool>>? OnPreviewKey { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public Func<int, bool>? CanActivatePosition { get; set; }
+    [Parameter] public EventCallback<int> OnActivatePosition { get; set; }
+    private long _lastClick;
+    private (int X, int Y) _lastPoint;
+    private int _clicks;
+    private int _pressedPosition;
+    private bool _moved;
+    private bool _focused;
+    private readonly CancellationTokenSource _shutdown = new();
+    private Task? _autoscroll;
+    private MouseEventArgs? _dragPointer;
+    private int _lastMaximumOffset;
+
+    protected override void OnParametersSet()
+    {
+        var maximum = Math.Max(0, Rows.Count - Height);
+        if (FollowOutput && Buffer.Offset >= _lastMaximumOffset && Buffer.Selection.Length == 0 && !Buffer.Dragging)
+        {
+            Buffer.Offset = maximum;
+        }
+        _lastMaximumOffset = maximum;
+    }
+
+    private IReadOnlyList<TextSelectionState.TextRow> Rows => Buffer.Wrap(Width, ContinuationIndent, WordWrap, ContinuationIndentAt);
+    private string PlaceholderText => Placeholder[..Math.Min(Placeholder.Length, Math.Max(0, Width))];
+    private string RowPadding(TextSelectionState.TextRow row)
+    {
+        var cells = Editable && Buffer.Text.Length == 0 && Placeholder.Length > 0
+            ? TextSelectionState.CellWidth(PlaceholderText)
+            : TextSelectionState.CellWidth(Buffer.Text[row.Start..row.End]);
+        if (Editable && _focused && Buffer.Selection.Length == 0 && Buffer.Cursor == row.End && Buffer.Text.Length > 0) cells++;
+        return new string(' ', Math.Max(0, Width - cells - row.Indent));
+    }
+    private IEnumerable<TextSelectionState.TextRow> VisibleRows()
+    {
+        var rows = Rows;
+        Buffer.Offset = Math.Clamp(Buffer.Offset, 0, Math.Max(0, rows.Count - Height));
+        return rows.Skip(Buffer.Offset).Take(Height);
+    }
+
+    private IEnumerable<(string Text, bool Selected, Style Style)> StyledParts(TextSelectionState.TextRow row)
+    {
+        var position = row.Start;
+        foreach (var part in Parts(row))
+        {
+            if (CharacterStyle is null)
+            {
+                yield return (part.Text, part.Selected, StyleAt(row.Start));
+                continue;
+            }
+            var run = new System.Text.StringBuilder();
+            Style? previous = null;
+            var elements = System.Globalization.StringInfo.GetTextElementEnumerator(part.Text);
+            while (elements.MoveNext())
+            {
+                var element = elements.GetTextElement();
+                var style = CharacterStyle(position);
+                if (previous is not null && !previous.Equals(style))
+                {
+                    yield return (run.ToString(), part.Selected, previous);
+                    run.Clear();
+                }
+                run.Append(element);
+                previous = style;
+                position += element.Length;
+            }
+            if (previous is not null) yield return (run.ToString(), part.Selected, previous);
+        }
+    }
+
+    private IEnumerable<(string Text, bool Selected)> Parts(TextSelectionState.TextRow row)
+    {
+        if (Editable && _focused && Buffer.Selection.Length == 0 && Buffer.Cursor >= row.Start && Buffer.Cursor <= row.End)
+        {
+            var cursor = Buffer.Cursor;
+            if (cursor > row.Start) yield return (Buffer.Text[row.Start..cursor], false);
+            if (cursor == row.End) yield return (" ", true);
+            else
+            {
+                var element = System.Globalization.StringInfo.GetNextTextElement(Buffer.Text, cursor);
+                yield return (element, true);
+                if (cursor + element.Length < row.End) yield return (Buffer.Text[(cursor + element.Length)..row.End], false);
+            }
+            yield break;
+        }
+        var start = Math.Clamp(Buffer.SelectionStart, row.Start, row.End);
+        var end = Math.Clamp(Buffer.SelectionEnd, row.Start, row.End);
+        if (row.Start == row.End) yield return (" ", false);
+        if (start > row.Start) yield return (Buffer.Text[row.Start..start], false);
+        if (end > start) yield return (Buffer.Text[start..end], true);
+        if (end < row.End) yield return (Buffer.Text[end..row.End], false);
+    }
+
+    private int Position(MouseEventArgs e)
+    {
+        var rows = Rows;
+        var row = Math.Clamp(Buffer.Offset + (int)e.OffsetY, 0, rows.Count - 1);
+        return Buffer.PositionAt(rows[row], Math.Max(0, (int)e.OffsetX));
+    }
+
+    private async Task Down(MouseEventArgs e)
+    {
+        if (e.Button == 2)
+        {
+            await CopySelection();
+            if (Editable) Buffer.ClearSelection();
+            return;
+        }
+        if (e.Button != 0) return;
+        var position = Position(e);
+        if (!Editable && (e.CtrlKey || e.MetaKey))
+        {
+            await OpenLink(position);
+            return;
+        }
+        if (Editable && (e.CtrlKey || e.ShiftKey || e.AltKey || e.MetaKey)) return;
+        var point = ((int)e.ClientX, (int)e.ClientY);
+        var now = Environment.TickCount64;
+        _clicks = point == _lastPoint && now - _lastClick < 400 ? _clicks % 3 + 1 : 1;
+        _lastPoint = point;
+        _lastClick = now;
+        _pressedPosition = position;
+        _moved = false;
+        if (!Editable)
+        {
+            if (CanActivatePosition?.Invoke(position) == true && !e.ShiftKey)
+            {
+                await OnActivatePosition.InvokeAsync(position);
+                return;
+            }
+        }
+        Buffer.Begin(position, _clicks, e.ShiftKey);
+    }
+
+    private void Move(MouseEventArgs e)
+    {
+        if (!Buffer.Dragging) return;
+        _dragPointer = e;
+        _moved |= ((int)e.ClientX, (int)e.ClientY) != _lastPoint;
+        if (e.OffsetY < 0) Buffer.Offset = Math.Max(0, Buffer.Offset - 1);
+        else if (e.OffsetY >= Height) Buffer.Offset = Math.Min(Math.Max(0, Rows.Count - Height), Buffer.Offset + 1);
+        Buffer.Extend(Position(e));
+        if ((e.OffsetY < 0 || e.OffsetY >= Height) && (_autoscroll is null || _autoscroll.IsCompleted))
+        {
+            _autoscroll = AutoscrollAsync(_shutdown.Token);
+        }
+    }
+
+    private async Task Up(MouseEventArgs e)
+    {
+        if (e.Button != 0 || !Buffer.Dragging) return;
+        if (_moved) Buffer.Extend(Position(e));
+        Buffer.End();
+        _dragPointer = null;
+        if (!Editable && !_moved && _clicks == 1 && Position(e) == _pressedPosition && !e.ShiftKey) await OpenLink(_pressedPosition);
+    }
+
+    private void Wheel(WheelEventArgs e)
+    {
+        if (Editable) return;
+        _moved = true;
+        _dragPointer = null;
+        Buffer.Offset = Math.Clamp(Buffer.Offset + (int)e.DeltaY, 0, Math.Max(0, Rows.Count - Height));
+    }
+
+    private async Task OpenLink(int position)
+    {
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(Buffer.Text, @"https?://[^\s]+"))
+        {
+            if (position >= match.Index && position < match.Index + match.Length)
+            {
+                var link = match.Value.TrimEnd('.');
+                if (OnOpenLink.HasDelegate) await OnOpenLink.InvokeAsync(link);
+                else TerminalActions.OpenLink(link);
+            }
+        }
+    }
+
+    private async Task Key(KeyboardEventArgs e)
+    {
+        if (OnPreviewKey is not null && await OnPreviewKey(e)) return;
+        if ((e.CtrlKey || e.MetaKey) && e.Key.Equals("c", StringComparison.OrdinalIgnoreCase) && Buffer.Selection.Length > 0)
+        {
+            await CopySelection();
+            return;
+        }
+        if (e.Key == "Escape") Buffer.ClearSelection();
+        if (!Editable)
+        {
+            if (e.Key == "PageUp") Buffer.Offset = Math.Max(0, Buffer.Offset - Height + 1);
+            if (e.Key == "PageDown") Buffer.Offset = Math.Min(Math.Max(0, Rows.Count - Height), Buffer.Offset + Height - 1);
+            if (e.Key == "Enter" && Buffer.Selection.Length > 0) await CopySelection();
+            await OnCommand.InvokeAsync(e);
+            return;
+        }
+        switch (e.Key)
+        {
+            case "Enter" when e.ShiftKey || e.AltKey: Buffer.Insert("\n"); break;
+            case "Enter" when CanSubmit: await OnSubmit.InvokeAsync(Buffer.Text); Buffer.SetText(""); break;
+            case "Enter": return;
+            case "Backspace": Buffer.Backspace(); break;
+            case "Delete": Buffer.Delete(); break;
+            case "ArrowLeft": Buffer.Move(-1, e.ShiftKey); break;
+            case "ArrowRight": Buffer.Move(1, e.ShiftKey); break;
+            default:
+                if (!e.CtrlKey && !e.AltKey && !e.MetaKey && e.Key.Length == 1) Buffer.Insert(e.Key);
+                else await OnCommand.InvokeAsync(e);
+                break;
+        }
+        var cursorRow = Rows.Select((row, i) => (row, i)).LastOrDefault(pair => pair.row.Start <= Buffer.Cursor).i;
+        Buffer.Offset = Math.Clamp(Buffer.Offset, Math.Max(0, cursorRow - Height + 1), cursorRow);
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task CopySelection()
+    {
+        if (OnCopy.HasDelegate) await OnCopy.InvokeAsync(Buffer.Selection);
+        else TerminalActions.Copy(Buffer.Selection);
+    }
+
+    private async Task AutoscrollAsync(CancellationToken token)
+    {
+        try
+        {
+            while (Buffer.Dragging && _dragPointer is { } pointer && (pointer.OffsetY < 0 || pointer.OffsetY >= Height))
+            {
+                await Task.Delay(50, token);
+                await InvokeAsync(() =>
+                {
+                    if (token.IsCancellationRequested || !Buffer.Dragging || _dragPointer is not { } current) return;
+                    var direction = current.OffsetY < 0 ? -1 : current.OffsetY >= Height ? 1 : 0;
+                    Buffer.Offset = Math.Clamp(Buffer.Offset + direction, 0, Math.Max(0, Rows.Count - Height));
+                    Buffer.Extend(Position(current));
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+    }
+
+    public void Dispose()
+    {
+        _shutdown.Cancel();
+        _shutdown.Dispose();
+    }
+}

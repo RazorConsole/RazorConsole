@@ -54,17 +54,23 @@ internal sealed class KeyboardEventManager
     private readonly ILogger<KeyboardEventManager> _logger;
     private readonly ConcurrentDictionary<string, StringBuilder> _buffers = new(StringComparer.Ordinal);
     private volatile string? _activeFocusKey;
+    private readonly MouseEventManager? _mouse;
+    private readonly ConsoleAppOptions? _options;
 
     public KeyboardEventManager(
         FocusManager focusManager,
         IKeyboardEventDispatcher dispatcher,
         IConsoleInput console,
-        ILogger<KeyboardEventManager>? logger = null)
+        ILogger<KeyboardEventManager>? logger = null,
+        MouseEventManager? mouse = null,
+        ConsoleAppOptions? options = null)
     {
         _focusManager = focusManager;
         _dispatcher = dispatcher;
         _console = console;
         _logger = logger ?? NullLogger<KeyboardEventManager>.Instance;
+        _mouse = mouse;
+        _options = options;
 
         _focusManager.FocusChanged += OnFocusChanged;
     }
@@ -75,6 +81,11 @@ internal sealed class KeyboardEventManager
         {
             try
             {
+                if (_mouse is not null && _console.TryReadMouse(out var mouse))
+                {
+                    await _mouse.HandleAsync(mouse, token).ConfigureAwait(false);
+                    continue;
+                }
                 if (!_console.KeyAvailable)
                 {
                     await Task.Delay(50, token).ConfigureAwait(false);
@@ -83,8 +94,15 @@ internal sealed class KeyboardEventManager
 
                 var keyInfo = _console.ReadKey(intercept: true);
 
+                if (!_console.DecodesTerminalSequences && _mouse is not null && _options?.ConsoleLiveDisplayOptions.EnableMouseEvents == true
+                    && (keyInfo.KeyChar == '\u001b' || (keyInfo.KeyChar == '[' && keyInfo.Modifiers.HasFlag(ConsoleModifiers.Alt))))
+                {
+                    await ReadEscapeAsync(keyInfo, token).ConfigureAwait(false);
+                    continue;
+                }
+
                 // Check if this is a text input character and if more keys are available (paste operation)
-                if (ShouldBatchInput(keyInfo) && _console.KeyAvailable)
+                if (ShouldBatchInput(keyInfo) && _console.KeyAvailable && !IsManagedFocus())
                 {
                     await HandleBatchedTextInputAsync(keyInfo, token).ConfigureAwait(false);
                 }
@@ -129,6 +147,12 @@ internal sealed class KeyboardEventManager
 
         await DispatchKeyboardEventAsync(initialTarget, "onkeydown", keyInfo, token).ConfigureAwait(false);
 
+        if ((keyInfo.Key != ConsoleKey.Tab || initialTarget.Attributes.GetValueOrDefault("data-manage-tab") == "true") && initialTarget.Attributes.TryGetValue("data-input-managed", out var managed) && managed == "true")
+        {
+            await DispatchKeyboardEventAsync(initialTarget, "onkeyup", keyInfo, token).ConfigureAwait(false);
+            return;
+        }
+
         switch (keyInfo.Key)
         {
             case ConsoleKey.Tab:
@@ -148,6 +172,48 @@ internal sealed class KeyboardEventManager
         }
 
         await DispatchKeyboardEventAsync(initialTarget, "onkeyup", keyInfo, token).ConfigureAwait(false);
+    }
+
+    private async Task ReadEscapeAsync(ConsoleKeyInfo first, CancellationToken token)
+    {
+        var pending = new List<ConsoleKeyInfo> { first };
+        var sequence = first.KeyChar == '[' ? "\u001b[" : "\u001b";
+        var deadline = Environment.TickCount64 + 100;
+        while (Environment.TickCount64 < deadline && sequence.Length < 64)
+        {
+            if (!_console.KeyAvailable)
+            {
+                await Task.Delay(1, token).ConfigureAwait(false);
+                continue;
+            }
+            var next = _console.ReadKey(true);
+            pending.Add(next);
+            sequence += next.KeyChar;
+            if (!"\u001b[<".StartsWith(sequence, StringComparison.Ordinal) && !sequence.StartsWith("\u001b[<", StringComparison.Ordinal))
+            {
+                break;
+            }
+
+            if (sequence.Length > 3 && next.KeyChar is 'M' or 'm')
+            {
+                if (SgrMouseParser.TryParse(sequence, out var mouse))
+                {
+                    await _mouse!.HandleAsync(mouse, token).ConfigureAwait(false);
+                }
+
+                return;
+            }
+        }
+        // Never insert a partial mouse packet into the focused text input.
+        if (sequence.StartsWith("\u001b[<", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        foreach (var key in pending)
+        {
+            await HandleKeyAsync(key, token).ConfigureAwait(false);
+        }
     }
 
     private async Task HandleTabAsync(ConsoleKeyInfo keyInfo, CancellationToken token)
@@ -331,6 +397,10 @@ internal sealed class KeyboardEventManager
             ConsoleKey.Tab => "Tab",
             ConsoleKey.Backspace => "Backspace",
             ConsoleKey.Escape => "Escape",
+            ConsoleKey.UpArrow => "ArrowUp",
+            ConsoleKey.DownArrow => "ArrowDown",
+            ConsoleKey.LeftArrow => "ArrowLeft",
+            ConsoleKey.RightArrow => "ArrowRight",
             _ => keyInfo.Key.ToString(),
         };
     }
@@ -361,6 +431,10 @@ internal sealed class KeyboardEventManager
         // Only batch regular text input characters, not special keys
         return (!char.IsControl(keyInfo.KeyChar) && keyInfo.KeyChar != '\0') || keyInfo.Key == ConsoleKey.Backspace;
     }
+
+    private bool IsManagedFocus()
+        => _focusManager.TryGetFocusedTarget(out var target) && target is not null
+            && target.Attributes.TryGetValue("data-input-managed", out var managed) && managed == "true";
 
     internal async Task HandleBatchedTextInputAsync(ConsoleKeyInfo firstKey, CancellationToken token)
     {

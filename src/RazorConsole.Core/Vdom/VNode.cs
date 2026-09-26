@@ -36,7 +36,7 @@ public sealed class VNode : IEquatable<VNode>
 
     public string? Key { get; private set; }
 
-    public string ID { get; private set; }
+    public string ID { get; internal set; }
 
     public IReadOnlyList<VNode> Children => _children;
 

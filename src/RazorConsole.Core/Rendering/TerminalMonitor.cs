@@ -5,7 +5,7 @@ using Spectre.Console;
 
 namespace RazorConsole.Core.Rendering;
 
-internal sealed class TerminalMonitor : IDisposable
+internal sealed class TerminalMonitor : ITerminalViewport, IDisposable
 {
     public static readonly TimeSpan CheckInterval = TimeSpan.FromMilliseconds(250);
     public static readonly TimeSpan CheckDebounce = TimeSpan.FromMilliseconds(100);

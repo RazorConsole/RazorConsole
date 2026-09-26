@@ -489,3 +489,6 @@ $RECYCLE.BIN/
 website/node_modules/
 website/dist/
 website/.vite/
+
+# Workspace-local credentials (never commit)
+appsettings.local.json

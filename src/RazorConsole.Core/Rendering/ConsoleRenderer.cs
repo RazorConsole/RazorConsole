@@ -251,7 +251,25 @@ internal sealed class ConsoleRenderer(
         }
 
         var (child, _) = BuildSubtree(batch.ReferenceFrames, edit.ReferenceFrameIndex);
-        parent.InsertChild(edit.SiblingIndex, child);
+        var siblingIndex = edit.SiblingIndex;
+        InsertRenderedChild(parent, ref siblingIndex, child);
+    }
+
+    // Blazor's sibling indices count rendered nodes, not RenderFragment regions.
+    // Keep regions transparent for insertion/removal as well as attribute updates.
+    private static void InsertRenderedChild(VNode parent, ref int index, VNode child)
+    {
+        if (child.Kind == VNodeKind.Region)
+        {
+            foreach (var descendant in child.Children)
+            {
+                InsertRenderedChild(parent, ref index, descendant);
+            }
+        }
+        else
+        {
+            parent.InsertChild(index++, child);
+        }
     }
 
     private void ApplyRemoveFrameEdit(RenderTreeEdit edit)
@@ -347,7 +365,8 @@ internal sealed class ConsoleRenderer(
                 while (index < end)
                 {
                     var (child, next) = BuildSubtree(frames, index);
-                    element.AddChild(child);
+                    var childIndex = element.Children.Count;
+                    InsertRenderedChild(element, ref childIndex, child);
                     index = next;
                 }
 
@@ -614,6 +633,7 @@ internal sealed class ConsoleRenderer(
         }
 
         var clone = VNode.CreateElement(tagName);
+        clone.ID = element.ID;
         if (!string.IsNullOrWhiteSpace(element.Key))
         {
             clone.SetKey(element.Key);

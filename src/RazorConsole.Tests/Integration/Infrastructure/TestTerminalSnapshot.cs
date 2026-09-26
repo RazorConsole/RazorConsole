@@ -74,6 +74,25 @@ internal sealed class TestTerminalSnapshot
     public bool ContainsText(string text)
         => ScreenText.Contains(text, StringComparison.Ordinal);
 
+    public bool HasSameCells(TestTerminalSnapshot other)
+    {
+        if (Width != other.Width || Height != other.Height)
+        {
+            return false;
+        }
+        for (var y = 0; y < Height; y++)
+        {
+            for (var x = 0; x < Width; x++)
+            {
+                if (this[x, y] != other[x, y])
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     public string ScreenText
     {
         get

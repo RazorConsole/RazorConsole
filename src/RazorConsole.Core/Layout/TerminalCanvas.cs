@@ -1,5 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using System.Globalization;
 using System.Text;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -97,26 +98,10 @@ public sealed class TerminalCanvas
                 continue;
             }
 
-            foreach (var rune in segment.Text.EnumerateRunes())
-            {
-                if (maxWidth.HasValue && written >= maxWidth.Value)
-                {
-                    return;
-                }
-
-                if (cursor >= Math.Min(Width, clip.Right))
-                {
-                    return;
-                }
-
-                if (cursor >= Math.Max(0, clip.X))
-                {
-                    _cells[y, cursor] = new TerminalCell(rune.ToString(), segment.Style);
-                }
-
-                cursor++;
-                written++;
-            }
+            Write(cursor, y, segment.Text, maxWidth.HasValue ? Math.Max(0, maxWidth.Value - written) : null, segment.Style);
+            var cells = Segment.CellCount([segment]);
+            cursor += cells;
+            written += cells;
         }
     }
 
@@ -135,25 +120,36 @@ public sealed class TerminalCanvas
 
         var cursor = x;
         var written = 0;
-        foreach (var rune in text.EnumerateRunes())
+        var elements = StringInfo.GetTextElementEnumerator(text);
+        while (elements.MoveNext())
         {
-            if (maxWidth.HasValue && written >= maxWidth.Value)
+            var element = elements.GetTextElement();
+            var cells = Segment.CellCount([new Segment(element)]);
+            if (cells == 0)
+            {
+                continue;
+            }
+            if (maxWidth.HasValue && written + cells > maxWidth.Value)
             {
                 return;
             }
 
-            if (cursor >= Math.Min(Width, clip.Right))
+            if (cursor + cells > Math.Min(Width, clip.Right))
             {
                 return;
             }
 
             if (cursor >= Math.Max(0, clip.X))
             {
-                _cells[y, cursor] = new TerminalCell(rune.ToString(), style);
+                _cells[y, cursor] = new TerminalCell(element, style);
+                for (var continuation = 1; continuation < cells; continuation++)
+                {
+                    _cells[y, cursor + continuation] = new TerminalCell(string.Empty, style);
+                }
             }
 
-            cursor++;
-            written++;
+            cursor += cells;
+            written += cells;
         }
     }
 

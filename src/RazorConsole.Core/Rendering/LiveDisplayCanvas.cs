@@ -87,6 +87,10 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
 
         if (_alternateScreenBufferActive)
         {
+            if (options.EnableMouseEvents)
+            {
+                ansiConsole.Write(new ControlCode("\u001b[?1003l\u001b[?1006l"));
+            }
             ansiConsole.Write(new ControlCode(RM(DECALTSCR)));
             _alternateScreenBufferActive = false;
         }
@@ -102,6 +106,10 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
         }
 
         ansiConsole.Write(new ControlCode(SM(DECALTSCR)));
+        if (options.EnableMouseEvents)
+        {
+            ansiConsole.Write(new ControlCode("\u001b[?1003h\u001b[?1006h"));
+        }
         _alternateScreenBufferActive = true;
     }
 }

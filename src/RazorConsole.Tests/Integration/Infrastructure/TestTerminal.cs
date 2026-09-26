@@ -36,13 +36,14 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
     private long _frameNumber;
     private bool _disposed;
 
-    private TestTerminal(int width, int height)
+    private TestTerminal(int width, int height, Action<IServiceCollection>? configureServices)
     {
         _terminalMonitor = new TerminalMonitor(width, height);
 
         var services = new ServiceCollection();
         services.AddSingleton(_terminalMonitor);
         services.AddRazorConsoleServices();
+        configureServices?.Invoke(services);
         services.Configure<ConsoleAppOptions>(options =>
         {
             options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
@@ -82,15 +83,23 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
 
     public string? CurrentFocusKey => _focusManager.CurrentFocusKey;
 
+    public async Task SendMouseAsync(TerminalMouseEvent input, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        await _services.GetRequiredService<MouseEventManager>().HandleAsync(input, cancellationToken).ConfigureAwait(false);
+        Capture(_renderer.RefreshSnapshot());
+    }
+
     public static async Task<TestTerminal> StartAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(
         int width,
         int height,
         IReadOnlyDictionary<string, object?>? parameters = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action<IServiceCollection>? configureServices = null)
         where TComponent : IComponent
     {
-        var terminal = new TestTerminal(width, height);
+        var terminal = new TestTerminal(width, height, configureServices);
         try
         {
             await terminal.StartCoreAsync<TComponent>(parameters, cancellationToken).ConfigureAwait(false);
@@ -189,6 +198,7 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
         var builder = new StringBuilder();
         builder.Append("Captured frames: ").Append(totalFrameCount)
             .Append(", current focus: ").AppendLine(CurrentFocusKey ?? "<none>");
+        builder.AppendLine(_services.GetRequiredService<MouseEventManager>().LastDispatch);
 
         if (observerError is not null)
         {
@@ -321,7 +331,7 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
         => left.Width == right.Width
             && left.Height == right.Height
             && string.Equals(left.FocusKey, right.FocusKey, StringComparison.Ordinal)
-            && string.Equals(left.ScreenText, right.ScreenText, StringComparison.Ordinal)
+            && left.HasSameCells(right)
             && left.Layouts.OrderBy(pair => pair.Key, StringComparer.Ordinal)
                 .SequenceEqual(right.Layouts.OrderBy(pair => pair.Key, StringComparer.Ordinal));
 

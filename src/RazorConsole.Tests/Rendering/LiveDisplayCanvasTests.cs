@@ -22,10 +22,12 @@ public sealed class LiveDisplayCanvasTests
         canvas.UpdateTarget(new TextRenderable("hello"));
         canvas.Dispose();
 
-        captured.Count.ShouldBe(3);
+        captured.Count.ShouldBe(5);
         GetControlCode(captured[0]).ShouldBe(SM(DECALTSCR));
-        captured[1].ShouldBeOfType<RazorConsole.Core.Renderables.DiffRenderable>();
-        GetControlCode(captured[2]).ShouldBe(RM(DECALTSCR));
+        GetControlCode(captured[1]).ShouldBe("\u001b[?1003h\u001b[?1006h");
+        captured[2].ShouldBeOfType<RazorConsole.Core.Renderables.DiffRenderable>();
+        GetControlCode(captured[3]).ShouldBe("\u001b[?1003l\u001b[?1006l");
+        GetControlCode(captured[4]).ShouldBe(RM(DECALTSCR));
     }
 
     [Fact]

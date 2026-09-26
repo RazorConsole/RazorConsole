@@ -1,128 +1,279 @@
 @namespace LLMAgentTUI.Components
-
-@using System
-@using System.Collections.Generic
-@using System.Linq
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
 @using RazorConsole.Components
+@using RazorConsole.Core.Renderables
+@using RazorConsole.Core.Rendering
 @using Spectre.Console
 @using LLMAgentTUI.Services
+@using Microsoft.Extensions.DependencyInjection
+@using RazorConsole.Core.Input
+@implements IDisposable
+@inject ITerminalViewport Viewport
+@inject IServiceProvider Services
+@inject ITerminalActions TerminalActions
 
-@inject IChatService ChatService
+@if (_permissions)
+{
+    <PermissionView Session="Session" Width="Viewport.Width" Height="Viewport.Height" OnClose="ClosePermissions" />
+}
+else
+{
+<Flex Direction="FlexDirection.Column" FillWidth="true" FillHeight="true" data-vnode-hook="agent-root">
+    <Box Width="@HeaderWidth" Height="6" Padding="new Padding(1, 0, 1, 0)" Border="BoxBorder.Rounded" BorderColor="Muted" data-vnode-hook="startup-card">
+        <Flex Direction="FlexDirection.Column">
+            <Flex Direction="FlexDirection.Row" Height="1">
+                <Markup Content=">_ " Foreground="Muted" />
+                <Markup Content="LLMAgentTUI" Decoration="Decoration.Bold" />
+                <Markup Content="@($" (v{AppVersion})")" Foreground="Muted" />
+            </Flex>
+            <Markup Content=" " />
+            <Flex Direction="FlexDirection.Row" Height="1">
+                <Markup Content="model:     " Foreground="Muted" />
+                <Markup Content="@Session.Model" />
+                <Markup Content="   " />
+                <Markup Content="/model" Foreground="new Color(17, 96, 220)" />
+                <Markup Content=" to change" Foreground="Muted" />
+            </Flex>
+            <Flex Direction="FlexDirection.Row" Height="1">
+                <Markup Content="directory: " Foreground="Muted" />
+                <Markup Content="@DisplayDirectory" />
+            </Flex>
+        </Flex>
+    </Box>
 
-<Figlet Content="ChatBot" />
+    @if (_usage)
+    {
+        <UsageView Session="Session" Width="@Viewport.Width" Height="@BodyHeight" OnCommand="HandleKey" />
+    }
+    else if (_warnings)
+    {
+        <Box Height="@BodyHeight" FillWidth="true" data-vnode-hook="warnings-panel">
+            <Markup Content="@($"Session notifications\n{string.Join('\n', Session.Notifications)}\nPress Esc to return.")" />
+        </Box>
+    }
+    else
+    {
+    <TextArea Buffer="ViewState.Display" OnCopy="TerminalActions.Copy" OnOpenLink="TerminalActions.OpenLink" Width="@Viewport.Width" Height="@BodyHeight"
+                    Hook="transcript" ContinuationIndent="2" ContinuationIndentAt="ViewState.ContinuationIndentAt" WordWrap="true" RowStyle="ViewState.StyleAt" CharacterStyle="ViewState.StyleAt" FollowOutput="ViewState.FollowOutput" OnCommand="HandleKey" CanActivatePosition="ViewState.IsToolHeader" OnActivatePosition="ToggleTool" />
+    }
+    <Box Height="1" FillWidth="true">
+        @if (ViewState.Display.Offset < Math.Max(0, ViewState.Display.Wrap(Viewport.Width, 2, true, ViewState.ContinuationIndentAt).Count - BodyHeight))
+        {
+            <div @onmousedown="() => _bottomPressed = true" @onmouseup="BackToBottom" @onmousemove="BottomHover" @onmouseleave="() => _bottomHovered = false" data-vnode-hook="back-to-bottom">
+                <Markup Content="@BottomLabel" Background="@(_bottomHovered ? Color.Grey35 : Color.Default)" />
+            </div>
+        }
+        else if (Session.Transcript.Count == 0 && Viewport.Width >= TipText.Length)
+        {
+            <Flex Direction="FlexDirection.Row" Height="1" data-vnode-hook="startup-tip">
+                <Markup Content="@(new string(' ', Viewport.Width - TipText.Length))" />
+                <Markup Content="Tip:" Decoration="Decoration.Bold" Foreground="Secondary" />
+                <Markup Content=" Use " Foreground="Secondary" />
+                <Markup Content="/export" Decoration="Decoration.Bold" Foreground="Secondary" />
+                <Markup Content=" to save your conversation as Markdown." Foreground="Secondary" />
+            </Flex>
+        }
+    </Box>
 
-<Padder Padding="@(new(1, 0, 0, 0))">
-	<Rows>
-		@if (_messages.Count == 0)
-		{
-			<Markup Content="No messages yet. Type a message below to start chatting." Foreground="@Color.Grey" />
-		}
-		else
-		{
-			foreach (var message in _messages)
-			{
-				<Padder Padding="@(new(0, 1, 0, 0))">
-					<Markup Content="@($"{(message.IsUser ? "You" : "Bot")}")" Foreground="@(message.IsUser ? Color.Green : message.IsError ? Color.Red : Color.Blue)" />
-					<Markup Content=" " />
-					@if (message.IsError)
-					{
-						<Markup Content="@message.Content" Foreground="@Color.Red" />
-					}
-					else
-					{
-						<Markdown Content="@message.Content" />
-					}
-				</Padder>
-			}
-		}
+    @if (Session.AwaitingApproval)
+    {
+        <Box Height="@ApprovalHeight" Border="BoxBorder.Rounded" FillWidth="true" data-vnode-hook="approval">
+            <Flex Direction="FlexDirection.Column">
+                <Markup Content="Would you like to run this tool? Scroll to inspect arguments." />
+                <TextArea Buffer="ApprovalText" Width="@Math.Max(1, Viewport.Width - 2)" Height="@(ApprovalHeight - 4)" Hook="approval-details" />
+                <Flex Direction="FlexDirection.Row" Height="1">
+                    <div @onmousedown="(MouseEventArgs e) => { if (e.Button == 0) Session.Approve(true); }" data-vnode-hook="approve-tool"><Markup Content="1. Allow once   " /></div>
+                    <div @onmousedown="(MouseEventArgs e) => { if (e.Button == 0) Session.Approve(false); }" data-vnode-hook="deny-tool"><Markup Content="2. Deny   " /></div>
+                    <Markup Content="Esc: cancel" Foreground="Muted" />
+                </Flex>
+            </Flex>
+        </Box>
+    }
+    @if (MenuHeight > 0)
+    {
+        <CommandMenu Items="FilteredCommands" Width="Viewport.Width" Selected="_commandIndex" OnHighlight="HighlightCommand" OnSelect="SelectCommand" />
+    }
 
-		@if (_isProcessing)
-		{
-			<Padder Padding="@(new(0, 0, 0, 1))">
-				<Columns>
-					<RazorConsole.Components.Spinner SpinnerType="@Spectre.Console.Spinner.Known.Dots" />
-					<Markup Content="AI is thinking..." Foreground="@Color.Grey" Decoration="@Decoration.Italic" />
-				</Columns>
-			</Padder>
-		}
-	</Rows>
-</Padder>
-
-<TextInput @bind-Value="_currentInput" Placeholder="Type your message here..." OnSubmit="SendMessage" Expand="true" onclick="SendMessage" />
-
-<Align Horizontal="@HorizontalAlignment.Center">
-	<Markup Content="AI-Powered Console ChatBot • Tab to change focus • Enter to submit • Ctrl+C to exit" Foreground="@Color.Grey58" />
-</Align>
+    <Flex Direction="FlexDirection.Column" Height="@(ComposerHeight + 2)" FillWidth="true" data-vnode-hook="composer-surface">
+        <Markup Content="@(new string(' ', Viewport.Width))" Background="ComposerBackground" />
+    <Flex Direction="FlexDirection.Row" Height="@ComposerHeight" FillWidth="true" data-vnode-hook="composer-row">
+        <Markup Content="› " Decoration="Decoration.Bold" Background="ComposerBackground" />
+        <TextArea Buffer="ViewState.Draft" OnCopy="TerminalActions.Copy" OnOpenLink="TerminalActions.OpenLink" Width="@Math.Max(1, Viewport.Width - 2)"
+                        Height="@ComposerHeight" Editable="true" ManageTab="@(MenuHeight > 0)" CanSubmit="@(!Session.Running || Session.AwaitingApproval || ViewState.Draft.Text.Trim() is "/permission" or "/permissions")" Hook="composer" Placeholder="Ask LLMAgentTUI to do anything" PlaceholderForeground="Muted" Background="ComposerBackground" OnSubmit="Submit" OnChanged="DraftChanged" OnCommand="HandleKey" OnPreviewKey="PreviewComposerKey" />
+    </Flex>
+        <Markup Content="@(new string(' ', Viewport.Width))" Background="ComposerBackground" />
+    </Flex>
+    <Box Height="1" FillWidth="true" data-vnode-hook="status">
+        <Flex Direction="FlexDirection.Row" Height="1">
+            <Markup Content="  " />
+            <Markup Content="@Session.Model" Foreground="new Color(166, 105, 21)" />
+            <Markup Content=" · " Foreground="Secondary" />
+            <Markup Content="@DisplayDirectory" Foreground="new Color(53, 132, 29)" />
+            @if (Session.Running || Session.AwaitingApproval || Session.Status is "Failed" or "Interrupted")
+            {
+                <Markup Content="@($" · {Session.Status}{(Session.Running || Session.AwaitingApproval ? " · Esc cancel" : "")}")" Foreground="Secondary" />
+            }
+        </Flex>
+    </Box>
+    <Box Height="1" FillWidth="true" data-vnode-hook="footer">
+        <div @onmousedown="(MouseEventArgs e) => { if (e.Button == 0) _warnings = true; }" data-vnode-hook="warning-notice">
+            <Flex Direction="FlexDirection.Row" Height="1">
+                <Markup Content="  ←" Foreground="Secondary" Decoration="Decoration.Bold" />
+                <Markup Content=" for agents · " Foreground="Secondary" />
+                <Markup Content="?" Foreground="Secondary" Decoration="Decoration.Bold" />
+                <Markup Content=" for shortcuts" Foreground="Secondary" />
+            </Flex>
+        </div>
+    </Box>
+</Flex>
+}
 
 @code {
-	private List<ChatMessage> _messages = new();
-	private string _currentInput = string.Empty;
-	private bool _isProcessing = false;
+    [Parameter] public AgentSession Session { get; set; } = default!;
+    [Parameter] public AgentViewState ViewState { get; set; } = new();
+    private bool _bottomPressed;
+    private bool _bottomHovered;
+    private const string BottomLabel = " ↓ Back to bottom · esc ";
+    private bool _showCommands;
+    private int _commandIndex;
+    private static readonly CommandMenu.Command[] Commands = [new("/permissions", "choose what LLMAgentTUI is allowed to do"), new("/usage", "show session token usage"), new("/clear", "clear the current draft")];
+    private CommandMenu.Command[] FilteredCommands => Commands.Where(command => command.Name.StartsWith(ViewState.Draft.Text, StringComparison.OrdinalIgnoreCase)).ToArray();
+    private int MenuHeight => _showCommands ? FilteredCommands.Length : 0;
+    private void HighlightCommand(int index) => _commandIndex = index;
+    private async Task SelectCommand(int index)
+    {
+        var commands = FilteredCommands;
+        if (index < 0 || index >= commands.Length) return;
+        ViewState.Draft.SetText("");
+        await Submit(commands[index].Name);
+    }
+    private async Task<bool> PreviewComposerKey(KeyboardEventArgs args)
+    {
+        if (MenuHeight == 0) return false;
+        switch (args.Key)
+        {
+            case "ArrowUp": _commandIndex = (_commandIndex + MenuHeight - 1) % MenuHeight; break;
+            case "ArrowDown": _commandIndex = (_commandIndex + 1) % MenuHeight; break;
+            case "Enter": await SelectCommand(_commandIndex); break;
+            case "Tab": ViewState.Draft.SetText(FilteredCommands[_commandIndex].Name); _showCommands = false; break;
+            case "Escape": _showCommands = false; break;
+            default: return false;
+        }
+        StateHasChanged();
+        return true;
+    }
+    private bool _usage;
+    private bool _warnings;
+    private bool _permissions;
+    private bool _restoreComposer;
+    private void ClosePermissions() { _permissions = false; _restoreComposer = true; }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_restoreComposer)
+        {
+            _restoreComposer = false;
+            await Services.GetRequiredService<RazorConsole.Core.Focus.FocusManager>().FocusAsync("composer");
+        }
+    }
+    private AgentSession? _subscribed;
+    private readonly TextSelectionState ApprovalText = new();
+    private int ApprovalHeight => Math.Clamp(Viewport.Height / 3, 6, 12);
+    private static readonly Color Muted = new(158, 158, 158);
+    private static readonly Color Secondary = new(117, 117, 117);
+    private static readonly Color ComposerBackground = new(239, 239, 241);
+    private const string TipText = "Tip: Use /export to save your conversation as Markdown.";
+    private static string AppVersion => typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+    private string DisplayDirectory
+    {
+        get
+        {
+            var homeDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var directory = Session.WorkingDirectory;
+            return homeDirectory.Length > 0 && (directory == homeDirectory || directory.StartsWith(homeDirectory + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                ? "~" + directory[homeDirectory.Length..] : directory;
+        }
+    }
+    private int HeaderWidth => Math.Min(Viewport.Width, Math.Max(TextSelectionState.CellWidth($">_ LLMAgentTUI (v{AppVersion})"), Math.Max(11 + TextSelectionState.CellWidth(Session.Model) + 19, 11 + TextSelectionState.CellWidth(DisplayDirectory))) + 4);
+    private int ComposerHeight => Math.Clamp(ViewState.Draft.Wrap(Math.Max(1, Viewport.Width - 2)).Count, 1, 5);
+    private int BodyHeight => Math.Max(1, Viewport.Height - 11 - ComposerHeight - (Session.AwaitingApproval ? ApprovalHeight : 0) - MenuHeight);
 
-	private async Task SendMessage()
-	{
-		if (string.IsNullOrWhiteSpace(_currentInput))
-		{
-			return;
-		}
+    protected override void OnInitialized()
+    {
+        Viewport.OnResized += Refresh;
+        Session ??= Services.GetRequiredService<AgentSession>();
+    }
 
-		var userMessage = _currentInput.Trim();
-		_currentInput = string.Empty;
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(Session, _subscribed)) return;
+        if (_subscribed is not null) _subscribed.Changed -= Refresh;
+        _subscribed = Session;
+        _subscribed.Changed += Refresh;
+        ViewState.UpdateTranscript(Session, Viewport.Width);
+    }
 
-		_messages.Add(new ChatMessage
-		{
-			Content = userMessage,
-			IsUser = true
-		});
+    private void Refresh() => _ = InvokeAsync(() => { ViewState.UpdateTranscript(Session, Viewport.Width); ApprovalText.SetText(Session.ApprovalDescription); StateHasChanged(); });
+    private void DraftChanged()
+    {
+        _showCommands = ViewState.Draft.Text.StartsWith('/');
+        _commandIndex = 0;
+    }
 
-		StateHasChanged();
+    private async Task Submit(string? text)
+    {
+        if (text?.Trim() is "/permission" or "/permissions")
+        {
+            _permissions = true;
+        }
+        else if (text == "/usage")
+        {
+            _usage = true;
+        }
+        else if (text == "/clear")
+        {
+            ViewState.Draft.SetText("");
+        }
+        else if (Session.AwaitingApproval)
+        {
+            Session.Approve(text?.Trim() == "1");
+        }
+        else
+        {
+            await Session.SubmitAsync(text ?? string.Empty);
+        }
 
-		_isProcessing = true;
-		StateHasChanged();
+        _showCommands = false;
+    }
 
-		try
-		{
-			var response = await ChatService.SendMessageAsync(userMessage);
+    private void ToggleTool(int position = -1)
+    {
+        ViewState.ToggleTool(position);
+        ViewState.UpdateTranscript(Session, Viewport.Width);
+    }
 
-			_messages.Add(new ChatMessage
-			{
-				Content = response,
-				IsUser = false
-			});
-		}
-		catch (Exception ex)
-		{
-			_messages.Add(new ChatMessage
-			{
-				Content = FormatChatError(ex),
-				IsUser = false,
-				IsError = true
-			});
-		}
-		finally
-		{
-			_isProcessing = false;
-			StateHasChanged();
-		}
-	}
+    private void BackToBottom(MouseEventArgs e)
+    {
+        if (_bottomPressed && e.OffsetX >= 0 && e.OffsetX < BottomLabel.Length && e.OffsetY == 0) ViewState.Display.Offset = Math.Max(0, ViewState.Display.Wrap(Viewport.Width, 2, true, ViewState.ContinuationIndentAt).Count - BodyHeight);
+        _bottomPressed = false;
+    }
+    private void BottomHover(MouseEventArgs e) => _bottomHovered = e.OffsetX >= 0 && e.OffsetX < BottomLabel.Length && e.OffsetY == 0;
 
-	public class ChatMessage
-	{
-		public required string Content { get; set; }
-		public bool IsUser { get; set; }
-		public bool IsError { get; set; }
-	}
+    private void HandleKey(KeyboardEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case "F6": Session.Advance(); break;
+            case "F7": ToggleTool(); break;
+            case "PageUp": ViewState.Display.Offset = Math.Max(0, ViewState.Display.Offset - 5); break;
+            case "PageDown": ViewState.Display.Offset += 5; break;
+            case "Escape": _usage = false; _warnings = false; Session.Cancel(); _showCommands = false; break;
+        }
+    }
 
-	private static string FormatChatError(Exception exception)
-	{
-		var message = exception.Message;
-		if (message.Contains("localhost:11434", StringComparison.OrdinalIgnoreCase)
-			|| message.Contains("Connection refused", StringComparison.OrdinalIgnoreCase))
-		{
-			return $"Error: {message}\nOllama is the default provider when OPENAI_API_KEY is not set. Start Ollama with `ollama serve` and pull the model with `ollama pull llama3.2`, or set OPENAI_API_KEY to use OpenAI.";
-		}
-
-		return $"Error: {message}";
-	}
+    public void Dispose()
+    {
+        Viewport.OnResized -= Refresh;
+        if (_subscribed is not null) _subscribed.Changed -= Refresh;
+    }
 }

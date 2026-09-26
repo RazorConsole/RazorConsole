@@ -1,0 +1,50 @@
+@namespace LLMAgentTUI.Components
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+@using RazorConsole.Core.Input
+@using RazorConsole.Core.Renderables
+@using Spectre.Console
+
+<Flex Direction="FlexDirection.Column" Height="@Items.Count" Width="Width" data-vnode-hook="command-menu" @onwheel="Wheel">
+    @for (var i = 0; i < Items.Count; i++)
+    {
+        var index = i;
+        var item = Items[index];
+        var selected = index == Selected;
+        <Flex Direction="FlexDirection.Row" Height="1" Width="Width" data-vnode-hook="@($"command-{item.Name}")"
+              @onmouseenter="() => OnHighlight.InvokeAsync(index)" @onclick="(MouseEventArgs e) => Click(e, index)">
+            <Markup Content="@(selected ? "› " : "  ")" Background="@(selected ? Highlight : Color.Default)" Foreground="@(selected ? Color.Black : Color.Default)" />
+            <Markup Content="@Clip(item.Name.PadRight(LabelWidth), Math.Max(0, Math.Min(LabelWidth, Width - 2)))" Background="@(selected ? Highlight : Color.Default)" Foreground="@(selected ? Color.Black : Color.Default)" Decoration="@(selected ? Decoration.Bold : Decoration.None)" />
+            <Markup Content="@Clip(item.Description, Math.Max(0, Width - 2 - LabelWidth))" Background="@(selected ? Highlight : Color.Default)" Foreground="@(selected ? Color.Black : new Color(158, 158, 158))" />
+        </Flex>
+    }
+</Flex>
+
+@code {
+    public sealed record Command(string Name, string Description);
+    [Parameter] public IReadOnlyList<Command> Items { get; set; } = [];
+    [Parameter] public int Selected { get; set; }
+    [Parameter] public int Width { get; set; }
+    [Parameter] public EventCallback<int> OnHighlight { get; set; }
+    [Parameter] public EventCallback<int> OnSelect { get; set; }
+    private const int LabelWidth = 15;
+    private static readonly Color Highlight = new(163, 204, 250);
+    private static string Clip(string text, int width)
+    {
+        var output = new System.Text.StringBuilder();
+        var cells = 0;
+        var elements = System.Globalization.StringInfo.GetTextElementEnumerator(text);
+        while (elements.MoveNext())
+        {
+            var element = elements.GetTextElement();
+            var size = TextSelectionState.CellWidth(element);
+            if (cells + size > width) break;
+            output.Append(element);
+            cells += size;
+        }
+        return output.Append(' ', width - cells).ToString();
+    }
+    private Task Click(MouseEventArgs e, int index) => e.Button == 0 ? OnSelect.InvokeAsync(index) : Task.CompletedTask;
+    private Task Wheel(WheelEventArgs e) => Items.Count == 0 ? Task.CompletedTask : OnHighlight.InvokeAsync(Math.Clamp(Selected + Math.Sign(e.DeltaY), 0, Items.Count - 1));
+}

@@ -51,6 +51,8 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<IFocusEventDispatcher>(sp => sp.GetRequiredService<RendererKeyboardEventDispatcher>());
         services.TryAddSingleton<FocusManager>(sp => new FocusManager(sp.GetService<IFocusEventDispatcher>()));
         services.TryAddSingleton<KeyboardEventManager>();
+        services.TryAddSingleton<MouseEventManager>();
+        services.TryAddSingleton<ITerminalActions, TerminalActions>();
         services.TryAddSingleton<ISyntaxLanguageRegistry, ColorCodeLanguageRegistry>();
         services.TryAddSingleton<ISyntaxThemeRegistry, SyntaxThemeRegistry>();
         services.TryAddSingleton<SpectreMarkupFormatter>();
@@ -58,6 +60,7 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<MarkdownRenderingService>();
         services.TryAddSingleton<IConsoleInput, ConsoleInput>();
         services.TryAddSingleton<TerminalMonitor>();
+        services.TryAddSingleton<ITerminalViewport>(sp => sp.GetRequiredService<TerminalMonitor>());
         services.TryAddSingleton<ScrollableLayoutCoordinator>();
         services.TryAddSingleton<LayoutEngine>();
         services.TryAddSingleton<WidgetTranslationContext>();
