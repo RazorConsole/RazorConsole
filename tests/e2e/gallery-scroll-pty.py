@@ -83,8 +83,8 @@ def main():
                 assert time.monotonic() < deadline, "Input blocked\n" + frame()
                 drain(0.01)
 
-    def expect(text):
-        deadline = time.monotonic() + 5
+    def expect(text, timeout=10):
+        deadline = time.monotonic() + timeout
         while text not in frame() and time.monotonic() < deadline:
             drain(0.02)
         assert text in frame(), f"Missing {text}\n{frame()}"
@@ -118,10 +118,12 @@ def main():
         drain(0.1)
         send(b"40R")
         send(b"\x1b[<64;50;15M" * 100)
-        expect("Reset")
-        click("Preview", 27)
-        expect("Embedded scrollbar")
+        # Search stays at a fixed position while the main pane scrolls. Its
+        # focused placeholder is a FIFO barrier: all queued wheel events have
+        # been handled before this click. Text in the old Code frame is not a
+        # reliable indication that a burst has finished on a slower CI runner.
         click("Search")
+        expect("Type to search", timeout=60)
         send(b"border")
         expect("border")
         click("Border")

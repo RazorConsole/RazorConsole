@@ -12,6 +12,9 @@ names and categories. Diagnostics is collapsed by default. Navigation scrolls
 independently using the wheel, page controls or PageUp/PageDown. Tab moves focus;
 arrow keys move between visible/navigation entries; Enter activates a focused item.
 A dot denotes the current selection; the background denotes keyboard focus.
+Drag the vertical divider to resize the sidebar. When focused, Left/Right resize
+one column and Home restores the default width. The main pane retains at least
+30 columns (when the terminal is wide enough); resize limits follow the viewport.
 Clickable buttons also highlight on hover without moving focus. Search is read-only
 and dimmed until focused, then shows its empty-field placeholder.
 Press `/` while a gallery button is focused to jump to search. Text editors retain

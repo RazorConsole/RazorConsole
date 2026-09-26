@@ -5,11 +5,19 @@
 
 <Flex Direction="FlexDirection.Column" Width="@Viewport.Width" Height="@Viewport.Height" Gap="1">
     <Header />
-    <Flex Direction="FlexDirection.Row" Height="@ContentHeight" Gap="2">
-        <Flex Width="@NavigationWidth" Height="@ContentHeight" Direction="FlexDirection.Column">
+    <Flex Direction="FlexDirection.Row" Height="@ContentHeight" Gap="1">
+        <Flex Width="@NavigationWidth" Height="@ContentHeight" Direction="FlexDirection.Column" data-vnode-hook="gallery-sidebar">
             <NavBar Height="@ContentHeight" Width="@NavigationWidth" />
         </Flex>
-        <Flex Width="@Math.Max(10, Viewport.Width - NavigationWidth - 2)" Height="@ContentHeight" Direction="FlexDirection.Column">
+        <Flex @key='"gallery-divider"' Width="1" Height="@ContentHeight" Direction="FlexDirection.Column"
+              data-vnode-hook="gallery-divider" data-focusable="true" data-focus-key="gallery-divider"
+              @onmousedown="StartDrag" @onmousemove="Drag" @onmouseup="EndDrag" @onkeydown="DividerKey"
+              @onmouseenter="() => _hovered = true" @onmouseleave="() => _hovered = false"
+              @onfocusin="() => _focused = true" @onfocusout="() => _focused = false">
+            <Markup Content="@string.Join('\n', Enumerable.Repeat("│", ContentHeight))"
+                    Foreground="@(_dragging || _hovered || _focused ? Color.DeepSkyBlue1 : Color.Grey58)" />
+        </Flex>
+        <Flex Width="@Math.Max(1, Viewport.Width - NavigationWidth - 3)" Height="@ContentHeight" Direction="FlexDirection.Column" data-vnode-hook="gallery-main">
             <ViewHeightScrollable @key="Navigation.Uri" LinesToRender="@ContentHeight" Scrollbar="new()" IsScrollbarEmbedded="false">
                 @Body
             </ViewHeightScrollable>
@@ -20,7 +28,34 @@
 
 @code {
     private int ContentHeight => Math.Max(5, Viewport.Height - 4);
-    private int NavigationWidth => Viewport.Width < 80 ? 20 : 25;
+    private int? _navigationWidth;
+    private bool _dragging;
+    private bool _hovered;
+    private bool _focused;
+    private double _dragStart;
+    private int _initialWidth;
+    private int MaxNavigationWidth => Math.Max(1, Viewport.Width - 33);
+    private int MinNavigationWidth => Math.Min(18, MaxNavigationWidth);
+    private int NavigationWidth => Math.Clamp(_navigationWidth ?? (Viewport.Width < 80 ? 20 : 25), MinNavigationWidth, MaxNavigationWidth);
+    private void StartDrag(MouseEventArgs e)
+    {
+        if (e.Button != 0) return;
+        _dragging = true;
+        _dragStart = e.ClientX;
+        _initialWidth = NavigationWidth;
+    }
+    private void Drag(MouseEventArgs e)
+    {
+        if (_dragging) _navigationWidth = Math.Clamp(_initialWidth + (int)(e.ClientX - _dragStart), MinNavigationWidth, MaxNavigationWidth);
+    }
+    private void EndDrag(MouseEventArgs e) { Drag(e); _dragging = false; }
+    private void DividerKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowLeft") _navigationWidth = Math.Max(MinNavigationWidth, NavigationWidth - 1);
+        if (e.Key == "ArrowRight") _navigationWidth = Math.Min(MaxNavigationWidth, NavigationWidth + 1);
+        if (e.Key == "Home") _navigationWidth = null;
+        if (e.Key == "Escape") _dragging = false;
+    }
     protected override void OnInitialized() => Viewport.OnResized += Resize;
     private void Resize() => _ = InvokeAsync(StateHasChanged);
     public void Dispose() => Viewport.OnResized -= Resize;

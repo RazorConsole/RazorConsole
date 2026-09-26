@@ -9,6 +9,36 @@ namespace RazorConsole.Tests.Integration;
 public sealed class GalleryWorkbenchTests
 {
     [Fact]
+    public async Task Divider_DragCapture_ClampsWidth_AndSupportsKeyboardAndResize()
+    {
+        var token = TestContext.Current.CancellationToken;
+        await using var terminal = await TestTerminal.StartAsync<App>(100, 35, cancellationToken: token);
+        var divider = terminal.GetLayout("gallery-divider");
+        var x = divider.Left!.Value;
+        var y = divider.Top!.Value + 3;
+        await terminal.SendMouseAsync(new(TerminalMouseKind.Move, x, y), token);
+        terminal.Snapshot[x, y].Style!.Foreground.ShouldBe(Spectre.Console.Color.DeepSkyBlue1);
+        await terminal.SendMouseAsync(new(TerminalMouseKind.Down, x, y), token);
+        await terminal.SendMouseAsync(new(TerminalMouseKind.Move, x + 8, y), token);
+        terminal.GetLayout("gallery-sidebar").Width.ShouldBe(33);
+        await terminal.SendMouseAsync(new(TerminalMouseKind.Move, 99, y), token);
+        terminal.GetLayout("gallery-sidebar").Width.ShouldBe(67);
+        terminal.GetLayout("gallery-main").Width.ShouldBe(30);
+        await terminal.SendMouseAsync(new(TerminalMouseKind.Up, 0, y), token);
+        terminal.GetLayout("gallery-sidebar").Width.ShouldBe(18);
+        await terminal.SendMouseAsync(new(TerminalMouseKind.Move, 80, y), token);
+        terminal.GetLayout("gallery-sidebar").Width.ShouldBe(18);
+        await terminal.SendKeyAsync(ConsoleKey.RightArrow, cancellationToken: token);
+        terminal.GetLayout("gallery-sidebar").Width.ShouldBe(19);
+        await terminal.SendKeyAsync(ConsoleKey.Home, cancellationToken: token);
+        terminal.GetLayout("gallery-sidebar").Width.ShouldBe(25);
+        terminal.Resize(50, 24);
+        await terminal.WaitUntilAsync(s => s.Layouts.TryGetValue("gallery-sidebar", out var box) && box.Width == 17, cancellationToken: token);
+        terminal.GetLayout("gallery-main").Width.ShouldBe(30);
+        terminal.Snapshot.ContainsText("Preview").ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task Search_ActivatesOnFocus_AndButtonHoverDoesNotSelect()
     {
         await using var terminal = await TestTerminal.StartAsync<App>(100, 35, cancellationToken: TestContext.Current.CancellationToken);
