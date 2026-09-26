@@ -5,7 +5,9 @@ import {
   attachKeyListener,
   registerTerminalInstance,
   registerComponent,
-  handleKeyboardEvent,
+  handleTerminalInput,
+  disposeTerminal,
+  getTerminalInstance,
   handleResize,
 } from "@/lib/xtermConsole"
 import "xterm/css/xterm.css"
@@ -140,11 +142,7 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
           if (!disposed) {
             try {
               fitAddon.fit()
-              // Notify the C# renderer about the new terminal dimensions
-              const cols = term.cols
-              const rows = term.rows
-              console.debug("Terminal resized to", cols, "x", rows)
-              void handleResize(elementId, cols, rows)
+              // onResize is serialized with terminal input by attachKeyListener.
             } catch (e) {
               console.warn("Failed to fit terminal:", e)
             }
@@ -159,12 +157,15 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
         // Pass the initial terminal dimensions to register the component with the correct size
         await registerComponent(elementId, term.cols, term.rows)
 
+        if (disposed) return
+
         attachKeyListener(elementId, {
           invokeMethodAsync: async (methodName: string, ...args: unknown[]) => {
-            console.debug(`Key event forwarded from preview via ${methodName}`, args)
-            await handleKeyboardEvent(
-              ...(args as [string, string, string, boolean, boolean, boolean])
-            )
+            if (methodName === "HandleTerminalInput") {
+              await handleTerminalInput(...(args as [string, string]))
+            } else if (methodName === "HandleResize") {
+              await handleResize(...(args as [string, number, number]))
+            }
             return null
           },
         })
@@ -184,9 +185,15 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
       if (disposed) return
       disposed = true
       if (resizeObserver) resizeObserver.disconnect()
-      if (termInstance) termInstance.dispose()
-      xtermRef.current = null
-      fitAddonRef.current = null
+      if (termInstance && getTerminalInstance(elementId) === termInstance) {
+        disposeTerminal(elementId)
+      } else {
+        termInstance?.dispose()
+      }
+      if (xtermRef.current === termInstance) {
+        xtermRef.current = null
+        fitAddonRef.current = null
+      }
     }
 
     startPreview()

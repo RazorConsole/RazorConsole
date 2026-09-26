@@ -3,6 +3,8 @@
  */
 export interface WasmExports {
 	Registry: {
+		HandleTerminalInput: (elementId: string, data: string) => Promise<void>;
+		UnregisterComponent: (elementId: string) => Promise<void>;
 		RegisterComponent: (elementId: string, cols: number, rows: number) => Promise<void>;
 		HandleKeyboardEvent: (
 			componentName: string,

@@ -16,8 +16,9 @@ public partial class Registry
 
     [JSExport]
     [SupportedOSPlatform("browser")]
-    public static void RegisterComponent(string elementID, int cols, int rows)
+    public static async Task RegisterComponent(string elementID, int cols, int rows)
     {
+        await UnregisterComponent(elementID).ConfigureAwait(false);
         Console.WriteLine(elementID);
         switch (elementID)
         {
@@ -109,6 +110,24 @@ public partial class Registry
         }
         await renderer.HandleKeyboardEventAsync(xtermKey, domKey, ctrlKey, altKey, shiftKey)
             .ConfigureAwait(false);
+    }
+
+    [JSExport]
+    public static async Task HandleTerminalInput(string elementID, string data)
+    {
+        if (_renderers.TryGetValue(elementID, out var renderer))
+        {
+            await renderer.HandleTerminalInputAsync(data).ConfigureAwait(false);
+        }
+    }
+
+    [JSExport]
+    public static async Task UnregisterComponent(string elementID)
+    {
+        if (_renderers.Remove(elementID, out var renderer))
+        {
+            await renderer.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     [JSExport]

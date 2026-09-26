@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:terminal-input": "tsx --test scripts/terminalInput.test.ts",
+    "dev:terminal-input": "vite --config tests/vite.config.ts",
     "dev": "vite",
     "build": "npm run build:docfx && npm run build:wasm && tsc -b && react-router build && npm run build:metadata",
     "build:docfx": "dotnet tool restore && dotnet docfx metadata ../docfx/docfx.json",

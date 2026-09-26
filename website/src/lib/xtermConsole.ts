@@ -1,5 +1,6 @@
 import type { Terminal, IDisposable, ITerminalOptions, ITheme } from "xterm"
 import "xterm/css/xterm.css"
+import { attachTerminalInput } from "./terminalInput"
 
 type TerminalConstructor = typeof Terminal
 type TerminalType = InstanceType<typeof Terminal>
@@ -131,49 +132,12 @@ export function attachKeyListener(elementId: string, helper: DotNetHelper): void
 
   keyHandlers.get(elementId)?.dispose()
 
-  const subscription = terminal.onKey(async (event) => {
-    const { key, domEvent } = event
-    const { ctrlKey, metaKey, key: domKey } = domEvent
-
-    // Handle Ctrl+C (or Cmd+C on Mac) - Copy selected text
-    if ((ctrlKey || metaKey) && (domKey === "c" || domKey === "C")) {
-      const selection = terminal.getSelection()
-      if (selection) {
-        try {
-          await navigator.clipboard.writeText(selection)
-          console.debug("Copied to clipboard:", selection)
-        } catch (err) {
-          console.warn("Failed to copy to clipboard:", err)
-        }
-      }
-    }
-
-    if ((ctrlKey || metaKey) && (domKey === "v" || domKey === "V")) {
-      try {
-        const text = await navigator.clipboard.readText()
-        if (text) {
-          console.debug("Pasting from clipboard:", text)
-          // Send each character individually to WASM
-          for (const char of text) {
-            await helper.invokeMethodAsync("HandleKeyboardEvent", elementId, char, char, false, false, false)
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to paste from clipboard:", err)
-      }
-      return
-    }
-
-    void helper.invokeMethodAsync(
-      "HandleKeyboardEvent",
-      elementId,
-      key,
-      domEvent.key,
-      domEvent.ctrlKey,
-      domEvent.altKey,
-      domEvent.shiftKey
-    )
-  })
+  // xterm owns browser clipboard handling; its paste output arrives through onData.
+  const subscription = attachTerminalInput(
+    terminal,
+    data => helper.invokeMethodAsync("HandleTerminalInput", elementId, data),
+    (cols, rows) => helper.invokeMethodAsync("HandleResize", elementId, cols, rows),
+  )
 
   keyHandlers.set(elementId, subscription)
 }
@@ -186,6 +150,7 @@ export function disposeTerminal(elementId: string): void {
   if (terminal) {
     terminal.dispose()
     terminals.delete(elementId)
+    void getWasmExports().then(exports => exports.Registry.UnregisterComponent(elementId)).catch(console.error)
   }
 }
 
@@ -259,4 +224,9 @@ export async function handleResize(
 ): Promise<void> {
   const exports = await getWasmExports()
   return exports.Registry.HandleResize(componentName, cols, rows)
+}
+
+export async function handleTerminalInput(elementId: string, data: string): Promise<void> {
+  const exports = await getWasmExports()
+  return exports.Registry.HandleTerminalInput(elementId, data)
 }

@@ -86,7 +86,7 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
         {
             var handler = node.Events.First(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             var bounds = layouts.GetLayoutByVNodeIdOrDefault(node.ID);
-            MouseEventArgs args = input.Kind == TerminalMouseKind.Wheel ? new WheelEventArgs { DeltaY = input.DeltaY, DeltaMode = 1 } : new();
+            MouseEventArgs args = input.Kind == TerminalMouseKind.Wheel ? new WheelEventArgs { DeltaY = input.DeltaY, DeltaMode = 1 } : new MouseEventArgs();
             args.Type = name[2..];
             args.ClientX = input.X;
             args.ClientY = input.Y;

@@ -90,6 +90,13 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
         Capture(_renderer.RefreshSnapshot());
     }
 
+    public async Task SendTerminalInputAsync(string data, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        await _services.GetRequiredService<TerminalInputDispatcher>().HandleAsync(data, cancellationToken).ConfigureAwait(false);
+        Capture(_renderer.RefreshSnapshot());
+    }
+
     public static async Task<TestTerminal> StartAsync<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(
         int width,

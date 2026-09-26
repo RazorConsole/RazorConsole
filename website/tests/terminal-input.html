@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>RazorConsole terminal input integration fixture</title>
+<style>
+  body { font: 16px sans-serif; max-width: 900px; margin: 32px auto; }
+  .terminal { padding: 12px; background: #1e1e1e; margin-bottom: 20px; }
+  pre { white-space: pre-wrap; }
+</style>
+<h1>Real xterm → WASM → Razor events</h1>
+<p>Click the button: each click should increment once. Type or paste in the input:
+each character should appear once. Wheel reports must not become text.</p>
+<div id="TextButton" class="terminal"></div>
+<div id="TextInput" class="terminal"></div>
+<h2>Input stream (escaped)</h2>
+<pre id="events"></pre>
+<script type="module">
+  import { initTerminal, registerComponent, attachKeyListener,
+    handleTerminalInput, handleResize, disposeTerminal } from "/src/lib/xtermConsole.ts"
+
+  const events = document.getElementById("events")
+  for (const id of ["TextButton", "TextInput"]) {
+    await initTerminal(id, { cols: 70, rows: 6 })
+    await registerComponent(id, 70, 6)
+    attachKeyListener(id, {
+      async invokeMethodAsync(method, ...args) {
+        if (method === "HandleTerminalInput") {
+          if (args[1]) events.textContent = `${id}: ${JSON.stringify(args[1])}\n` + events.textContent.slice(0, 1500)
+          await handleTerminalInput(...args)
+        } else if (method === "HandleResize") {
+          await handleResize(...args)
+        }
+      },
+    })
+  }
+  addEventListener("pagehide", () => {
+    disposeTerminal("TextButton")
+    disposeTerminal("TextInput")
+  })
+</script>
+</html>

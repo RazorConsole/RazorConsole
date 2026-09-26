@@ -14,8 +14,9 @@ using Spectre.Console.Rendering;
 
 namespace RazorConsole.Website;
 
-internal interface IRazorConsoleRenderer
+internal interface IRazorConsoleRenderer : IAsyncDisposable
 {
+    Task HandleTerminalInputAsync(string data);
     Task HandleKeyboardEventAsync(string xtermKey, string domKey, bool ctrlKey, bool altKey, bool shiftKey);
     void HandleResize(int cols, int rows);
     event Action<string>? SnapshotRendered;
@@ -32,6 +33,13 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
     private IAnsiConsole? _ansiConsole;
     private readonly StringWriter _sw = new StringWriter();
     private KeyboardEventManager? _keyboardEventManager;
+    private TerminalInputDispatcher? _terminalInput;
+    private TerminalMonitor? _terminalMonitor;
+    private ConsoleLiveDisplayContext? _liveContext;
+    private FocusManager.FocusSession? _focusSession;
+    private IDisposable? _focusSubscription;
+    private bool _disposed;
+    private readonly SemaphoreSlim _inputGate = new(1, 1);
     private LiveDisplayCanvas? _canvas;
     private Task? _initializationTask;
     public event Action<string>? SnapshotRendered;
@@ -67,12 +75,15 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         services.Configure<ConsoleAppOptions>(options =>
         {
             options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
+            options.ConsoleLiveDisplayOptions.EnableMouseEvents = true;
         });
         services.AddRazorConsoleServices();
+        services.AddSingleton(new TerminalMonitor(_initialCols, _initialRows));
 
         _serviceProvider = services.BuildServiceProvider();
         _consoleRenderer = _serviceProvider.GetRequiredService<ConsoleRenderer>();
         _keyboardEventManager = _serviceProvider.GetRequiredService<KeyboardEventManager>();
+        _terminalInput = _serviceProvider.GetRequiredService<TerminalInputDispatcher>();
         var focusManager = _serviceProvider.GetRequiredService<FocusManager>();
         var options = _serviceProvider.GetRequiredService<IOptions<ConsoleAppOptions>>().Value;
 
@@ -88,15 +99,20 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         _ansiConsole.Profile.Width = _initialCols;
         _ansiConsole.Profile.Height = _initialRows;
         var snapshot = await _consoleRenderer.MountComponentAsync<TComponent>(ParameterView.Empty, default).ConfigureAwait(false);
-        _consoleRenderer.Subscribe(focusManager);
+        _focusSubscription = _consoleRenderer.Subscribe(focusManager);
 
         var initialView = ConsoleViewResult.FromSnapshot(snapshot);
         var terminalMonitor = _serviceProvider.GetRequiredService<TerminalMonitor>();
+        _terminalMonitor = terminalMonitor;
         _canvas = new LiveDisplayCanvas(options.ConsoleLiveDisplayOptions, _ansiConsole);
 
         // Subscribe to Refreshed BEFORE creating the context, so we catch the initial render.
         _canvas.Refreshed += () =>
         {
+            if (_disposed)
+            {
+                return;
+            }
             var output = _sw.ToString();
             SnapshotRendered?.Invoke(output);
             XTermInterop.WriteToTerminal(_componentId, output);
@@ -106,9 +122,11 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         // Pass null for initialView to the context. This forces the context to treat the
         // canvas as empty/dirty and perform an initial render of the snapshot.
         var consoleLiveDisplayContext = new ConsoleLiveDisplayContext(_canvas, _consoleRenderer, terminalMonitor);
+        _liveContext = consoleLiveDisplayContext;
 
         // Pass the actual initialView to FocusManager so it knows about the initial focusable elements.
         var focusSession = focusManager.BeginSession(consoleLiveDisplayContext, initialView, CancellationToken.None);
+        _focusSession = focusSession;
         await focusSession.InitializationTask.ConfigureAwait(false);
     }
 
@@ -168,6 +186,50 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         var keyInfo = ParseKeyFromBrowser(xtermKey, domKey, ctrlKey, altKey, shiftKey);
         Console.WriteLine($"Parsed ConsoleKeyInfo: KeyChar='{keyInfo.KeyChar}', Key={keyInfo.Key}, Modifiers={keyInfo.Modifiers}");
         await _keyboardEventManager.HandleKeyAsync(keyInfo, CancellationToken.None).ConfigureAwait(false);
+    }
+
+    public async Task HandleTerminalInputAsync(string data)
+    {
+        await EnsureInitializedAsync().ConfigureAwait(false);
+        await _inputGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (!_disposed)
+            {
+                await _terminalInput!.HandleAsync(data).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            _inputGate.Release();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
+        await EnsureInitializedAsync().ConfigureAwait(false);
+        await _inputGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            _focusSession?.Dispose();
+            _focusSubscription?.Dispose();
+            _liveContext?.Dispose();
+            _terminalMonitor?.Dispose();
+            if (_serviceProvider is IAsyncDisposable services)
+            {
+                await services.DisposeAsync().ConfigureAwait(false);
+            }
+            _sw.Dispose();
+        }
+        finally
+        {
+            _inputGate.Release();
+        }
     }
 
     private static ConsoleKeyInfo ParseKeyFromBrowser(string xtermKey, string domKey, bool ctrlKey, bool altKey, bool shiftKey)
@@ -315,7 +377,7 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
     /// </summary>
     public void HandleResize(int cols, int rows)
     {
-        if (_ansiConsole is null || _canvas is null)
+        if (_disposed || _ansiConsole is null || _canvas is null || cols < 1 || rows < 1)
         {
             return;
         }
@@ -323,6 +385,7 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         // Update the console profile dimensions
         _ansiConsole.Profile.Width = cols;
         _ansiConsole.Profile.Height = rows;
+        _terminalMonitor?.Resize(cols, rows);
 
         // Trigger a refresh to re-render with the new dimensions
         _canvas.Refresh();
