@@ -27,7 +27,13 @@ variable before making real requests; no credential is committed.
 dotnet run --project examples/LLMAgentTUI --framework net10.0
 ```
 
-The example also targets net8.0 and net9.0.
+The example targets net8.0, net9.0, net10.0 and net11.0. Building this checkout
+requires the .NET 11 RC1 SDK pinned in the repository `global.json`; .NET 11 support
+currently targets a prerelease runtime. Older target frameworks remain supported.
+
+```bash
+dotnet run --project examples/LLMAgentTUI --framework net11.0 -- --mock
+```
 
 ## Configuration
 
@@ -181,6 +187,9 @@ This launches the real application in a PTY with `--mock`, sends 201 wheel repor
 selection, and checks that Ctrl+C disables mouse reporting. Pass `--dotnet PATH`
 if the SDK is not on PATH. Linux still needs native validation; current native
 execution evidence is macOS, in addition to the cross-target .NET unit tests.
+
+Use `--framework net11.0` with the PTY script to exercise the .NET 11 build
+(build the example with `-c Release -f net11.0` first).
 
 The reference version and the full acceptance inventory are in
 [CODEX-PARITY.md](CODEX-PARITY.md). The inventory distinguishes implemented

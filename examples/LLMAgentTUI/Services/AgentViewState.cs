@@ -1,8 +1,8 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Input;
-using Spectre.Console;
 using RazorConsole.Core.Rendering.Markdown;
+using Spectre.Console;
 
 namespace LLMAgentTUI.Services;
 

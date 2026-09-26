@@ -145,9 +145,14 @@ internal sealed class KeyboardEventManager
             return;
         }
 
+        // The handler may rerender this node and change its input attributes
+        // (for example, Tab completion closes a menu). Capture ownership before
+        // dispatch so the same key cannot also trigger default focus traversal.
+        var managedKey = (keyInfo.Key != ConsoleKey.Tab || initialTarget.Attributes.GetValueOrDefault("data-manage-tab") == "true")
+            && initialTarget.Attributes.TryGetValue("data-input-managed", out var managed) && managed == "true";
         await DispatchKeyboardEventAsync(initialTarget, "onkeydown", keyInfo, token).ConfigureAwait(false);
 
-        if ((keyInfo.Key != ConsoleKey.Tab || initialTarget.Attributes.GetValueOrDefault("data-manage-tab") == "true") && initialTarget.Attributes.TryGetValue("data-input-managed", out var managed) && managed == "true")
+        if (managedKey)
         {
             await DispatchKeyboardEventAsync(initialTarget, "onkeyup", keyInfo, token).ConfigureAwait(false);
             return;

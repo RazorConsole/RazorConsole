@@ -25,13 +25,14 @@ import pyte
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dotnet", default=shutil.which("dotnet"))
+    parser.add_argument("--framework", choices=["net8.0", "net9.0", "net10.0", "net11.0"], default="net10.0")
     args = parser.parse_args()
     if not args.dotnet:
         parser.error("dotnet is not on PATH; pass --dotnet /path/to/dotnet")
     root = Path(__file__).resolve().parents[2]
-    app = root / "artifacts/bin/LLMAgentTUI/release_net10.0/LLMAgentTUI.dll"
+    app = root / f"artifacts/bin/LLMAgentTUI/release_{args.framework}/LLMAgentTUI.dll"
     if not app.exists():
-        parser.error("build examples/LLMAgentTUI -c Release -f net10.0 first")
+        parser.error(f"build examples/LLMAgentTUI -c Release -f {args.framework} first")
     master, slave = pty.openpty()
     os.set_blocking(master, False)
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 35, 87, 0, 0))

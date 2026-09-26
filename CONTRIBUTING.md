@@ -28,7 +28,8 @@ The templates will guide you through providing the necessary information:
 
 ### Prerequisites
 
-- [.NET 8.0 or 9.0 SDK](https://dotnet.microsoft.com/download)
+- [.NET 11 RC1 SDK](https://dotnet.microsoft.com/download/dotnet/11.0), using the version in `global.json`
+- .NET 8, 9 and 10 runtimes (or SDKs) to run the complete multi-target test suite
 - [Git LFS](https://git-lfs.github.io/) for handling large media files
 
 ### Clone and Setup

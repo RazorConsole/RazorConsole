@@ -1,10 +1,10 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using System.ClientModel;
 using LLMAgentTUI.Components;
 using LLMAgentTUI.Services;
-using Microsoft.Extensions.AI;
 using Microsoft.Agents.AI;
-using System.ClientModel;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenAI;
