@@ -61,6 +61,7 @@ start_example() {
   printf -v command '%q ' dotnet run \
     --project "$project" \
     --configuration Release \
+    --framework net9.0 \
     --no-build \
     --no-restore
 
