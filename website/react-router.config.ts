@@ -26,12 +26,30 @@ export default {
             (item) => `/docs/${item.id}`
         );
 
+        const tutorialSlugs = [
+            "hello-world",
+            "state-and-events",
+            "text-input-and-focus",
+            "mouse-events",
+            "widget-layout-and-resize",
+            "routing",
+            "async-work",
+            "complete-app",
+        ];
+
+        const tutorialPaths = tutorialSlugs.map((slug) => `/docs/tutorial/${slug}`);
+        const legacyTutorialPaths = tutorialSlugs.map((slug) => `/tutorial/${slug}`);
+        const releasePaths = releaseNoteIds.map((item) => `/release-notes/${item.id}`);
+
         return [
             ...getStaticPaths(),
             ...dynamicPathIndexes,
             ...componentPaths,
             ...apiPaths,
             ...docsPaths,
+            ...tutorialPaths,
+            ...legacyTutorialPaths,
+            ...releasePaths,
         ];
     },
 } satisfies Config;

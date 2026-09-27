@@ -187,9 +187,14 @@ async function getWasmExports(): Promise<WasmExports> {
   return wasmExportsPromise
 }
 
-export async function registerComponent(elementId: string, cols: number, rows: number): Promise<void> {
+export async function registerComponent(
+  instanceId: string,
+  componentId: string,
+  cols: number,
+  rows: number,
+): Promise<void> {
   const exports = await getWasmExports()
-  return exports.Registry.RegisterComponent(elementId, cols, rows)
+  return exports.Registry.RegisterComponent(instanceId, componentId, cols, rows)
 }
 
 /**

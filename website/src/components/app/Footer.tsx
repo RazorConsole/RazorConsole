@@ -96,7 +96,7 @@ export function Footer() {
             <ul className="space-y-3">
               <li>
                 <FooterLink 
-                  to="/docs/quick-start" 
+                  to="/docs/tutorial/hello-world"
                   icon={BookOpen}
                   ariaLabel="Read RazorConsole documentation"
                 >

@@ -12,7 +12,7 @@ export default function HeroSection() {
         Spectre.Console
       </p>
       <div className="flex flex-wrap justify-center gap-4">
-        <Link to="/docs#quick-start">
+        <Link to="/docs/tutorial/hello-world">
           <Button size="lg" className="gap-2">
             <Terminal className="h-4 w-4" />
             Quick Start

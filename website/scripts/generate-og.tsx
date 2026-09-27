@@ -145,7 +145,7 @@ async function generateOgImages() {
             });
 
             capturedAnsi[comp.name] = '';
-            await wasmExports.Registry.RegisterComponent(comp.name, termCols, termRows);
+            await wasmExports.Registry.RegisterComponent(comp.name, comp.name, termCols, termRows);
             if (wasmExports.Registry.HandleResize) {
                 await wasmExports.Registry.HandleResize(comp.name, termCols, termRows);
             }

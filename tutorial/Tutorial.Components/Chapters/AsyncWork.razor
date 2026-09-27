@@ -1,0 +1,73 @@
+@namespace Tutorial.Components.Chapters
+
+<Box Border="BoxBorder.Rounded" Padding="new Padding(1)">
+    <Rows>
+        <Markup Content="Async work, loading, and errors" Foreground="Color.Cyan1" Decoration="Decoration.Bold" />
+        @if (_loading)
+        {
+            <Columns>
+                <Spinner SpinnerType="global::Spectre.Console.Spinner.Known.Dots" />
+                <Markup Content="Loading release data…" Foreground="Color.Yellow" />
+            </Columns>
+        }
+        else if (_error is not null)
+        {
+            <Panel BorderColor="Color.Red">
+                <Markup Content="@_error" Foreground="Color.Red" />
+            </Panel>
+        }
+        else
+        {
+            <Panel BorderColor="Color.Green">
+                <Markup Content="@_result" Foreground="Color.Green" />
+            </Panel>
+        }
+        <Columns>
+            <TextButton Content="Load" OnClick="LoadAsync" FocusedColor="Color.Green" />
+            <TextButton Content="Simulate error" OnClick="FailAsync" FocusedColor="Color.Red" />
+            <TextButton Content="Cancel" OnClick="Cancel" FocusedColor="Color.Yellow" />
+        </Columns>
+        <Markup Content="Async callbacks rerender as state moves through idle, loading, success, and error." Foreground="Color.Grey58" />
+    </Rows>
+</Box>
+
+@code {
+    private CancellationTokenSource? _request;
+    private bool _loading;
+    private string? _result = "Ready to load.";
+    private string? _error;
+
+    private Task LoadAsync() => RunAsync(shouldFail: false);
+    private Task FailAsync() => RunAsync(shouldFail: true);
+
+    private async Task RunAsync(bool shouldFail)
+    {
+        _request?.Cancel();
+        using var request = _request = new CancellationTokenSource();
+        _loading = true;
+        _result = null;
+        _error = null;
+
+        try
+        {
+            await Task.Delay(650, request.Token);
+            if (shouldFail) throw new InvalidOperationException("The demo service returned an error.");
+            _result = "Loaded 3 releases successfully.";
+        }
+        catch (OperationCanceledException)
+        {
+            _result = "Request cancelled.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            if (ReferenceEquals(_request, request)) _request = null;
+        }
+    }
+
+    private void Cancel() => _request?.Cancel();
+}

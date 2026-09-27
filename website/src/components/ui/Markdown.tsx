@@ -204,8 +204,8 @@ export const MarkdownRenderer = React.memo<MarkdownRendererProps>(({ content, cl
             <a
               href={href}
               className="text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-              target="_blank"
-              rel="noopener noreferrer"
+              target={href?.startsWith("http") ? "_blank" : undefined}
+              rel={href?.startsWith("http") ? "noopener noreferrer" : undefined}
             >
               {children}
             </a>

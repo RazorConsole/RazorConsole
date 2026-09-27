@@ -1,0 +1,35 @@
+@namespace Tutorial.Components.Chapters
+@inject NavigationManager Navigation
+
+<Box Border="BoxBorder.Rounded" Padding="new Padding(1)">
+    <Rows>
+        <Markup Content="Routing and multi-page apps" Foreground="Color.Cyan1" Decoration="Decoration.Bold" />
+        <Columns>
+            <TextButton Content="Home" OnClick="GoHome" FocusedColor="Color.Blue" />
+            <TextButton Content="Settings" OnClick="GoToSettings" FocusedColor="Color.Green" />
+            <TextButton Content="Missing" OnClick="GoToMissing" FocusedColor="Color.Red" />
+        </Columns>
+        <Router AppAssembly="@typeof(RoutingDemo).Assembly">
+            <Found Context="routeData">
+                <RouteView RouteData="routeData" />
+            </Found>
+            <NotFound>
+                <Panel BorderColor="Color.Red"><Markup Content="Page not found." Foreground="Color.Red" /></Panel>
+            </NotFound>
+        </Router>
+    </Rows>
+</Box>
+
+@code {
+    private void GoHome() => Navigation.NavigateTo("/tutorial-routing/home");
+    private void GoToSettings() => Navigation.NavigateTo("/tutorial-routing/settings");
+    private void GoToMissing() => Navigation.NavigateTo("/tutorial-routing/missing");
+
+    protected override void OnInitialized()
+    {
+        if (!Navigation.Uri.Contains("/tutorial-routing/", StringComparison.Ordinal))
+        {
+            Navigation.NavigateTo("/tutorial-routing/home");
+        }
+    }
+}

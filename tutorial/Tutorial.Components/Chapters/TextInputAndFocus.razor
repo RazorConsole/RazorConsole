@@ -1,0 +1,46 @@
+@namespace Tutorial.Components.Chapters
+
+<Box Border="BoxBorder.Rounded" Padding="new Padding(1)">
+    <Rows>
+        <Markup Content="Text input and focus" Foreground="Color.Cyan1" Decoration="Decoration.Bold" />
+        <TextInput Label="Name"
+                   @bind-Value="_name"
+                   Placeholder="Ada"
+                   OnFocus="FocusName"
+                   OnBlur="ClearFocus"
+                   OnSubmit="Submit" />
+        <TextInput Label="Secret"
+                   @bind-Value="_secret"
+                   Placeholder="hidden"
+                   MaskInput="true"
+                   OnFocus="FocusSecret"
+                   OnBlur="ClearFocus" />
+        <TextButton Content="Save profile" OnClick="Save" FocusedColor="Color.Green" />
+        <Markup Content="@ProfileSummary" />
+        <Markup Content="@_message" Foreground="Color.Grey70" />
+        <Markup Content="Tab/Shift+Tab moves focus. Enter submits or activates." Foreground="Color.Grey58" />
+    </Rows>
+</Box>
+
+@code {
+    private string _name = string.Empty;
+    private string _secret = string.Empty;
+    private string _focusedField = "none";
+    private string _message = "Enter a profile.";
+    private string DisplayName => string.IsNullOrWhiteSpace(_name) ? "(empty)" : _name;
+    private string ProfileSummary => $"Focused: {_focusedField} · Name: {DisplayName} · Secret length: {_secret.Length}";
+
+    private void FocusName() => _focusedField = "Name";
+    private void FocusSecret() => _focusedField = "Secret";
+    private void ClearFocus() => _focusedField = "none";
+
+    private Task Submit(string? value)
+    {
+        _message = $"Submitted {value ?? string.Empty}.";
+        return Task.CompletedTask;
+    }
+
+    private void Save() => _message = string.IsNullOrWhiteSpace(_name)
+        ? "Name is required."
+        : $"Saved profile for {_name}.";
+}

@@ -1,0 +1,34 @@
+@namespace Tutorial.Components.Chapters
+
+<Box Border="BoxBorder.Rounded" Padding="new Padding(1)">
+    <Rows>
+        <Markup Content="State and events" Foreground="Color.Cyan1" Decoration="Decoration.Bold" />
+        <Markup Content="@CountText" Foreground="@CountColor" Decoration="Decoration.Bold" />
+        <Columns>
+            <TextButton Content="-1" OnClick="() => Change(-1)" FocusedColor="Color.Blue" />
+            <TextButton Content="+1" OnClick="() => Change(1)" FocusedColor="Color.Green" />
+            <TextButton Content="Reset" OnClick="Reset" FocusedColor="Color.Yellow" />
+        </Columns>
+        <Markup Content="@LastAction" Foreground="Color.Grey70" />
+        <Markup Content="Use Tab to change focus and Enter to invoke a callback." Foreground="Color.Grey58" />
+    </Rows>
+</Box>
+
+@code {
+    private int _count;
+    private string CountText => $"Count: {_count}";
+    private string LastAction { get; set; } = "No event handled yet.";
+    private Color CountColor => _count switch { > 0 => Color.Green, < 0 => Color.Red, _ => Color.White };
+
+    private void Change(int amount)
+    {
+        _count += amount;
+        LastAction = amount > 0 ? "Increment callback handled." : "Decrement callback handled.";
+    }
+
+    private void Reset()
+    {
+        _count = 0;
+        LastAction = "State reset.";
+    }
+}

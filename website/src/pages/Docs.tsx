@@ -1,17 +1,15 @@
-import { useEffect, useState } from "react"
-import { useParams, useNavigate, useLocation, useLoaderData, type LoaderFunctionArgs } from "react-router"
+import { useEffect } from "react"
+import { useLocation, useLoaderData, redirect, type LoaderFunctionArgs } from "react-router"
 import GithubSlugger from "github-slugger"
-import { ResponsiveSidebar } from "@/components/ui/ResponsiveSidebar"
 import type { Heading } from "@/types/docs/topicItem"
-import Sidebar from "@/components/docs/Sidebar"
 import EditLink from "@/components/docs/EditLink"
+import { DocumentationShell } from "@/components/docs/DocumentationShell"
 import { docTopicIds, releaseNoteIds } from "@/data/docs-ids"
 import type { MetaFunction } from "react-router"
 import { MarkdownRenderer } from "@/components/ui/Markdown"
 import { getFullSitePath, stripMarkdown } from "@/lib/utils"
 
 const docsModules = import.meta.glob("/src/docs/*.md", { query: "?raw", import: "default" })
-const releaseModules = import.meta.glob("/../release-notes/*.md", { query: "?raw", import: "default" })
 
 export const meta: MetaFunction<typeof loader> = ({ data, matches, location }) => {
   const rootMeta = matches.find((m) => m.id === "root")?.meta || [];
@@ -64,10 +62,9 @@ function extractHeadings(markdown: string): Heading[] {
 type Topic = { id: string; title: string; content: string; filePath: string; headings: Heading[]; }
 async function loadMarkdownContent(topicId: string) {
   const topicMeta = docTopicIds.find(t => t.id === topicId)
-  const releaseMeta = releaseNoteIds.find(r => r.id === topicId)
-  const meta = topicMeta || releaseMeta || docTopicIds[0]
+  const meta = topicMeta || docTopicIds[0]
 
-  const modules = !!releaseMeta ? releaseModules : docsModules
+  const modules = docsModules
   const fileName = meta.filePath.split('/').pop()?.toLowerCase()
 
   const loadFileKey = Object.keys(modules).find(k => k.toLowerCase().endsWith(`/${fileName}`))
@@ -86,10 +83,14 @@ async function loadMarkdownContent(topicId: string) {
 }
 
 export async function loader({ params }: LoaderFunctionArgs) {
+  if (!params.topicId || params.topicId === "quick-start") return redirect("/docs/tutorial/hello-world")
+  if (releaseNoteIds.some((note) => note.id === params.topicId)) return redirect(`/release-notes/${params.topicId}`)
   return await loadMarkdownContent(params.topicId || "quick-start")
 }
 
 export async function clientLoader({ params }: LoaderFunctionArgs) {
+  if (!params.topicId || params.topicId === "quick-start") return redirect("/docs/tutorial/hello-world")
+  if (releaseNoteIds.some((note) => note.id === params.topicId)) return redirect(`/release-notes/${params.topicId}`)
   return await loadMarkdownContent(params.topicId || "quick-start")
 }
 
@@ -97,32 +98,12 @@ clientLoader.hydrate = true;
 
 export default function Docs() {
   const activeTopic = useLoaderData<Topic>();
-
-  const { topicId } = useParams()
-  const navigate = useNavigate()
   const location = useLocation()
-
-  const activeId = topicId || docTopicIds[0].id
-  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set([activeId]))
-  const [releaseNotesOpen, setReleaseNotesOpen] = useState(activeId.startsWith("v0."))
 
   const topicsWithHeadings = docTopicIds.map(t => ({
     ...t,
     headings: t.id === activeTopic.id ? activeTopic.headings : []
   }))
-
-  const releaseWithHeadings = releaseNoteIds.map(r => ({
-    ...r,
-    headings: r.id === activeTopic.id ? activeTopic.headings : []
-  }))
-
-  useEffect(() => {
-    if (docTopicIds.some((t) => t.id === activeId)) {
-      setExpandedTopics((prev) => new Set(prev).add(activeId))
-    } else if (releaseNoteIds.some((r) => r.id === activeId)) {
-      setReleaseNotesOpen(true)
-    }
-  }, [activeId])
 
   useEffect(() => {
     if (location.hash) {
@@ -132,42 +113,19 @@ export default function Docs() {
         setTimeout(() => element.scrollIntoView({ behavior: "smooth", block: "start" }), 100)
       }
     }
-  }, [location.hash, activeId])
+  }, [location.hash, activeTopic.id])
 
   return (
-    <div className="min-h-screen docs bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
-      <div className="px-6 py-16 sm:px-10 lg:px-16">
-        <div className="flex flex-col lg:block">
-          <ResponsiveSidebar breakpoint="lg" className="w-72 px-6 py-6">
-            <Sidebar
-              topics={topicsWithHeadings as any}
-              releaseNotes={releaseWithHeadings as any}
-              activeTopic={activeTopic as any}
-              expandedTopics={expandedTopics}
-              releaseNotesOpen={releaseNotesOpen}
-              handleTopicClick={(id) => navigate(`/docs/${id}`)}
-              handleSubHeadingClick={(_, tId, hId) => navigate(`/docs/${tId}#${hId}`)}
-              toggleTopicExpand={(_, id) => setExpandedTopics(p => {
-                const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n;
-              })}
-              setReleaseNotesOpen={setReleaseNotesOpen}
-            />
-          </ResponsiveSidebar>
-
-          <main className="min-w-0 flex-1">
-            <div className="prose prose-slate dark:prose-invert max-w-none">
-              <MarkdownRenderer content={activeTopic.content} />
-            </div>
-
-            <EditLink
-              activeTopic={activeTopic as any}
-              topics={topicsWithHeadings as any}
-              releaseNotes={releaseWithHeadings as any}
-              getFilePathForTopic={() => activeTopic.filePath}
-            />
-          </main>
-        </div>
-      </div>
-    </div>
+    <DocumentationShell headings={activeTopic.headings.filter((heading) => heading.level === 2 || heading.level === 3)}>
+      <article className="prose prose-slate max-w-none dark:prose-invert">
+        <MarkdownRenderer content={activeTopic.content} />
+      </article>
+      <EditLink
+        activeTopic={activeTopic as any}
+        topics={topicsWithHeadings as any}
+        releaseNotes={[]}
+        getFilePathForTopic={() => activeTopic.filePath}
+      />
+    </DocumentationShell>
   )
 }

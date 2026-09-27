@@ -1,0 +1,24 @@
+@namespace Tutorial.Components.Chapters
+
+<Box Border="BoxBorder.Rounded" Padding="new Padding(1)">
+    <Rows>
+        <Markup Content="Hello, RazorConsole!" Foreground="@Color.Cyan1" Decoration="@Decoration.Bold" />
+        <Markup Content="@InteractionMessage" Foreground="@Color.Grey70" />
+        <TextButton Content="Say hello"
+                    OnClick="SayHello"
+                    BackgroundColor="@Color.Grey"
+                    FocusedColor="@Color.Blue" />
+        <Markup Content="Press Enter to activate the button." Foreground="@Color.Grey58" />
+    </Rows>
+</Box>
+
+@code {
+    private int _helloCount;
+
+    private string InteractionMessage => _helloCount == 0
+        ? "Try the focused button below."
+        : $"Hello again! Button pressed {_helloCount} {(_helloCount == 1 ? "time" : "times")}.";
+
+    private void SayHello()
+        => _helloCount++;
+}

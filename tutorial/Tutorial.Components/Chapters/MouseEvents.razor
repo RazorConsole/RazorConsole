@@ -1,0 +1,114 @@
+@namespace Tutorial.Components.Chapters
+
+<Box Border="BoxBorder.Rounded" Padding="new Padding(1)">
+    <Rows>
+        <Markup Content="Mouse events" Foreground="@Color.Cyan1" Decoration="@Decoration.Bold" />
+        <Markup Content="Move over and click the first card, then drag the blue card." Foreground="@Color.Grey70" />
+
+        <div data-vnode-hook="mouse-action"
+             @onmouseenter="HandleMouseEnter"
+             @onmouseleave="HandleMouseLeave"
+             @onclick="HandleClick">
+            <Panel Width="28" Height="3" BorderColor="@(_hovered ? Color.Yellow : Color.Grey58)">
+                <Markup Content="@HoverLabel"
+                        Foreground="@(_hovered ? Color.Yellow : Color.White)" />
+            </Panel>
+        </div>
+
+        <Markup Content="@Summary" Foreground="@Color.Grey70" />
+
+        <div data-vnode-hook="mouse-surface" @onwheel="HandleWheel">
+            <Border BorderColor="Color.Grey58">
+                <Flex Width="54" Height="8" position="relative">
+                    <div @key='"mouse-drag-card"'
+                         position="absolute"
+                         left="@_cardX"
+                         top="@_cardY"
+                         data-vnode-hook="mouse-drag-card"
+                         data-focus-key="mouse-drag-card"
+                         data-focusable="true"
+                         @onmousedown="HandleMouseDown"
+                         @onmousemove="HandleMouseMove"
+                         @onmouseup="HandleMouseUp"
+                         @onkeydown="HandleKeyDown">
+                        <Panel Width="18" Height="3" BorderColor="@(_dragging ? Color.Yellow : Color.DeepSkyBlue1)">
+                            <Markup Content="@DragLabel" Foreground="@Color.DeepSkyBlue1" />
+                        </Panel>
+                    </div>
+                </Flex>
+            </Border>
+        </div>
+
+        <Markup Content="@CardStatus" />
+        <Markup Content="Wheel over the canvas. Arrow keys also move the focused card." Foreground="@Color.Grey58" />
+    </Rows>
+</Box>
+
+@code {
+    private const int MaximumCardX = 36;
+    private const int MaximumCardY = 5;
+
+    private bool _hovered;
+    private int _clickCount;
+    private int _wheelSteps;
+    private int _cardX = 2;
+    private int _cardY = 1;
+    private bool _dragging;
+    private double _dragStartX;
+    private double _dragStartY;
+    private int _cardStartX;
+    private int _cardStartY;
+    private string HoverLabel => _hovered ? "Hover active — click me" : "Hover or click me";
+    private string Summary => $"Clicks: {_clickCount} · Wheel: {_wheelSteps:+0;-0;0}";
+    private string DragLabel => _dragging ? "Dragging…" : "Drag me";
+    private string CardStatus => $"Card: {_cardX}, {_cardY} · {(_dragging ? "Dragging" : "Ready")}";
+
+    private void HandleMouseEnter() => _hovered = true;
+
+    private void HandleMouseLeave() => _hovered = false;
+
+    private void HandleClick(MouseEventArgs _) => _clickCount++;
+
+    private void HandleWheel(WheelEventArgs e)
+        => _wheelSteps += Math.Sign(e.DeltaY);
+
+    private void HandleMouseDown(MouseEventArgs e)
+    {
+        if (e.Button != 0)
+        {
+            return;
+        }
+
+        _dragging = true;
+        _dragStartX = e.ClientX;
+        _dragStartY = e.ClientY;
+        _cardStartX = _cardX;
+        _cardStartY = _cardY;
+    }
+
+    private void HandleMouseMove(MouseEventArgs e)
+    {
+        if (!_dragging)
+        {
+            return;
+        }
+
+        _cardX = Math.Clamp(_cardStartX + (int)(e.ClientX - _dragStartX), 0, MaximumCardX);
+        _cardY = Math.Clamp(_cardStartY + (int)(e.ClientY - _dragStartY), 0, MaximumCardY);
+    }
+
+    private void HandleMouseUp(MouseEventArgs e)
+    {
+        HandleMouseMove(e);
+        _dragging = false;
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "ArrowLeft") _cardX = Math.Max(0, _cardX - 1);
+        if (e.Key == "ArrowRight") _cardX = Math.Min(MaximumCardX, _cardX + 1);
+        if (e.Key == "ArrowUp") _cardY = Math.Max(0, _cardY - 1);
+        if (e.Key == "ArrowDown") _cardY = Math.Min(MaximumCardY, _cardY + 1);
+        if (e.Key == "Escape") _dragging = false;
+    }
+}

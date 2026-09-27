@@ -15,6 +15,7 @@ import { useResolvedTheme } from "@/hooks/useTheme"
 
 interface XTermPreviewProps {
   elementId: string
+  componentId?: string
   className?: string
   style?: React.CSSProperties
 }
@@ -66,7 +67,12 @@ const TERMINAL_THEME = {
   },
 }
 
-export default function XTermPreview({ elementId, className = "", style }: XTermPreviewProps) {
+export default function XTermPreview({
+  elementId,
+  componentId = elementId,
+  className = "",
+  style,
+}: XTermPreviewProps) {
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
@@ -155,7 +161,7 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
 
         registerTerminalInstance(elementId, term)
         // Pass the initial terminal dimensions to register the component with the correct size
-        await registerComponent(elementId, term.cols, term.rows)
+        await registerComponent(elementId, componentId, term.cols, term.rows)
 
         if (disposed) return
 
@@ -203,7 +209,7 @@ export default function XTermPreview({ elementId, className = "", style }: XTerm
       if (disposeTimer !== null) clearTimeout(disposeTimer)
       disposeTimer = window.setTimeout(disposeSafely, 0)
     }
-  }, [elementId, isDark, isMounted])
+  }, [componentId, elementId, isDark, isMounted])
 
   // Render empty placeholder if not mounted (SSG)
   if (!isMounted) {

@@ -15,6 +15,7 @@ async function generate() {
     const RAW_DIR = path.join(DIST_DIR, 'raw');
     const RAW_DOCS_DIR = path.join(RAW_DIR, 'docs');
     const RAW_COMPS_DIR = path.join(RAW_DIR, 'components');
+    const RAW_TUTORIAL_DIR = path.join(RAW_DIR, 'tutorial');
 
     console.log(pc.cyan(`[LLMS] Starting documentation generation...`));
 
@@ -26,8 +27,11 @@ async function generate() {
     try {
         const { components } = await vite.ssrLoadModule('./src/data/components.ts') as { components: ComponentInfo[] };
         const { docTopicIds } = await vite.ssrLoadModule('./src/data/docs-ids.ts') as { docTopicIds: TopicItem[] };
+        const { tutorialChapters } = await vite.ssrLoadModule('./src/data/tutorial.ts') as {
+            tutorialChapters: Array<{ slug: string; title: string; description: string; content: string }>;
+        };
 
-        [RAW_DOCS_DIR, RAW_COMPS_DIR].forEach(dir => {
+        [RAW_DOCS_DIR, RAW_COMPS_DIR, RAW_TUTORIAL_DIR].forEach(dir => {
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
                 console.log(pc.dim(`[LLMS] Created directory: ${path.relative(config.root, dir)}`));
@@ -47,7 +51,9 @@ async function generate() {
         // Docs generation
         indexContent += `## Documentation Guides\n\n`;
         for (const doc of docTopicIds) {
-            const relativePath = doc.filePath.replace(/^website\//, '');
+            const relativePath = doc.filePath.startsWith('website/')
+                ? doc.filePath.replace(/^website\//, '')
+                : `../${doc.filePath}`;
             const absolutePath = path.resolve(config.root, relativePath);
 
             if (fs.existsSync(absolutePath)) {
@@ -60,6 +66,14 @@ async function generate() {
                 indexContent += `- [${doc.title}](${FULL_BASE_URL}/raw/docs/${fileName})\n`;
                 fullContent += `\n---\n\n# Document: ${doc.title}\n\n${text}\n`;
             }
+        }
+
+        indexContent += `\n## Tutorial\n\n`;
+        for (const chapter of tutorialChapters) {
+            const fileName = `${chapter.slug}.md`;
+            fs.writeFileSync(path.join(RAW_TUTORIAL_DIR, fileName), chapter.content);
+            indexContent += `- [${chapter.title}](${FULL_BASE_URL}/raw/tutorial/${fileName}): ${chapter.description}\n`;
+            fullContent += `\n---\n\n${chapter.content}\n`;
         }
 
         // Components generation

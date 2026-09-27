@@ -36,3 +36,19 @@ SGR mouse encoding is enabled; legacy binary mouse reports are not supported by
 this bridge. Native browser clipboard handling is left to xterm (no duplicate
 clipboard injection). Disposing a preview removes listeners/timers and unregisters
 its .NET renderer.
+
+## Quick Start tutorial browser check
+
+Run the website with `npm run dev`, then open
+`http://127.0.0.1:5173/tutorial/hello-world` in a real browser and verify:
+
+1. the loading overlay is replaced by the Hello World terminal;
+2. pressing Enter once changes the message to `Button pressed 1 time.`;
+3. **Restart preview** restores `Try the focused button below.`;
+4. resizing the browser reflows the xterm surface without losing the component; and
+5. navigating away removes the xterm host, with no further input or resize handling.
+
+This is a manual browser acceptance check, not automated E2E coverage. Automated
+coverage is split between `HelloWorldTutorialTests` (rendering, interaction,
+instance isolation, and resize) and `terminalInput.test.ts` (ordered input and
+listener disposal).

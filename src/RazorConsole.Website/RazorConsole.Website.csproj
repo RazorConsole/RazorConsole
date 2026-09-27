@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RazorConsole.Core\RazorConsole.Core.csproj" />
+    <ProjectReference Include="..\..\tutorial\Tutorial.Components\Tutorial.Components.csproj" />
   </ItemGroup>
   
   <PropertyGroup>

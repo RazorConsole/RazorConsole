@@ -51,12 +51,21 @@ async function generateSitemap() {
         });
 
         // Documentation
-        addUrl('/docs', docsPriority, docsFreq);
-        docTopicIds.forEach(d => {
+        docTopicIds.filter(d => d.id !== 'quick-start').forEach(d => {
             addUrl(`/docs/${d.id}`, docsPriority, docsFreq);
         });
+        [
+            'hello-world',
+            'state-and-events',
+            'text-input-and-focus',
+            'mouse-events',
+            'widget-layout-and-resize',
+            'routing',
+            'async-work',
+            'complete-app',
+        ].forEach(chapter => addUrl(`/docs/tutorial/${chapter}`, docsPriority, docsFreq));
         (releaseNoteIds || []).forEach(r => {
-            addUrl(`/docs/${r.id}`, docsPriority, docsFreq);
+            addUrl(`/release-notes/${r.id}`, docsPriority, docsFreq);
         });
 
         // API Reference

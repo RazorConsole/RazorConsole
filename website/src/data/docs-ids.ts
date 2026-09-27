@@ -2,7 +2,7 @@ export const docTopicIds = [
     {
         id: "quick-start",
         title: "Quick Start",
-        filePath: "website/src/docs/quick-start.md",
+        filePath: "tutorial/chapters/01-hello-world.md",
     },
     {
         id: "built-in-components",

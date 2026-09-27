@@ -12,6 +12,7 @@
     <ProjectReference Include="..\RazorConsole.Core\RazorConsole.Core.csproj" />
     <ProjectReference Include="..\RazorConsole.Gallery\RazorConsole.Gallery.csproj" />
     <ProjectReference Include="..\..\examples\LLMAgentTUI\LLMAgentTUI.csproj" />
+    <ProjectReference Include="..\..\tutorial\Tutorial.Components\Tutorial.Components.csproj" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <PackageReference Include="NSubstitute" />

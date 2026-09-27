@@ -1,0 +1,64 @@
+@namespace Tutorial.Components.Chapters
+
+<Box Border="BoxBorder.Double" BorderColor="Color.DeepSkyBlue1" Padding="new Padding(1)" Expand="true">
+    <Rows>
+        <Markup Content="Task Board" Foreground="Color.DeepSkyBlue1" Decoration="Decoration.Bold" />
+        <TextInput Label="New task" @bind-Value="_draft" Placeholder="Ship the terminal UI" OnSubmit="AddAsync" />
+        <TextButton Content="Add task" OnClick="Add" FocusedColor="Color.Green" />
+        <Markup Content="@ProgressText" Foreground="Color.Grey70" />
+        @foreach (var task in _tasks)
+        {
+            var current = task;
+            <div @key="current.Id" @onclick="() => Toggle(current)">
+                <Panel BorderColor="@(current.Done ? Color.Green : Color.Grey58)">
+                    <Markup Content="@TaskLabel(current)"
+                            Foreground="@(current.Done ? Color.Green : Color.White)" />
+                </Panel>
+            </div>
+        }
+        <Columns>
+            <TextButton Content="Clear completed" OnClick="ClearCompleted" FocusedColor="Color.Yellow" />
+            <TextButton Content="Reset demo" OnClick="Reset" FocusedColor="Color.Blue" />
+        </Columns>
+        <Markup Content="Click a task to toggle it, or use Tab and Enter on the controls." Foreground="Color.Grey58" />
+    </Rows>
+</Box>
+
+@code {
+    private string _draft = string.Empty;
+    private List<TaskItem> _tasks = CreateInitialTasks();
+    private int CompletedCount => _tasks.Count(task => task.Done);
+    private string ProgressText => $"{CompletedCount}/{_tasks.Count} complete";
+    private static string TaskLabel(TaskItem task) => $"{(task.Done ? "✓" : "○")} {task.Title}";
+
+    private Task AddAsync(string? value)
+    {
+        _draft = value ?? string.Empty;
+        Add();
+        return Task.CompletedTask;
+    }
+
+    private void Add()
+    {
+        var title = _draft.Trim();
+        if (title.Length == 0) return;
+        _tasks.Add(new(Guid.NewGuid(), title, false));
+        _draft = string.Empty;
+    }
+
+    private void Toggle(TaskItem task) => task.Done = !task.Done;
+    private void ClearCompleted() => _tasks.RemoveAll(task => task.Done);
+    private void Reset() { _draft = string.Empty; _tasks = CreateInitialTasks(); }
+
+    private static List<TaskItem> CreateInitialTasks() =>
+    [
+        new(Guid.NewGuid(), "Learn Razor components", true),
+        new(Guid.NewGuid(), "Handle terminal input", false),
+        new(Guid.NewGuid(), "Ship an app", false),
+    ];
+
+    private sealed record TaskItem(Guid Id, string Title, bool InitialDone)
+    {
+        public bool Done { get; set; } = InitialDone;
+    }
+}

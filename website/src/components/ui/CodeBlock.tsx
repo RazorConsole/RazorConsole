@@ -64,6 +64,7 @@ function CodeBlock({ code, language = "csharp", showCopy = false, className = ""
 
       <div
         className="text-sm leading-relaxed"
+        suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: finalHtml || `<pre><code>${code}</code></pre>` }}
       />
     </div>

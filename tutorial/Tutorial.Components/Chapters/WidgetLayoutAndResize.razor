@@ -1,0 +1,38 @@
+@namespace Tutorial.Components.Chapters
+
+<Box Border="BoxBorder.Rounded" Padding="new Padding(1)" Expand="true">
+    <Rows>
+        <Markup Content="Widget layout and resize" Foreground="Color.Cyan1" Decoration="Decoration.Bold" />
+        <FlexBox Direction="FlexDirection.Row" Wrap="FlexWrap.Wrap" Gap="2">
+            @foreach (var item in _items)
+            {
+                <Panel Width="18" Height="4" BorderColor="@item.Color">
+                    <Rows>
+                        <Markup Content="@item.Title" Foreground="@item.Color" Decoration="Decoration.Bold" />
+                        <Markup Content="@item.Value" />
+                    </Rows>
+                </Panel>
+            }
+        </FlexBox>
+        <Columns Expand="true">
+            <Panel Title="Flexible" BorderColor="Color.Blue">
+                <Markup Content="Columns share available cells." />
+            </Panel>
+            <Panel Title="Stable" BorderColor="Color.Green">
+                <Markup Content="Resize the terminal." />
+            </Panel>
+        </Columns>
+        <Markup Content="Rows stack, Columns distribute, and FlexBox wraps when space becomes tight." Foreground="Color.Grey58" />
+    </Rows>
+</Box>
+
+@code {
+    private readonly Card[] _items =
+    [
+        new("Build", "Passed", Color.Green),
+        new("Tests", "408", Color.Blue),
+        new("Warnings", "0", Color.Yellow),
+    ];
+
+    private sealed record Card(string Title, string Value, Color Color);
+}

@@ -32,15 +32,16 @@ export function Header() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  const NavItem = ({ to, children }: { to: string; children: React.ReactNode }) => (
+  const NavItem = ({ to, activePrefix, children }: { to: string; activePrefix?: string; children: React.ReactNode }) => (
     <NavLink
       to={to}
-      className={({ isActive }) =>
-        cn(
+      className={({ isActive }) => {
+        const active = activePrefix ? location.pathname.startsWith(activePrefix) : isActive
+        return cn(
           "relative py-1.5 text-sm font-medium transition-colors hover:text-violet-600 dark:hover:text-violet-400",
-          isActive ? "text-foreground font-semibold" : "text-muted-foreground"
+          active ? "text-foreground font-semibold" : "text-muted-foreground"
         )
-      }
+      }}
     >
       {({ isActive }) => (
         <>
@@ -48,7 +49,7 @@ export function Header() {
           <span
             className={cn(
               "absolute bottom-0 left-0 h-[2px] w-full origin-left bg-violet-600 transition-transform duration-300 ease-out dark:bg-violet-400",
-              isActive ? "scale-x-100" : "scale-x-0"
+              (activePrefix ? location.pathname.startsWith(activePrefix) : isActive) ? "scale-x-100" : "scale-x-0"
             )}
           />
         </>
@@ -58,6 +59,7 @@ export function Header() {
 
   const isDocs =
     location.pathname.startsWith("/docs") ||
+    location.pathname.startsWith("/release-notes") ||
     location.pathname.startsWith("/api") ||
     location.pathname.startsWith("/components")
 
@@ -103,7 +105,8 @@ export function Header() {
         <nav className="flex flex-col gap-2">
           {[
             { to: "/", label: "Home" },
-            { to: "/docs/quick-start", label: "Docs" },
+            { to: "/docs/tutorial/hello-world", label: "Docs" },
+            { to: "/release-notes", label: "Release Notes" },
             { to: "/api", label: "API Reference" },
             { to: "/components", label: "Components" },
             { to: "/collaborators", label: "Collaborators" },
@@ -114,7 +117,7 @@ export function Header() {
               to={item.to}
               className={cn(
                 "block rounded-md px-4 py-2.5 text-sm font-medium transition-colors",
-                location.pathname === item.to
+                item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to)
                   ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
                   : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               )}
@@ -165,7 +168,8 @@ export function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden items-center gap-6 md:flex">
             <NavItem to="/">Home</NavItem>
-            <NavItem to="/docs/quick-start">Docs</NavItem>
+            <NavItem to="/docs/tutorial/hello-world" activePrefix="/docs">Docs</NavItem>
+            <NavItem to="/release-notes">Release Notes</NavItem>
             <NavItem to="/api">API</NavItem>
             <NavItem to="/components">Components</NavItem>
             <NavItem to="/showcase">Showcase</NavItem>
