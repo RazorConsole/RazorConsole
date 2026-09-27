@@ -14,7 +14,7 @@ RazorConsole publishes the Component Gallery as native executables for Windows, 
 On macOS or Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.sh | sh
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Gallery
 ```
 
 On Windows PowerShell:
@@ -28,7 +28,7 @@ Both installers resolve the latest GitHub Release, select the correct archive, a
 To test the latest successful `main` build, select the nightly channel:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.sh | sh -s -- --channel nightly
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Gallery --channel nightly
 ```
 
 ```shell

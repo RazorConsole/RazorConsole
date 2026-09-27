@@ -5,7 +5,7 @@
     <IsPackable>false</IsPackable>
     <AssemblyName>RazorConsole.Snake</AssemblyName>
     <PackageId>RazorConsole.Snake</PackageId>
-    <Title>RazorConsole Snake</Title>
+    <Title>Snake</Title>
     <Description>A responsive terminal Snake game built with RazorConsole.</Description>
     <PackageProjectUrl>https://github.com/RazorConsole/RazorConsole/tree/main/gallery/RazorConsole.Snake</PackageProjectUrl>
     <RepositoryUrl>https://github.com/RazorConsole/RazorConsole</RepositoryUrl>

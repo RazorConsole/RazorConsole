@@ -15,7 +15,7 @@
   <Import Project="$(RepoRoot)/nuget/nuget-package.props"/>
 
   <PropertyGroup>
-    <Title>RazorConsole Gallery</Title>
+    <Title>Component Gallery</Title>
     <Description>Explore RazorConsole components in an interactive terminal gallery.</Description>
     <PackageProjectUrl>https://razorconsole.com/docs/component-gallery</PackageProjectUrl>
   </PropertyGroup>

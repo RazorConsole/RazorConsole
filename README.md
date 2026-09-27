@@ -255,7 +255,7 @@ Explore the built-in components interactively with the RazorConsole Component Ga
 macOS or Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.sh | sh
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Gallery
 ```
 
 Windows PowerShell:
@@ -267,7 +267,7 @@ Windows PowerShell:
 To test the latest successful Native AOT build from `main`, install the nightly channel:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.sh | sh -s -- --channel nightly
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Gallery --channel nightly
 ```
 
 ```powershell

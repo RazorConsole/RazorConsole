@@ -49,13 +49,13 @@ Native AOT requires the platform toolchain described in the [.NET Native AOT pre
 Stable release on macOS or Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-snake.sh | sh
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Snake
 ```
 
 Latest `main` prerelease:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-snake.sh | sh -s -- --channel nightly
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Snake --channel nightly
 ```
 
 Stable release on Windows PowerShell:

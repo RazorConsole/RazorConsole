@@ -5,7 +5,7 @@ Explore every RazorConsole component in a live playground. The Gallery is distri
 #### macOS and Linux
 
 ```shell
-curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.sh | sh
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Gallery
 ```
 
 The installer detects the operating system and CPU architecture, verifies the SHA-256 checksum, and installs `razorconsole-gallery` under `~/.local`. If `~/.local/bin` is not already on `PATH`, the installer prints the command needed to add it.
@@ -25,7 +25,7 @@ The installer selects the x64 or Arm64 package, verifies its SHA-256 checksum, i
 Each successful `main` build is published as a uniquely versioned prerelease. Install the newest nightly build on macOS or Linux with:
 
 ```shell
-curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.sh | sh -s -- --channel nightly
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Gallery --channel nightly
 ```
 
 On Windows PowerShell:

@@ -5,20 +5,28 @@ import { buttonVariants } from "@/components/ui/Button"
 import { Card, CardContent } from "@/components/ui/Card"
 
 const commands = {
-  unix:
-    "curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.sh | sh",
-  windows:
-    "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Gallery",
+  stable: {
+    unix: "curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Gallery",
+    windows:
+      "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Gallery",
+  },
+  nightly: {
+    unix: "curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Gallery --channel nightly",
+    windows:
+      "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Gallery -Channel Nightly",
+  },
 } as const
 
-type Platform = keyof typeof commands
+type ReleaseChannel = keyof typeof commands
+type Platform = keyof (typeof commands)[ReleaseChannel]
 
 export default function GalleryInstallSection() {
   const [platform, setPlatform] = useState<Platform>("unix")
+  const [channel, setChannel] = useState<ReleaseChannel>("stable")
   const [copied, setCopied] = useState(false)
 
   const copyCommand = async () => {
-    await navigator.clipboard.writeText(commands[platform])
+    await navigator.clipboard.writeText(commands[channel][platform])
     setCopied(true)
     window.setTimeout(() => setCopied(false), 2000)
   }
@@ -42,7 +50,10 @@ export default function GalleryInstallSection() {
               x64 + Arm64
             </span>
             <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-3 py-1 dark:border-slate-700 dark:bg-slate-900/70">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+              <ShieldCheck
+                className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
+                aria-hidden="true"
+              />
               SHA-256 verified
             </span>
           </div>
@@ -101,10 +112,31 @@ export default function GalleryInstallSection() {
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
+          <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-2.5">
+            <span className="mr-1 text-xs text-slate-500">Channel</span>
+            {(["stable", "nightly"] as const).map((releaseChannel) => (
+              <button
+                key={releaseChannel}
+                type="button"
+                aria-pressed={channel === releaseChannel}
+                onClick={() => {
+                  setChannel(releaseChannel)
+                  setCopied(false)
+                }}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
+                  channel === releaseChannel
+                    ? "bg-violet-500/20 text-violet-300"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                }`}
+              >
+                {releaseChannel}
+              </button>
+            ))}
+          </div>
           <div role="tabpanel" className="p-5">
-            <code className="block break-all whitespace-pre-wrap font-mono text-sm leading-6 text-slate-200">
-              <span className="select-none text-violet-400">$ </span>
-              {commands[platform]}
+            <code className="block font-mono text-sm leading-6 break-all whitespace-pre-wrap text-slate-200">
+              <span className="text-violet-400 select-none">$ </span>
+              {commands[channel][platform]}
             </code>
           </div>
         </div>

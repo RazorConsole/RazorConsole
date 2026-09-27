@@ -2,12 +2,23 @@
 set -eu
 
 repository="RazorConsole/RazorConsole"
-install_root="${RAZORCONSOLE_GALLERY_INSTALL_DIR:-${HOME}/.local/share/razorconsole-gallery}"
-bin_dir="${RAZORCONSOLE_GALLERY_BIN_DIR:-${HOME}/.local/bin}"
+app=""
 channel="stable"
+
+usage() {
+  echo "Usage: install-razor-console-app.sh --app <Gallery|Snake> [--channel <stable|nightly>]" >&2
+}
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --app)
+      if [ "$#" -lt 2 ]; then
+        echo "--app requires Gallery or Snake." >&2
+        exit 1
+      fi
+      app="$2"
+      shift 2
+      ;;
     --channel)
       if [ "$#" -lt 2 ]; then
         echo "--channel requires stable or nightly." >&2
@@ -16,12 +27,51 @@ while [ "$#" -gt 0 ]; do
       channel="$2"
       shift 2
       ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
     *)
       echo "Unknown option: $1" >&2
+      usage
       exit 1
       ;;
   esac
 done
+
+case "$app" in
+  Gallery|gallery)
+    display_name="Component Gallery"
+    command_name="razorconsole-gallery"
+    install_root="${RAZORCONSOLE_GALLERY_INSTALL_DIR:-${HOME}/.local/share/razorconsole-gallery}"
+    bin_dir="${RAZORCONSOLE_GALLERY_BIN_DIR:-${RAZORCONSOLE_BIN_DIR:-${HOME}/.local/bin}}"
+    ;;
+  Snake|snake)
+    display_name="Snake"
+    command_name="razorconsole-snake"
+    install_root="${RAZORCONSOLE_SNAKE_INSTALL_DIR:-${HOME}/.local/share/razorconsole-snake}"
+    bin_dir="${RAZORCONSOLE_SNAKE_BIN_DIR:-${RAZORCONSOLE_BIN_DIR:-${HOME}/.local/bin}}"
+    ;;
+  "")
+    echo "--app is required." >&2
+    usage
+    exit 1
+    ;;
+  *)
+    echo "Unsupported app: $app" >&2
+    usage
+    exit 1
+    ;;
+esac
+
+case "$channel" in
+  Stable|stable) channel="stable" ;;
+  Nightly|nightly) channel="nightly" ;;
+  *)
+    echo "Channel must be stable or nightly." >&2
+    exit 1
+    ;;
+esac
 
 case "$(uname -s)" in
   Darwin) platform="macos" ;;
@@ -56,24 +106,31 @@ case "$channel" in
       exit 1
     fi
     ;;
-  *)
-    echo "Channel must be stable or nightly." >&2
-    exit 1
-    ;;
 esac
 
 version="${tag#v}"
-archive="razorconsole-gallery-${version}-${platform}-${architecture}.tar.gz"
+archive="${command_name}-${version}-${platform}-${architecture}.tar.gz"
 download_url="https://github.com/${repository}/releases/download/${tag}/${archive}"
 checksums_url="https://github.com/${repository}/releases/download/${tag}/checksums-sha256.txt"
 temporary_dir="$(mktemp -d)"
 trap 'rm -rf "$temporary_dir"' EXIT HUP INT TERM
 
-echo "Downloading RazorConsole Gallery ${version} (${channel}) for ${platform}-${architecture}..."
+echo "Downloading ${display_name} ${version} (${channel}) for ${platform}-${architecture}..."
 curl -fL "$download_url" -o "$temporary_dir/$archive"
 curl -fL "$checksums_url" -o "$temporary_dir/checksums-sha256.txt"
 
-expected="$(awk -v archive="$archive" '$2 == archive { print $1 }' "$temporary_dir/checksums-sha256.txt")"
+expected="$(
+  awk -v archive="$archive" '
+    {
+      name = $2
+      sub(/^\*/, "", name)
+      sub(/^\.\//, "", name)
+      if (name == archive) {
+        print $1
+      }
+    }
+  ' "$temporary_dir/checksums-sha256.txt"
+)"
 if [ -z "$expected" ]; then
   echo "No checksum was published for $archive." >&2
   exit 1
@@ -90,15 +147,14 @@ if [ "$actual" != "$expected" ]; then
 fi
 
 tar -xzf "$temporary_dir/$archive" -C "$temporary_dir"
-extracted="$temporary_dir/razorconsole-gallery-${version}-${platform}-${architecture}"
-mkdir -p "$install_root/Fonts" "$bin_dir"
-cp "$extracted/razorconsole-gallery" "$install_root/razorconsole-gallery"
-cp "$extracted/Fonts/Slant Relief.flf" "$install_root/Fonts/Slant Relief.flf"
-chmod +x "$install_root/razorconsole-gallery"
-ln -sf "$install_root/razorconsole-gallery" "$bin_dir/razorconsole-gallery"
+extracted="$temporary_dir/${command_name}-${version}-${platform}-${architecture}"
+mkdir -p "$install_root" "$bin_dir"
+cp -R "$extracted/." "$install_root/"
+chmod +x "$install_root/$command_name"
+ln -sf "$install_root/$command_name" "$bin_dir/$command_name"
 
-echo "Installed razorconsole-gallery to $install_root."
+echo "Installed $command_name ${version} (${channel}) to $install_root."
 case ":${PATH}:" in
-  *":${bin_dir}:"*) ;;
-  *) echo "Add $bin_dir to PATH, then run: razorconsole-gallery" ;;
+  *":${bin_dir}:"*) echo "Run: $command_name" ;;
+  *) echo "Add $bin_dir to PATH, then run: $command_name" ;;
 esac

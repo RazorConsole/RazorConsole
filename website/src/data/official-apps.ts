@@ -7,8 +7,11 @@ const mediaByPackageId: Record<string, Pick<ShowcaseProject, "videoUrl" | "image
 }
 
 export const officialApps: ShowcaseProject[] = manifest.apps.map((app) => {
-  const installerName = app.commandName.replace(/^razorconsole-/, "")
   const appName = app.packageId.split(".").at(-1)
+  const unixInstaller =
+    "curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s --"
+  const windowsInstaller =
+    "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1)))"
   return {
     name: app.title,
     description: app.description,
@@ -17,11 +20,13 @@ export const officialApps: ShowcaseProject[] = manifest.apps.map((app) => {
     installCommands: [
       {
         label: "macOS / Linux",
-        command: `curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-${installerName}.sh | sh`,
+        command: `${unixInstaller} --app ${appName}`,
+        nightlyCommand: `${unixInstaller} --app ${appName} --channel nightly`,
       },
       {
         label: "Windows PowerShell",
-        command: `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App ${appName}`,
+        command: `${windowsInstaller} -App ${appName}`,
+        nightlyCommand: `${windowsInstaller} -App ${appName} -Channel Nightly`,
       },
     ],
     ...mediaByPackageId[app.packageId],

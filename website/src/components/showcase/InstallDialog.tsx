@@ -4,6 +4,7 @@ import { Check, Clipboard, Download, ExternalLink, Terminal, X } from "lucide-re
 import { useEffect, useRef, useState } from "react"
 
 type InstallCommand = NonNullable<ShowcaseProject["installCommands"]>[number]
+type ReleaseChannel = "stable" | "nightly"
 
 export default function InstallDialog({
   project,
@@ -14,6 +15,7 @@ export default function InstallDialog({
 }) {
   const commands = project.installCommands ?? []
   const [selectedCommand, setSelectedCommand] = useState<InstallCommand | undefined>(commands[0])
+  const [channel, setChannel] = useState<ReleaseChannel>("stable")
   const [copied, setCopied] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -34,7 +36,11 @@ export default function InstallDialog({
 
   const copyCommand = async () => {
     if (!selectedCommand) return
-    await navigator.clipboard.writeText(selectedCommand.command)
+    await navigator.clipboard.writeText(
+      channel === "nightly" && selectedCommand.nightlyCommand
+        ? selectedCommand.nightlyCommand
+        : selectedCommand.command
+    )
     setCopied(true)
     window.setTimeout(() => setCopied(false), 2000)
   }
@@ -82,30 +88,66 @@ export default function InstallDialog({
         </div>
 
         <div className="p-5 sm:p-6">
-          <div
-            className="mb-4 inline-flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800"
-            role="tablist"
-            aria-label="Installation platform"
-          >
-            {commands.map((install) => (
-              <button
-                key={install.label}
-                type="button"
-                role="tab"
-                aria-selected={selectedCommand?.label === install.label}
-                onClick={() => {
-                  setSelectedCommand(install)
-                  setCopied(false)
-                }}
-                className={`rounded-md px-3.5 py-2 text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:outline-none ${
-                  selectedCommand?.label === install.label
-                    ? "bg-white text-slate-950 shadow-sm dark:bg-slate-700 dark:text-white"
-                    : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-                }`}
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                Platform
+              </p>
+              <div
+                className="inline-flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800"
+                role="tablist"
+                aria-label="Installation platform"
               >
-                {install.label}
-              </button>
-            ))}
+                {commands.map((install) => (
+                  <button
+                    key={install.label}
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedCommand?.label === install.label}
+                    onClick={() => {
+                      setSelectedCommand(install)
+                      setCopied(false)
+                    }}
+                    className={`rounded-md px-3.5 py-2 text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:outline-none ${
+                      selectedCommand?.label === install.label
+                        ? "bg-white text-slate-950 shadow-sm dark:bg-slate-700 dark:text-white"
+                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                    }`}
+                  >
+                    {install.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                Release channel
+              </p>
+              <div
+                className="inline-flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800"
+                role="group"
+                aria-label="Release channel"
+              >
+                {(["stable", "nightly"] as const).map((releaseChannel) => (
+                  <button
+                    key={releaseChannel}
+                    type="button"
+                    aria-pressed={channel === releaseChannel}
+                    onClick={() => {
+                      setChannel(releaseChannel)
+                      setCopied(false)
+                    }}
+                    className={`rounded-md px-3.5 py-2 text-sm font-medium capitalize transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:outline-none ${
+                      channel === releaseChannel
+                        ? "bg-white text-slate-950 shadow-sm dark:bg-slate-700 dark:text-white"
+                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                    }`}
+                  >
+                    {releaseChannel}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {selectedCommand && (
@@ -132,7 +174,9 @@ export default function InstallDialog({
               <div className="max-h-48 overflow-auto p-4 sm:p-5">
                 <code className="block font-mono text-sm leading-6 break-all whitespace-pre-wrap text-slate-200">
                   <span className="text-violet-400 select-none">$ </span>
-                  {selectedCommand.command}
+                  {channel === "nightly" && selectedCommand.nightlyCommand
+                    ? selectedCommand.nightlyCommand
+                    : selectedCommand.command}
                 </code>
               </div>
             </div>
@@ -140,17 +184,23 @@ export default function InstallDialog({
 
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
-              The installer selects the correct binary for your operating system and architecture.
+              {channel === "nightly"
+                ? "Nightly builds contain the latest changes and may be unstable."
+                : "The installer selects the correct binary for your operating system and architecture."}
             </p>
             {project.downloadUrl && (
               <a
-                href={project.downloadUrl}
+                href={
+                  channel === "nightly"
+                    ? project.downloadUrl.replace(/\/latest$/, "")
+                    : project.downloadUrl
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-violet-700 hover:underline dark:text-violet-300"
               >
                 <Download className="h-4 w-4" aria-hidden="true" />
-                Manual download
+                {channel === "nightly" ? "Browse nightly releases" : "Manual download"}
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               </a>
             )}

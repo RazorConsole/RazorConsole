@@ -8,6 +8,7 @@ export interface ShowcaseProject {
   installCommands?: Array<{
     label: string
     command: string
+    nightlyCommand?: string
   }>
   imageUrls?: string[]
 }
