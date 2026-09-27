@@ -3,18 +3,13 @@
 @inject IHostApplicationLifetime Lifetime
 @inject RazorConsole.Core.Rendering.ITerminalViewport Viewport
 
-<Flex Direction="FlexDirection.Column"
-      Width="@SurfaceWidth"
-      Height="@Viewport.Height"
-      Gap="1"
-      data-focusable="true"
-      data-focus-key="razor-snake-game"
-      data-focus-order="0"
-      data-input-managed="true"
-      @onkeydown="HandleKey">
+<Align Width="@SurfaceWidth"
+       Height="@Viewport.Height"
+       Horizontal="HorizontalAlignment.Center"
+       Vertical="VerticalAlignment.Middle">
     @if (IsTerminalTooSmall)
     {
-        <Rows>
+        <Rows Width="@SurfaceWidth">
             <Markup Content="TERMINAL TOO SMALL" Foreground="FoodColor" Decoration="Decoration.Bold" />
             <Markup Content="@($"Current: {Viewport.Width}x{Viewport.Height} · Required: 80x24 or larger")" />
             <Markup Content="Resize the terminal to launch the game grid." Foreground="Color.Grey70" />
@@ -25,53 +20,68 @@
     }
     else
     {
-        <Columns>
-            <SpectreCanvas Pixels="BoardPixels"
-                           CanvasWidth="@_game.Width"
-                           CanvasHeight="@_game.Height"
-                           PixelWidth="2"
-                           Scale="false" />
+        <Flex Direction="FlexDirection.Column"
+              Width="@ContentWidth"
+              Height="@ContentHeight"
+              Gap="1"
+              data-focusable="true"
+              data-focus-key="razor-snake-game"
+              data-focus-order="0"
+              data-input-managed="true"
+              @onkeydown="HandleKey">
+            <Columns>
+                <SpectreCanvas Pixels="BoardPixels"
+                               CanvasWidth="@_game.Width"
+                               CanvasHeight="@_game.Height"
+                               PixelWidth="2"
+                               Scale="false" />
 
-            <Panel Title="RAZORCONSOLE SNAKE"
-                   TitleColor="BrandBlue"
-                   Border="BoxBorder.Rounded"
-                   BorderColor="Color.Grey35"
-                   Padding="new Padding(1, 0, 1, 0)"
-                   Width="@SideWidth"
-                   Height="@MainHeight">
-                <Rows>
-                    <Markup Content="@ScoreAndLevelText" Foreground="BrandGreen" Decoration="Decoration.Bold" />
-                    <Markup Content="@LengthAndSpeedText" Foreground="Color.Grey70" />
-                    <Markup Content="@PhaseText" Foreground="PhaseColor" Decoration="Decoration.Bold" />
-                    <SpeedControl Value="@_game.BaseTickDelayMilliseconds" ValueChanged="SetSpeed" />
-                    <Flex Width="25" Justify="FlexJustify.Center">
-                        <MouseControl Label="▲ UP" OnClick="@(() => Steer(Direction.Up))" />
-                    </Flex>
-                    <Flex Width="25" Justify="FlexJustify.Center" Gap="1">
-                        <MouseControl Label="◀ LEFT" OnClick="@(() => Steer(Direction.Left))" />
-                        <MouseControl Label="● PAUSE" OnClick="TogglePause" />
-                        <MouseControl Label="RIGHT ▶" OnClick="@(() => Steer(Direction.Right))" />
-                    </Flex>
-                    <Flex Width="25" Justify="FlexJustify.Center">
-                        <MouseControl Label="▼ DOWN" OnClick="@(() => Steer(Direction.Down))" />
-                    </Flex>
-                    <Flex Width="25" Justify="FlexJustify.Center" Gap="1">
-                        <MouseControl Label="REBOOT" Width="10" Foreground="BrandBlue" OnClick="Restart" />
-                        <MouseControl Label="QUIT" Width="10" Foreground="FoodColor" HoverBackground="FoodColor" OnClick="Quit" />
-                    </Flex>
-                    <Markup Content="MOUSE + ARROWS / WASD" Foreground="Color.Grey70" />
-                </Rows>
-            </Panel>
-        </Columns>
+                <Panel Title="RAZORCONSOLE SNAKE"
+                       TitleColor="BrandBlue"
+                       Border="BoxBorder.Rounded"
+                       BorderColor="Color.Grey35"
+                       Padding="new Padding(1, 0, 1, 0)"
+                       Width="@SideWidth"
+                       Height="@MainHeight">
+                    <Align Width="25"
+                           Height="@ControlHeight"
+                           Horizontal="HorizontalAlignment.Center"
+                           Vertical="VerticalAlignment.Middle">
+                        <Rows>
+                            <Markup Content="@ScoreAndLevelText" Foreground="BrandGreen" Decoration="Decoration.Bold" />
+                            <Markup Content="@LengthAndSpeedText" Foreground="Color.Grey70" />
+                            <Markup Content="@PhaseText" Foreground="PhaseColor" Decoration="Decoration.Bold" />
+                            <SpeedControl Value="@_game.BaseTickDelayMilliseconds" ValueChanged="SetSpeed" />
+                            <Flex Width="25" Justify="FlexJustify.Center">
+                                <MouseControl Label="▲ UP" OnClick="@(() => Steer(Direction.Up))" />
+                            </Flex>
+                            <Flex Width="25" Justify="FlexJustify.Center" Gap="1">
+                                <MouseControl Label="◀ LEFT" OnClick="@(() => Steer(Direction.Left))" />
+                                <MouseControl Label="● PAUSE" OnClick="TogglePause" />
+                                <MouseControl Label="RIGHT ▶" OnClick="@(() => Steer(Direction.Right))" />
+                            </Flex>
+                            <Flex Width="25" Justify="FlexJustify.Center">
+                                <MouseControl Label="▼ DOWN" OnClick="@(() => Steer(Direction.Down))" />
+                            </Flex>
+                            <Flex Width="25" Justify="FlexJustify.Center" Gap="1">
+                                <MouseControl Label="REBOOT" Width="10" Foreground="BrandBlue" OnClick="Restart" />
+                                <MouseControl Label="QUIT" Width="10" Foreground="FoodColor" HoverBackground="FoodColor" OnClick="Quit" />
+                            </Flex>
+                            <Markup Content="MOUSE + ARROWS / WASD" Foreground="Color.Grey70" />
+                        </Rows>
+                    </Align>
+                </Panel>
+            </Columns>
 
-        <Rows>
-            <Markup Content="@PromptText" Foreground="PromptColor" Decoration="Decoration.Bold" />
-            <Markup Content="Learn more → razorconsole.github.io/RazorConsole/"
-                    Foreground="BrandBlue"
-                    link="https://razorconsole.github.io/RazorConsole/" />
-        </Rows>
+            <Rows>
+                <Markup Content="@PromptText" Foreground="PromptColor" Decoration="Decoration.Bold" />
+                <Markup Content="Learn more → razorconsole.github.io/RazorConsole/"
+                        Foreground="BrandBlue"
+                        link="https://razorconsole.github.io/RazorConsole/" />
+            </Rows>
+        </Flex>
     }
-</Flex>
+</Align>
 
 @code {
     private const int MinimumTerminalWidth = 80;
@@ -88,9 +98,12 @@
     private (int x, int y, Color color)[] _boardPixels = [];
 
     private int SurfaceWidth => Math.Max(1, Viewport.Width - 1);
-    private int MainHeight => Math.Max(21, Viewport.Height - 3);
-    private int DesiredBoardWidth => Math.Clamp((SurfaceWidth - SideWidth - 1) / 2, 24, 50);
-    private int DesiredBoardHeight => Math.Clamp(MainHeight, 21, 30);
+    private int MainHeight => DesiredBoardHeight;
+    private int ControlHeight => Math.Max(1, MainHeight - 2);
+    private int ContentWidth => (_game.Width * 2) + SideWidth + 1;
+    private int ContentHeight => MainHeight + 3;
+    private int DesiredBoardWidth => Math.Max(24, (SurfaceWidth - SideWidth - 1) / 2);
+    private int DesiredBoardHeight => Math.Max(21, Viewport.Height - 3);
     private bool IsTerminalTooSmall => Viewport.Width < MinimumTerminalWidth || Viewport.Height < MinimumTerminalHeight;
     private (int x, int y, Color color)[] BoardPixels => _boardPixels;
     private string ScoreAndLevelText => $"SCORE {_game.Score:0000}  ·  LV {_game.Level:00}";
