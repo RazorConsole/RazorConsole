@@ -182,6 +182,7 @@ jobs:
         shell: bash
         run: |
           while IFS=$'\t' read -r command assembly; do
+            assembly="${assembly%$'\r'}"
             executable="artifacts/native-aot/$command/publish/$assembly"
             if [[ "$RUNNER_OS" == "Windows" ]]; then
               executable="$executable.exe"
