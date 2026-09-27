@@ -1,0 +1,83 @@
+@namespace SnakeGame.Components
+
+<Flex Width="25"
+      Height="1"
+      data-focusable="false"
+      @onmousedown="StartDrag"
+      @onmousemove="Drag"
+      @onmouseup="EndDrag"
+      @onwheel="AdjustFromWheel"
+      @onmouseenter="() => _hovered = true"
+      @onmouseleave="() => _hovered = false">
+    <Markup Content="@Label"
+            Foreground="@(_hovered ? Color.Black : Color.Grey70)"
+            Background="@(_hovered ? Color.Grey70 : Color.Default)"
+            Decoration="Decoration.Bold" />
+</Flex>
+
+@code {
+    private const int TrackStart = 7;
+    private const int TrackWidth = 17;
+    private const int MinimumDelay = 80;
+    private const int MaximumDelay = 220;
+
+    [Parameter]
+    public int Value { get; set; } = 155;
+
+    [Parameter]
+    public EventCallback<int> ValueChanged { get; set; }
+
+    private bool _hovered;
+    private bool _dragging;
+
+    private string Label
+    {
+        get
+        {
+            var ratio = (MaximumDelay - Math.Clamp(Value, MinimumDelay, MaximumDelay))
+                / (double)(MaximumDelay - MinimumDelay);
+            var position = (int)Math.Round(ratio * (TrackWidth - 1));
+            var track = new string('━', position) + '●' + new string('━', TrackWidth - position - 1);
+            return $"SPEED  {track}";
+        }
+    }
+
+    private async Task StartDrag(MouseEventArgs args)
+    {
+        if (args.Button != 0)
+        {
+            return;
+        }
+
+        _dragging = true;
+        await SetFromPointer(args);
+    }
+
+    private Task Drag(MouseEventArgs args)
+        => _dragging ? SetFromPointer(args) : Task.CompletedTask;
+
+    private async Task EndDrag(MouseEventArgs args)
+    {
+        if (!_dragging)
+        {
+            return;
+        }
+
+        await SetFromPointer(args);
+        _dragging = false;
+    }
+
+    private Task SetFromPointer(MouseEventArgs args)
+    {
+        var position = Math.Clamp((int)Math.Round(args.OffsetX - TrackStart), 0, TrackWidth - 1);
+        var ratio = position / (double)(TrackWidth - 1);
+        var value = MaximumDelay - (int)Math.Round(ratio * (MaximumDelay - MinimumDelay));
+        return ValueChanged.InvokeAsync(value);
+    }
+
+    private Task AdjustFromWheel(WheelEventArgs args)
+    {
+        var delta = args.DeltaY < 0 ? -1 : 1;
+        return ValueChanged.InvokeAsync(Math.Clamp(Value + delta, MinimumDelay, MaximumDelay));
+    }
+}

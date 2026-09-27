@@ -178,12 +178,125 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+  snake-native-aot:
+    name: Snake Native AOT (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            rid: linux-x64
+            artifact: linux-x64
+            archive: tar.gz
+          - os: ubuntu-22.04-arm
+            rid: linux-arm64
+            artifact: linux-arm64
+            archive: tar.gz
+          - os: windows-2025
+            rid: win-x64
+            artifact: windows-x64
+            archive: zip
+          - os: windows-11-vs2026-arm
+            rid: win-arm64
+            artifact: windows-arm64
+            archive: zip
+          - os: macos-15-intel
+            rid: osx-x64
+            artifact: macos-x64
+            archive: tar.gz
+          - os: macos-15
+            rid: osx-arm64
+            artifact: macos-arm64
+            archive: tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          dotnet-version: 10.0.x
+
+      - name: Install Linux Native AOT prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Compute artifact version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="dev-${GITHUB_SHA:0:7}"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Publish Snake Native AOT
+        shell: bash
+        run: |
+          dotnet publish examples/SnakeGame/SnakeGame.csproj \
+            --configuration Release \
+            --framework net10.0 \
+            --runtime "${{ matrix.rid }}" \
+            -p:PublishAot=true \
+            -p:StripSymbols=true \
+            --output artifacts/snake/publish
+
+      - name: Package Snake (Linux and macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          archive_name="razorconsole-snake-${{ steps.version.outputs.value }}-${{ matrix.artifact }}"
+          stage="artifacts/snake/$archive_name"
+          mkdir -p "$stage"
+          cp artifacts/snake/publish/SnakeGame "$stage/razorconsole-snake"
+          chmod +x "$stage/razorconsole-snake"
+          tar -C artifacts/snake -czf "artifacts/snake/$archive_name.tar.gz" "$archive_name"
+
+      - name: Package Snake (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archiveName = "razorconsole-snake-${{ steps.version.outputs.value }}-${{ matrix.artifact }}"
+          $stage = "artifacts/snake/$archiveName"
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          Copy-Item artifacts/snake/publish/SnakeGame.exe "$stage/razorconsole-snake.exe"
+          Compress-Archive -Path $stage -DestinationPath "artifacts/snake/$archiveName.zip"
+
+      - name: Verify native executable architecture
+        shell: bash
+        run: |
+          executable="artifacts/snake/publish/SnakeGame"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            executable="$executable.exe"
+          fi
+          description="$(file "$executable")"
+          echo "$description"
+          if [[ "${{ matrix.rid }}" == *-arm64 ]]; then
+            echo "$description" | grep -Eiq 'arm64|aarch64'
+          else
+            echo "$description" | grep -Eiq 'x86-64|x86_64|x64'
+          fi
+
+      - name: Upload Snake archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: snake-native-${{ matrix.artifact }}
+          path: artifacts/snake/*.${{ matrix.archive }}
+          if-no-files-found: error
+          retention-days: 90
+
   release:
     name: Create GitHub Release
     if: startsWith(github.ref, 'refs/tags/')
     needs:
       - package
       - gallery-native-aot
+      - snake-native-aot
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -195,15 +308,22 @@ jobs:
           path: artifacts/release
           merge-multiple: true
 
+      - name: Download Snake release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: snake-native-*
+          path: artifacts/release
+          merge-multiple: true
+
       - name: Download NuGet packages
         uses: actions/download-artifact@v4
         with:
           name: nuget-packages
           path: artifacts/release
 
-      - name: Generate Gallery checksums
+      - name: Generate Native AOT checksums
         working-directory: artifacts/release
-        run: sha256sum razorconsole-gallery-* > checksums-sha256.txt
+        run: sha256sum razorconsole-gallery-* razorconsole-snake-* > checksums-sha256.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

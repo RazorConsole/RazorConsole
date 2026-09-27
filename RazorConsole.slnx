@@ -11,6 +11,7 @@
     <Project Path="examples/LoginForm/LoginForm.csproj" />
     <Project Path="examples/Layout/Layout.csproj" />
     <Project Path="examples/MultipageApp/MultipageApp.csproj" />
+    <Project Path="examples/SnakeGame/SnakeGame.csproj" />
     <Project Path="examples/TableWidget/TableWidget.csproj" />
     <Project Path="examples/GalleryAlign/GalleryAlign.csproj" />
     <Project Path="examples/GalleryBorder/GalleryBorder.csproj" />

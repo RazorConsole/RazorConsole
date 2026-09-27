@@ -292,6 +292,16 @@ A simple counter application that demonstrates the basics of RazorConsole:
 
 Perfect for getting started with RazorConsole. See [`examples/Counter/`](examples/Counter/) for the complete implementation.
 
+### Razor Snake
+
+A Native AOT terminal game that demonstrates:
+- Real-time keyboard input and a cancellable game loop
+- A branded 80×24 interface built from RazorConsole components
+- Adaptive WidgetLayout rendering and mouse controls
+- A self-contained, zero-JIT native executable
+
+See [`examples/SnakeGame/`](examples/SnakeGame/) for controls and Native AOT publish commands.
+
 ### LLM Agent TUI
 
 A Claude Code-inspired chat interface that demonstrates:
