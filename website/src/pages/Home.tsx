@@ -1,5 +1,6 @@
 import HeroSection from "@/components/home/HeroSection"
 import FeaturesGrid from "@/components/home/FeaturesGrid"
+import GalleryInstallSection from "@/components/home/GalleryInstallSection"
 import QuickStartSection from "@/components/home/QuickStartSection"
 import AdvancedTopicsSection from "@/components/home/AdvancedTopicsSection"
 import type { MetaFunction } from "react-router";
@@ -26,6 +27,8 @@ export default function Home() {
         <HeroSection />
 
         <FeaturesGrid />
+
+        <GalleryInstallSection />
 
         <QuickStartSection />
 
