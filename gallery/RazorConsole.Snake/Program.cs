@@ -3,7 +3,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using RazorConsole.Core;
-using SnakeGame.Components;
+using RazorConsole.Snake.Components;
 
 var builder = Host.CreateDefaultBuilder(args)
     .UseRazorConsole<App>(configure: hostBuilder =>

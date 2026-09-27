@@ -17,7 +17,7 @@ export default function AdvancedTopicsSection() {
           • LLM Agent TUI - Claude Code-inspired chat interface
         </a>
         <a
-          href="https://github.com/RazorConsole/RazorConsole/tree/main/src/RazorConsole.Gallery"
+          href="https://github.com/RazorConsole/RazorConsole/tree/main/gallery/RazorConsole.Gallery"
           target="_blank"
           rel="noopener noreferrer"
           className="block text-slate-700 transition-colors hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400"

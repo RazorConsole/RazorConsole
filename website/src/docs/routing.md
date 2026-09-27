@@ -178,4 +178,4 @@ Feel free to contribute
 
 ## 8. Examples
 
-[RazorConsole.Gallery](https://github.com/RazorConsole/RazorConsole/blob/main/src/RazorConsole.Gallery)
+[RazorConsole.Gallery](https://github.com/RazorConsole/RazorConsole/blob/main/gallery/RazorConsole.Gallery)

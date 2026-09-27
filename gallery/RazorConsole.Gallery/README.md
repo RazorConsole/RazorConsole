@@ -3,13 +3,13 @@
 Run from the repository root (requires the SDK pinned in `global.json`):
 
 ```sh
-dotnet run --project src/RazorConsole.Gallery -f net10.0
+dotnet run --project gallery/RazorConsole.Gallery -f net10.0
 ```
 
 Publish a macOS Apple Silicon Native AOT build:
 
 ```sh
-dotnet publish src/RazorConsole.Gallery/RazorConsole.Gallery.csproj \
+dotnet publish gallery/RazorConsole.Gallery/RazorConsole.Gallery.csproj \
   -c Release \
   -f net10.0 \
   -r osx-arm64 \
@@ -69,7 +69,7 @@ wheel bursts, resize, stale cursor replies, navigation and text input.
 The complementary Unix PTY regression deliberately never answers cursor queries:
 
 ```sh
-dotnet build src/RazorConsole.Gallery -c Release -f net10.0
+dotnet build gallery/RazorConsole.Gallery -c Release -f net10.0
 uv run --with pyte python tests/e2e/gallery-scroll-pty.py
 ```
 

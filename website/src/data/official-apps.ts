@@ -1,0 +1,28 @@
+import manifest from "./official-apps.generated.json"
+import type { ShowcaseProject } from "./showcase"
+
+const mediaByPackageId: Record<string, Pick<ShowcaseProject, "videoUrl" | "imageUrls">> = {
+  "RazorConsole.Snake": { videoUrl: "showcase/snake-demo.mp4" },
+}
+
+export const officialApps: ShowcaseProject[] = manifest.apps.map((app) => {
+  const installerName = app.commandName.replace(/^razorconsole-/, "")
+  const appName = app.packageId.split(".").at(-1)
+  return {
+    name: app.title,
+    description: app.description,
+    website: app.projectUrl,
+    downloadUrl: "https://github.com/RazorConsole/RazorConsole/releases/latest",
+    installCommands: [
+      {
+        label: "macOS / Linux",
+        command: `curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-${installerName}.sh | sh`,
+      },
+      {
+        label: "Windows PowerShell",
+        command: `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App ${appName}`,
+      },
+    ],
+    ...mediaByPackageId[app.packageId],
+  }
+})

@@ -11,7 +11,6 @@
     <Project Path="examples/LoginForm/LoginForm.csproj" />
     <Project Path="examples/Layout/Layout.csproj" />
     <Project Path="examples/MultipageApp/MultipageApp.csproj" />
-    <Project Path="examples/SnakeGame/SnakeGame.csproj" />
     <Project Path="examples/TableWidget/TableWidget.csproj" />
     <Project Path="examples/GalleryAlign/GalleryAlign.csproj" />
     <Project Path="examples/GalleryBorder/GalleryBorder.csproj" />
@@ -42,8 +41,11 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/RazorConsole.Core/RazorConsole.Core.csproj" />
-    <Project Path="src/RazorConsole.Gallery/RazorConsole.Gallery.csproj" />
     <Project Path="src/RazorConsole.Website/RazorConsole.Website.csproj" />
+  </Folder>
+  <Folder Name="/gallery/">
+    <Project Path="gallery/RazorConsole.Gallery/RazorConsole.Gallery.csproj" />
+    <Project Path="gallery/RazorConsole.Snake/RazorConsole.Snake.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="src/RazorConsole.Tests/RazorConsole.Tests.csproj" />

@@ -9,7 +9,7 @@ The UI requires a terminal of at least **80×24**. Above that minimum, the game 
 ## Play
 
 ```bash
-dotnet run --project examples/SnakeGame/SnakeGame.csproj -f net10.0
+dotnet run --project gallery/RazorConsole.Snake/RazorConsole.Snake.csproj -f net10.0
 ```
 
 The game always uses RazorConsole's native WidgetLayout pipeline. Rendering-pipeline flags and environment variables are intentionally ignored.
@@ -31,16 +31,16 @@ Native AOT publishes for one operating system and architecture at a time. Choose
 
 ```bash
 # macOS Apple Silicon
-dotnet publish examples/SnakeGame/SnakeGame.csproj -c Release -f net10.0 -r osx-arm64
+dotnet publish gallery/RazorConsole.Snake/RazorConsole.Snake.csproj -c Release -f net10.0 -r osx-arm64
 
 # Linux x64
-dotnet publish examples/SnakeGame/SnakeGame.csproj -c Release -f net10.0 -r linux-x64
+dotnet publish gallery/RazorConsole.Snake/RazorConsole.Snake.csproj -c Release -f net10.0 -r linux-x64
 
 # Windows x64 (run on Windows)
-dotnet publish examples/SnakeGame/SnakeGame.csproj -c Release -f net10.0 -r win-x64
+dotnet publish gallery/RazorConsole.Snake/RazorConsole.Snake.csproj -c Release -f net10.0 -r win-x64
 ```
 
-The native executable is written beneath `artifacts/publish/SnakeGame/release_<framework>_<rid>/` because this repository uses the artifacts output layout.
+The native executable is written beneath `artifacts/publish/RazorConsole.Snake/release_<framework>_<rid>/` because this repository uses the artifacts output layout.
 
 Native AOT requires the platform toolchain described in the [.NET Native AOT prerequisites](https://learn.microsoft.com/dotnet/core/deploying/native-aot/).
 

@@ -82,7 +82,7 @@ The resulting binary will be located in `bin/Release/net8.0/{rid}/publish/`.
 To build the Gallery itself for the current macOS Apple Silicon host:
 
 ```bash
-dotnet publish src/RazorConsole.Gallery/RazorConsole.Gallery.csproj \
+dotnet publish gallery/RazorConsole.Gallery/RazorConsole.Gallery.csproj \
   --configuration Release \
   --framework net10.0 \
   --runtime osx-arm64 \
@@ -211,4 +211,4 @@ If your app uses third-party libraries that rely heavily on reflection (e.g., JS
 
 ## 6. Examples
 
-You can see a working AOT setup in the [RazorConsole.Gallery](https://github.com/RazorConsole/RazorConsole/blob/main/src/RazorConsole.Gallery) project.
+You can see a working AOT setup in the [RazorConsole.Gallery](https://github.com/RazorConsole/RazorConsole/blob/main/gallery/RazorConsole.Gallery) project.

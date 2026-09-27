@@ -1,6 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
-namespace SnakeGame.Game;
+namespace RazorConsole.Snake.Game;
 
 internal enum Direction
 {

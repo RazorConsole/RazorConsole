@@ -1,0 +1,24 @@
+{
+  "apps": [
+    {
+      "packageId": "RazorConsole.Gallery",
+      "title": "RazorConsole Gallery",
+      "description": "Explore RazorConsole components in an interactive terminal gallery.",
+      "projectUrl": "https://razorconsole.com/docs/component-gallery",
+      "repositoryUrl": "https://github.com/RazorConsole/RazorConsole",
+      "commandName": "razorconsole-gallery",
+      "assemblyName": "RazorConsole.Gallery",
+      "project": "gallery/RazorConsole.Gallery/RazorConsole.Gallery.csproj"
+    },
+    {
+      "packageId": "RazorConsole.Snake",
+      "title": "RazorConsole Snake",
+      "description": "A responsive terminal Snake game built with RazorConsole.",
+      "projectUrl": "https://github.com/RazorConsole/RazorConsole/tree/main/gallery/RazorConsole.Snake",
+      "repositoryUrl": "https://github.com/RazorConsole/RazorConsole",
+      "commandName": "razorconsole-snake",
+      "assemblyName": "RazorConsole.Snake",
+      "project": "gallery/RazorConsole.Snake/RazorConsole.Snake.csproj"
+    }
+  ]
+}

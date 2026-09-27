@@ -6,7 +6,7 @@ These instructions are automatically appended to Copilot Chat sessions when work
 
 ## Project context
 
-- RazorConsole renders Razor components to Spectre.Console output. The core implementation lives in `src/RazorConsole.Core` and the interactive showcase in `src/RazorConsole.Gallery`.
+- RazorConsole renders Razor components to Spectre.Console output. The core implementation lives in `src/RazorConsole.Core` and the interactive showcase in `gallery/RazorConsole.Gallery`.
 - Tests live in `src/RazorConsole.Tests` and should be kept up to date for any behavioral change.
 - Design notes are available under `design-doc/` for additional background.
 

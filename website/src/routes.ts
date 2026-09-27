@@ -17,6 +17,7 @@ export default [
 
         route("advanced", "./pages/Advanced.tsx"),
         route("collaborators", "./pages/Collaborators.tsx"),
+        route("gallery", "./pages/Gallery.tsx"),
         route("showcase", "./pages/Showcase.tsx"),
     ]),
 ] satisfies RouteConfig;

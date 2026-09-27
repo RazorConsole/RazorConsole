@@ -109,6 +109,7 @@ export function Header() {
             { to: "/release-notes", label: "Release Notes" },
             { to: "/api", label: "API Reference" },
             { to: "/components", label: "Components" },
+            { to: "/gallery", label: "Gallery" },
             { to: "/collaborators", label: "Collaborators" },
             { to: "/showcase", label: "Showcase" },
           ].map((item) => (
@@ -172,6 +173,7 @@ export function Header() {
             <NavItem to="/release-notes">Release Notes</NavItem>
             <NavItem to="/api">API</NavItem>
             <NavItem to="/components">Components</NavItem>
+            <NavItem to="/gallery">Gallery</NavItem>
             <NavItem to="/showcase">Showcase</NavItem>
             <NavItem to="/collaborators">Collaborators</NavItem>
           </nav>

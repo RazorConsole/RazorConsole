@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>razorconsole-gallery</ToolCommandName>
+    <RazorConsolePublishNativeAot>true</RazorConsolePublishNativeAot>
   </PropertyGroup>
   <ItemGroup>
     <None Update="Fonts\**\*">
@@ -13,6 +14,12 @@
   </ItemGroup>
   <Import Project="$(RepoRoot)/nuget/nuget-package.props"/>
 
+  <PropertyGroup>
+    <Title>RazorConsole Gallery</Title>
+    <Description>Explore RazorConsole components in an interactive terminal gallery.</Description>
+    <PackageProjectUrl>https://razorconsole.com/docs/component-gallery</PackageProjectUrl>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(PublishAot)' == 'true'">
     <!-- Native AOT publish cannot run the package target at the same time. -->
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
@@ -21,7 +28,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RazorConsole.Core\RazorConsole.Core.csproj"/>
+    <ProjectReference Include="..\..\src\RazorConsole.Core\RazorConsole.Core.csproj"/>
     <PackageReference Include="Microsoft.Extensions.Hosting"/>
     <PackageReference Include="Microsoft.Extensions.Http"/>
     <PackageReference Include="NuGet.Versioning"/>

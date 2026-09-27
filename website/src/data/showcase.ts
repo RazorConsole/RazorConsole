@@ -15,26 +15,6 @@ export interface ShowcaseProject {
 export const showcaseProjects: ShowcaseProject[] = [
   // Add your project here! Submit a PR to be featured.
   {
-    name: "RazorConsole Snake",
-    description:
-      "A responsive Snake game and Native AOT showcase for RazorConsole, with keyboard and mouse controls, a draggable speed slider, and standalone builds for Windows, macOS, and Linux.",
-    github: "RazorConsole/RazorConsole/tree/main/examples/SnakeGame",
-    downloadUrl: "https://github.com/RazorConsole/RazorConsole/releases/latest",
-    videoUrl: "showcase/snake-demo.mp4",
-    installCommands: [
-      {
-        label: "macOS / Linux",
-        command:
-          "curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-snake.sh | sh",
-      },
-      {
-        label: "Windows PowerShell",
-        command:
-          "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Snake",
-      },
-    ],
-  },
-  {
     name: "Waves",
     description: "GitHub Game Off 2025 entry - A console game built with RazorConsole.",
     github: "Skuzzle-UK/Waves",

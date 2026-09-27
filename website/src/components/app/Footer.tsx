@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom"
-import { Github, Package, MessageCircle, Heart, Bug, BookOpen, Code, Gem, Bot, Sparkles } from "lucide-react"
+import { Github, Package, MessageCircle, Heart, Bug, BookOpen, Code, Gem, Bot, Sparkles, Images } from "lucide-react"
 
 export function Footer() {
   const location = useLocation()
@@ -51,6 +51,15 @@ export function Footer() {
           <div>
             <FooterHeader>Project</FooterHeader>
             <ul className="space-y-3">
+              <li>
+                <FooterLink
+                  to="/gallery"
+                  icon={Images}
+                  ariaLabel="View official RazorConsole applications"
+                >
+                  Gallery
+                </FooterLink>
+              </li>
               <li>
                 <FooterLink 
                   href="https://github.com/RazorConsole/RazorConsole" 

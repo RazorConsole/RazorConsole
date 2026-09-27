@@ -300,7 +300,7 @@ A Native AOT terminal game that demonstrates:
 - Adaptive WidgetLayout rendering and mouse controls
 - A self-contained, zero-JIT native executable
 
-See [`examples/SnakeGame/`](examples/SnakeGame/) for controls and Native AOT publish commands.
+See [`gallery/RazorConsole.Snake/`](gallery/RazorConsole.Snake/) for controls and Native AOT publish commands.
 
 ### LLM Agent TUI
 
