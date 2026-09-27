@@ -1,8 +1,11 @@
 import ImageBanner from "@/components/showcase/ImageBanner"
+import InstallDialog from "@/components/showcase/InstallDialog"
 import VideoBanner from "@/components/showcase/VideoBanner"
+import { Button } from "@/components/ui/Button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import type { ShowcaseProject } from "@/data/showcase"
-import { Rocket } from "lucide-react"
+import { Download, Rocket } from "lucide-react"
+import { useState } from "react"
 
 export default function ProjectGrid({
   projects,
@@ -11,6 +14,8 @@ export default function ProjectGrid({
   projects: ShowcaseProject[]
   emptyMessage: string
 }) {
+  const [installProject, setInstallProject] = useState<ShowcaseProject | null>(null)
+
   const getProjectUrl = (project: ShowcaseProject) => {
     if (project.github) return `https://github.com/${project.github}`
     return project.website
@@ -30,9 +35,15 @@ export default function ProjectGrid({
       {projects.map((project) => {
         const projectUrl = getProjectUrl(project)
         return (
-          <Card key={project.name} className="flex h-full flex-col transition-shadow hover:shadow-lg">
+          <Card
+            key={project.name}
+            className="flex h-full flex-col transition-shadow hover:shadow-lg"
+          >
             {project.videoUrl ? (
-              <VideoBanner src={`${import.meta.env.BASE_URL}${project.videoUrl}`} title={project.name} />
+              <VideoBanner
+                src={`${import.meta.env.BASE_URL}${project.videoUrl}`}
+                title={project.name}
+              />
             ) : project.imageUrls && project.imageUrls.length > 0 ? (
               <ImageBanner imageUrls={project.imageUrls} alt={project.name} />
             ) : (
@@ -44,52 +55,52 @@ export default function ProjectGrid({
                 />
               </div>
             )}
-            <CardHeader>
+            <CardHeader className={project.installCommands ? "pb-3" : undefined}>
               <CardTitle className="text-xl">{project.name}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col">
               <CardDescription className="flex-1">{project.description}</CardDescription>
               {project.installCommands && project.installCommands.length > 0 && (
-                <div className="mt-5 space-y-3">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Install</p>
-                  {project.installCommands.map((install) => (
-                    <div key={install.label}>
-                      <p className="mb-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                        {install.label}
-                      </p>
-                      <code className="block overflow-x-auto rounded-md bg-slate-950 px-3 py-2 text-xs whitespace-nowrap text-slate-100">
-                        {install.command}
-                      </code>
-                    </div>
-                  ))}
+                <Button
+                  type="button"
+                  className="mt-6 w-full gap-2 sm:w-auto sm:self-start"
+                  onClick={() => setInstallProject(project)}
+                >
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  Install
+                </Button>
+              )}
+              {!project.installCommands && (
+                <div className="mt-5 flex flex-wrap gap-3 text-sm font-semibold">
+                  {projectUrl && (
+                    <a
+                      href={projectUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      View project
+                    </a>
+                  )}
+                  {project.downloadUrl && (
+                    <a
+                      href={project.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      Download binaries
+                    </a>
+                  )}
                 </div>
               )}
-              <div className="mt-5 flex flex-wrap gap-3 text-sm font-semibold">
-                {projectUrl && (
-                  <a
-                    href={projectUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline dark:text-blue-400"
-                  >
-                    View project
-                  </a>
-                )}
-                {project.downloadUrl && (
-                  <a
-                    href={project.downloadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline dark:text-blue-400"
-                  >
-                    Download binaries
-                  </a>
-                )}
-              </div>
             </CardContent>
           </Card>
         )
       })}
+      {installProject && (
+        <InstallDialog project={installProject} onClose={() => setInstallProject(null)} />
+      )}
     </div>
   )
 }

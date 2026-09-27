@@ -22,14 +22,14 @@ export default function Gallery() {
     <div className="min-h-screen bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
       <div className="container mx-auto px-4 py-16">
         <div className="mb-12 text-center">
-          <h1 className="mb-4 text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
-            Gallery
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+            RazorConsole Gallery
           </h1>
-          <p className="mx-auto max-w-2xl text-lg text-slate-600 dark:text-slate-300">
-            Official applications maintained by RazorConsole
-          </p>
         </div>
-        <ProjectGrid projects={officialApps} emptyMessage="No official applications are available yet." />
+        <ProjectGrid
+          projects={officialApps}
+          emptyMessage="No official applications are available yet."
+        />
       </div>
     </div>
   )
