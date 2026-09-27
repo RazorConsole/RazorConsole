@@ -20,10 +20,19 @@ $release = if ($Channel -eq "Stable") {
     $nightly
 }
 $version = $release.tag_name -replace '^v', ''
-$architecture = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
+$runtimeArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+$processorArchitecture = if ($runtimeArchitecture) {
+    $runtimeArchitecture.ToString()
+} elseif ($env:PROCESSOR_ARCHITEW6432) {
+    $env:PROCESSOR_ARCHITEW6432
+} else {
+    $env:PROCESSOR_ARCHITECTURE
+}
+$architecture = switch ($processorArchitecture) {
+    "AMD64" { "x64" }
     "X64" { "x64" }
-    "Arm64" { "arm64" }
-    default { throw "Unsupported architecture: $_" }
+    "ARM64" { "arm64" }
+    default { throw "Unsupported architecture: $processorArchitecture" }
 }
 
 $archive = "razorconsole-snake-$version-windows-$architecture.zip"

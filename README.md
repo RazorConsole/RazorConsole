@@ -261,7 +261,7 @@ curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scri
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1 | iex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1)))
 ```
 
 To test the latest successful Native AOT build from `main`, install the nightly channel:

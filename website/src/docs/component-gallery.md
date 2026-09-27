@@ -15,7 +15,7 @@ The installer detects the operating system and CPU architecture, verifies the SH
 Run the following command in PowerShell:
 
 ```shell
-irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1 | iex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1)))
 ```
 
 The installer selects the x64 or Arm64 package, verifies its SHA-256 checksum, installs it under `%LOCALAPPDATA%\RazorConsole\Gallery`, and adds that directory to the user `PATH`.

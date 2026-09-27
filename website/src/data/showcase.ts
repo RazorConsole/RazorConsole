@@ -30,7 +30,7 @@ export const showcaseProjects: ShowcaseProject[] = [
       {
         label: "Windows PowerShell",
         command:
-          "irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-snake.ps1 | iex",
+          "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-snake.ps1)))",
       },
     ],
   },

@@ -20,7 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scri
 On Windows PowerShell:
 
 ```shell
-irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1 | iex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1)))
 ```
 
 Both installers resolve the latest GitHub Release, select the correct archive, and verify it against the published SHA-256 checksum before installing it. Manual archives and `checksums-sha256.txt` are available from the [latest release](https://github.com/RazorConsole/RazorConsole/releases/latest).

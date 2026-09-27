@@ -61,7 +61,7 @@ curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scri
 Stable release on Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-snake.ps1 | iex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-snake.ps1)))
 ```
 
 Latest `main` prerelease on Windows PowerShell:
