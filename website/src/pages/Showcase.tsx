@@ -1,4 +1,5 @@
 import ImageBanner from "@/components/showcase/ImageBanner"
+import VideoBanner from "@/components/showcase/VideoBanner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import { showcaseProjects } from "@/data/showcase"
 import { getFullSitePath } from "@/lib/utils"
@@ -45,9 +46,14 @@ export default function Showcase() {
               const projectUrl = getProjectUrl(project)
               return (
                 <Card key={project.name} className="flex h-full flex-col transition-shadow hover:shadow-lg">
-                  {project.imageUrls && project.imageUrls.length > 0 && (
+                  {project.videoUrl ? (
+                    <VideoBanner
+                      src={`${import.meta.env.BASE_URL}${project.videoUrl}`}
+                      title={project.name}
+                    />
+                  ) : project.imageUrls && project.imageUrls.length > 0 ? (
                     <ImageBanner imageUrls={project.imageUrls} alt={project.name} />
-                  )}
+                  ) : null}
                   <CardHeader>
                     <CardTitle className="text-xl">{project.name}</CardTitle>
                   </CardHeader>

@@ -4,6 +4,7 @@ export interface ShowcaseProject {
   github?: string
   website?: string
   downloadUrl?: string
+  videoUrl?: string
   installCommands?: Array<{
     label: string
     command: string
@@ -19,6 +20,7 @@ export const showcaseProjects: ShowcaseProject[] = [
       "A responsive Snake game and Native AOT showcase for RazorConsole, with keyboard and mouse controls, a draggable speed slider, and standalone builds for Windows, macOS, and Linux.",
     github: "RazorConsole/RazorConsole/tree/main/examples/SnakeGame",
     downloadUrl: "https://github.com/RazorConsole/RazorConsole/releases/latest",
+    videoUrl: "showcase/snake-demo.mp4",
     installCommands: [
       {
         label: "macOS / Linux",
