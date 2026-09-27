@@ -20,6 +20,22 @@ irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/ins
 
 The installer selects the x64 or Arm64 package, verifies its SHA-256 checksum, installs it under `%LOCALAPPDATA%\RazorConsole\Gallery`, and adds that directory to the user `PATH`.
 
+#### Nightly channel
+
+Each successful `main` build is published as a uniquely versioned prerelease. Install the newest nightly build on macOS or Linux with:
+
+```shell
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.sh | sh -s -- --channel nightly
+```
+
+On Windows PowerShell:
+
+```shell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1))) -Channel Nightly
+```
+
+Nightly builds are unstable and replace an existing Gallery installation. Run the stable installer again to switch back. The installer selects the newest published `nightly-*` prerelease; draft or partially uploaded releases are never selected.
+
 Open a new terminal after installation and run:
 
 ```shell

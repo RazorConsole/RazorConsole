@@ -4,6 +4,24 @@ set -eu
 repository="RazorConsole/RazorConsole"
 install_root="${RAZORCONSOLE_GALLERY_INSTALL_DIR:-${HOME}/.local/share/razorconsole-gallery}"
 bin_dir="${RAZORCONSOLE_GALLERY_BIN_DIR:-${HOME}/.local/bin}"
+channel="stable"
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --channel)
+      if [ "$#" -lt 2 ]; then
+        echo "--channel requires stable or nightly." >&2
+        exit 1
+      fi
+      channel="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+  esac
+done
 
 case "$(uname -s)" in
   Darwin) platform="macos" ;;
@@ -17,8 +35,33 @@ case "$(uname -m)" in
   *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
-release_url="$(curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/${repository}/releases/latest")"
-tag="${release_url##*/}"
+case "$channel" in
+  stable)
+    release_url="$(curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/${repository}/releases/latest")"
+    tag="${release_url##*/}"
+    ;;
+  nightly)
+    releases="$(curl -fsSL \
+      -H "Accept: application/vnd.github+json" \
+      -H "X-GitHub-Api-Version: 2022-11-28" \
+      "https://api.github.com/repos/${repository}/releases?per_page=100")"
+    tag="$(
+      printf '%s' "$releases" |
+        grep -Eo '"tag_name"[[:space:]]*:[[:space:]]*"nightly-[0-9]{8}-[0-9]{6}-[0-9a-f]{7}"' |
+        head -n 1 |
+        sed -E 's/.*"(nightly-[0-9]{8}-[0-9]{6}-[0-9a-f]{7})"/\1/'
+    )"
+    if [ -z "$tag" ]; then
+      echo "No published nightly release was found." >&2
+      exit 1
+    fi
+    ;;
+  *)
+    echo "Channel must be stable or nightly." >&2
+    exit 1
+    ;;
+esac
+
 version="${tag#v}"
 archive="razorconsole-gallery-${version}-${platform}-${architecture}.tar.gz"
 download_url="https://github.com/${repository}/releases/download/${tag}/${archive}"
@@ -26,7 +69,7 @@ checksums_url="https://github.com/${repository}/releases/download/${tag}/checksu
 temporary_dir="$(mktemp -d)"
 trap 'rm -rf "$temporary_dir"' EXIT HUP INT TERM
 
-echo "Downloading RazorConsole Gallery ${version} for ${platform}-${architecture}..."
+echo "Downloading RazorConsole Gallery ${version} (${channel}) for ${platform}-${architecture}..."
 curl -fL "$download_url" -o "$temporary_dir/$archive"
 curl -fL "$checksums_url" -o "$temporary_dir/checksums-sha256.txt"
 

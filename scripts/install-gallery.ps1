@@ -1,7 +1,24 @@
+param(
+    [ValidateSet("Stable", "Nightly")]
+    [string] $Channel = "Stable"
+)
+
 $ErrorActionPreference = "Stop"
 
 $repository = "RazorConsole/RazorConsole"
-$release = Invoke-RestMethod "https://api.github.com/repos/$repository/releases/latest"
+$release = if ($Channel -eq "Stable") {
+    Invoke-RestMethod "https://api.github.com/repos/$repository/releases/latest"
+} else {
+    $releases = Invoke-RestMethod "https://api.github.com/repos/$repository/releases?per_page=100"
+    $nightly = $releases |
+        Where-Object { $_.prerelease -and $_.tag_name -match '^nightly-\d{8}-\d{6}-[0-9a-f]{7}$' } |
+        Sort-Object published_at -Descending |
+        Select-Object -First 1
+    if (-not $nightly) {
+        throw "No published nightly release was found."
+    }
+    $nightly
+}
 $version = $release.tag_name -replace '^v', ''
 $architecture = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
     "X64" { "x64" }
@@ -55,7 +72,7 @@ try {
         $env:Path = "$installRoot;$env:Path"
     }
 
-    Write-Host "Installed razorconsole-gallery $version to $installRoot."
+    Write-Host "Installed razorconsole-gallery $version ($($Channel.ToLowerInvariant())) to $installRoot."
     Write-Host "Open a new terminal and run: razorconsole-gallery"
 }
 finally {

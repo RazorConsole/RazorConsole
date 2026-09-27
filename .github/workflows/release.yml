@@ -214,5 +214,11 @@ jobs:
             artifacts/release/*.tar.gz
             artifacts/release/*.zip
             artifacts/release/checksums-sha256.txt
-          draft: false
+          draft: true
           prerelease: false
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false

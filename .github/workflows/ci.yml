@@ -13,7 +13,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -102,6 +102,200 @@ jobs:
           name: razorconsole-core-release_net10.0
           path: artifacts/bin/RazorConsole.Core/release_net10.0
           if-no-files-found: error
+
+  gallery-native-version:
+    name: Compute Gallery Native AOT version
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    outputs:
+      value: ${{ steps.version.outputs.value }}
+    steps:
+      - name: Compute artifact version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            head_sha="${{ github.event.pull_request.head.sha }}"
+            version="pr-${{ github.event.pull_request.number }}-${head_sha:0:7}"
+          else
+            version="nightly-$(date -u +'%Y%m%d-%H%M%S')-${GITHUB_SHA:0:7}"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+  gallery-native-aot:
+    name: Gallery Native AOT (${{ matrix.rid }})
+    needs: gallery-native-version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Match the release matrix so every distributable is validated before merge.
+          - os: ubuntu-22.04
+            rid: linux-x64
+            artifact: linux-x64
+            archive: tar.gz
+          - os: ubuntu-22.04-arm
+            rid: linux-arm64
+            artifact: linux-arm64
+            archive: tar.gz
+          - os: windows-2025
+            rid: win-x64
+            artifact: windows-x64
+            archive: zip
+          - os: windows-11-vs2026-arm
+            rid: win-arm64
+            artifact: windows-arm64
+            archive: zip
+          - os: macos-15-intel
+            rid: osx-x64
+            artifact: macos-x64
+            archive: tar.gz
+          - os: macos-15
+            rid: osx-arm64
+            artifact: macos-arm64
+            archive: tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          dotnet-version: 10.0.x
+
+      - name: Install Linux Native AOT prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish Gallery Native AOT
+        shell: bash
+        run: |
+          dotnet publish src/RazorConsole.Gallery/RazorConsole.Gallery.csproj \
+            --configuration Release \
+            --framework net10.0 \
+            --runtime "${{ matrix.rid }}" \
+            -p:PublishAot=true \
+            -p:StripSymbols=true \
+            --output artifacts/gallery/publish
+
+      - name: Package Gallery (Linux and macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          archive_name="razorconsole-gallery-${{ needs.gallery-native-version.outputs.value }}-${{ matrix.artifact }}"
+          stage="artifacts/gallery/$archive_name"
+          mkdir -p "$stage/Fonts"
+          cp artifacts/gallery/publish/RazorConsole.Gallery "$stage/razorconsole-gallery"
+          cp "artifacts/gallery/publish/Fonts/Slant Relief.flf" "$stage/Fonts/Slant Relief.flf"
+          chmod +x "$stage/razorconsole-gallery"
+          tar -C artifacts/gallery -czf "artifacts/gallery/$archive_name.tar.gz" "$archive_name"
+
+      - name: Package Gallery (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archiveName = "razorconsole-gallery-${{ needs.gallery-native-version.outputs.value }}-${{ matrix.artifact }}"
+          $stage = "artifacts/gallery/$archiveName"
+          New-Item -ItemType Directory -Force "$stage/Fonts" | Out-Null
+          Copy-Item artifacts/gallery/publish/RazorConsole.Gallery.exe "$stage/razorconsole-gallery.exe"
+          Copy-Item "artifacts/gallery/publish/Fonts/Slant Relief.flf" "$stage/Fonts/Slant Relief.flf"
+          Compress-Archive -Path $stage -DestinationPath "artifacts/gallery/$archiveName.zip"
+
+      - name: Verify native executable architecture
+        shell: bash
+        run: |
+          executable="artifacts/gallery/publish/RazorConsole.Gallery"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            executable="$executable.exe"
+          fi
+          description="$(file "$executable")"
+          echo "$description"
+          if [[ "${{ matrix.rid }}" == *-arm64 ]]; then
+            echo "$description" | grep -Eiq 'arm64|aarch64'
+          else
+            echo "$description" | grep -Eiq 'x86-64|x86_64|x64'
+          fi
+
+      - name: Upload Gallery archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-native-${{ matrix.artifact }}
+          path: artifacts/gallery/*.${{ matrix.archive }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-gallery-nightly:
+    name: Publish Gallery nightly
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - validate-format
+      - build-test
+      - website-build
+      - gallery-native-version
+      - gallery-native-aot
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Native AOT archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: gallery-native-*
+          path: artifacts/release
+          merge-multiple: true
+
+      - name: Validate archives and generate checksums
+        working-directory: artifacts/release
+        shell: bash
+        run: |
+          expected=(
+            linux-x64.tar.gz
+            linux-arm64.tar.gz
+            windows-x64.zip
+            windows-arm64.zip
+            macos-x64.tar.gz
+            macos-arm64.tar.gz
+          )
+          version="${{ needs.gallery-native-version.outputs.value }}"
+          for suffix in "${expected[@]}"; do
+            test -f "razorconsole-gallery-$version-$suffix"
+          done
+          sha256sum razorconsole-gallery-* > checksums-sha256.txt
+          test "$(wc -l < checksums-sha256.txt)" -eq 6
+
+      - name: Prepare nightly release notes
+        shell: bash
+        run: |
+          cat > nightly-notes.md <<EOF
+          Automated Native AOT build from \`main\`.
+
+          Commit: \`${GITHUB_SHA}\`
+          Built: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+
+          This is an unstable development build. Use the stable release unless you want to test the latest changes.
+          EOF
+
+      - name: Publish immutable-ready nightly prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NIGHTLY_TAG: ${{ needs.gallery-native-version.outputs.value }}
+        shell: bash
+        run: |
+          gh release create "$NIGHTLY_TAG" \
+            artifacts/release/razorconsole-gallery-* \
+            artifacts/release/checksums-sha256.txt \
+            --target "$GITHUB_SHA" \
+            --title "RazorConsole Gallery $NIGHTLY_TAG" \
+            --notes-file nightly-notes.md \
+            --draft \
+            --prerelease \
+            --latest=false
+
+          gh release edit "$NIGHTLY_TAG" --draft=false
 
   website-build:
     name: Build website
