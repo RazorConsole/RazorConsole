@@ -2,6 +2,7 @@ import manifest from "./official-apps.generated.json"
 import type { ShowcaseProject } from "./showcase"
 
 const mediaByPackageId: Record<string, Pick<ShowcaseProject, "videoUrl" | "imageUrls">> = {
+  "RazorConsole.Gallery": { videoUrl: "showcase/gallery-demo.mp4" },
   "RazorConsole.Snake": { videoUrl: "showcase/snake-demo.mp4" },
 }
 
