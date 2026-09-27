@@ -6,6 +6,19 @@ Run from the repository root (requires the SDK pinned in `global.json`):
 dotnet run --project src/RazorConsole.Gallery -f net10.0
 ```
 
+Publish a macOS Apple Silicon Native AOT build:
+
+```sh
+dotnet publish src/RazorConsole.Gallery/RazorConsole.Gallery.csproj \
+  -c Release \
+  -f net10.0 \
+  -r osx-arm64 \
+  -p:PublishAot=true \
+  -p:StripSymbols=true
+```
+
+Keep the published executable and `Fonts/` directory together. The custom Figlet font is resolved relative to the executable, so the Gallery can be launched from any working directory.
+
 The native host enables terminal mouse reporting. Click a category to collapse it,
 click a component to open it, or type in the search field. Search matches component
 names and categories. Diagnostics is collapsed by default. Navigation scrolls

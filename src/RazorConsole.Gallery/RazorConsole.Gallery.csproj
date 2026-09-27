@@ -8,9 +8,17 @@
   <ItemGroup>
     <None Update="Fonts\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
   </ItemGroup>
   <Import Project="$(RepoRoot)/nuget/nuget-package.props"/>
+
+  <PropertyGroup Condition="'$(PublishAot)' == 'true'">
+    <!-- Native AOT publish cannot run the package target at the same time. -->
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <!-- Known trim warning from Microsoft.AspNetCore.Components; Gallery routes are rooted below. -->
+    <NoWarn>$(NoWarn);IL2104</NoWarn>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\RazorConsole.Core\RazorConsole.Core.csproj"/>

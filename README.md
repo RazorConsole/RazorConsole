@@ -250,13 +250,21 @@ See the full guide at [`design-doc/custom-translators.md`](design-doc/custom-tra
 
 ## Component Gallery
 
-Explore the built-in components interactively with the RazorConsole Component Gallery. Install the tool globally and launch it from any terminal:
+Explore the built-in components interactively with the RazorConsole Component Gallery. The native application does not require the .NET SDK or runtime.
+
+macOS or Linux:
 
 ```bash
-dotnet tool install --global RazorConsole.Gallery --version 0.0.3-alpha.4657e6
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.sh | sh
 ```
 
-After installation, run `razorconsole-gallery` to open the showcase and browse component examples rendered in the console. The gallery includes quick links back to this README for more details.
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1 | iex
+```
+
+After installation, run `razorconsole-gallery` to browse component examples rendered in the console. See the [Component Gallery installation guide](https://razorconsole.com/docs/component-gallery) for manual downloads, checksum verification, and supported platforms.
 
 ![Component Gallery](./assets/gallery.png)
 

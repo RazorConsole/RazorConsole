@@ -7,6 +7,26 @@ This document explains how to use **Native Ahead-of-Time (AOT)** compilation wit
 > While core features like routing and rendering are tested and working, you may encounter edge cases with third-party
 > libraries or complex reflection scenarios. Please report any issues on [GitHub](https://github.com/RazorConsole/RazorConsole/issues/new?template=bug-report.yml).
 
+## Install the Native AOT Gallery
+
+RazorConsole publishes the Component Gallery as native executables for Windows, Linux, and macOS on x64 and Arm64. These builds do not require the .NET SDK or runtime.
+
+On macOS or Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.sh | sh
+```
+
+On Windows PowerShell:
+
+```shell
+irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1 | iex
+```
+
+Both installers resolve the latest GitHub Release, select the correct archive, and verify it against the published SHA-256 checksum before installing it. Manual archives and `checksums-sha256.txt` are available from the [latest release](https://github.com/RazorConsole/RazorConsole/releases/latest).
+
+See the [Component Gallery guide](/docs/component-gallery) for installation directories, supported archives, and macOS Gatekeeper guidance.
+
 ---
 
 ## 1. What is Native AOT?
@@ -46,6 +66,19 @@ dotnet publish -c Release -r osx-arm64 -p:PublishAot=true
 ```
 
 The resulting binary will be located in `bin/Release/net8.0/{rid}/publish/`.
+
+To build the Gallery itself for the current macOS Apple Silicon host:
+
+```bash
+dotnet publish src/RazorConsole.Gallery/RazorConsole.Gallery.csproj \
+  --configuration Release \
+  --framework net10.0 \
+  --runtime osx-arm64 \
+  -p:PublishAot=true \
+  -p:StripSymbols=true
+```
+
+Native AOT supports cross-architecture compilation in some configurations, but not cross-OS compilation. Release builds therefore run on matching Windows, Linux, and macOS GitHub-hosted runners. The distributable archive must include both the executable and the Gallery `Fonts/` directory.
 
 ---
 
