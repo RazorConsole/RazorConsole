@@ -61,13 +61,13 @@ curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scri
 Stable release on Windows PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-snake.ps1)))
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Snake
 ```
 
 Latest `main` prerelease on Windows PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-snake.ps1))) -Channel Nightly
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Snake -Channel Nightly
 ```
 
 The installers detect the operating system and architecture, download the matching Native AOT archive, and verify it against the release SHA-256 manifest. Archives for Linux, Windows, and macOS on x64 and Arm64 are also available from [GitHub Releases](https://github.com/RazorConsole/RazorConsole/releases).

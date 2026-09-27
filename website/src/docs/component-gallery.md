@@ -15,7 +15,7 @@ The installer detects the operating system and CPU architecture, verifies the SH
 Run the following command in PowerShell:
 
 ```shell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1)))
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Gallery
 ```
 
 The installer selects the x64 or Arm64 package, verifies its SHA-256 checksum, installs it under `%LOCALAPPDATA%\RazorConsole\Gallery`, and adds that directory to the user `PATH`.
@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scri
 On Windows PowerShell:
 
 ```shell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1))) -Channel Nightly
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Gallery -Channel Nightly
 ```
 
 Nightly builds are unstable and replace an existing Gallery installation. Run the stable installer again to switch back. The installer selects the newest published `nightly-*` prerelease; draft or partially uploaded releases are never selected.

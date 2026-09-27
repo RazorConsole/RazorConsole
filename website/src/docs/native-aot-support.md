@@ -20,7 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scri
 On Windows PowerShell:
 
 ```shell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1)))
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Gallery
 ```
 
 Both installers resolve the latest GitHub Release, select the correct archive, and verify it against the published SHA-256 checksum before installing it. Manual archives and `checksums-sha256.txt` are available from the [latest release](https://github.com/RazorConsole/RazorConsole/releases/latest).
@@ -32,7 +32,7 @@ curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scri
 ```
 
 ```shell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-gallery.ps1))) -Channel Nightly
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Gallery -Channel Nightly
 ```
 
 Every nightly uses a unique `nightly-<timestamp>-<commit>` prerelease. CI creates it as a draft, uploads all six platform archives and `checksums-sha256.txt`, then publishes it. Formal releases use the same draft-first sequence. This workflow is compatible with GitHub immutable releases and prevents installers from selecting an incomplete build.
