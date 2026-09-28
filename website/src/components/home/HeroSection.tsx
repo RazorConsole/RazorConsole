@@ -36,13 +36,6 @@ export default function HeroSection() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-950/5 dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex h-12 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
-          <span className="text-sm font-semibold text-slate-900 dark:text-white">Live Demo</span>
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-            Interactive
-          </span>
-        </div>
-
         <div className="grid min-w-0 lg:grid-cols-2">
           <div className="min-w-0 border-b border-slate-200 lg:border-r lg:border-b-0 dark:border-slate-800">
             <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
