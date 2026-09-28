@@ -1,40 +1,59 @@
-import { Package, Github, Terminal } from "lucide-react"
-import { Link } from "react-router-dom"
-import { Button } from "@/components/ui/Button"
+import { useId } from "react"
+import XTermPreview from "@/components/components/XTermPreview"
 import ConsoleTitle from "@/components/home/ConsoleTitle"
+import CodeBlock from "@/components/ui/CodeBlock"
+
+const demoSnippet = `<div data-focusable="true"
+     @onkeydown="OnKey"
+     @onmouseenter="() => _hovered = true"
+     @onclick="() => _clicks++">
+    <Panel BorderColor="@(_hovered ? Color.Yellow : Color.Blue)">
+        <Markup Content="@($"Key: {_key} · Clicks: {_clicks}")" />
+    </Panel>
+</div>
+
+@code {
+    bool _hovered;
+    int _clicks;
+    string _key = "none";
+    void OnKey(KeyboardEventArgs e) => _key = e.Key;
+}`
 
 export default function HeroSection() {
+  const instanceId = `home-demo-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
+
   return (
-    <div className="mb-16 text-center">
-      <ConsoleTitle />
-      <p className="mx-auto mb-8 max-w-2xl text-xl text-slate-600 dark:text-slate-300">
-        Build rich, interactive console applications using familiar Razor syntax and the power of
-        Spectre.Console
-      </p>
-      <div className="flex flex-wrap justify-center gap-4">
-        <Link to="/docs/tutorial/hello-world">
-          <Button size="lg" className="gap-2">
-            <Terminal className="h-4 w-4" />
-            Quick Start
-          </Button>
-        </Link>
-        <Link to="/components">
-          <Button size="lg" variant="outline" className="gap-2">
-            <Package className="h-4 w-4" />
-            Browse Components
-          </Button>
-        </Link>
-        <a
-          href="https://github.com/RazorConsole/RazorConsole"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Button size="lg" variant="secondary" className="gap-2">
-            <Github className="h-4 w-4" />
-            GitHub
-          </Button>
-        </a>
+    <section className="mb-16" aria-labelledby="home-hero-title">
+      <div className="text-center">
+        <div id="home-hero-title">
+          <ConsoleTitle />
+        </div>
+        <p className="mx-auto mb-10 max-w-2xl text-xl text-slate-600 dark:text-slate-300">
+          Build rich, interactive console applications using familiar Razor syntax and the power of
+          Spectre.Console
+        </p>
       </div>
-    </div>
+
+      <div className="grid min-w-0 gap-6 lg:grid-cols-2 lg:items-stretch">
+        <div className="min-w-0">
+          <div className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Interactive Razor in 15 lines
+          </div>
+          <CodeBlock
+            code={demoSnippet}
+            language="razor"
+            showCopy
+            className="my-0 h-[320px] overflow-auto"
+          />
+        </div>
+
+        <div className="min-w-0">
+          <div className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Live preview · use the keyboard or mouse
+          </div>
+          <XTermPreview elementId={instanceId} componentId="HomeDemo" className="h-[320px]" />
+        </div>
+      </div>
+    </section>
   )
 }

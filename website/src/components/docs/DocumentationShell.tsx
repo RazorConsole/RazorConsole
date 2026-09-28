@@ -31,7 +31,7 @@ function NavigationLink({ to, children }: { to: string; children: ReactNode }) {
         "block rounded-lg border px-3 py-2 text-sm leading-5 transition-colors",
         active
           ? "border-blue-600 bg-blue-50 font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
-          : "border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white",
+          : "border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"
       )}
     >
       {children}
@@ -40,31 +40,40 @@ function NavigationLink({ to, children }: { to: string; children: ReactNode }) {
 }
 
 export function DocumentationShell({ children, headings, footer }: DocumentationShellProps) {
+  const { pathname } = useLocation()
+  const isBlog = /(?:^|\/)blog(?:\/|$)/.test(pathname)
+
   return (
     <div className="min-h-screen bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
       <div className="mx-auto grid max-w-[1600px] grid-cols-1 gap-10 px-5 py-10 lg:grid-cols-[260px_minmax(0,1fr)] lg:px-8 xl:grid-cols-[260px_minmax(0,1fr)_220px]">
         <aside className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto">
-          <div className="mb-3 text-xs font-bold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-            Tutorial
-          </div>
-          <nav aria-label="Tutorial chapters" className="mb-8 flex flex-col gap-1">
-            {tutorialChapters.map((chapter) => (
-              <NavigationLink key={chapter.slug} to={`/docs/tutorial/${chapter.slug}`}>
-                Chapter {chapter.number} · {chapter.shortTitle}
-              </NavigationLink>
-            ))}
-          </nav>
-
-          <div className="mb-3 text-xs font-bold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-            Topics
-          </div>
-          <nav aria-label="Documentation topics" className="flex flex-col gap-1">
-            {topics.map((topic) => (
-              <NavigationLink key={topic.id} to={`/docs/${topic.id}`}>
-                {topic.title}
-              </NavigationLink>
-            ))}
-          </nav>
+          {isBlog ? (
+            <>
+              <div className="mb-3 text-xs font-bold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                Blog
+              </div>
+              <nav aria-label="Blog articles" className="flex flex-col gap-1">
+                {topics.map((topic) => (
+                  <NavigationLink key={topic.id} to={`/blog/${topic.id}`}>
+                    {topic.title}
+                  </NavigationLink>
+                ))}
+              </nav>
+            </>
+          ) : (
+            <>
+              <div className="mb-3 text-xs font-bold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                Tutorial
+              </div>
+              <nav aria-label="Tutorial chapters" className="flex flex-col gap-1">
+                {tutorialChapters.map((chapter) => (
+                  <NavigationLink key={chapter.slug} to={`/docs/tutorial/${chapter.slug}`}>
+                    Chapter {chapter.number} · {chapter.shortTitle}
+                  </NavigationLink>
+                ))}
+              </nav>
+            </>
+          )}
         </aside>
 
         <main className="min-w-0">
@@ -84,7 +93,7 @@ export function DocumentationShell({ children, headings, footer }: Documentation
                   href={`#${heading.id}`}
                   className={cn(
                     "rounded py-1.5 text-sm leading-5 text-slate-600 hover:bg-slate-100 hover:text-blue-700 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-blue-300",
-                    heading.level === 3 ? "pl-5 pr-2" : "px-2",
+                    heading.level === 3 ? "pr-2 pl-5" : "px-2"
                   )}
                 >
                   {heading.title}

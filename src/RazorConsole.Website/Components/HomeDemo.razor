@@ -1,0 +1,23 @@
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+@using Spectre.Console
+
+<Rows>
+    <Markup Content="Use any key, then hover or click." Foreground="Color.Grey70" />
+    <div data-focusable="true" data-focus-key="home-demo"
+         @onkeydown="OnKey" @onclick="() => _clicks++"
+         @onmouseenter="() => _hovered = true"
+         @onmouseleave="() => _hovered = false">
+        <Panel Width="34" Height="3"
+               BorderColor="@(_hovered ? Color.Yellow : Color.DeepSkyBlue1)">
+            <Markup Content="@($"Key: {_key} · Clicks: {_clicks}")" />
+        </Panel>
+    </div>
+</Rows>
+
+@code {
+    private bool _hovered;
+    private int _clicks;
+    private string _key = "none";
+    private void OnKey(KeyboardEventArgs e) => _key = e.Key;
+}

@@ -12,14 +12,14 @@ import { getFullSitePath, stripMarkdown } from "@/lib/utils"
 const docsModules = import.meta.glob("/src/docs/*.md", { query: "?raw", import: "default" })
 
 export const meta: MetaFunction<typeof loader> = ({ data, matches, location }) => {
-  const rootMeta = matches.find((m) => m.id === "root")?.meta || [];
-  const pageUrl = `${getFullSitePath()}${location.pathname}`;
+  const rootMeta = matches.find((m) => m.id === "root")?.meta || []
+  const pageUrl = `${getFullSitePath()}${location.pathname}`
 
-  const topic = data;
-  const title = topic ? `${topic.title} | RazorConsole Docs` : "Documentation | RazorConsole";
-  const description = topic ?
-    stripMarkdown(topic.content).slice(0, 150) + "..." :
-    "Explore RazorConsole documentation to learn how to build powerful terminal user interfaces.";
+  const topic = data && !(data instanceof Response) ? data : undefined
+  const title = topic ? `${topic.title} | RazorConsole Blog` : "Blog | RazorConsole"
+  const description = topic
+    ? stripMarkdown(topic.content).slice(0, 150) + "..."
+    : "Explore RazorConsole guides for building rich terminal user interfaces."
 
   return [
     ...rootMeta,
@@ -28,8 +28,8 @@ export const meta: MetaFunction<typeof loader> = ({ data, matches, location }) =
     { name: "description", content: description },
     { property: "og:title", content: title },
     { property: "og:description", content: description },
-  ];
-};
+  ]
+}
 
 function extractHeadings(markdown: string): Heading[] {
   const lines = markdown.split(/\r?\n/)
@@ -59,15 +59,15 @@ function extractHeadings(markdown: string): Heading[] {
   return headings
 }
 
-type Topic = { id: string; title: string; content: string; filePath: string; headings: Heading[]; }
+type Topic = { id: string; title: string; content: string; filePath: string; headings: Heading[] }
 async function loadMarkdownContent(topicId: string) {
-  const topicMeta = docTopicIds.find(t => t.id === topicId)
+  const topicMeta = docTopicIds.find((t) => t.id === topicId)
   const meta = topicMeta || docTopicIds[0]
 
   const modules = docsModules
-  const fileName = meta.filePath.split('/').pop()?.toLowerCase()
+  const fileName = meta.filePath.split("/").pop()?.toLowerCase()
 
-  const loadFileKey = Object.keys(modules).find(k => k.toLowerCase().endsWith(`/${fileName}`))
+  const loadFileKey = Object.keys(modules).find((k) => k.toLowerCase().endsWith(`/${fileName}`))
   const loadFile = loadFileKey ? modules[loadFileKey] : null
 
   if (!loadFile) {
@@ -78,31 +78,47 @@ async function loadMarkdownContent(topicId: string) {
   return {
     ...meta,
     content: rawContent,
-    headings: extractHeadings(rawContent)
+    headings: extractHeadings(rawContent),
   }
 }
 
-export async function loader({ params }: LoaderFunctionArgs) {
-  if (!params.topicId || params.topicId === "quick-start") return redirect("/docs/tutorial/hello-world")
-  if (releaseNoteIds.some((note) => note.id === params.topicId)) return redirect(`/release-notes/${params.topicId}`)
-  return await loadMarkdownContent(params.topicId || "quick-start")
+function isBlogRequest(request: Request) {
+  return /(?:^|\/)blog(?:\/|$)/.test(new URL(request.url).pathname)
 }
 
-export async function clientLoader({ params }: LoaderFunctionArgs) {
-  if (!params.topicId || params.topicId === "quick-start") return redirect("/docs/tutorial/hello-world")
-  if (releaseNoteIds.some((note) => note.id === params.topicId)) return redirect(`/release-notes/${params.topicId}`)
-  return await loadMarkdownContent(params.topicId || "quick-start")
+async function loadOrRedirect({ params, request }: LoaderFunctionArgs) {
+  if (!isBlogRequest(request)) {
+    if (!params.topicId || params.topicId === "quick-start") {
+      return redirect("/docs/tutorial/hello-world")
+    }
+    if (releaseNoteIds.some((note) => note.id === params.topicId)) {
+      return redirect(`/release-notes/${params.topicId}`)
+    }
+    return redirect(`/blog/${params.topicId}`)
+  }
+
+  const firstTopic = docTopicIds.find((topic) => topic.id !== "quick-start")!
+  if (!params.topicId || params.topicId === "quick-start") return redirect(`/blog/${firstTopic.id}`)
+  return await loadMarkdownContent(params.topicId)
 }
 
-clientLoader.hydrate = true;
+export async function loader(args: LoaderFunctionArgs) {
+  return loadOrRedirect(args)
+}
+
+export async function clientLoader(args: LoaderFunctionArgs) {
+  return loadOrRedirect(args)
+}
+
+clientLoader.hydrate = true
 
 export default function Docs() {
-  const activeTopic = useLoaderData<Topic>();
+  const activeTopic = useLoaderData<Topic>()
   const location = useLocation()
 
-  const topicsWithHeadings = docTopicIds.map(t => ({
+  const topicsWithHeadings = docTopicIds.map((t) => ({
     ...t,
-    headings: t.id === activeTopic.id ? activeTopic.headings : []
+    headings: t.id === activeTopic.id ? activeTopic.headings : [],
   }))
 
   useEffect(() => {
@@ -116,8 +132,12 @@ export default function Docs() {
   }, [location.hash, activeTopic.id])
 
   return (
-    <DocumentationShell headings={activeTopic.headings.filter((heading) => heading.level === 2 || heading.level === 3)}>
-      <article className="prose prose-slate max-w-none dark:prose-invert">
+    <DocumentationShell
+      headings={activeTopic.headings.filter(
+        (heading) => heading.level === 2 || heading.level === 3
+      )}
+    >
+      <article className="prose prose-slate dark:prose-invert max-w-none">
         <MarkdownRenderer content={activeTopic.content} />
       </article>
       <EditLink
