@@ -2,6 +2,7 @@ import { useId } from "react"
 import XTermPreview from "@/components/components/XTermPreview"
 import ConsoleTitle from "@/components/home/ConsoleTitle"
 import CodeBlock from "@/components/ui/CodeBlock"
+import { CopyButton } from "@/components/ui/CopyButton"
 
 const demoSnippet = `<div data-focusable="true"
      @onkeydown="OnKey"
@@ -34,24 +35,39 @@ export default function HeroSection() {
         </p>
       </div>
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-2 lg:items-stretch">
-        <div className="min-w-0">
-          <div className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
-            Interactive Razor in 15 lines
-          </div>
-          <CodeBlock
-            code={demoSnippet}
-            language="razor"
-            showCopy
-            className="my-0 h-[320px] overflow-auto"
-          />
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-950/5 dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex h-12 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
+          <span className="text-sm font-semibold text-slate-900 dark:text-white">Live Demo</span>
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+            Interactive
+          </span>
         </div>
 
-        <div className="min-w-0">
-          <div className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
-            Live preview · use the keyboard or mouse
+        <div className="grid min-w-0 lg:grid-cols-2">
+          <div className="min-w-0 border-b border-slate-200 lg:border-r lg:border-b-0 dark:border-slate-800">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
+              <span className="text-xs font-semibold tracking-wide text-slate-600 uppercase dark:text-slate-300">
+                Code
+              </span>
+              <CopyButton content={demoSnippet} />
+            </div>
+            <CodeBlock code={demoSnippet} language="razor" embedded className="h-[300px]" />
           </div>
-          <XTermPreview elementId={instanceId} componentId="HomeDemo" className="h-[320px]" />
+
+          <div className="min-w-0">
+            <div className="flex h-11 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
+              <span className="text-xs font-semibold tracking-wide text-slate-600 uppercase dark:text-slate-300">
+                Preview
+              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Keyboard + mouse</span>
+            </div>
+            <XTermPreview
+              elementId={instanceId}
+              componentId="HomeDemo"
+              embedded
+              className="h-[300px]"
+            />
+          </div>
         </div>
       </div>
     </section>

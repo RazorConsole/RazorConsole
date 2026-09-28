@@ -16,6 +16,7 @@ import { useResolvedTheme } from "@/hooks/useTheme"
 interface XTermPreviewProps {
   elementId: string
   componentId?: string
+  embedded?: boolean
   className?: string
   style?: React.CSSProperties
 }
@@ -70,6 +71,7 @@ const TERMINAL_THEME = {
 export default function XTermPreview({
   elementId,
   componentId = elementId,
+  embedded = false,
   className = "",
   style,
 }: XTermPreviewProps) {
@@ -108,16 +110,16 @@ export default function XTermPreview({
 
     async function startPreview() {
       if (terminalRef.current === null) return
-      
+
       setError(null)
       setIsLoading(true)
-      
+
       try {
         const { Terminal } = await import("xterm")
         const { FitAddon } = await import("@xterm/addon-fit")
 
         if (cancelled) return
-        
+
         const term = new Terminal({
           fontFamily: "'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace",
           fontSize: 14,
@@ -213,7 +215,7 @@ export default function XTermPreview({
 
   // Render empty placeholder if not mounted (SSG)
   if (!isMounted) {
-    return <div className={className} style={{ minHeight: '300px', ...style }} />
+    return <div className={className} style={{ minHeight: "300px", ...style }} />
   }
 
   if (error) {
@@ -226,24 +228,25 @@ export default function XTermPreview({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 ${className}`}
+      className={`relative overflow-hidden ${embedded ? "" : "rounded-xl border border-slate-200 dark:border-slate-800"} ${className}`}
       style={{
         backgroundColor: isDark ? TERMINAL_THEME.dark.background : TERMINAL_THEME.light.background,
         ...style,
       }}
     >
-      {/* Window Title Bar */}
-      <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-100 px-4 py-2 dark:border-[#1e1e1e] dark:bg-[#2d2d2d]">
-        <div className="flex gap-1.5">
-          <div className="h-3 w-3 rounded-full border border-[#e0443e] bg-[#ff5f56]" />
-          <div className="h-3 w-3 rounded-full border border-[#dea123] bg-[#ffbd2e]" />
-          <div className="h-3 w-3 rounded-full border border-[#1aab29] bg-[#27c93f]" />
+      {!embedded && (
+        <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-100 px-4 py-2 dark:border-[#1e1e1e] dark:bg-[#2d2d2d]">
+          <div className="flex gap-1.5">
+            <div className="h-3 w-3 rounded-full border border-[#e0443e] bg-[#ff5f56]" />
+            <div className="h-3 w-3 rounded-full border border-[#dea123] bg-[#ffbd2e]" />
+            <div className="h-3 w-3 rounded-full border border-[#1aab29] bg-[#27c93f]" />
+          </div>
+          <div className="flex-1 text-center font-sans text-xs font-medium text-slate-500 select-none">
+            RazorConsole
+          </div>
+          <div className="w-12" />
         </div>
-        <div className="flex-1 text-center font-sans text-xs font-medium text-slate-500 select-none">
-          RazorConsole
-        </div>
-        <div className="w-12" /> {/* Spacer for centering */}
-      </div>
+      )}
 
       {isLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/50 text-white">
@@ -257,7 +260,7 @@ export default function XTermPreview({
           backgroundColor: isDark
             ? TERMINAL_THEME.dark.background
             : TERMINAL_THEME.light.background,
-          height: "calc(100% - 48px)",
+          height: embedded ? "100%" : "calc(100% - 48px)",
           width: "calc(100% - 24px)",
           margin: "auto",
           padding: "12px 0",

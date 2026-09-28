@@ -34,6 +34,7 @@ interface CodeBlockProps {
   code: string
   language?: BundledLanguage
   showCopy?: boolean
+  embedded?: boolean
   className?: string
 }
 
@@ -41,6 +42,7 @@ function CodeBlock({
   code,
   language = "csharp",
   showCopy = false,
+  embedded = false,
   className = "",
 }: CodeBlockProps) {
   const html = useMemo(() => {
@@ -64,7 +66,7 @@ function CodeBlock({
 
   return (
     <div
-      className={`group relative my-6 overflow-auto rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm dark:border-slate-700 dark:bg-slate-900 ${className}`}
+      className={`group relative overflow-auto bg-slate-100 p-4 text-sm dark:bg-slate-900 ${embedded ? "" : "my-6 rounded-xl border border-slate-200 dark:border-slate-700"} ${className}`}
     >
       {showCopy && (
         <div className="absolute top-3 right-3 z-10 opacity-0 transition-opacity group-hover:opacity-100">

@@ -8,7 +8,7 @@ export default function GallerySection() {
     <Card className="overflow-hidden border-violet-200 dark:border-violet-900/70">
       <CardContent className="flex flex-col gap-6 bg-gradient-to-br from-violet-50 via-white to-blue-50 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8 dark:from-violet-950/40 dark:via-slate-950 dark:to-blue-950/30">
         <div className="flex gap-4">
-          <div className="mt-1 rounded-xl bg-violet-100 p-3 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
+          <div className="mt-1 shrink-0 self-start rounded-xl bg-violet-100 p-3 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
             <Images className="h-6 w-6" aria-hidden="true" />
           </div>
           <div>
