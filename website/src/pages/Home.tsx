@@ -1,6 +1,7 @@
 import HeroSection from "@/components/home/HeroSection"
 import GallerySection from "@/components/home/GallerySection"
 import QuickStartSection from "@/components/home/QuickStartSection"
+import FaqSection from "@/components/home/FaqSection"
 import type { MetaFunction } from "react-router"
 import { getPageUrl } from "@/lib/utils"
 
@@ -31,6 +32,8 @@ export default function Home() {
         <QuickStartSection />
 
         <GallerySection />
+
+        <FaqSection />
       </div>
     </div>
   )

@@ -227,6 +227,11 @@ or the available session tools. Public research does not supply private query or
 See `scripts/README.md` for the recorded research status and the distinction between product-fit
 priorities and measured search demand.
 
+The homepage keeps its stable H1 above the interactive Code/Preview, followed by full-width benefit
+cards. Its final content section uses native `details`/`summary` for keyboard-accessible FAQs;
+all answers and documentation links are present in the initial HTML. Static regression checks cover
+this reading order, the exact H1, complete answers, and the existing site-wide link/heading rules.
+
 ## License
 
 MIT License - see the [LICENSE](https://github.com/RazorConsole/RazorConsole/blob/main/LICENSE) file in the root of the repository.

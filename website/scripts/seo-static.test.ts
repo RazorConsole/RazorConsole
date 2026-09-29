@@ -41,7 +41,7 @@ test("all indexable HTML has one self-canonical, readable metadata and one meani
 })
 
 test("home positioning and representative routes exist before JavaScript", () => {
-  assert.deepEqual(home.headings, ["Build C# terminal UIs with Razor components"])
+  assert.deepEqual(home.headings, ["Build TUI with Razor Component"])
   const html = readFileSync(home.file, "utf8")
   for (const text of ["Ink for .NET", "keyboard", "mouse", "experimental", "NativeAOT", "Preview", "google-site-verification"]) {
     assert.ok(html.includes(text), `Missing homepage content: ${text}`)
@@ -55,6 +55,45 @@ test("home positioning and representative routes exist before JavaScript", () =>
   assert.ok(tableApi.links.includes(`${siteBase}/components/table/`))
   assert.equal(tableApi.ogTitle, tableApi.title)
   assert.equal(tableApi.ogDescription, tableApi.description)
+})
+
+test("homepage initial DOM puts the demo before benefit cards and complete FAQ answers last", () => {
+  const dom = new JSDOM(readFileSync(home.file, "utf8"))
+  try {
+    const document = dom.window.document
+    const heading = document.querySelector("#home-hero-title")!
+    const demo = document.querySelector("#home-demo")!
+    const benefits = document.querySelector('section[aria-labelledby="why-razorconsole"]')!
+    const faq = document.querySelector('section[aria-labelledby="home-faq-title"]')!
+    const follows = dom.window.Node.DOCUMENT_POSITION_FOLLOWING
+    assert.ok(heading && demo && benefits && faq)
+    assert.ok(heading.compareDocumentPosition(demo) & follows)
+    assert.ok(demo.compareDocumentPosition(benefits) & follows)
+    assert.ok(benefits.compareDocumentPosition(faq) & follows)
+    assert.equal(demo.parentElement, benefits.parentElement, "Demo and benefits share the full-width parent")
+    assert.equal(benefits.querySelectorAll("h3").length, 3)
+    assert.equal(faq.parentElement?.lastElementChild, faq, "FAQ is the final homepage content block")
+    assert.equal(document.querySelectorAll("h1").length, 1)
+    assert.equal(document.querySelectorAll("a a").length, 0)
+    const questions = [
+      ["What is RazorConsole?", "terminal cells, not browser HTML"],
+      ["Do I need a web server or Blazor hosting?", "without a web server"],
+      ["How is it related to Spectre.Console?", "rendering foundation"],
+      ["Does it support mouse and keyboard input?", "enable mouse reporting"],
+      ["Can I publish with NativeAOT?", "experimental support"],
+      ["How do I get started?", "interactive tutorial"],
+    ]
+    const details = [...faq.querySelectorAll("details")]
+    assert.equal(details.length, questions.length)
+    details.forEach((item, index) => {
+      assert.equal(item.firstElementChild?.tagName, "SUMMARY")
+      assert.equal(item.querySelector("summary")?.textContent, questions[index][0])
+      assert.ok(item.querySelector("p")?.textContent?.includes(questions[index][1]))
+      assert.ok(item.querySelector("a[href]"), "Each answer links to existing documentation")
+    })
+  } finally {
+    dom.window.close()
+  }
 })
 
 test("every emitted internal page link resolves to generated output and uses a final slash", () => {
