@@ -44,12 +44,14 @@ its .NET renderer.
 `tutorial_navigation.py` uses pinned Python Playwright and real Chromium against the **built**
 site. It imports the emitted Tutorial browser module and invokes its client loader (valid chapter,
 missing-chapter redirect, and 404), then clicks the homepage Docs, Quick Start, and FAQ entries,
-switches chapters, and exercises back/forward. A document sentinel and request checks reject
+checks actual Hello World keyboard input and restart, switches chapters, and exercises back/forward.
+A document sentinel and request checks reject
 full-page reloads masquerading as client navigation. The missing-chapter redirect must retain the
 deployment base. CI runs it against both `/` preview and `/RazorConsole/` production builds.
-Uncaught browser errors are logged with stacks for diagnosis. These tests assert module execution
-and navigation outcomes, not a blanket absence of errors from the separate WASM/xterm preview
-lifecycle; use the terminal interaction checks below for that surface.
+Browser errors are logged with stacks for diagnosis; reference errors and errors identifying the
+Tutorial/route module explicitly fail the test. The module invocation, DOM assertions, and no-reload
+checks also fail independently of that diagnostic filter. This is not a blanket certification of
+every WASM/xterm lifecycle case; use the additional terminal interaction checks below for that surface.
 
 After building the website, run from `website`:
 

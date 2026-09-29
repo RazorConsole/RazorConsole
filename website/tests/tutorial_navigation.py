@@ -1,6 +1,7 @@
 """Exercise the built browser route, not the source loader or a development server."""
 
 import os
+import re
 from pathlib import Path
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
@@ -27,6 +28,12 @@ class StaticHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         pass
+
+    def copyfile(self, source, outputfile):
+        try:
+            super().copyfile(source, outputfile)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            print(f"Browser disconnected while streaming {self.path}", flush=True)
 
 
 class TutorialNavigationTests(unittest.TestCase):
@@ -56,7 +63,15 @@ class TutorialNavigationTests(unittest.TestCase):
         self.context.route("https://api.github.com/**", lambda route: route.fulfill(
             json={"stargazers_count": 0}))
         self.page = self.context.new_page()
-        self.page.on("pageerror", lambda error: print(f"Browser page error: {error.stack}", flush=True))
+        self.route_errors = []
+
+        def record_error(message):
+            print(f"Browser error: {message}", flush=True)
+            if re.search(r"ReferenceError|/assets/Tutorial-[^\s]+\.js|route module|dynamically imported module", message):
+                self.route_errors.append(message)
+
+        self.page.on("pageerror", lambda error: record_error(error.stack))
+        self.page.on("console", lambda message: record_error(message.text) if message.type == "error" else None)
         self.page.goto(self.origin + BASE)
         self.page.get_by_role("button", name="Docs", exact=True).click()
         expect(self.page.locator("#desktop-docs-navigation")).to_be_visible()
@@ -91,6 +106,7 @@ class TutorialNavigationTests(unittest.TestCase):
             "valid": None, "missing": 302,
             "destination": "/docs/tutorial/hello-world/", "invalid": 404,
         })
+        self.assertEqual(self.route_errors, [])
 
     def test_home_entries_chapters_and_history_are_client_navigations(self):
         for entry in ["Docs", "Quick Start", "FAQ"]:
@@ -116,6 +132,15 @@ class TutorialNavigationTests(unittest.TestCase):
                             faq.get_by_text("How do I get started?", exact=True).click()
                             faq.get_by_role("link", name="interactive tutorial", exact=True).click()
                     self.assert_chapter("hello-world", "Chapter 1 \u00b7 Hello World")
+                    terminal = self.page.locator(".xterm")
+                    expect(terminal).to_contain_text(
+                        "Try the focused button below.", use_inner_text=True, timeout=30000)
+                    terminal.locator("textarea").press("Enter")
+                    expect(terminal).to_contain_text(
+                        "Button pressed 1 time.", use_inner_text=True)
+                    self.page.get_by_role("button", name="Restart preview", exact=True).click()
+                    expect(terminal).to_contain_text(
+                        "Try the focused button below.", use_inner_text=True, timeout=30000)
                     self.page.get_by_role("navigation", name="Adjacent tutorial chapters").get_by_role(
                         "link", name="Chapter 2", exact=True).click()
                     self.assert_chapter("state-and-events", "Chapter 2 \u00b7 State and Events")
@@ -130,12 +155,14 @@ class TutorialNavigationTests(unittest.TestCase):
                         "Build TUI with Razor Component")
                     self.assertEqual(self.page.evaluate("window.__tutorialNavigationSentinel"), "same-document")
                     self.assertEqual(documents, [], "Navigation must not fall back to reloading a document")
+                    self.assertEqual(self.route_errors, [])
                 finally:
                     self.page.remove_listener("request", on_request)
 
     def test_missing_chapter_redirect_keeps_the_deployment_base(self):
         self.page.goto(self.origin + BASE + "docs/tutorial/")
         self.assert_chapter("hello-world", "Chapter 1 \u00b7 Hello World")
+        self.assertEqual(self.route_errors, [])
 
 
 if __name__ == "__main__":
