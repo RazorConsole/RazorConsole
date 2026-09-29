@@ -34,6 +34,7 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
     private FocusManager.FocusSession? _focusSession;
     private Exception? _observerError;
     private long _frameNumber;
+    private long _lastCommittedCapture;
     private bool _disposed;
     private readonly bool _captureTerminalOutput;
     private readonly Queue<string> _terminalOutput = new();
@@ -43,7 +44,7 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
         get { lock (_terminalOutput) { return string.Concat(_terminalOutput); } }
     }
 
-    private TestTerminal(int width, int height, Action<IServiceCollection>? configureServices, bool captureTerminalOutput)
+    internal TestTerminal(int width, int height, Action<IServiceCollection>? configureServices = null, bool captureTerminalOutput = false)
     {
         _captureTerminalOutput = captureTerminalOutput;
         _terminalMonitor = new TerminalMonitor(width, height);
@@ -95,14 +96,14 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
     {
         ThrowIfDisposed();
         await _services.GetRequiredService<MouseEventManager>().HandleAsync(input, cancellationToken).ConfigureAwait(false);
-        Capture(_renderer.RefreshSnapshot());
+        Capture();
     }
 
     public async Task SendTerminalInputAsync(string data, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
         await _services.GetRequiredService<TerminalInputDispatcher>().HandleAsync(data, cancellationToken).ConfigureAwait(false);
-        Capture(_renderer.RefreshSnapshot());
+        Capture();
     }
 
     public static async Task<TestTerminal> StartAsync<
@@ -143,14 +144,14 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
             (modifiers & ConsoleModifiers.Control) != 0);
 
         await _keyboardEventManager.HandleKeyAsync(keyInfo, cancellationToken).ConfigureAwait(false);
-        Capture(_renderer.RefreshSnapshot());
+        Capture();
     }
 
     public void Resize(int width, int height)
     {
         ThrowIfDisposed();
         _terminalMonitor.Resize(width, height);
-        Capture(_renderer.RefreshSnapshot());
+        Capture();
     }
 
     public VNodeLayoutInfo GetLayout(string hookKey)
@@ -243,7 +244,7 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
     }
 
     public void OnNext(ConsoleRenderer.RenderSnapshot value)
-        => Capture(value);
+        => Capture();
 
     public ValueTask DisposeAsync()
     {
@@ -273,7 +274,7 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
             ? ParameterView.Empty
             : ParameterView.FromDictionary(new Dictionary<string, object?>(parameters, StringComparer.Ordinal));
         var renderSnapshot = await _renderer.MountComponentAsync<TComponent>(parameterView, cancellationToken).ConfigureAwait(false);
-        Capture(renderSnapshot);
+        Capture();
 
         var view = ConsoleViewResult.FromSnapshot(renderSnapshot);
         _liveContext = new ConsoleLiveDisplayContext(
@@ -284,29 +285,49 @@ internal sealed class TestTerminal : IObserver<ConsoleRenderer.RenderSnapshot>, 
         _focusSubscription = _renderer.Subscribe(_focusManager);
         _focusSession = _focusManager.BeginSession(_liveContext, view, _shutdown.Token);
         await _focusSession.InitializationTask.ConfigureAwait(false);
-        Capture(_renderer.RefreshSnapshot());
+        Capture();
     }
 
-    private void Capture(ConsoleRenderer.RenderSnapshot renderSnapshot)
+    private void Capture()
     {
-        if (renderSnapshot.Renderable is not WidgetCanvasRenderable renderable || renderSnapshot.Root is null)
+        if (CaptureSnapshot() is { } snapshot)
         {
-            return;
+            CommitSnapshot(snapshot);
         }
+    }
 
-        var canvas = renderable.PaintToCanvas();
-        var layouts = CollectHookLayouts(renderSnapshot.Root);
-        var snapshot = new TestTerminalSnapshot(
-            Interlocked.Increment(ref _frameNumber),
-            DateTimeOffset.UtcNow,
-            canvas,
-            _terminalMonitor.Width,
-            _terminalMonitor.Height,
-            CurrentFocusKey,
-            layouts);
+    internal TestTerminalSnapshot? CaptureSnapshot()
+        => _renderer.Dispatcher.InvokeAsync(() =>
+        {
+            // Notifications can arrive after a manual capture. Read current state, and
+            // serialize source acquisition with numbering rather than numbering stale input.
+            var renderSnapshot = _renderer.RefreshSnapshot();
+            if (renderSnapshot.Renderable is not WidgetCanvasRenderable renderable || renderSnapshot.Root is null)
+            {
+                return null;
+            }
 
+            return new TestTerminalSnapshot(
+                ++_frameNumber,
+                DateTimeOffset.UtcNow,
+                renderable.PaintToCanvas(),
+                _terminalMonitor.Width,
+                _terminalMonitor.Height,
+                CurrentFocusKey,
+                CollectHookLayouts(renderSnapshot.Root));
+        }).GetAwaiter().GetResult();
+
+    internal void CommitSnapshot(TestTerminalSnapshot snapshot)
+    {
         lock (_sync)
         {
+            if (snapshot.FrameNumber <= _lastCommittedCapture)
+            {
+                return;
+            }
+
+            // A deduplicated capture still supersedes any older in-flight capture.
+            _lastCommittedCapture = snapshot.FrameNumber;
             if (_frames.Count > 0 && IsEquivalent(_frames[^1], snapshot))
             {
                 return;
