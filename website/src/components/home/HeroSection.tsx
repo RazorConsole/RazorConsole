@@ -47,7 +47,6 @@ export default function HeroSection() {
               <CopyButton content={demoSnippet} />
             </div>
 
-            <WhyChooseSection />
             <CodeBlock code={demoSnippet} language="razor" embedded className="h-[300px]" />
           </div>
 
@@ -67,6 +66,7 @@ export default function HeroSection() {
           </div>
         </div>
       </div>
+      <WhyChooseSection />
     </section>
   )
 }
