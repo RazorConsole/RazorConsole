@@ -117,11 +117,6 @@ export function Footer() {
             <FooterHeader>Resources</FooterHeader>
             <ul className="space-y-3">
               <li>
-                <FooterLink to="/guides" icon={BookOpen} ariaLabel="C# terminal UI guides">
-                  C# terminal UI guides
-                </FooterLink>
-              </li>
-              <li>
                 <FooterLink
                   to="/docs/tutorial/hello-world"
                   icon={BookOpen}

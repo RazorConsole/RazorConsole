@@ -18,7 +18,7 @@ export default function FaqSection() {
             <p className={answerClass}>
               RazorConsole is a C#/.NET framework for terminal user interfaces built with Razor components.
               It renders to terminal cells, not browser HTML. See the{" "}
-              <Link className={linkClass} to="/guides/csharp-terminal-ui">C# terminal UI guide</Link>{" "}
+              <Link className={linkClass} to="/docs/tutorial/hello-world">interactive tutorial</Link>{" "}
               for an introduction.
             </p>
           </details>
@@ -42,7 +42,7 @@ export default function FaqSection() {
               Spectre.Console is part of RazorConsole's rendering foundation. RazorConsole adds a Razor
               component authoring and interaction model; it is not a replacement for every use of
               Spectre.Console. The{" "}
-              <Link className={linkClass} to="/guides/choosing-dotnet-tui">.NET TUI selection guide</Link>{" "}
+              <Link className={linkClass} to="/blog/choosing-dotnet-tui">.NET TUI comparison</Link>{" "}
               explains when to evaluate each approach.
             </p>
           </details>
@@ -78,11 +78,9 @@ export default function FaqSection() {
             <p className={answerClass}>
               Follow the{" "}
               <Link className={linkClass} to="/docs/tutorial/hello-world">interactive tutorial</Link>{" "}
-              to build your first component, then explore state, input, and layout. The{" "}
-              <Link className={linkClass} to="/guides/csharp-terminal-ui">getting-started guide</Link>{" "}
-              explains the main design choices, and the{" "}
+              to build your first component, then explore state, input, and layout. Browse{" "}
               <Link className={linkClass} to="/components">component examples</Link>{" "}
-              show what you can compose.
+              to see what you can compose.
             </p>
           </details>
         </Card>

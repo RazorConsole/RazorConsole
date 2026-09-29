@@ -43,13 +43,15 @@ test("all indexable HTML has one self-canonical, readable metadata and one meani
 test("home positioning and representative routes exist before JavaScript", () => {
   assert.deepEqual(home.headings, ["Build TUI with Razor Component"])
   const html = readFileSync(home.file, "utf8")
-  for (const text of ["Ink for .NET", "keyboard", "mouse", "experimental", "NativeAOT", "Preview", "google-site-verification"]) {
+  for (const text of ["keyboard", "mouse", "experimental", "NativeAOT", "Preview", "google-site-verification"]) {
     assert.ok(html.includes(text), `Missing homepage content: ${text}`)
   }
+  assert.doesNotMatch(html, /Ink for \.NET/)
   assert.ok(html.includes("jF1dcSGbDQJm6UY_MriNs2wHdnEGr_M1wZKiVciIdf8"), "Preserve the existing verification token")
-  for (const route of ["/components", "/gallery", "/showcase", "/collaborators", "/components/table", "/docs/tutorial/hello-world", "/blog/hot-reload", "/api", "/api/RazorConsole.Components.SpectreTable", "/release-notes/v0.5.0", "/guides", "/guides/csharp-terminal-ui", "/guides/choosing-dotnet-tui"]) {
+  for (const route of ["/components", "/gallery", "/showcase", "/collaborators", "/components/table", "/docs/tutorial/hello-world", "/blog/hot-reload", "/blog/choosing-dotnet-tui", "/api", "/api/RazorConsole.Components.SpectreTable", "/release-notes/v0.5.0"]) {
     assert.ok(find(route), `Missing canonical route: ${route}`)
   }
+  assert.equal(find("/guides"), undefined, "TUI Guides route was removed")
   assert.ok(home.links.includes(`${siteBase}/docs/tutorial/hello-world/`))
   const tableApi = find("/api/RazorConsole.Components.SpectreTable")!
   assert.ok(tableApi.links.includes(`${siteBase}/components/table/`))

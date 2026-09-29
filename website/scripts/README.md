@@ -128,9 +128,9 @@ until a property owner supplies or inspects those results.
 
 ## Search research record (29 September 2026 UTC)
 
-The two implemented guides target non-brand tasks: learning to build a **C# terminal UI** and
-choosing a **.NET TUI library**. Their order is provisional and based on product fit and the existing
-interactive tutorial, **not measured query volume, keyword difficulty, or an observed ranking**.
+The .NET TUI comparison article targets the non-brand task of choosing a terminal UI library. Its
+priority is provisional and based on product fit and the existing interactive tutorial, **not
+measured query volume, keyword difficulty, or an observed ranking**.
 
 An actual public Google Trends request compared `C# terminal UI`, `.NET TUI`, and `C# console UI`
 over the past five years, without a geography restriction:
@@ -144,9 +144,9 @@ that autocomplete does not necessarily reflect the most popular searches. Specia
 can affect interpretation; do not assume how the `C#` term was processed without actual results.
 
 The comparison article uses pinned official sources for Spectre.Console 0.57.2,
-Spectre.Console.Cli 0.55.0, Terminal.Gui v2.5.0, and an identified Ink commit. It distinguishes
-source-declared AOT compatibility from tested application behavior and does not claim competitor
-mouse support is absent. Citations and review date are included in the published article.
+Spectre.Console.Cli 0.55.0, and Terminal.Gui v2.5.0. It distinguishes source-declared AOT
+compatibility from tested application behavior and does not claim competitor mouse support is absent.
+Citations and review date are included in the published article.
 
 Remaining data work requires an authorized property owner to export non-brand queries, landing
 pages, impressions, and clicks from Search Console (with date range and filters recorded), or

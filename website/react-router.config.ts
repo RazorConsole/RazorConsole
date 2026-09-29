@@ -3,7 +3,6 @@ import { components } from "./src/data/components"
 import { apiItems } from "./src/data/api-docs"
 import { docTopicIds, releaseNoteIds } from "./src/data/docs-ids"
 import { pagePath } from "./src/lib/site-paths"
-import { guides } from "./src/data/guides"
 
 export default {
   appDirectory: "src",
@@ -48,8 +47,6 @@ export default {
       ...tutorialPaths,
       ...legacyTutorialPaths,
       ...releasePaths,
-      "/guides",
-      ...guides.map((guide) => `/guides/${guide.slug}`),
     ].map(pagePath))]
   },
 } satisfies Config

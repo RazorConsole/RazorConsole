@@ -217,9 +217,8 @@ versus Google-selected canonical separately. A successful live fetch is not proo
 
 ### Search-led content and evidence
 
-The `/guides/` hub links an introductory C# terminal UI guide to the existing interactive tutorial
-and a .NET TUI selection guide. They prioritize programming-model fit, built-in input, and native
-distribution rather than unsupported “best framework” or speed claims. Comparison citations identify
+The blog includes a .NET TUI comparison article covering programming-model fit, built-in input, and
+native distribution rather than unsupported “best framework” or speed claims. Its citations identify
 the documentation/version scope and should be rechecked when updating dependencies.
 
 No Search Console, Keyword Planner, or Google account integration is configured in this repository

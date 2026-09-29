@@ -8,7 +8,7 @@ assert.ok(/^https?:$/.test(site.protocol), "Provide an HTTP(S) site URL")
 const base = requested.replace(/\/$/, "")
 const routes = [
   "/", "/components/table/", "/docs/tutorial/hello-world/", "/blog/hot-reload/",
-  "/api/RazorConsole.Components.SpectreTable/", "/release-notes/v0.5.0/", "/guides/",
+  "/api/RazorConsole.Components.SpectreTable/", "/release-notes/v0.5.0/", "/blog/choosing-dotnet-tui/",
 ]
 const failures: string[] = []
 

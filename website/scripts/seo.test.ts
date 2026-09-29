@@ -5,7 +5,6 @@ import { pagePath, pageUrl, productionSite } from "../src/lib/site-paths.ts"
 import { apiDescription, ensurePageHeading, sanitizeDocText } from "../src/lib/doc-utils.ts"
 import { docTopicIds } from "../src/data/docs-ids.ts"
 import { sitemapXml } from "./sitemap.ts"
-import { guides } from "../src/data/guides.ts"
 import { documentHref } from "../src/lib/document-links.ts"
 
 test("page URLs normalize base paths, index aliases, dotted API symbols and slashes", () => {
@@ -81,19 +80,17 @@ test("sitemap serialization excludes nonindexable pages and rejects invalid or d
   }
 })
 
-test("search-led guides have a single H1 and link to real registered content", () => {
+test("the .NET TUI comparison blog post has a single H1 and links to registered content", () => {
   const allowed = new Set([
-    "/components/", "/api/", "/guides/",
-    ...guides.map((guide) => `/guides/${guide.slug}/`),
+    "/components/", "/api/",
     ...docTopicIds.map((topic) => `/blog/${topic.id}/`),
     ...["hello-world", "state-and-events", "text-input-and-focus", "mouse-events", "widget-layout-and-resize", "routing", "async-work", "complete-app"].map((slug) => `/docs/tutorial/${slug}/`),
   ])
-  for (const guide of guides) {
-    const content = readFileSync(new URL(`../src/guides/${guide.slug}.md`, import.meta.url), "utf8")
-    assert.equal(content.match(/^# .+/gm)?.length, 1, guide.slug)
-    for (const link of content.matchAll(/\]\((\/[^)]+)\)/g)) {
-      assert.ok(allowed.has(link[1]), `${guide.slug}: unknown link ${link[1]}`)
-    }
-    for (const term of ["Razor", "keyboard", "mouse", "NativeAOT"]) assert.ok(content.includes(term), `${guide.slug}: ${term}`)
+  const content = readFileSync(new URL("../src/docs/choosing-dotnet-tui.md", import.meta.url), "utf8")
+  assert.equal(content.match(/^# .+/gm)?.length, 1)
+  for (const link of content.matchAll(/\]\((\/[^)]+)\)/g)) {
+    assert.ok(allowed.has(link[1]), `Unknown link ${link[1]}`)
   }
+  for (const term of ["Razor", "keyboard", "mouse", "NativeAOT"]) assert.ok(content.includes(term), term)
+  assert.doesNotMatch(content, /\bInk\b/)
 })

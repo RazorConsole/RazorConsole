@@ -16,8 +16,7 @@ export default function WhyChooseSection() {
           </CardHeader>
           <CardContent className="flex-1 leading-relaxed text-slate-600 dark:text-slate-300">
             <p>Use the component model you know from web development for interactive tools,
-              dashboards, and forms. Think "Ink for .NET" as an analogy for component-based TUIs,
-              not an official port, affiliation, or API compatibility claim.</p>
+              dashboards, and forms.</p>
           </CardContent>
           <CardFooter className="block text-sm font-medium">
             <Link className={linkClass} to="/docs/tutorial/hello-world">Build your first TUI</Link>
@@ -53,7 +52,7 @@ export default function WhyChooseSection() {
       <p className="mx-auto mt-6 max-w-3xl text-center text-sm leading-relaxed text-slate-600 dark:text-slate-300">
         Choose RazorConsole when you want Razor composition and event-driven interaction in a C# terminal UI.
         Spectre.Console is part of its rendering foundation, not a mutually exclusive alternative.
-        {" "}<Link className={linkClass} to="/guides/choosing-dotnet-tui">
+        {" "}<Link className={linkClass} to="/blog/choosing-dotnet-tui">
           Compare .NET terminal UI approaches
         </Link>.
       </p>

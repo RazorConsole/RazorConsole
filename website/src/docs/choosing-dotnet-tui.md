@@ -5,7 +5,7 @@ way you will distribute the finished app. There is no universal winner between R
 direct Spectre.Console, and Terminal.Gui. Prototype a representative screen and test it in your
 target terminal.
 
-This guide checked upstream sources on **29 September 2026 (UTC)**. Competitor claims below are
+This comparison checked upstream sources on **29 September 2026 (UTC)**. Competitor claims below are
 bounded to **Spectre.Console 0.57.2**, the separate **Spectre.Console.Cli 0.55.0** package, and
 **Terminal.Gui v2.5.0**. These versions are comparison references, not RazorConsole dependency
 requirements. Recheck newer versions before deciding.
@@ -21,11 +21,6 @@ requirements. Recheck newer versions before deciding.
 Spectre.Console is part of RazorConsole's rendering foundation, not a wholly unrelated,
 mutually exclusive replacement. Choosing RazorConsole means choosing a component-oriented
 authoring model, not rejecting Spectre.Console.
-
-For developers who know Ink, “Ink for .NET” is a shorthand analogy for RazorConsole's workflow.
-[Ink describes itself as a React renderer for the terminal](https://github.com/vadimdemedes/ink/blob/7cd7fd94eeaf018d6acaeac82a562f5785fb1c4e/readme.md#L14-L24).
-RazorConsole uses Razor: it is not an official Ink port, does not imply affiliation or React/API
-compatibility, and should not be assumed to implement browser CSS.
 
 Sources: [Spectre.Console features](https://github.com/spectreconsole/spectre.console/blob/0.57.2/README.md#L18-L27),
 [Terminal.Gui features and application example](https://github.com/tui-cs/Terminal.Gui/blob/v2.5.0/README.md#L14-L65),
@@ -87,6 +82,5 @@ is specific to its target platform, not one executable for every operating syste
 4. Evaluate accessibility, terminal compatibility, maintainability, and measured startup in your
    own application rather than relying on a generic ranking.
 
-If Razor composition fits, start with [the C# terminal UI guide](/guides/csharp-terminal-ui/),
-then run the [interactive tutorial](/docs/tutorial/hello-world/) and browse
-[component examples](/components/). The [guide hub](/guides/) connects these learning paths.
+If Razor composition fits, run the [interactive tutorial](/docs/tutorial/hello-world/) and browse
+[component examples](/components/).

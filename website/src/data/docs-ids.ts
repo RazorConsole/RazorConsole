@@ -64,6 +64,11 @@ export const docTopicIds = [
         title: "Component Gallery",
         filePath: "website/src/docs/component-gallery.md",
     },
+    {
+        id: "choosing-dotnet-tui",
+        title: "Choosing a .NET terminal UI library",
+        filePath: "website/src/docs/choosing-dotnet-tui.md",
+    },
 ]
 
 export const releaseNoteIds = [
