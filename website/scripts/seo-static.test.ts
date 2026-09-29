@@ -99,7 +99,7 @@ test("homepage initial DOM puts the demo before benefit cards and complete FAQ a
   }
 })
 
-test("0.6.0 release preparation and introduction are linked and explicitly unreleased", () => {
+test("0.6.0 notes retain release status while the introduction explains mouse input", () => {
   const release = find("/release-notes/v0.6.0")
   const blog = find("/blog/whats-new-in-razorconsole-0-6-0")
   assert.ok(release, "Missing 0.6.0 release notes")
@@ -107,7 +107,11 @@ test("0.6.0 release preparation and introduction are linked and explicitly unrel
   assert.match(release.title, /Unreleased/)
   assert.deepEqual(blog.headings, ["what's new in RazorConsole 0.6.0"])
   assert.ok(readFileSync(release.file, "utf8").includes("Status: Unreleased - release preparation"))
-  assert.ok(readFileSync(blog.file, "utf8").includes("0.6.0 is not yet published"))
+  const blogHtml = readFileSync(blog.file, "utf8")
+  assert.doesNotMatch(blogHtml, /not yet published|Release preview:/)
+  for (const text of ["Mouse events join keyboard input", "@onclick", "@onwheel", "EnableMouseEvents", "off by default", "terminal cells"]) {
+    assert.ok(blogHtml.includes(text), `Missing mouse introduction: ${text}`)
+  }
   assert.ok(release.links.includes(`${siteBase}/blog/whats-new-in-razorconsole-0-6-0/`))
   assert.ok(blog.links.includes(`${siteBase}/release-notes/v0.6.0/`))
 })

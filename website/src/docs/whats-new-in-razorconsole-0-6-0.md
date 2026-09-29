@@ -1,8 +1,8 @@
 # what's new in RazorConsole 0.6.0
 
-**Release preview: 0.6.0 is not yet published.** This article introduces the changes being prepared from `main`, relative to the stable 0.5.0 release. For the complete change list and scope, read the [0.6.0 release notes](/release-notes/v0.6.0/).
+RazorConsole 0.6.0 brings a new default layout engine, terminal mouse events, native app distribution, and an interactive learning path. This article introduces the changes relative to 0.5.0. For the complete change list and scope, read the [0.6.0 release notes](/release-notes/v0.6.0/).
 
-RazorConsole lets you build terminal applications with Razor components: keep state and event handlers close to your UI, compose reusable components, and render into terminal cells rather than browser HTML. Version 0.6.0 concentrates on three practical improvements: taking ownership of layout, making the official apps easier to try, and teaching the programming model through working examples.
+RazorConsole lets you build terminal applications with Razor components: keep state and event handlers close to your UI, compose reusable components, and render into terminal cells rather than browser HTML. Version 0.6.0 concentrates on taking ownership of layout, connecting mouse input to components, making the official apps easier to try, and teaching the programming model through working examples.
 
 ## WidgetLayout becomes the default
 
@@ -14,20 +14,32 @@ For application authors, the important consequence is to **check layout and inte
 
 The legacy renderer is still available for comparison. In PowerShell, set this before launching your application:
 
-```powershell
+```text
 $env:RAZORCONSOLE_RENDERING_PIPELINE = "LegacySpectre"
 dotnet run
 ```
 
 Remove the override when you want to return to WidgetLayout:
 
-```powershell
+```text
 Remove-Item Env:RAZORCONSOLE_RENDERING_PIPELINE
 ```
 
-This is a rendering fallback, not an API compatibility layer. Custom translators or other rendering extensions may need changes even when you select the legacy pipeline. The [Widget Layout guide](/blog/widget-layout/) and [custom translator guide](/blog/custom-translators/) are the next stops for migration details.
+Existing `FlexBox`, `ITranslationMiddleware`, and `TranslationContext` APIs remain available. The important migration is behavioral: WidgetLayout does not invoke custom Spectre translators for every widget, and terminal/layout defaults change. The [Widget Layout guide](/blog/widget-layout/) and [custom translator guide](/blog/custom-translators/) explain how to adapt rendering extensions.
 
 The engine work landed in [#339](https://github.com/RazorConsole/RazorConsole/pull/339), including regression coverage for rendering and scrolling. There are no new benchmark results here, so the change should not be read as a measured performance claim.
+
+## Mouse events join keyboard input
+
+RazorConsole 0.6.0 adds opt-in terminal mouse support, backed by native Windows and Unix input handling. WidgetLayout supplies the element bounds used to route terminal coordinates to the component under the pointer, so input and layout share the same view of the screen ([#339](https://github.com/RazorConsole/RazorConsole/pull/339)).
+
+Components can use familiar Razor handlers: `@onclick`, `@onmousedown`, `@onmouseup`, `@onmousemove`, `@onmouseenter`, `@onmouseleave`, and `@onwheel`. That opens up clickable controls, hover feedback, dragging, and wheel scrolling without giving up keyboard interaction.
+
+Enable `ConsoleAppOptions.ConsoleLiveDisplayOptions.EnableMouseEvents` in your host configuration. Mouse events are **off by default**, and enabling them also activates the alternate screen. Terminal mouse reporting must be supported by the terminal you run in.
+
+Handlers receive `MouseEventArgs`, or `WheelEventArgs` for wheel input, from `Microsoft.AspNetCore.Components.Web`. The names are familiar, but the coordinates are terminal cells, not browser pixels: `ClientX` and `ClientY` are zero-based terminal positions, while `OffsetX` and `OffsetY` are relative to the handling node. Wheel events use line-based `DeltaY` values (`DeltaMode = 1`).
+
+The event routing also supports left-click focus and drag capture. For example, `Select` options can be clicked, `Scrollable` responds to the wheel, and Snake demonstrates a draggable speed control. These interactions complement Tab and keyboard navigation rather than replace them. Try the [mouse-events tutorial](/docs/tutorial/mouse-events/) to explore the model; this is not a promise of complete browser pointer-event parity or identical behavior in every terminal.
 
 ## Try Gallery and Snake as native apps
 
@@ -43,7 +55,7 @@ The installer work also addresses the Windows installation problem. See [#345](h
 
 NativeAOT can make an app runnable without a separately installed .NET runtime. It does **not** remove platform, terminal, trimming, dependency, or asset considerations. Support remains experimental, and a successful native build is not proof that every interaction works on every terminal. Review the [NativeAOT guide](/blog/native-aot/) before applying the same approach to your own application.
 
-Because 0.6.0 is still being prepared, the stable channel does not yet select these 0.6.0 artifacts. The [Gallery documentation](/blog/component-gallery/) describes the available installation paths.
+The [Gallery documentation](/blog/component-gallery/) describes the available installation paths.
 
 ## Learn through eight interactive chapters
 
@@ -74,7 +86,7 @@ One fix that is **not** included is the pending Windows 10 rendering change: [#3
 
 ## Preparing an existing app for 0.6.0
 
-After the stable package is published, update your application's `RazorConsole.Core` reference to `0.6.0`. Then review the [release notes' migration section](/release-notes/v0.6.0/#upgrade--migration), rebuild any rendering extensions, and compare the default and legacy pipelines where useful.
+When upgrading, update your application's `RazorConsole.Core` reference to `0.6.0`. Then review the [release notes' migration section](/release-notes/v0.6.0/#upgrade--migration), rebuild any rendering extensions, and compare the default and legacy pipelines where useful. Alternate-screen rendering and cursor hiding now default to on; mouse input remains a separate opt-in.
 
 For NativeAOT applications, test the published binary on the platform and terminal you intend to support, not only a framework-dependent development build. For new applications, begin with the [interactive tutorial](/docs/tutorial/hello-world/) and use the Gallery to explore the controls.
 
