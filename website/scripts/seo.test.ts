@@ -33,6 +33,9 @@ test("absolute legacy documentation links resolve to canonical local routes in p
     assert.equal(documentHref(`${productionSite}/components`, base), `${prefix}/components/`)
     assert.equal(documentHref(`${productionSite}/docs/native-aot#publish`, base), `${prefix}/blog/native-aot/#publish`)
     assert.equal(documentHref(`${productionSite}/raw/guide.md`, base), `${prefix}/raw/guide.md`)
+    assert.equal(documentHref(`${productionSite}/components/Table.md`, base), `${prefix}/components/Table.md`)
+    assert.equal(documentHref(`${productionSite}?q=table#preview`, base), `${prefix}/?q=table#preview`)
+    assert.equal(documentHref(`${productionSite}-other/components/Align`, base), `${productionSite}-other/components/Align`)
     assert.equal(documentHref("https://example.com/components/Align", base), "https://example.com/components/Align")
   }
 })

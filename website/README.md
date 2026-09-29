@@ -168,8 +168,10 @@ base paths. Keep `VITE_BASE` and `VITE_ROUTER_BASENAME` aligned. Preview deploym
 `VITE_SITE_URL`; local navigation and assets remain local rather than linking to production.
 
 `SiteLink` and `site-paths.ts` normalize HTML routes to trailing slashes while preserving query strings,
-anchors, files, and the project base path. Existing redirect routes remain available. GitHub Pages can
-still serve `/index.html` aliases; their generated HTML points to the directory canonical rather than
+anchors, files, and the project base path. Existing redirect routes remain available. Markdown uses
+the shared `document-links.ts` normalization for legacy absolute production links, so they resolve
+locally in previews; component route casing is normalized without changing file names.
+GitHub Pages can still serve `/index.html` aliases; their generated HTML points to the directory canonical rather than
 depending on host-level redirect rules. The client replaces only `index.html` aliases before
 hydration, retaining the query, fragment, and existing history state so the router matches the page.
 
