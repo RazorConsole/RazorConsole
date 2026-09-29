@@ -41,7 +41,7 @@ public sealed class TestTerminalTests
         }
 
         terminal.Snapshot.ContainsText("Approval required").ShouldBeTrue();
-        terminal.Snapshot.Layouts.ShouldContainKey("approve-tool");
+        terminal.Snapshot.Layouts.ContainsKey("approve-tool").ShouldBeTrue();
         terminal.Frames.Select(frame => frame.FrameNumber).ShouldBe(newerIsDuplicate ? [1L] : [1L, 3L]);
         (await terminal.WaitUntilAsync(frame => frame.Layouts.ContainsKey("approve-tool"),
             cancellationToken: TestContext.Current.CancellationToken)).ShouldBeSameAs(terminal.Snapshot);
@@ -49,7 +49,7 @@ public sealed class TestTerminalTests
         terminal.CommitSnapshot(CreateSnapshot(4, "Finished", "composer"));
         terminal.Snapshot.FrameNumber.ShouldBe(4);
         terminal.Snapshot.ContainsText("Finished").ShouldBeTrue();
-        terminal.Snapshot.Layouts.ShouldNotContainKey("approve-tool");
+        terminal.Snapshot.Layouts.ContainsKey("approve-tool").ShouldBeFalse();
     }
 
     [Fact]
@@ -88,14 +88,14 @@ public sealed class TestTerminalTests
         currentCapture.ShouldNotBeNull();
         currentCapture.FrameNumber.ShouldBeGreaterThan(oldCapture.FrameNumber);
         currentCapture.ContainsText("Approval required").ShouldBeTrue();
-        currentCapture.Layouts.ShouldContainKey("approve-tool");
+        currentCapture.Layouts.ContainsKey("approve-tool").ShouldBeTrue();
         terminal.CommitSnapshot(currentCapture);
 
         terminal.OnNext(oldNotification);
         terminal.CommitSnapshot(oldCapture);
 
         terminal.Snapshot.ContainsText("Approval required").ShouldBeTrue();
-        terminal.Snapshot.Layouts.ShouldContainKey("approve-tool");
+        terminal.Snapshot.Layouts.ContainsKey("approve-tool").ShouldBeTrue();
         oldCapture.ContainsText("Working").ShouldBeTrue();
         terminal.Frames.Select(frame => frame.FrameNumber).ShouldBeInOrder();
     }
