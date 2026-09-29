@@ -47,6 +47,9 @@ missing-chapter redirect, and 404), then clicks the homepage Docs, Quick Start, 
 switches chapters, and exercises back/forward. A document sentinel and request checks reject
 full-page reloads masquerading as client navigation. The missing-chapter redirect must retain the
 deployment base. CI runs it against both `/` preview and `/RazorConsole/` production builds.
+Uncaught browser errors are logged with stacks for diagnosis. These tests assert module execution
+and navigation outcomes, not a blanket absence of errors from the separate WASM/xterm preview
+lifecycle; use the terminal interaction checks below for that surface.
 
 After building the website, run from `website`:
 

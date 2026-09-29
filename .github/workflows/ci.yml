@@ -338,6 +338,14 @@ jobs:
             }}
         working-directory: website
 
+      - name: Upload preview artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-preview-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+          path: website/build/client
+          retention-days: 30
+
       - name: Verify built tutorial client navigation
         working-directory: website
         run: python tests/tutorial_navigation.py
@@ -356,14 +364,6 @@ jobs:
           rm -rf website/build/client/${{ github.event.repository.name }}
           
           touch website/build/client/.nojekyll
-
-      - name: Upload preview artifact
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: website-preview-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
-          path: website/build/client
-          retention-days: 30
 
       - name: Verify production-base static SEO
         if: github.event_name == 'pull_request'
