@@ -6,6 +6,7 @@ import { apiDescription, ensurePageHeading, sanitizeDocText } from "../src/lib/d
 import { docTopicIds } from "../src/data/docs-ids.ts"
 import { sitemapXml } from "./sitemap.ts"
 import { guides } from "../src/data/guides.ts"
+import { documentHref } from "../src/lib/document-links.ts"
 
 test("page URLs normalize base paths, index aliases, dotted API symbols and slashes", () => {
   for (const route of ["/", "/components/table", "/docs/tutorial/hello-world", "/blog/hot-reload", "/api/RazorConsole.Components.SpectreTable", "/release-notes/v0.5.0"]) {
@@ -22,6 +23,17 @@ test("page URLs normalize base paths, index aliases, dotted API symbols and slas
 test("files, external links and in-page navigation are not rewritten as directories", () => {
   for (const value of ["/llms.txt", "/sitemap.xml", "/assets/main.js", "/guide.md#example", "/image.png?width=2", "#section", "?q=1", "https://example.com/a", "//example.com/a", "mailto:hi@example.com"]) {
     assert.equal(pagePath(value), value)
+  }
+})
+
+test("absolute legacy documentation links resolve to canonical local routes in production and previews", () => {
+  for (const base of ["/", "/RazorConsole/"]) {
+    const prefix = base.replace(/\/$/, "")
+    assert.equal(documentHref(`${productionSite}/components/Align`, base), `${prefix}/components/align/`)
+    assert.equal(documentHref(`${productionSite}/components`, base), `${prefix}/components/`)
+    assert.equal(documentHref(`${productionSite}/docs/native-aot#publish`, base), `${prefix}/blog/native-aot/#publish`)
+    assert.equal(documentHref(`${productionSite}/raw/guide.md`, base), `${prefix}/raw/guide.md`)
+    assert.equal(documentHref("https://example.com/components/Align", base), "https://example.com/components/Align")
   }
 })
 
