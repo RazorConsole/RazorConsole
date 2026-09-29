@@ -105,3 +105,51 @@ A sophisticated rendering pipeline that creates snapshots of TUI components with
 | **SVG Layout**    | `satori`             | Converting React-like JSX/HTML into SVG.                |
 | **Rasterization** | `@resvg/resvg-js`    | High-performance PNG generation from SVG.               |
 | **Terminal**      | `@xterm/headless`    | Simulating the terminal buffer to capture C# output.    |
+
+## Deployment verification boundary
+
+`npm run check:seo:deployed` is a read-only HTTP/initial-HTML check, not a Google indexing tool.
+On 2026-09-29 (UTC), the deployed home, table, first tutorial chapter, hot-reload blog post,
+SpectreTable API page, and v0.5.0 release page all returned HTTP 200. All six lacked canonical links;
+the home H1 was empty and the hot-reload post lacked an H1. These are **pre-deployment baseline**
+observations, not results for the new PR output. Both origin-root and project-path robots.txt
+returned 404. Missing robots does not mean the site is blocked.
+
+The Pages API identified the current repository as a workflow-deployed project site at
+`https://razorconsole.github.io/RazorConsole/`. A query for the conventional origin-root repository
+returned 404, which does not distinguish nonexistence from unavailable access. No origin-root
+deployment was changed. The website README contains the minimum owner follow-up and an optional
+root-only robots example.
+
+No authenticated Search Console or Keyword Planner integration is available to this session.
+The existing public verification meta tag was not used as evidence of property authorization.
+Submission, Google-selected canonical, impressions, queries, and indexing status remain unverified
+until a property owner supplies or inspects those results.
+
+## Search research record (29 September 2026 UTC)
+
+The two implemented guides target non-brand tasks: learning to build a **C# terminal UI** and
+choosing a **.NET TUI library**. Their order is provisional and based on product fit and the existing
+interactive tutorial, **not measured query volume, keyword difficulty, or an observed ranking**.
+
+An actual public Google Trends request compared `C# terminal UI`, `.NET TUI`, and `C# console UI`
+over the past five years, without a geography restriction:
+[reproducible query](https://trends.google.com/trends/explore?date=today%205-y&q=C%23%20terminal%20UI,.NET%20TUI,C%23%20console%20UI&hl=en).
+It returned **HTTP 429**. No chart, relative-interest values, search volumes, or “insufficient data”
+result was obtained. No autocomplete response was substituted for demand evidence.
+
+Google's [Trends FAQ](https://support.google.com/trends/answer/4365533?hl=en) was accessible.
+It describes sampled, normalized 0–100 relative interest rather than absolute volumes and notes
+that autocomplete does not necessarily reflect the most popular searches. Special characters
+can affect interpretation; do not assume how the `C#` term was processed without actual results.
+
+The comparison article uses pinned official sources for Spectre.Console 0.57.2,
+Spectre.Console.Cli 0.55.0, Terminal.Gui v2.5.0, and an identified Ink commit. It distinguishes
+source-declared AOT compatibility from tested application behavior and does not claim competitor
+mouse support is absent. Citations and review date are included in the published article.
+
+Remaining data work requires an authorized property owner to export non-brand queries, landing
+pages, impressions, and clicks from Search Console (with date range and filters recorded), or
+authorized Keyword Planner/accessible Trends results. Use those observations to revisit content
+priorities; do not backfill unavailable metrics. No follow-up issue is considered complete merely
+because this collection procedure is documented.

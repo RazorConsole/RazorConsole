@@ -170,7 +170,8 @@ base paths. Keep `VITE_BASE` and `VITE_ROUTER_BASENAME` aligned. Preview deploym
 `SiteLink` and `site-paths.ts` normalize HTML routes to trailing slashes while preserving query strings,
 anchors, files, and the project base path. Existing redirect routes remain available. GitHub Pages can
 still serve `/index.html` aliases; their generated HTML points to the directory canonical rather than
-depending on host-level redirect rules.
+depending on host-level redirect rules. The client replaces only `index.html` aliases before
+hydration, retaining the query, fragment, and existing history state so the router matches the page.
 
 ### Owner follow-up after deployment
 
@@ -186,6 +187,43 @@ sitemap submission, or index status. A property owner should submit
 `https://razorconsole.github.io/RazorConsole/sitemap.xml` after deployment and inspect the home,
 table component, tutorial, blog, API, and release pages, including their selected canonical URLs.
 No submission or indexing claim is made by the build.
+
+For a read-only post-deployment check, run `npm run check:seo:deployed` (or append
+`-- https://your-preview.example` to inspect a preview). This checks representative HTTP responses,
+initial HTML headings/canonicals, sitemap coverage, and the origin-root robots status. It does not
+authenticate to Search Console, interpret every robots directive, or claim Google has indexed a page.
+Before deployment it may correctly fail against the old live site.
+
+For the root-site administrator, the optional robots content is:
+
+```text
+User-agent: *
+Allow: /
+
+Sitemap: https://razorconsole.github.io/RazorConsole/sitemap.xml
+```
+
+Review existing origin-wide rules before adopting this example. Publish it **only through the
+origin-root site's owner-controlled deployment**, not `website/public/robots.txt` in this repository.
+This PR cannot implement that cross-repository deployment or submit to a Google property without
+the owner's authorization and access.
+
+In Search Console, the minimum owner actions are: select a property covering the project URL,
+submit the final sitemap in **Sitemaps**, and use **URL Inspection** for the representative URLs
+listed by the check script. Record submission status, fetch/index eligibility, and user-declared
+versus Google-selected canonical separately. A successful live fetch is not proof of indexing.
+
+### Search-led content and evidence
+
+The `/guides/` hub links an introductory C# terminal UI guide to the existing interactive tutorial
+and a .NET TUI selection guide. They prioritize programming-model fit, built-in input, and native
+distribution rather than unsupported “best framework” or speed claims. Comparison citations identify
+the documentation/version scope and should be rechecked when updating dependencies.
+
+No Search Console, Keyword Planner, or Google account integration is configured in this repository
+or the available session tools. Public research does not supply private query or conversion data.
+See `scripts/README.md` for the recorded research status and the distinction between product-fit
+priorities and measured search demand.
 
 ## License
 

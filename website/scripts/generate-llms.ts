@@ -4,6 +4,7 @@ import type { TopicItem } from '../src/types/docs/topicItem.ts';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import pc from 'picocolors';
+import { guides } from '../src/data/guides';
 
 async function generate() {
     const config = await resolveConfig({}, 'build');
@@ -16,6 +17,7 @@ async function generate() {
     const RAW_DOCS_DIR = path.join(RAW_DIR, 'docs');
     const RAW_COMPS_DIR = path.join(RAW_DIR, 'components');
     const RAW_TUTORIAL_DIR = path.join(RAW_DIR, 'tutorial');
+    const RAW_GUIDES_DIR = path.join(RAW_DIR, 'guides');
 
     console.log(pc.cyan(`[LLMS] Starting documentation generation...`));
 
@@ -31,7 +33,7 @@ async function generate() {
             tutorialChapters: Array<{ slug: string; title: string; description: string; content: string }>;
         };
 
-        [RAW_DOCS_DIR, RAW_COMPS_DIR, RAW_TUTORIAL_DIR].forEach(dir => {
+        [RAW_DOCS_DIR, RAW_COMPS_DIR, RAW_TUTORIAL_DIR, RAW_GUIDES_DIR].forEach(dir => {
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
                 console.log(pc.dim(`[LLMS] Created directory: ${path.relative(config.root, dir)}`));
@@ -45,8 +47,16 @@ async function generate() {
             }).replace(/<code>(.*?)<\/code>/g, '`$1`');
         };
 
-        let indexContent = `# RazorConsole\n\n> High-performance Blazor TUI framework, built on top of [Spectre.Console](https://spectreconsole.net).\n\n\n`;
+        let indexContent = `# RazorConsole\n\n> Build C# terminal UIs with reusable Razor components, built-in mouse and keyboard events, and experimental NativeAOT support. [Spectre.Console](https://spectreconsole.net) is part of the rendering foundation.\n\n\n`;
         let fullContent = indexContent;
+
+        indexContent += `## C# and .NET Terminal UI Guides\n\n`;
+        for (const guide of guides) {
+            const text = fs.readFileSync(path.resolve(config.root, 'src/guides', `${guide.slug}.md`), 'utf8');
+            fs.writeFileSync(path.join(RAW_GUIDES_DIR, `${guide.slug}.md`), text);
+            indexContent += `- [${guide.title}](${FULL_BASE_URL}/raw/guides/${guide.slug}.md): ${guide.description}\n`;
+            fullContent += `\n---\n\n${text}\n`;
+        }
 
         // Docs generation
         indexContent += `## Documentation Guides\n\n`;
@@ -130,6 +140,7 @@ async function generate() {
 
     } catch (e) {
         console.error(pc.red(`[LLMS] Generation failed: ${e}`));
+        process.exitCode = 1;
     } finally {
         await vite.close();
     }

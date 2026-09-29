@@ -6,6 +6,7 @@ export default [
     route("docs/:topicId?", "./pages/Docs.tsx"),
     route("docs/tutorial/:chapterId?", "./pages/Tutorial.tsx"),
     route("blog/:topicId?", "./pages/Blog.tsx"),
+    route("guides/:slug?", "./pages/Guides.tsx"),
     route("quick-start", "./pages/QuickStart.tsx"),
     route("tutorial/:chapterId?", "./pages/TutorialRedirect.tsx"),
     route("release-notes/:version?", "./pages/ReleaseNotes.tsx"),

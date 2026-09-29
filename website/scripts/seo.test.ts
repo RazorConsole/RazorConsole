@@ -5,6 +5,7 @@ import { pagePath, pageUrl, productionSite } from "../src/lib/site-paths.ts"
 import { apiDescription, ensurePageHeading, sanitizeDocText } from "../src/lib/doc-utils.ts"
 import { docTopicIds } from "../src/data/docs-ids.ts"
 import { sitemapXml } from "./sitemap.ts"
+import { guides } from "../src/data/guides.ts"
 
 test("page URLs normalize base paths, index aliases, dotted API symbols and slashes", () => {
   for (const route of ["/", "/components/table", "/docs/tutorial/hello-world", "/blog/hot-reload", "/api/RazorConsole.Components.SpectreTable", "/release-notes/v0.5.0"]) {
@@ -62,5 +63,22 @@ test("sitemap serialization excludes nonindexable pages and rejects invalid or d
   assert.throws(() => sitemapXml([{ ...page, canonicalCount: 0 }]), /Missing or duplicate/)
   for (const canonical of [`${productionSite}/api`, `${productionSite}/?q=1`, `${productionSite}/#title`, "file:///docs/"]) {
     assert.throws(() => sitemapXml([{ ...page, canonical }]), /Invalid canonical/)
+  }
+})
+
+test("search-led guides have a single H1 and link to real registered content", () => {
+  const allowed = new Set([
+    "/components/", "/api/", "/guides/",
+    ...guides.map((guide) => `/guides/${guide.slug}/`),
+    ...docTopicIds.map((topic) => `/blog/${topic.id}/`),
+    ...["hello-world", "state-and-events", "text-input-and-focus", "mouse-events", "widget-layout-and-resize", "routing", "async-work", "complete-app"].map((slug) => `/docs/tutorial/${slug}/`),
+  ])
+  for (const guide of guides) {
+    const content = readFileSync(new URL(`../src/guides/${guide.slug}.md`, import.meta.url), "utf8")
+    assert.equal(content.match(/^# .+/gm)?.length, 1, guide.slug)
+    for (const link of content.matchAll(/\]\((\/[^)]+)\)/g)) {
+      assert.ok(allowed.has(link[1]), `${guide.slug}: unknown link ${link[1]}`)
+    }
+    for (const term of ["Razor", "keyboard", "mouse", "NativeAOT"]) assert.ok(content.includes(term), `${guide.slug}: ${term}`)
   }
 })

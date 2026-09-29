@@ -46,7 +46,7 @@ test("home positioning and representative routes exist before JavaScript", () =>
   for (const text of ["Ink for .NET", "keyboard", "mouse", "experimental", "NativeAOT", "Preview", "google-site-verification"]) {
     assert.ok(html.includes(text), `Missing homepage content: ${text}`)
   }
-  for (const route of ["/components", "/gallery", "/showcase", "/collaborators", "/components/table", "/docs/tutorial/hello-world", "/blog/hot-reload", "/api", "/api/RazorConsole.Components.SpectreTable", "/release-notes/v0.5.0"]) {
+  for (const route of ["/components", "/gallery", "/showcase", "/collaborators", "/components/table", "/docs/tutorial/hello-world", "/blog/hot-reload", "/api", "/api/RazorConsole.Components.SpectreTable", "/release-notes/v0.5.0", "/guides", "/guides/csharp-terminal-ui", "/guides/choosing-dotnet-tui"]) {
     assert.ok(find(route), `Missing canonical route: ${route}`)
   }
   assert.ok(home.links.includes(`${siteBase}/docs/tutorial/hello-world/`))

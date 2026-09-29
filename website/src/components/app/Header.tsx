@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import iconUrl from "@/assets/icons/icon.svg"
 
 const docsLinks = [
+  { to: "/guides", label: "TUI Guides", description: "Learn and compare .NET approaches" },
   { to: "/docs/tutorial/hello-world", label: "Tutorial", description: "Build your first app" },
   { to: "/release-notes", label: "Release Notes", description: "See what changed" },
   { to: "/api", label: "API Reference", description: "Browse the .NET API" },
@@ -65,6 +66,7 @@ export function Header() {
   }, [desktopDocsOpen])
 
   const docsActive =
+    location.pathname.startsWith("/guides") ||
     location.pathname.startsWith("/docs") ||
     location.pathname.startsWith("/release-notes") ||
     location.pathname.startsWith("/api") ||

@@ -74,6 +74,9 @@ export default function HeroSection() {
         <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-300">
           Choose RazorConsole when you want Razor composition and event-driven interaction in a C# terminal UI.
           Spectre.Console is part of its rendering foundation, not a mutually exclusive alternative.
+          {" "}<Link className="text-blue-600 underline dark:text-blue-400" to="/guides/choosing-dotnet-tui">
+            Compare .NET terminal UI approaches
+          </Link>.
         </p>
       </section>
 
