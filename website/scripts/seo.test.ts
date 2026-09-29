@@ -3,7 +3,7 @@ import { test } from "node:test"
 import { readFileSync } from "node:fs"
 import { pagePath, pageUrl, productionSite } from "../src/lib/site-paths.ts"
 import { apiDescription, ensurePageHeading, sanitizeDocText } from "../src/lib/doc-utils.ts"
-import { docTopicIds } from "../src/data/docs-ids.ts"
+import { docTopicIds, releaseNoteIds } from "../src/data/docs-ids.ts"
 import { sitemapXml } from "./sitemap.ts"
 import { documentHref } from "../src/lib/document-links.ts"
 
@@ -64,6 +64,17 @@ test("all registered blog sources have one normalized page title", () => {
     const normalized = ensurePageHeading(readFileSync(file, "utf8"), topic.title)
     const prose = normalized.replace(/^(`{3,}|~{3,})[\s\S]*?^\1\s*$/gm, "")
     assert.equal(prose.match(/^\uFEFF?#\s+.+/gm)?.length, 1, topic.id)
+  }
+})
+
+test("all registered release notes have unique routes and matching Markdown titles", () => {
+  assert.equal(new Set(releaseNoteIds.map((note) => note.id)).size, releaseNoteIds.length)
+  for (const note of releaseNoteIds) {
+    const content = readFileSync(new URL(`../../${note.filePath}`, import.meta.url), "utf8")
+    assert.deepEqual(content.match(/^# .+/gm), [`# RazorConsole ${note.id}`])
+    for (const base of ["/", "/RazorConsole/"]) {
+      assert.equal(documentHref(`/docs/${note.id}`, base), `${base.replace(/\/$/, "")}/release-notes/${note.id}/`)
+    }
   }
 })
 

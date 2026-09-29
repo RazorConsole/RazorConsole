@@ -69,9 +69,19 @@ export const docTopicIds = [
         title: "Choosing a .NET terminal UI library",
         filePath: "website/src/docs/choosing-dotnet-tui.md",
     },
+    {
+        id: "whats-new-in-razorconsole-0-6-0",
+        title: "what's new in RazorConsole 0.6.0",
+        filePath: "website/src/docs/whats-new-in-razorconsole-0-6-0.md",
+    },
 ]
 
 export const releaseNoteIds = [
+    {
+        id: "v0.6.0",
+        title: "v0.6.0 (Unreleased)",
+        filePath: "release-notes/v0.6.0.md",
+    },
     {
         id: "v0.5.0",
         title: "v0.5.0",

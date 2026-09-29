@@ -6,6 +6,7 @@ import { JSDOM } from "jsdom"
 import { readStaticPages } from "./static-pages"
 import { sitemapXml } from "./sitemap"
 import { pagePath } from "../src/lib/site-paths"
+import { releaseNoteIds } from "../src/data/docs-ids"
 
 const output = resolve("build/client")
 const pages = readStaticPages(output)
@@ -48,7 +49,7 @@ test("home positioning and representative routes exist before JavaScript", () =>
   }
   assert.doesNotMatch(html, /Ink for \.NET/)
   assert.ok(html.includes("jF1dcSGbDQJm6UY_MriNs2wHdnEGr_M1wZKiVciIdf8"), "Preserve the existing verification token")
-  for (const route of ["/components", "/gallery", "/showcase", "/collaborators", "/components/table", "/docs/tutorial/hello-world", "/blog/hot-reload", "/blog/choosing-dotnet-tui", "/api", "/api/RazorConsole.Components.SpectreTable", "/release-notes/v0.5.0"]) {
+  for (const route of ["/components", "/gallery", "/showcase", "/collaborators", "/components/table", "/docs/tutorial/hello-world", "/blog/hot-reload", "/blog/choosing-dotnet-tui", "/api", "/api/RazorConsole.Components.SpectreTable", ...releaseNoteIds.map((note) => `/release-notes/${note.id}`)]) {
     assert.ok(find(route), `Missing canonical route: ${route}`)
   }
   assert.equal(find("/guides"), undefined, "TUI Guides route was removed")
@@ -96,6 +97,19 @@ test("homepage initial DOM puts the demo before benefit cards and complete FAQ a
   } finally {
     dom.window.close()
   }
+})
+
+test("0.6.0 release preparation and introduction are linked and explicitly unreleased", () => {
+  const release = find("/release-notes/v0.6.0")
+  const blog = find("/blog/whats-new-in-razorconsole-0-6-0")
+  assert.ok(release, "Missing 0.6.0 release notes")
+  assert.ok(blog, "Missing 0.6.0 introduction")
+  assert.match(release.title, /Unreleased/)
+  assert.deepEqual(blog.headings, ["what's new in RazorConsole 0.6.0"])
+  assert.ok(readFileSync(release.file, "utf8").includes("Status: Unreleased - release preparation"))
+  assert.ok(readFileSync(blog.file, "utf8").includes("0.6.0 is not yet published"))
+  assert.ok(release.links.includes(`${siteBase}/blog/whats-new-in-razorconsole-0-6-0/`))
+  assert.ok(blog.links.includes(`${siteBase}/release-notes/v0.6.0/`))
 })
 
 test("every emitted internal page link resolves to generated output and uses a final slash", () => {
