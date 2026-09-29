@@ -313,6 +313,17 @@ jobs:
         run: npm ci
         working-directory: website
 
+      - name: Setup Python for browser regressions
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install headless browser test tools
+        working-directory: website
+        run: |
+          python -m pip install -r tests/requirements.txt
+          python -m playwright install --with-deps chromium
+
       - name: Build website for preview
         # Terminal transport checks run independently of the documentation build.
         run: npm run test:terminal-input && npm run test:seo && npm run build && npm run test:seo:static
@@ -326,6 +337,12 @@ jobs:
               || format('https://pr-{0}.razorconsole.pages.dev', github.event.pull_request.number) 
             }}
         working-directory: website
+
+      - name: Verify built tutorial client navigation
+        working-directory: website
+        run: python tests/tutorial_navigation.py
+        env:
+          VITE_BASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('/{0}/', github.event.repository.name) || '/' }}
 
       - name: Prepare artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -351,7 +368,7 @@ jobs:
       - name: Verify production-base static SEO
         if: github.event_name == 'pull_request'
         working-directory: website
-        run: npx react-router build && npm run gen:sitemap && npm run test:seo:static
+        run: npx react-router build && npm run gen:sitemap && npm run test:seo:static && python tests/tutorial_navigation.py
         env:
           VITE_ROUTER_BASENAME: /RazorConsole/
           VITE_BASE: /RazorConsole/
