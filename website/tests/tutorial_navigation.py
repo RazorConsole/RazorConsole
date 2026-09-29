@@ -117,14 +117,14 @@ class TutorialNavigationTests(unittest.TestCase):
                             faq = self.page.locator('section[aria-labelledby="home-faq-title"]')
                             faq.get_by_text("How do I get started?", exact=True).click()
                             faq.get_by_role("link", name="interactive tutorial", exact=True).click()
-                    self.assert_chapter("hello-world", "Chapter 1: Hello World")
+                    self.assert_chapter("hello-world", "Chapter 1 \u00b7 Hello World")
                     self.page.get_by_role("navigation", name="Adjacent tutorial chapters").get_by_role(
                         "link", name="Chapter 2", exact=True).click()
-                    self.assert_chapter("state-and-events", "Chapter 2: State and Events")
+                    self.assert_chapter("state-and-events", "Chapter 2 \u00b7 State and Events")
                     self.page.go_back()
-                    self.assert_chapter("hello-world", "Chapter 1: Hello World")
+                    self.assert_chapter("hello-world", "Chapter 1 \u00b7 Hello World")
                     self.page.go_forward()
-                    self.assert_chapter("state-and-events", "Chapter 2: State and Events")
+                    self.assert_chapter("state-and-events", "Chapter 2 \u00b7 State and Events")
                     self.page.go_back()
                     self.page.go_back()
                     expect(self.page).to_have_url(self.origin + BASE)
@@ -138,7 +138,7 @@ class TutorialNavigationTests(unittest.TestCase):
 
     def test_missing_chapter_redirect_keeps_the_deployment_base(self):
         self.page.goto(self.origin + BASE + "docs/tutorial/")
-        self.assert_chapter("hello-world", "Chapter 1: Hello World")
+        self.assert_chapter("hello-world", "Chapter 1 \u00b7 Hello World")
         self.assertEqual(self.errors, [])
 
 
