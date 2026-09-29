@@ -1,3 +1,4 @@
+import * as React from "react"
 import {
   Link as RouterLink,
   NavLink as RouterNavLink,
@@ -17,7 +18,7 @@ function normalizeTo(to: To): To {
 }
 
 export function Link({ to, ...props }: LinkProps) {
-  return <RouterLink to={normalizeTo(to)} {...props} />
+  return React.createElement(RouterLink, { to: normalizeTo(to), ...props })
 }
 
 export function NavLink({ to, className, style, children, caseSensitive, end, ...props }: NavLinkProps) {
