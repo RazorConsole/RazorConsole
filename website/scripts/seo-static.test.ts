@@ -99,14 +99,18 @@ test("homepage initial DOM puts the demo before benefit cards and complete FAQ a
   }
 })
 
-test("0.6.0 notes retain release status while the introduction explains mouse input", () => {
+test("0.6.0 notes show the published release while the introduction explains mouse input", () => {
   const release = find("/release-notes/v0.6.0")
   const blog = find("/blog/whats-new-in-razorconsole-0-6-0")
   assert.ok(release, "Missing 0.6.0 release notes")
   assert.ok(blog, "Missing 0.6.0 introduction")
-  assert.match(release.title, /Unreleased/)
+  assert.equal(release.title, "v0.6.0 | RazorConsole Release Notes")
   assert.deepEqual(blog.headings, ["what's new in RazorConsole 0.6.0"])
-  assert.ok(readFileSync(release.file, "utf8").includes("Status: Unreleased - release preparation"))
+  const releaseHtml = readFileSync(release.file, "utf8")
+  assert.ok(releaseHtml.includes("Released: September 29, 2026"))
+  assert.doesNotMatch(releaseHtml, /Unreleased|has not been published|release date is not yet set|Until the release exists/)
+  assert.ok(release.links.includes("https://github.com/RazorConsole/RazorConsole/releases/tag/v0.6.0"))
+  assert.ok(release.links.includes("https://github.com/RazorConsole/RazorConsole/compare/v0.5.0...v0.6.0"))
   const blogHtml = readFileSync(blog.file, "utf8")
   assert.doesNotMatch(blogHtml, /not yet published|Release preview:/)
   for (const text of ["Mouse events join keyboard input", "@onclick", "@onwheel", "EnableMouseEvents", "off by default", "terminal cells"]) {

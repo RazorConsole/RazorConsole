@@ -79,7 +79,7 @@ export const docTopicIds = [
 export const releaseNoteIds = [
     {
         id: "v0.6.0",
-        title: "v0.6.0 (Unreleased)",
+        title: "v0.6.0",
         filePath: "release-notes/v0.6.0.md",
     },
     {

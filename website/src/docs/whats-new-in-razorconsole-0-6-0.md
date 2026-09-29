@@ -45,11 +45,12 @@ The event routing also supports left-click focus and drag capture. For example, 
 
 The Gallery is the quickest way to explore the component collection. In this release, it gains NativeAOT distribution alongside its existing .NET tool package. **Snake** joins it as a complete, responsive terminal-game showcase.
 
-The official native archive builds cover Linux, Windows, and macOS, each on x64 and ARM64. Shared installation scripts discover the appropriate app and platform archive, and distinguish three choices:
+The official native archive builds cover Linux, Windows, and macOS, each on x64 and ARM64. Shared installation scripts discover the appropriate app and platform archive, and offer two channels:
 
 - **Stable:** the latest published stable release, not whatever is currently on `main`.
 - **Nightly:** development builds for trying changes before a stable release.
-- **An explicit version:** a particular published release rather than a moving channel.
+
+To pin a particular version instead of following a moving channel, download the matching platform archive directly from that version's GitHub Release.
 
 The installer work also addresses the Windows installation problem. See [#345](https://github.com/RazorConsole/RazorConsole/pull/345), [#346](https://github.com/RazorConsole/RazorConsole/pull/346), [#348](https://github.com/RazorConsole/RazorConsole/pull/348), and [#350](https://github.com/RazorConsole/RazorConsole/pull/350).
 
@@ -82,7 +83,7 @@ Version 0.6.0 also includes rendering-lock fixes ([#320](https://github.com/Razo
 
 The source checkout now includes a `net11.0` target alongside .NET 8, 9, and 10 and pins a .NET 11 preview SDK in `global.json`. That source-build requirement is different from the runtime needed by an application consuming a lower-target NuGet asset. Official native-app builds use `net10.0`.
 
-One fix that is **not** included is the pending Windows 10 rendering change: [#316](https://github.com/RazorConsole/RazorConsole/issues/316) is still open, and [#341](https://github.com/RazorConsole/RazorConsole/pull/341) was not merged into this release-preparation baseline.
+One fix that is **not** included is the pending Windows 10 rendering change: [#316](https://github.com/RazorConsole/RazorConsole/issues/316) is still open, and [#341](https://github.com/RazorConsole/RazorConsole/pull/341) is not part of 0.6.0.
 
 ## Preparing an existing app for 0.6.0
 
