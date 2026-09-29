@@ -1,7 +1,7 @@
 import { Navigate } from "react-router"
 import { components } from "@/data/components"
 import { ComponentPreview } from "@/components/components/ComponentPreview"
-import { cn, getCategoryBadgeColor, getFullSitePath } from "@/lib/utils"
+import { cn, getCategoryBadgeColor, getFullSitePath, getPageUrl } from "@/lib/utils"
 import ApiSection from "@/components/components/ApiSection"
 import ParametersTable from "@/components/components/ParametersTable"
 import type { MetaFunction, LoaderFunctionArgs } from "react-router";
@@ -13,7 +13,7 @@ export const meta: MetaFunction<typeof loader> = ({ data, location }) => {
   const { component } = data;
 
   const fullBaseUrl = getFullSitePath();  
-  const pageUrl = `${fullBaseUrl}${location.pathname}`;
+  const pageUrl = getPageUrl(location.pathname);
 
   const title = `${component.name} Component | RazorConsole`;
   const description = component.description;
@@ -26,14 +26,14 @@ export const meta: MetaFunction<typeof loader> = ({ data, location }) => {
     // Open Graph / Facebook
     { property: "og:type", content: "website" },
     { property: "og:url", content: pageUrl },
-    { property: "og:title", content: component.name },
+    { property: "og:title", content: title },
     { property: "og:description", content: description },
     { property: "og:image", content: ogImage },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
 
     // Twitter
-    { name: "twitter:title", content: component.name },
+    { name: "twitter:title", content: title },
     { name: "twitter:description", content: description },
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:image", content: ogImage },

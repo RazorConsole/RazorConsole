@@ -7,13 +7,14 @@ import { DocumentationShell } from "@/components/docs/DocumentationShell"
 import { docTopicIds, releaseNoteIds } from "@/data/docs-ids"
 import type { MetaFunction } from "react-router"
 import { MarkdownRenderer } from "@/components/ui/Markdown"
-import { getFullSitePath, stripMarkdown } from "@/lib/utils"
+import { getPageUrl, stripMarkdown } from "@/lib/utils"
+import { ensurePageHeading } from "@/lib/doc-utils"
 
 const docsModules = import.meta.glob("/src/docs/*.md", { query: "?raw", import: "default" })
 
 export const meta: MetaFunction<typeof loader> = ({ data, matches, location }) => {
   const rootMeta = matches.find((m) => m.id === "root")?.meta || []
-  const pageUrl = `${getFullSitePath()}${location.pathname}`
+  const pageUrl = getPageUrl(location.pathname)
 
   const topic = data && !(data instanceof Response) ? data : undefined
   const title = topic ? `${topic.title} | RazorConsole Blog` : "Blog | RazorConsole"
@@ -62,7 +63,8 @@ function extractHeadings(markdown: string): Heading[] {
 type Topic = { id: string; title: string; content: string; filePath: string; headings: Heading[] }
 async function loadMarkdownContent(topicId: string) {
   const topicMeta = docTopicIds.find((t) => t.id === topicId)
-  const meta = topicMeta || docTopicIds[0]
+  if (!topicMeta) throw new Response("Not Found", { status: 404 })
+  const meta = topicMeta
 
   const modules = docsModules
   const fileName = meta.filePath.split("/").pop()?.toLowerCase()
@@ -74,7 +76,7 @@ async function loadMarkdownContent(topicId: string) {
     throw new Error(`Markdown file not found for: ${topicId} (looked for ${fileName})`)
   }
 
-  const rawContent = (await loadFile()) as string
+  const rawContent = ensurePageHeading((await loadFile()) as string, meta.title)
   return {
     ...meta,
     content: rawContent,
@@ -89,16 +91,16 @@ function isBlogRequest(request: Request) {
 async function loadOrRedirect({ params, request }: LoaderFunctionArgs) {
   if (!isBlogRequest(request)) {
     if (!params.topicId || params.topicId === "quick-start") {
-      return redirect("/docs/tutorial/hello-world")
+      return redirect("/docs/tutorial/hello-world/")
     }
     if (releaseNoteIds.some((note) => note.id === params.topicId)) {
-      return redirect(`/release-notes/${params.topicId}`)
+      return redirect(`/release-notes/${params.topicId}/`)
     }
-    return redirect(`/blog/${params.topicId}`)
+    return redirect(`/blog/${params.topicId}/`)
   }
 
   const firstTopic = docTopicIds.find((topic) => topic.id !== "quick-start")!
-  if (!params.topicId || params.topicId === "quick-start") return redirect(`/blog/${firstTopic.id}`)
+  if (!params.topicId || params.topicId === "quick-start") return redirect(`/blog/${firstTopic.id}/`)
   return await loadMarkdownContent(params.topicId)
 }
 

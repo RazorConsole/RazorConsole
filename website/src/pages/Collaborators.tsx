@@ -2,11 +2,11 @@ import { collaborators } from "@/data/collaborators"
 import Collaborator from "@/components/collaborators/Collaborator"
 import ContributeMessage from "@/components/collaborators/ContributeMessage"
 import type { MetaFunction } from "react-router";
-import { getFullSitePath } from "@/lib/utils";
+import { getPageUrl } from "@/lib/utils";
 
 export const meta: MetaFunction = ({ matches, location }) => {
   const rootMeta = matches.find((m) => m.id === "root")?.meta || [];
-  const pageUrl = `${getFullSitePath()}${location.pathname}`;
+  const pageUrl = getPageUrl(location.pathname);
 
   return [
     ...rootMeta,

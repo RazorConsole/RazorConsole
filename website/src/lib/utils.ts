@@ -1,6 +1,7 @@
 import type { Category } from "@/types/components/category"
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { pageUrl, productionSite } from "./site-paths"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -47,4 +48,9 @@ export function getFullSitePath() {
   const siteUrl = (import.meta.env.VITE_SITE_URL || '').replace(/\/$/, '');
   const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, '');
   return `${siteUrl.toLowerCase()}${baseUrl}`
+}
+
+export function getPageUrl(pathname: string) {
+  const siteBase = import.meta.env.VITE_SITE_URL ? getFullSitePath() : productionSite
+  return pageUrl(pathname, siteBase)
 }

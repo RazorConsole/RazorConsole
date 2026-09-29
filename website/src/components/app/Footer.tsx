@@ -1,4 +1,5 @@
-import { Link, useLocation } from "react-router-dom"
+import { useLocation } from "react-router-dom"
+import { Link } from "@/components/ui/SiteLink"
 import {
   Github,
   Package,

@@ -319,7 +319,7 @@ jobs:
 
       - name: Build website for preview
         # Terminal transport checks run independently of the documentation build.
-        run: npm run test:terminal-input && npm run build
+        run: npm run test:terminal-input && npm run test:seo && npm run build && npm run test:seo:static
         env:
           VITE_ROUTER_BASENAME: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('/{0}/', github.event.repository.name) || '/' }}
           VITE_BASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('/{0}/', github.event.repository.name) || '/' }}

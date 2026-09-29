@@ -1,13 +1,13 @@
 import ProjectGrid from "@/components/showcase/ProjectGrid"
 import { showcaseProjects } from "@/data/showcase"
-import { getFullSitePath } from "@/lib/utils"
+import { getPageUrl } from "@/lib/utils"
 import type { MetaFunction } from "react-router"
 
 export const meta: MetaFunction = ({ matches, location }) => {
   const rootMeta = matches.find((m) => m.id === "root")?.meta || []
   return [
     ...rootMeta,
-    { property: "og:url", content: `${getFullSitePath()}${location.pathname}` },
+    { property: "og:url", content: getPageUrl(location.pathname) },
     { title: "Showcase | RazorConsole" },
     {
       name: "description",

@@ -1,10 +1,11 @@
 import { List } from "lucide-react"
 import { useEffect } from "react"
-import { Link, redirect, useLoaderData, useLocation, type LoaderFunctionArgs, type MetaFunction } from "react-router"
+import { redirect, useLoaderData, useLocation, type LoaderFunctionArgs, type MetaFunction } from "react-router"
+import { Link } from "@/components/ui/SiteLink"
 import GithubSlugger from "github-slugger"
 import { MarkdownRenderer } from "@/components/ui/Markdown"
 import { releaseNoteIds } from "@/data/docs-ids"
-import { cn, getFullSitePath, stripMarkdown } from "@/lib/utils"
+import { cn, getPageUrl, stripMarkdown } from "@/lib/utils"
 
 const releaseModules = import.meta.glob("/../release-notes/*.md", { query: "?raw", import: "default" })
 
@@ -30,7 +31,8 @@ function extractHeadings(markdown: string) {
 }
 
 async function loadRelease(version: string) {
-  const meta = releaseNoteIds.find((note) => note.id === version) ?? releaseNoteIds[0]
+  const meta = releaseNoteIds.find((note) => note.id === version)
+  if (!meta) throw new Response("Not Found", { status: 404 })
   const fileName = meta.filePath.split("/").at(-1)?.toLowerCase()
   const key = Object.keys(releaseModules).find((path) => path.toLowerCase().endsWith(`/${fileName}`))
   if (!key) throw new Error(`Release note not found: ${version}`)
@@ -39,12 +41,12 @@ async function loadRelease(version: string) {
 }
 
 export async function loader({ params }: LoaderFunctionArgs) {
-  if (!params.version) return redirect(`/release-notes/${releaseNoteIds[0].id}`)
+  if (!params.version) return redirect(`/release-notes/${releaseNoteIds[0].id}/`)
   return loadRelease(params.version)
 }
 
 export async function clientLoader({ params }: LoaderFunctionArgs) {
-  if (!params.version) return redirect(`/release-notes/${releaseNoteIds[0].id}`)
+  if (!params.version) return redirect(`/release-notes/${releaseNoteIds[0].id}/`)
   return loadRelease(params.version)
 }
 
@@ -59,7 +61,7 @@ export const meta: MetaFunction<typeof loader> = ({ data, location }) => {
     { name: "description", content: description },
     { property: "og:title", content: title },
     { property: "og:description", content: description },
-    { property: "og:url", content: `${getFullSitePath()}${location.pathname}` },
+    { property: "og:url", content: getPageUrl(location.pathname) },
   ]
 }
 

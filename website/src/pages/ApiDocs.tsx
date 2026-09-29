@@ -1,42 +1,33 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useLoaderData, useNavigate, useParams, type LoaderFunctionArgs, type MetaFunction } from "react-router"
 import ApiDocument from "@/components/api/ApiDocument"
-import { apiItems, apiToc, type DocfxApiItem, type DocfxTocNode } from "@/data/api-docs"
+import { apiItems, apiToc, type DocfxApiItem } from "@/data/api-docs"
 import { ResponsiveSidebar } from "@/components/ui/ResponsiveSidebar"
 import Sidebar from "@/components/api/Sidebar"
-import { getFullSitePath } from "@/lib/utils"
+import { getPageUrl } from "@/lib/utils"
+import { apiDescription } from "@/lib/doc-utils"
 
 export const meta: MetaFunction<typeof loader> = ({ data, matches, location }) => {
   const rootMeta = matches.find((m) => m.id === "root")?.meta || [];
-  const pageUrl = `${getFullSitePath()}${location.pathname}`;
+  const pageUrl = getPageUrl(location.pathname);
   
   const item = data?.activeItem;
-  const title = item ? `${item.name} (${item.type}) | API Reference` : "API Reference | RazorConsole";
+  const title = item ? `${item.name} (${item.type ?? "Type"}) | RazorConsole API` : "API Reference | RazorConsole";
+  const description = item ? apiDescription(item) : "Browse the RazorConsole .NET API: Razor components, input events, rendering services, and utilities.";
   
   return [
     ...rootMeta,
     { title },
     { property: "og:url", content: pageUrl },
-    { name: "description", content: item?.summary || "Full API reference for RazorConsole classes, components, and utilities." },
+    { name: "description", content: description },
+    { property: "og:title", content: title },
+    { property: "og:description", content: description },
   ];
 };
 
-function findFirstUid(nodes: DocfxTocNode[]): string | undefined {
-  for (const node of nodes) {
-    if (node.uid) {
-      return node.uid
-    }
-    if (node.items) {
-      const nested = findFirstUid(node.items)
-      if (nested) {
-        return nested
-      }
-    }
-  }
-  return undefined
-}
 export async function loader({ params }: LoaderFunctionArgs) {
   const item = params.uid ? apiItems[decodeURIComponent(params.uid)] : undefined;
+  if (params.uid && !item) throw new Response("Not Found", { status: 404 });
   return { activeItem: item };
 }
 
@@ -47,11 +38,6 @@ export default function ApiDocs() {
   const docfxToc = apiToc
   const docfxItems = apiItems
   const decodedUid = params.uid ? decodeURIComponent(params.uid) : undefined
-  const firstUid = useMemo(() => findFirstUid(docfxToc), [docfxToc])
-
-  useEffect(() => {
-    if (!decodedUid && firstUid) navigate(`/api/${encodeURIComponent(firstUid)}`, { replace: true })
-  }, [decodedUid, firstUid, navigate])
 
   const activeItem = useLoaderData<{activeItem: DocfxApiItem | undefined}>().activeItem;
   const searchTerm = query.trim().toLowerCase()
@@ -67,7 +53,7 @@ export default function ApiDocs() {
   }, [docfxItems, searchTerm])
 
   const handleSelect = (uid: string) => {
-    navigate(`/api/${encodeURIComponent(uid)}`)
+    navigate(`/api/${encodeURIComponent(uid)}/`)
     setQuery("")
   }
 

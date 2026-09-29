@@ -54,15 +54,20 @@ Orchestrates the conversion of technical metadata into AI-readable knowledge bas
 
 ### 3. SEO Sitemap (`generate-sitemap.ts`)
 
-A dynamic SEO generator that mirrors the React Router v7 route tree.
+A sitemap generator that reads the actual React Router v7 prerendered HTML.
 
 - **Technical Logic**:
-  - **Route Mapping**: Combines manual documentation IDs, release notes, and auto-generated API UIDs (sanitizing special characters for URL safety).
-  - **Prioritization Engine**: Implements a weighted algorithm that assigns `priority` based on the route depth and category (e.g., core components rank higher than individual API methods).
+  - **URL Discovery**: Reads `build/client/**/index.html`, including project-base output directories, and uses each indexable page's absolute canonical URL.
+  - **Exclusions**: Skips meta-refresh/noindex pages and non-index HTML files such as the deployment's `404.html`. Missing or duplicate canonicals fail the command.
+  - **Content Dates**: Omits `lastmod` rather than presenting build timestamps as content updates. It does not emit `priority` or `changefreq`.
 - **API / Usage**:
   ```bash
   npm run gen:sitemap
   ```
+
+  Run after `react-router build`. Use `npm run test:seo` for URL/text helpers and
+  `npm run test:seo:static` after sitemap generation to inspect the produced HTML, metadata,
+  internal links, headings, and sitemap. See the website README for production-base environment settings.
 
 ---
 

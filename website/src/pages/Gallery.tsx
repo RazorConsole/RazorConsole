@@ -1,14 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
 import ProjectGrid from "@/components/showcase/ProjectGrid"
 import { officialApps } from "@/data/official-apps"
-import { getFullSitePath } from "@/lib/utils"
+import { getPageUrl } from "@/lib/utils"
 import type { MetaFunction } from "react-router"
 
 export const meta: MetaFunction = ({ matches, location }) => {
   const rootMeta = matches.find((m) => m.id === "root")?.meta || []
   return [
     ...rootMeta,
-    { property: "og:url", content: `${getFullSitePath()}${location.pathname}` },
+    { property: "og:url", content: getPageUrl(location.pathname) },
     { title: "Gallery | RazorConsole" },
     {
       name: "description",

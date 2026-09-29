@@ -2,24 +2,24 @@ import HeroSection from "@/components/home/HeroSection"
 import GallerySection from "@/components/home/GallerySection"
 import QuickStartSection from "@/components/home/QuickStartSection"
 import type { MetaFunction } from "react-router"
-import { getFullSitePath } from "@/lib/utils"
+import { getPageUrl } from "@/lib/utils"
 
 export const meta: MetaFunction = ({ matches, location }) => {
   const rootMeta = matches.find((m) => m.id === "root")?.meta || []
-  const pageUrl = `${getFullSitePath()}${location.pathname}`
+  const pageUrl = getPageUrl(location.pathname)
 
   return [
     ...rootMeta,
 
-    { title: "RazorConsole - Build Rich Console Apps with Razor" },
+    { title: "RazorConsole: C# Terminal UI Framework with Razor" },
     { property: "og:url", content: pageUrl },
     {
       name: "description",
       content:
-        "The modern framework for building interactive C# console applications using familiar Razor syntax and Spectre.Console components.",
+        "Build .NET terminal UIs with reusable Razor components, built-in mouse and keyboard events, and experimental NativeAOT support for native distribution.",
     },
-    { property: "og:title", content: "RazorConsole - Rich TUI Framework" },
-    { property: "og:description", content: "Build interactive CLI apps with C# and Razor." },
+    { property: "og:title", content: "RazorConsole: C# Terminal UI Framework with Razor" },
+    { property: "og:description", content: "Build .NET terminal UIs with reusable Razor components, built-in mouse and keyboard events, and experimental NativeAOT support for native distribution." },
   ]
 }
 export default function Home() {

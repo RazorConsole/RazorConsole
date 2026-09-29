@@ -1,9 +1,11 @@
 import { List } from "lucide-react"
 import type { ReactNode } from "react"
-import { Link, useLocation } from "react-router-dom"
+import { useLocation } from "react-router-dom"
+import { Link } from "@/components/ui/SiteLink"
 import { tutorialChapters } from "@/data/tutorial"
 import { docTopicIds } from "@/data/docs-ids"
 import { cn } from "@/lib/utils"
+import { pagePath } from "@/lib/site-paths"
 
 export interface PageHeading {
   id: string
@@ -21,7 +23,7 @@ const topics = docTopicIds.filter((topic) => topic.id !== "quick-start")
 
 function NavigationLink({ to, children }: { to: string; children: ReactNode }) {
   const { pathname } = useLocation()
-  const active = pathname === to
+  const active = pagePath(pathname) === pagePath(to)
 
   return (
     <Link

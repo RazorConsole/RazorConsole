@@ -1,5 +1,6 @@
-import { Link } from "react-router-dom"
+import { Link } from "@/components/ui/SiteLink"
 import { ExternalLink } from "lucide-react"
+import { apiItems } from "@/data/api-docs"
 
 interface TypeLinkProps {
   type?: string
@@ -98,7 +99,7 @@ function splitGenericArgs(argsString: string): string[] {
 }
 
 // Get the documentation URL for a type (only for non-generic types)
-function getTypeDocUrl(baseType: string, isGeneric: boolean): string | null {
+function getTypeDocUrl(baseType: string, isGeneric: boolean, rawType: string): string | null {
   if (!baseType) return null
 
   // Don't link generic Microsoft/System types - URLs are complex
@@ -118,7 +119,10 @@ function getTypeDocUrl(baseType: string, isGeneric: boolean): string | null {
 
   // RazorConsole types -> internal API docs
   if (baseType.startsWith("RazorConsole.")) {
-    return `/api/${baseType}`
+    const uid = rawType.split(/[{<]/)[0].replace(/`/g, "-").replace(/[?[\]]+$/, "")
+    if (apiItems[uid]) return `/api/${encodeURIComponent(uid)}/`
+    const candidates = Object.keys(apiItems).filter((key) => key.replace(/-\d+$/, "") === baseType)
+    return candidates.length === 1 ? `/api/${encodeURIComponent(candidates[0])}/` : null
   }
 
   return null
@@ -129,7 +133,7 @@ export function TypeLink({ type }: TypeLinkProps) {
   if (!type) return <span className="text-slate-400">—</span>
 
   const { displayName, baseType, isGeneric } = parseTypeName(type)
-  const docUrl = getTypeDocUrl(baseType, isGeneric)
+  const docUrl = getTypeDocUrl(baseType, isGeneric, type)
 
   // Microsoft/System types (only link if not generic)
   if (baseType.startsWith("Microsoft.") || baseType.startsWith("System.")) {

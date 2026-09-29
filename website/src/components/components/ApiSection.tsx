@@ -1,5 +1,5 @@
 import { Code2, ExternalLink } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link } from "@/components/ui/SiteLink"
 
 export default function ApiSection({ apiId, componentName }: { apiId: string, componentName: string }) {
   return (

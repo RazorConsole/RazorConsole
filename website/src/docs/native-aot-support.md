@@ -1,6 +1,6 @@
 ﻿# Native AOT
 
-This document explains how to use **Native Ahead-of-Time (AOT)** compilation with **RazorConsole** to build standalone, lightning-fast console applications.
+This document explains how to use **Native Ahead-of-Time (AOT)** compilation with **RazorConsole** to distribute native console applications without an installed .NET runtime and avoid JIT warm-up at startup.
 
 > [!WARNING]
 > Native AOT support in RazorConsole is currently **experimental**.
@@ -47,9 +47,9 @@ Native AOT compiles your .NET application directly into _native machine code_ li
 
 **Benefits for Console Apps:**
 
-- **Instant Startup:** No JIT warm-up time.
-- **Smaller Footprint:** No need to install the .NET Runtime on the target machine; the app is self-contained.
-- **Single File:** The output is a single binary executable.
+- **Startup:** Native compilation removes JIT warm-up; actual startup time depends on the application.
+- **Standalone Distribution:** No need to install the .NET runtime on the target machine.
+- **Native Executable:** Include any runtime assets your app needs alongside the binary (for example, the Gallery's `Fonts/` directory).
 
 ---
 
@@ -77,7 +77,7 @@ dotnet publish -c Release -r win-x64 -p:PublishAot=true
 dotnet publish -c Release -r osx-arm64 -p:PublishAot=true
 ```
 
-The resulting binary will be located in `bin/Release/net8.0/{rid}/publish/`.
+For a standard SDK project, the resulting binary is located in `bin/Release/{target-framework}/{rid}/publish/`. Projects using the artifacts output layout, including this repository, use their configured artifacts directory instead.
 
 To build the Gallery itself for the current macOS Apple Silicon host:
 

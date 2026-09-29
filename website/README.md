@@ -2,7 +2,7 @@
 
 This is the official documentation and showcase website for **RazorConsole**, a framework for building rich Terminal User Interfaces (TUI) using C# and Razor syntax.
 
-The site is built as a highly optimized **Static Site (SSG)** to ensure maximum performance, perfect SEO, and easy hosting on GitHub Pages.
+The site is built as a **Static Site (SSG)** with readable initial HTML and page-specific metadata for hosting on GitHub Pages.
 
 ## 🚀 Key Features
 
@@ -74,7 +74,7 @@ website/
 │   ├── build-wasm.js       # Compiles RazorConsole.Website (.NET) to WASM for browser previews
 │   ├── generate-llms.ts    # Generates AI-friendly documentation (llms.txt, llms-full.txt)
 │   ├── generate-og.tsx     # Generates dynamic OG social images using Satori and WASM runtime
-│   └── generate-sitemap.ts # Generates SEO sitemap.xml with hierarchical priorities
+│   └── generate-sitemap.ts # Generates sitemap.xml from indexable prerendered HTML
 ├── src/
 │   ├── assets/             # Static assets (images, global icons, fonts)
 │   ├── components/         # Reusable React components
@@ -117,14 +117,10 @@ website/
 
 ### Metadata & SEO Generation (`build:metadata`)
 
-This stage is executed automatically after the main build (`postbuild`) to prepare the project for publication:
+This stage is executed by `build:metadata` after prerendering in `npm run build`:
 
 1.  **AI Discovery (`llms.txt`)**: The script collects all guides and API components into a single, comprehensive plain text format. This allows AI tools (Cursor, GPT-4) to immediately obtain the context of the entire library.
-2.  **SEO Automation (`sitemap.xml`)**: Dynamically generates a website map using the same data sources as React Router. The script automatically sets scan priorities:
-    * **Home** — highest priority.
-    * **Components** — main functionality.
-    * **Docs** — tutorial guides.
-    * **API** — low-level technical details.
+2.  **SEO Automation (`sitemap.xml`)**: Reads the generated `build/client/**/index.html` files, includes their unique self-canonicals, and excludes meta-refresh/noindex redirects. This includes component, gallery, showcase, collaborators, tutorial, blog, release, and API pages. `lastmod` is omitted because build time is not a trustworthy content modification date. Missing or duplicate canonicals fail generation.
 3.  **Dynamic Open Graph Images (`generate-og.ts`)**: Creates unique social media preview images for each component page.
     * **TUI Snapshot**: The script initializes a headless terminal [`@xterm/headless`](https://github.com/xtermjs/xterm.js) and loads the .NET WASM runtime.
     * **Image Rendering**: Utilizes the [`@chenglou/pretext`](https://github.com/chenglou/pretext) library for precise monospace font measurement and [`satori`](https://github.com/vercel/satori) to convert HTML/CSS into SVG.
@@ -133,7 +129,8 @@ This stage is executed automatically after the main build (`postbuild`) to prepa
 
 ### Vite SSR Integration
 
-The automation scripts utilize `vite.ssrLoadModule`. This ensures that generators (OG, LLMS, Sitemap) always operate with the latest business logic and project data without requiring manual updates to the page lists.
+The OG and LLMS generators use `vite.ssrLoadModule` to load current project data. The sitemap generator
+instead reads the prerendered HTML so its URLs reflect the pages actually produced by the build.
 
 ---
 ### Theming Strategy
@@ -147,6 +144,48 @@ Code previews are rendered at build-time using `Shiki`. It sets two theme color 
 The website is automatically deployed to GitHub Pages via **GitHub Actions**.
 
   - The build process injects the repository name as a `basename` (e.g., `/RazorConsole/`).
+
+### SEO regression checks
+
+After generating DocFX and WASM data, run a production-path build in PowerShell:
+
+```powershell
+$env:VITE_SITE_URL = "https://razorconsole.github.io"
+$env:VITE_BASE = "/RazorConsole/"
+$env:VITE_ROUTER_BASENAME = "/RazorConsole/"
+npm run test:seo
+npx tsc -b
+npx react-router build
+npm run gen:sitemap
+npm run test:seo:static
+```
+
+`npm run build` also generates the social images and AI documentation. The focused sequence above
+checks SEO without regenerating those unrelated assets. The static tests inspect HTML before JavaScript
+runs: H1s, unique self-canonicals, Open Graph URLs, readable API descriptions, internal links, redirects,
+and sitemap coverage. CI runs these checks after its full website build, for both preview and production
+base paths. Keep `VITE_BASE` and `VITE_ROUTER_BASENAME` aligned. Preview deployments can set their own
+`VITE_SITE_URL`; local navigation and assets remain local rather than linking to production.
+
+`SiteLink` and `site-paths.ts` normalize HTML routes to trailing slashes while preserving query strings,
+anchors, files, and the project base path. Existing redirect routes remain available. GitHub Pages can
+still serve `/index.html` aliases; their generated HTML points to the directory canonical rather than
+depending on host-level redirect rules.
+
+### Owner follow-up after deployment
+
+This repository deploys the **project site** at `https://razorconsole.github.io/RazorConsole/`.
+It cannot publish `https://razorconsole.github.io/robots.txt`. An optional root robots file belongs to
+the RazorConsole organization's root Pages site, conventionally the `RazorConsole/razorconsole.github.io`
+repository (its existence/access has not been confirmed). An organization Pages administrator must
+manage that origin-root deployment; a project-subdirectory robots file would not control crawling.
+Missing robots.txt does not block crawling.
+
+The existing Google verification meta token is preserved, but it does not prove Search Console access,
+sitemap submission, or index status. A property owner should submit
+`https://razorconsole.github.io/RazorConsole/sitemap.xml` after deployment and inspect the home,
+table component, tutorial, blog, API, and release pages, including their selected canonical URLs.
+No submission or indexing claim is made by the build.
 
 ## License
 

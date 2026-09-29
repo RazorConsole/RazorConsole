@@ -1,7 +1,7 @@
 import { redirect, type LoaderFunctionArgs } from "react-router"
 
 function destination(params: LoaderFunctionArgs["params"]) {
-  return `/docs/tutorial/${params.chapterId || "hello-world"}`
+  return `/docs/tutorial/${params.chapterId || "hello-world"}/`
 }
 
 export function loader({ params }: LoaderFunctionArgs) {
