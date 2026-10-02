@@ -6,13 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import type { ShowcaseProject } from "@/data/showcase"
 import { Download, Rocket } from "lucide-react"
 import { useState } from "react"
+import { Link } from "react-router"
 
 export default function ProjectGrid({
   projects,
   emptyMessage,
+  detailPathPrefix,
 }: {
   projects: ShowcaseProject[]
   emptyMessage: string
+  detailPathPrefix?: string
 }) {
   const [installProject, setInstallProject] = useState<ShowcaseProject | null>(null)
 
@@ -34,6 +37,8 @@ export default function ProjectGrid({
     <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-2">
       {projects.map((project) => {
         const projectUrl = getProjectUrl(project)
+        const detailUrl =
+          detailPathPrefix && project.slug ? `${detailPathPrefix}/${project.slug}` : undefined
         return (
           <Card
             key={project.name}
@@ -56,19 +61,37 @@ export default function ProjectGrid({
               </div>
             )}
             <CardHeader className={project.installCommands ? "pb-3" : undefined}>
-              <CardTitle className="text-xl">{project.name}</CardTitle>
+              <CardTitle className="text-xl">
+                {detailUrl ? (
+                  <Link className="hover:text-violet-700 dark:hover:text-violet-300" to={detailUrl}>
+                    {project.name}
+                  </Link>
+                ) : (
+                  project.name
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col">
               <CardDescription className="flex-1">{project.description}</CardDescription>
               {project.installCommands && project.installCommands.length > 0 && (
-                <Button
-                  type="button"
-                  className="mt-6 w-full gap-2 sm:w-auto sm:self-start"
-                  onClick={() => setInstallProject(project)}
-                >
-                  <Download className="h-4 w-4" aria-hidden="true" />
-                  Install
-                </Button>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  {detailUrl && (
+                    <Link
+                      className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-800"
+                      to={detailUrl}
+                    >
+                      View details
+                    </Link>
+                  )}
+                  <Button
+                    type="button"
+                    className="gap-2"
+                    onClick={() => setInstallProject(project)}
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    Install
+                  </Button>
+                </div>
               )}
               {!project.installCommands && (
                 <div className="mt-5 flex flex-wrap gap-3 text-sm font-semibold">

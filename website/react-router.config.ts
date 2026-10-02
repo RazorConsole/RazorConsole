@@ -2,6 +2,7 @@ import type { Config } from "@react-router/dev/config";
 import { components } from "./src/data/components";
 import { apiItems } from "./src/data/api-docs";
 import { docTopicIds, releaseNoteIds } from "./src/data/docs-ids";
+import { officialApps } from "./src/data/official-apps";
 
 export default {
     appDirectory: "src",
@@ -40,6 +41,7 @@ export default {
         const tutorialPaths = tutorialSlugs.map((slug) => `/docs/tutorial/${slug}`);
         const legacyTutorialPaths = tutorialSlugs.map((slug) => `/tutorial/${slug}`);
         const releasePaths = releaseNoteIds.map((item) => `/release-notes/${item.id}`);
+        const galleryPaths = officialApps.map((app) => `/gallery/${app.slug}`);
 
         return [
             ...getStaticPaths(),
@@ -50,6 +52,7 @@ export default {
             ...tutorialPaths,
             ...legacyTutorialPaths,
             ...releasePaths,
+            ...galleryPaths,
         ];
     },
 } satisfies Config;

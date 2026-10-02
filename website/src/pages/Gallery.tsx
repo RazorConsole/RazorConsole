@@ -29,6 +29,7 @@ export default function Gallery() {
         <ProjectGrid
           projects={officialApps}
           emptyMessage="No official applications are available yet."
+          detailPathPrefix="/gallery"
         />
       </div>
     </div>

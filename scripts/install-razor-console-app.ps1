@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory)]
-    [ValidateSet("Gallery", "Snake")]
+    [ValidateSet("Gallery", "Snake", "TankBattle")]
     [string] $App,
 
     [ValidateSet("Stable", "Nightly")]
@@ -22,6 +22,13 @@ $appConfiguration = switch ($App) {
             Name = "snake"
             InstallDirectory = "Snake"
             InstallDirectoryVariable = "RAZORCONSOLE_SNAKE_INSTALL_DIR"
+        }
+    }
+    "TankBattle" {
+        @{
+            Name = "tank-battle"
+            InstallDirectory = "TankBattle"
+            InstallDirectoryVariable = "RAZORCONSOLE_TANK_BATTLE_INSTALL_DIR"
         }
     }
 }

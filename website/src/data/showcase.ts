@@ -1,4 +1,5 @@
 export interface ShowcaseProject {
+  slug?: string
   name: string
   description: string
   github?: string

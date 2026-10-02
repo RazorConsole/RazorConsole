@@ -6,14 +6,14 @@ app=""
 channel="stable"
 
 usage() {
-  echo "Usage: install-razor-console-app.sh --app <Gallery|Snake> [--channel <stable|nightly>]" >&2
+  echo "Usage: install-razor-console-app.sh --app <Gallery|Snake|TankBattle> [--channel <stable|nightly>]" >&2
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --app)
       if [ "$#" -lt 2 ]; then
-        echo "--app requires Gallery or Snake." >&2
+        echo "--app requires Gallery, Snake, or TankBattle." >&2
         exit 1
       fi
       app="$2"
@@ -51,6 +51,12 @@ case "$app" in
     command_name="razorconsole-snake"
     install_root="${RAZORCONSOLE_SNAKE_INSTALL_DIR:-${HOME}/.local/share/razorconsole-snake}"
     bin_dir="${RAZORCONSOLE_SNAKE_BIN_DIR:-${RAZORCONSOLE_BIN_DIR:-${HOME}/.local/bin}}"
+    ;;
+  TankBattle|tankbattle|tank-battle)
+    display_name="Tank Battle"
+    command_name="razorconsole-tank-battle"
+    install_root="${RAZORCONSOLE_TANK_BATTLE_INSTALL_DIR:-${HOME}/.local/share/razorconsole-tank-battle}"
+    bin_dir="${RAZORCONSOLE_TANK_BATTLE_BIN_DIR:-${RAZORCONSOLE_BIN_DIR:-${HOME}/.local/bin}}"
     ;;
   "")
     echo "--app is required." >&2

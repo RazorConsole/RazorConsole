@@ -19,6 +19,16 @@
       "commandName": "razorconsole-snake",
       "assemblyName": "RazorConsole.Snake",
       "project": "gallery/RazorConsole.Snake/RazorConsole.Snake.csproj"
+    },
+    {
+      "packageId": "RazorConsole.TankBattle",
+      "title": "Tank Battle",
+      "description": "A Native AOT terminal tank battle game with procedural mazes, power-ups, and enemy AI, built with RazorConsole.",
+      "projectUrl": "https://github.com/RazorConsole/RazorConsole/tree/main/gallery/RazorConsole.TankBattle",
+      "repositoryUrl": "https://github.com/RazorConsole/RazorConsole",
+      "commandName": "razorconsole-tank-battle",
+      "assemblyName": "RazorConsole.TankBattle",
+      "project": "gallery/RazorConsole.TankBattle/RazorConsole.TankBattle.csproj"
     }
   ]
 }

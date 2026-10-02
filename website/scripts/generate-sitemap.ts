@@ -29,7 +29,8 @@ async function generateSitemap() {
     try {
         const { components } = await vite.ssrLoadModule('./src/data/components.ts') as { components: ComponentInfo[] };
         const { docTopicIds, releaseNoteIds } = await vite.ssrLoadModule('./src/data/docs-ids.ts') as { docTopicIds: TopicItem[], releaseNoteIds: TopicItem[] };
-        const { apiItems } = await vite.ssrLoadModule('./src/data/api-docs.ts') as { apiItems: Record<string, any> };
+        const { apiItems } = await vite.ssrLoadModule('./src/data/api-docs.ts') as { apiItems: Record<string, unknown> };
+        const { officialApps } = await vite.ssrLoadModule('./src/data/official-apps.ts') as { officialApps: Array<{ slug: string }> };
 
         const lastMod = new Date().toISOString().split('T')[0];
         let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
@@ -72,6 +73,12 @@ async function generateSitemap() {
         addUrl('/api', apiPriority, apiFreq);
         Object.keys(apiItems).forEach(uid => {
             addUrl(`/api/${encodeURIComponent(uid)}`, apiPriority, apiFreq);
+        });
+
+        // Official app gallery
+        addUrl('/gallery', '0.8', 'weekly');
+        officialApps.forEach(app => {
+            addUrl(`/gallery/${app.slug}`, '0.8', 'weekly');
         });
 
         xml += `</urlset>`;

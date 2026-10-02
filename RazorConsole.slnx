@@ -46,6 +46,7 @@
   <Folder Name="/gallery/">
     <Project Path="gallery/RazorConsole.Gallery/RazorConsole.Gallery.csproj" />
     <Project Path="gallery/RazorConsole.Snake/RazorConsole.Snake.csproj" />
+    <Project Path="gallery/RazorConsole.TankBattle/RazorConsole.TankBattle.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="src/RazorConsole.Tests/RazorConsole.Tests.csproj" />

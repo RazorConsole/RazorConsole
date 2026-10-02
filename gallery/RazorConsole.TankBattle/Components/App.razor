@@ -1,0 +1,284 @@
+@namespace RazorConsole.TankBattle.Components
+@implements IDisposable
+@inject IHostApplicationLifetime Lifetime
+@inject RazorConsole.Core.Rendering.ITerminalViewport Viewport
+
+<Align Width="@SurfaceWidth"
+       Height="@Viewport.Height"
+       Horizontal="HorizontalAlignment.Center"
+       Vertical="VerticalAlignment.Middle">
+    @if (IsTerminalTooSmall)
+    {
+        <Rows>
+            <Markup Content="TERMINAL TOO SMALL" Foreground="EnemyColor" Decoration="Decoration.Bold" />
+            <Markup Content="@($"Current: {Viewport.Width}x{Viewport.Height} · Required: 80x24 or larger")" />
+            <Markup Content="Resize the terminal to deploy your tank." Foreground="Color.Grey70" />
+        </Rows>
+    }
+    else
+    {
+        <Flex Direction="FlexDirection.Column"
+              Width="@ContentWidth"
+              Height="@ContentHeight"
+              Gap="1"
+              data-focusable="true"
+              data-focus-key="razor-tank-battle"
+              data-focus-order="0"
+              data-input-managed="true"
+              @onkeydown="HandleKey">
+            <Columns>
+                <SpectreCanvas Pixels="BoardPixels"
+                               CanvasWidth="@_game.Width"
+                               CanvasHeight="@_game.Height"
+                               PixelWidth="2"
+                               Scale="false" />
+
+                <Panel Title="TANK BATTLE"
+                       TitleColor="PlayerColor"
+                       Border="BoxBorder.Rounded"
+                       BorderColor="Color.Grey35"
+                       Padding="new Padding(1, 0, 1, 0)"
+                       Width="@SideWidth"
+                       Height="@BoardHeight">
+                    <Align Width="24"
+                           Height="@ControlHeight"
+                           Horizontal="HorizontalAlignment.Center"
+                           Vertical="VerticalAlignment.Middle">
+                        <Rows>
+                            <Markup Content="@($"SCORE  {_game.Score:00000}")" Foreground="PlayerColor" Decoration="Decoration.Bold" />
+                            <Markup Content="@($"LEVEL  {_game.Level:00}")" />
+                            <Markup Content="@($"LIVES  {new string('♥', _game.Lives)}")" Foreground="EnemyColor" />
+                            <Markup Content="@($"ENEMY  {_game.RemainingEnemies:00}")" Foreground="EnemyColor" />
+                            <Markup Content="@SkillText" Foreground="@SkillColor" Decoration="Decoration.Bold" />
+                            <Markup Content="@StatusText" Foreground="@StatusColor" Decoration="Decoration.Bold" />
+                            <Markup Content="ARROWS / WASD  MOVE" Foreground="Color.Grey70" />
+                            <Markup Content="SPACE          FIRE" Foreground="Color.Grey70" />
+                            <Markup Content="P              PAUSE" Foreground="Color.Grey70" />
+                            <Markup Content="R              RESTART" Foreground="Color.Grey70" />
+                            <Markup Content="Q / ESC        QUIT" Foreground="Color.Grey70" />
+                            <Markup Content="TANK: 3x3 凸  SHOT: DOT" Foreground="Color.Grey70" />
+                            <Markup Content="CYAN: YOU  RED: ENEMY" Foreground="Color.Grey70" />
+                            <Markup Content="GREEN RAPID  PINK SPREAD" Foreground="Color.Grey70" />
+                            <Markup Content="YELLOW HOMING" Foreground="HomingColor" />
+                            <Markup Content="GOLD: BASE · PROTECT IT" Foreground="BaseColor" />
+                        </Rows>
+                    </Align>
+                </Panel>
+            </Columns>
+            <Markup Content="@PromptText" Foreground="@StatusColor" Decoration="Decoration.Bold" />
+        </Flex>
+    }
+</Align>
+
+@code {
+    private const int MinimumTerminalWidth = 80;
+    private const int MinimumTerminalHeight = 24;
+    private const int SideWidth = 28;
+    private static readonly Color BoardColor = new(18, 27, 38);
+    private static readonly Color BrickColor = new(190, 100, 55);
+    private static readonly Color SteelColor = new(135, 145, 155);
+    private static readonly Color PlayerColor = new(70, 220, 255);
+    private static readonly Color PlayerTrackColor = new(30, 120, 155);
+    private static readonly Color EnemyColor = new(255, 75, 75);
+    private static readonly Color EnemyTrackColor = new(145, 35, 45);
+    private static readonly Color BaseColor = new(255, 210, 60);
+    private static readonly Color PlayerBulletColor = new(220, 255, 255);
+    private static readonly Color EnemyBulletColor = new(255, 170, 35);
+    private static readonly Color RapidColor = new(80, 255, 120);
+    private static readonly Color SpreadColor = new(255, 80, 210);
+    private static readonly Color HomingColor = new(255, 245, 80);
+    private readonly CancellationTokenSource _shutdown = new();
+    private TankEngine _game = null!;
+    private (int x, int y, Color color)[] _boardPixels = [];
+
+    private int SurfaceWidth => Math.Max(1, Viewport.Width - 1);
+    private int BoardHeight => SnapMazeDimension(Math.Max(19, Viewport.Height - 3));
+    private int BoardWidth => SnapMazeDimension(Math.Max(25, (SurfaceWidth - SideWidth - 1) / 2));
+    private int ControlHeight => Math.Max(1, BoardHeight - 2);
+    private int ContentWidth => (_game.Width * 2) + SideWidth + 1;
+    private int ContentHeight => BoardHeight + 2;
+    private bool IsTerminalTooSmall => Viewport.Width < MinimumTerminalWidth || Viewport.Height < MinimumTerminalHeight;
+    private (int x, int y, Color color)[] BoardPixels => _boardPixels;
+    private string StatusText => $"STATUS  {_game.Phase.ToString().ToUpperInvariant()}";
+    private string SkillText => _game.ActiveSkill == SkillType.None
+        ? "SKILL   NONE"
+        : $"SKILL   {SkillName} {_game.SkillSecondsRemaining:00}s";
+    private string SkillName => _game.ActiveSkill switch
+    {
+        SkillType.RapidFire => "RAPID",
+        SkillType.SpreadShot => "SPREAD",
+        SkillType.Homing => "HOMING",
+        _ => "NONE",
+    };
+    private Color SkillColor => _game.ActiveSkill switch
+    {
+        SkillType.RapidFire => RapidColor,
+        SkillType.SpreadShot => SpreadColor,
+        SkillType.Homing => HomingColor,
+        _ => Color.Grey70,
+    };
+    private Color StatusColor => _game.Phase switch
+    {
+        GamePhase.Running => PlayerColor,
+        GamePhase.Paused => BaseColor,
+        GamePhase.GameOver => EnemyColor,
+        _ => Color.Grey70,
+    };
+    private string PromptText => _game.Phase switch
+    {
+        GamePhase.Ready => "READY // PRESS A DIRECTION OR SPACE TO DEPLOY",
+        GamePhase.Paused => "PAUSED // PRESS P TO RESUME",
+        GamePhase.GameOver => "BASE LOST // PRESS R TO REDEPLOY",
+        _ => "LIVE // DESTROY THE RED TANKS · DEFEND THE GOLD BASE",
+    };
+
+    // A six-cell maze lattice needs one final boundary cell: 6n + 1.
+    private static int SnapMazeDimension(int available)
+        => 1 + (((available - 1) / 6) * 6);
+
+    protected override void OnInitialized()
+    {
+        _game = new TankEngine(BoardWidth, BoardHeight);
+        RebuildBoard();
+        Viewport.OnResized += HandleViewportResize;
+        _ = RunGameLoopAsync(_shutdown.Token);
+    }
+
+    private async Task RunGameLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(_game.TickDelayMilliseconds, cancellationToken);
+                await InvokeAsync(() =>
+                {
+                    _game.Advance();
+                    RebuildBoard();
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void HandleKey(KeyboardEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case "ArrowUp": case "w": case "W": _game.MovePlayer(Direction.Up); break;
+            case "ArrowRight": case "d": case "D": _game.MovePlayer(Direction.Right); break;
+            case "ArrowDown": case "s": case "S": _game.MovePlayer(Direction.Down); break;
+            case "ArrowLeft": case "a": case "A": _game.MovePlayer(Direction.Left); break;
+            case " ": case "Spacebar": _game.FirePlayer(); break;
+            case "p": case "P": _game.TogglePause(); break;
+            case "r": case "R": _game.Restart(); break;
+            case "q": case "Q": case "Escape": Lifetime.StopApplication(); break;
+        }
+
+        RebuildBoard();
+    }
+
+    private void HandleViewportResize()
+    {
+        _ = InvokeAsync(() =>
+        {
+            if (!IsTerminalTooSmall)
+            {
+                _game.Resize(BoardWidth, BoardHeight);
+                RebuildBoard();
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private void RebuildBoard()
+    {
+        var pixels = new (int x, int y, Color color)[_game.Width * _game.Height];
+        for (var y = 0; y < _game.Height; y++)
+        {
+            for (var x = 0; x < _game.Width; x++)
+            {
+                var cell = new Cell(x, y);
+                var color = _game.GetTile(cell) switch
+                {
+                    Tile.Brick => BrickColor,
+                    Tile.Steel => SteelColor,
+                    Tile.Base => BaseColor,
+                    _ => BoardColor,
+                };
+                pixels[(y * _game.Width) + x] = (x, y, color);
+            }
+        }
+
+        foreach (var powerUp in _game.PowerUps)
+        {
+            var color = powerUp.Type switch
+            {
+                SkillType.RapidFire => RapidColor,
+                SkillType.SpreadShot => SpreadColor,
+                SkillType.Homing => HomingColor,
+                _ => BoardColor,
+            };
+            SetPixel(pixels, powerUp.Position, color);
+        }
+
+        foreach (var enemy in _game.Enemies)
+        {
+            DrawTank(pixels, enemy, EnemyColor, EnemyTrackColor);
+        }
+
+        DrawTank(pixels, _game.Player, PlayerColor, PlayerTrackColor);
+
+        // Draw projectiles last so their single bright cell stays visible even as it
+        // leaves the tank's multi-cell silhouette.
+        foreach (var bullet in _game.Bullets)
+        {
+            SetPixel(pixels, bullet.Position, bullet.IsEnemy ? EnemyBulletColor : PlayerBulletColor);
+        }
+
+        _boardPixels = pixels;
+    }
+
+    private void DrawTank(
+        (int x, int y, Color color)[] pixels,
+        Tank tank,
+        Color bodyColor,
+        Color trackColor)
+    {
+        var forward = Step(tank.Position, tank.Direction);
+        foreach (var cell in _game.GetTankCells(tank))
+        {
+            var color = cell == tank.Position || cell == forward ? bodyColor : trackColor;
+            SetPixel(pixels, cell, color);
+        }
+    }
+
+    private static Cell Step(Cell cell, Direction direction)
+        => direction switch
+        {
+            Direction.Up => cell with { Y = cell.Y - 1 },
+            Direction.Right => cell with { X = cell.X + 1 },
+            Direction.Down => cell with { Y = cell.Y + 1 },
+            Direction.Left => cell with { X = cell.X - 1 },
+            _ => cell,
+        };
+
+    private void SetPixel((int x, int y, Color color)[] pixels, Cell cell, Color color)
+    {
+        if (cell.X >= 0 && cell.X < _game.Width && cell.Y >= 0 && cell.Y < _game.Height)
+        {
+            pixels[(cell.Y * _game.Width) + cell.X] = (cell.X, cell.Y, color);
+        }
+    }
+
+    public void Dispose()
+    {
+        Viewport.OnResized -= HandleViewportResize;
+        _shutdown.Cancel();
+        _shutdown.Dispose();
+    }
+}
