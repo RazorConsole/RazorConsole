@@ -4,7 +4,7 @@ import { useResolvedTheme } from "@/hooks/useTheme"
 
 export default function ConsoleTitle() {
   const fullText = "RazorConsole"
-  const [text, setText] = useState("")
+  const [text, setText] = useState(fullText)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [isMounted, setIsMounted] = useState(false) 
@@ -86,7 +86,7 @@ export default function ConsoleTitle() {
   }
 
   return (
-    <h1 className="mb-4 flex items-center justify-center gap-3 text-5xl font-bold">
+    <div aria-hidden="true" className="mb-4 flex items-center justify-center gap-3 text-5xl font-bold">
       <div className="relative inline-flex items-center">
         <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-500/20 to-violet-500/20 blur-xl dark:from-blue-600/40 dark:to-violet-600/40" />
 
@@ -109,6 +109,6 @@ export default function ConsoleTitle() {
           />
         </span>
       </div>
-    </h1>
+    </div>
   )
 }

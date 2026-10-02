@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link } from "@/components/ui/SiteLink"
 import { DocumentationShell } from "@/components/docs/DocumentationShell"
 import { TutorialChapterContent } from "./TutorialChapterContent"
 import { tutorialChapters, type TutorialChapter } from "@/data/tutorial"

@@ -45,7 +45,7 @@ async function generate() {
             }).replace(/<code>(.*?)<\/code>/g, '`$1`');
         };
 
-        let indexContent = `# RazorConsole\n\n> High-performance Blazor TUI framework, built on top of [Spectre.Console](https://spectreconsole.net).\n\n\n`;
+        let indexContent = `# RazorConsole\n\n> Build C# terminal UIs with reusable Razor components, built-in mouse and keyboard events, and experimental NativeAOT support. [Spectre.Console](https://spectreconsole.net) is part of the rendering foundation.\n\n\n`;
         let fullContent = indexContent;
 
         // Docs generation
@@ -130,6 +130,7 @@ async function generate() {
 
     } catch (e) {
         console.error(pc.red(`[LLMS] Generation failed: ${e}`));
+        process.exitCode = 1;
     } finally {
         await vite.close();
     }

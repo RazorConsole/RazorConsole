@@ -39,6 +39,36 @@ its .NET renderer.
 
 ## Quick Start tutorial browser check
 
+### Built-site navigation regression
+
+`tutorial_navigation.py` uses pinned Python Playwright and real Chromium against the **built**
+site. It imports the emitted Tutorial browser module and invokes its client loader (valid chapter,
+missing-chapter redirect, and 404), then clicks the homepage Docs, Quick Start, and FAQ entries,
+checks actual Hello World keyboard input and restart, switches chapters, and exercises back/forward.
+A document sentinel and request checks reject
+full-page reloads masquerading as client navigation. The missing-chapter redirect must retain the
+deployment base. CI runs it against both `/` preview and `/RazorConsole/` production builds.
+Browser errors are logged with stacks for diagnosis; reference errors and errors identifying the
+Tutorial/route module explicitly fail the test. The module invocation, DOM assertions, and no-reload
+checks also fail independently of that diagnostic filter. This is not a blanket certification of
+every WASM/xterm lifecycle case; use the additional terminal interaction checks below for that surface.
+
+After building the website, run from `website`:
+
+```sh
+python -m pip install -r tests/requirements.txt
+python -m playwright install chromium
+python tests/tutorial_navigation.py
+```
+
+Set `VITE_BASE` to match the build. `WEBSITE_BUILD_DIR` can point to a downloaded CI preview artifact.
+The test uses a temporary localhost port, serves existing prerendered HTML and assets, and makes
+no production changes. Python Playwright is test-only; no browser automation dependency is shipped
+to site visitors. This complements initial-HTML checks: successful HTML fetches cannot detect a
+route module referencing a server loader removed by the client compiler.
+
+### Manual terminal interaction
+
 Run the website with `npm run dev`, then open
 `http://127.0.0.1:5173/tutorial/hello-world` in a real browser and verify:
 

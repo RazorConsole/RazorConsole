@@ -1,12 +1,12 @@
-import ImageBanner from "@/components/showcase/ImageBanner"
-import InstallDialog from "@/components/showcase/InstallDialog"
-import VideoBanner from "@/components/showcase/VideoBanner"
+import ImageBanner from "@/components/ui/ImageBanner"
+import InstallDialog from "@/components/gallery/InstallDialog"
+import VideoBanner from "@/components/ui/VideoBanner"
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
 import type { ShowcaseProject } from "@/data/showcase"
 import { Download, Rocket } from "lucide-react"
 import { useState } from "react"
-import { Link } from "react-router"
+import { Link } from "@/components/ui/SiteLink"
 
 export default function ProjectGrid({
   projects,

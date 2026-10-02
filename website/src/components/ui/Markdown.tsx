@@ -5,6 +5,7 @@ import rehypeSlug from "rehype-slug"
 import CodeBlock from "./CodeBlock"
 import type { BundledLanguage } from "shiki"
 import { Info, Lightbulb, OctagonAlert, TriangleAlert, Zap } from "lucide-react"
+import { documentHref } from "@/lib/document-links"
 
 interface MarkdownRendererProps {
   content: string
@@ -200,16 +201,18 @@ export const MarkdownRenderer = React.memo<MarkdownRendererProps>(({ content, cl
             )
           },
           // Customize links
-          a: ({ href, children }) => (
-            <a
-              href={href}
+          a: ({ href, children }) => {
+            const target = documentHref(href, import.meta.env.BASE_URL, import.meta.env.VITE_SITE_URL)
+            const external = target?.startsWith("http")
+            return <a
+              href={target}
               className="text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-              target={href?.startsWith("http") ? "_blank" : undefined}
-              rel={href?.startsWith("http") ? "noopener noreferrer" : undefined}
+              target={external ? "_blank" : undefined}
+              rel={external ? "noopener noreferrer" : undefined}
             >
               {children}
             </a>
-          ),
+          },
 
           // Customize horizontal rules
           hr: () => <hr className="my-6 border-gray-300 dark:border-gray-600" />,

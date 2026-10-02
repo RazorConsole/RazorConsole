@@ -102,11 +102,22 @@ public sealed class AgentAppIntegrationTests
         terminal.Snapshot[2, details].Style!.Foreground.ShouldBe(new Color(17, 96, 220));
         terminal.Snapshot.ContainsText("four").ShouldBeFalse();
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, 3, details), TestContext.Current.CancellationToken);
-        terminal.Snapshot.ContainsText("four").ShouldBeTrue(terminal.DumpDiagnostics());
-        terminal.Snapshot.ContainsText("− Hide details").ShouldBeTrue();
-        var error = Enumerable.Range(0, 40).Single(y => terminal.Snapshot.GetLine(y).Contains("request failed"));
-        terminal.Snapshot[2, error].Style!.Foreground.ShouldBe(Color.Red);
+
+        await terminal.WaitUntilAsync(
+            _ => terminal.Snapshot.ContainsText("four") && terminal.Snapshot.ContainsText("− Hide details"),
+            description: "tool details disclosure",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        var errorY = Enumerable.Range(0, 40).Single(y => terminal.Snapshot.GetLine(y).Contains("request failed"));
+        var errorLine = terminal.Snapshot.GetLine(errorY);
+        var errorX = errorLine.IndexOf("request failed", StringComparison.Ordinal);
+
+        terminal.Snapshot[errorX, errorY].Style.ShouldNotBeNull();
+        terminal.Snapshot[errorX, errorY].Style!.Foreground.ShouldBe(Color.Red);
+
+        await terminal.WaitUntilAsync(_ => _view.Display is not null, cancellationToken: TestContext.Current.CancellationToken);
         _view.Display.Text.ShouldNotContain("**");
+
     }
 
     [Theory]

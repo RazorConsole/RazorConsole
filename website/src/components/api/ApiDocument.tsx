@@ -1,5 +1,5 @@
 import { useMemo, useState, Fragment } from "react"
-import { Link } from "react-router-dom"
+import { Link } from "@/components/ui/SiteLink"
 import type { DocfxApiItem, DocfxApiMember, DocfxSyntaxParameter } from "@/data/api-docs"
 import { cn } from "@/lib/utils"
 import { TypeLink } from "@/components/ui/TypeLink"
@@ -11,6 +11,7 @@ import {
   CATEGORY_ORDER,
 } from "@/lib/categories"
 import { sanitizeDocText } from "@/lib/doc-utils"
+import { componentPathForApi } from "@/data/components"
 
 interface ApiDocumentProps {
   item?: DocfxApiItem
@@ -313,43 +314,6 @@ function getTypeBadgeColor(type?: string) {
   }
 }
 
-// Check if this type is a component (has a corresponding component page)
-function getComponentLink(name: string, namespace?: string): string | null {
-  // Components in RazorConsole.Components namespace may have a component page
-  if (namespace === "RazorConsole.Components") {
-    const componentNames = [
-      "Align",
-      "BarChart",
-      "Border",
-      "BreakdownChart",
-      "Columns",
-      "Figlet",
-      "Grid",
-      "Markdown",
-      "Markup",
-      "Newline",
-      "Padder",
-      "Panel",
-      "Rows",
-      "Scrollable",
-      "Select",
-      "SpectreCanvas",
-      "SpectreTable",
-      "Spinner",
-      "StepChart",
-      "SyntaxHighlighter",
-      "TextButton",
-      "TextInput",
-    ]
-
-    const baseName = name.split("<")[0] // Handle generic types like Scrollable<TItem>
-    if (componentNames.includes(baseName)) {
-      return `/components/${baseName.toLowerCase()}`
-    }
-  }
-  return null
-}
-
 export default function ApiDocument({ item }: ApiDocumentProps) {
   const memberGroups = useMemo(() => {
     if (!item?.members) {
@@ -408,7 +372,9 @@ export default function ApiDocument({ item }: ApiDocumentProps) {
   if (!item) {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 bg-white/50 p-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400">
-        Select an API type from the navigation to see its documentation.
+        <h1 className="mb-4 text-3xl font-bold text-slate-900 dark:text-slate-50">RazorConsole API Reference</h1>
+        <p>Browse Razor components, input events, rendering services, and utilities.
+          Select a namespace or type from the navigation, or search by name.</p>
       </div>
     )
   }
@@ -416,7 +382,7 @@ export default function ApiDocument({ item }: ApiDocumentProps) {
   const code = item.syntax?.contentCs ?? item.syntax?.content
   const summary = sanitizeDocText(item.summary)
   const remarks = sanitizeDocText(item.remarks)
-  const componentLink = getComponentLink(item.name, item.namespace)
+  const componentLink = componentPathForApi(item.uid)
 
   return (
     <div className="flex gap-8">

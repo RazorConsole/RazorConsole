@@ -1,8 +1,13 @@
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useState } from "react"
-import { Image } from "../ui/Image";
+import { Image } from "./Image";
+interface ImageBannerProps {
+  imageUrls: string[]
+  alt: string
+  onImageClick?: (url: string, index: number) => void
+}
 
-export default function ImageBanner({ imageUrls, alt }: { imageUrls: string[]; alt: string }) {
+export default function ImageBanner({ imageUrls, alt, onImageClick }: ImageBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
 
   if (imageUrls.length === 0) return null
@@ -18,12 +23,14 @@ export default function ImageBanner({ imageUrls, alt }: { imageUrls: string[]; a
     e.stopPropagation()
     setCurrentIndex((prev) => (prev === imageUrls.length - 1 ? 0 : prev + 1))
   }
+  const currentImage = imageUrls[currentIndex]
 
   return (
     <div className="group relative h-72 overflow-hidden rounded-t-lg">
       <Image
         src={imageUrls[currentIndex]}
         alt={`${alt} screenshot ${currentIndex + 1}`}
+        onClick={() => onImageClick?.(currentImage, currentIndex)}
         loading="eager"
       />
       {imageUrls.length > 1 && (
@@ -51,9 +58,8 @@ export default function ImageBanner({ imageUrls, alt }: { imageUrls: string[]; a
                   e.stopPropagation()
                   setCurrentIndex(index)
                 }}
-                className={`h-2 w-2 rounded-full transition-colors ${
-                  index === currentIndex ? "bg-white" : "bg-white/50"
-                }`}
+                className={`h-2 w-2 rounded-full transition-colors ${index === currentIndex ? "bg-white" : "bg-white/50"
+                  }`}
                 aria-label={`Go to image ${index + 1}`}
               />
             ))}

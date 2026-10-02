@@ -101,6 +101,9 @@ public partial class Registry
             case "FlexBox":
                 _renderers[instanceID] = new RazorConsoleRenderer<FlexBox_1>(instanceID, cols, rows);
                 break;
+            case "HomeDemo":
+                _renderers[instanceID] = new RazorConsoleRenderer<HomeDemo>(instanceID, cols, rows);
+                break;
             case "TutorialHelloWorld":
                 _renderers[instanceID] = new RazorConsoleRenderer<HelloWorld>(instanceID, cols, rows);
                 break;

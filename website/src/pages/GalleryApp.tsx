@@ -1,25 +1,25 @@
 /* eslint-disable react-refresh/only-export-components */
-import ImageBanner from "@/components/showcase/ImageBanner"
-import VideoBanner from "@/components/showcase/VideoBanner"
+import ImageBanner from "@/components/ui/ImageBanner"
+import VideoBanner from "@/components/ui/VideoBanner"
 import { CopyButton } from "@/components/ui/CopyButton"
+import { Link } from "@/components/ui/SiteLink"
 import { getOfficialApp } from "@/data/official-apps"
-import { getFullSitePath } from "@/lib/utils"
+import { getPageUrl } from "@/lib/utils"
 import { ArrowLeft, Download, ExternalLink, Github, PackageOpen, Terminal } from "lucide-react"
 import type { MetaFunction } from "react-router"
-import { Link, useParams } from "react-router"
+import { useParams } from "react-router"
 
 export const meta: MetaFunction = ({ matches, location, params }) => {
   const rootMeta = matches.find((match) => match.id === "root")?.meta || []
   const app = getOfficialApp(params.appSlug)
   const title = app ? `${app.name} | RazorConsole Gallery` : "App not found | RazorConsole"
   const description = app?.description ?? "The requested RazorConsole app could not be found."
-  const url = `${getFullSitePath()}${location.pathname}`
+  const url = getPageUrl(location.pathname)
 
   return [
     ...rootMeta,
     { title },
     { name: "description", content: description },
-    { tagName: "link", rel: "canonical", href: url },
     { property: "og:type", content: "website" },
     { property: "og:title", content: title },
     { property: "og:description", content: description },
@@ -49,7 +49,7 @@ export default function GalleryApp() {
     )
   }
 
-  const pageUrl = `${getFullSitePath()}/gallery/${app.slug}`
+  const pageUrl = getPageUrl(`/gallery/${app.slug}`)
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",

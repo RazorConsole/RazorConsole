@@ -5,11 +5,12 @@ import {
   Scripts,
   ScrollRestoration,
   type MetaFunction,
+  useLocation,
 } from "react-router";
 import "./index.css";
 import { useThemeEffect } from "./hooks/useThemeEffect";
 import { initHighlighter } from "./components/ui/CodeBlock";
-import { getFullSitePath } from "./lib/utils";
+import { getFullSitePath, getPageUrl } from "./lib/utils";
 
 
 export async function loader() {
@@ -38,6 +39,7 @@ export const meta: MetaFunction = () => {
 export default function Root() {
   useThemeEffect();
   const fullBaseUrl = getFullSitePath();
+  const location = useLocation();
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -65,6 +67,7 @@ export default function Root() {
         <meta charSet="UTF-8" />
         <meta name="google-site-verification" content="jF1dcSGbDQJm6UY_MriNs2wHdnEGr_M1wZKiVciIdf8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="canonical" href={getPageUrl(location.pathname)} />
         <link rel="preconnect" href="https://api.github.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.github.com" />
         <link

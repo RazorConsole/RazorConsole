@@ -1,11 +1,26 @@
-import { Link, useLocation } from "react-router-dom"
-import { Github, Package, MessageCircle, Heart, Bug, BookOpen, Code, Gem, Bot, Sparkles, Images } from "lucide-react"
+import { useLocation } from "react-router-dom"
+import { Link } from "@/components/ui/SiteLink"
+import {
+  Github,
+  Package,
+  MessageCircle,
+  Heart,
+  Bug,
+  BookOpen,
+  Code,
+  Gem,
+  Bot,
+  Sparkles,
+  Images,
+  Newspaper,
+} from "lucide-react"
 
 export function Footer() {
   const location = useLocation()
 
   const isDocs =
     location.pathname.startsWith("/docs") ||
+    location.pathname.startsWith("/blog") ||
     location.pathname.startsWith("/api") ||
     location.pathname.startsWith("/components")
 
@@ -34,7 +49,13 @@ export function Footer() {
       )
     }
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={classes} aria-label={ariaLabel}>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={classes}
+        aria-label={ariaLabel}
+      >
         {Icon && (
           <Icon className="h-3.5 w-3.5 text-slate-400 transition-colors group-hover:text-blue-600 dark:text-slate-500 dark:group-hover:text-blue-400" />
         )}
@@ -61,8 +82,8 @@ export function Footer() {
                 </FooterLink>
               </li>
               <li>
-                <FooterLink 
-                  href="https://github.com/RazorConsole/RazorConsole" 
+                <FooterLink
+                  href="https://github.com/RazorConsole/RazorConsole"
                   icon={Github}
                   ariaLabel="View RazorConsole source code on GitHub"
                 >
@@ -70,8 +91,8 @@ export function Footer() {
                 </FooterLink>
               </li>
               <li>
-                <FooterLink 
-                  href="https://www.nuget.org/packages/RazorConsole.Core" 
+                <FooterLink
+                  href="https://www.nuget.org/packages/RazorConsole.Core"
                   icon={Package}
                   ariaLabel="View RazorConsole package on NuGet"
                 >
@@ -79,20 +100,12 @@ export function Footer() {
                 </FooterLink>
               </li>
               <li>
-                <FooterLink 
-                  to="/showcase" 
-                  icon={Gem}
-                  ariaLabel="View RazorConsole showcase"
-                >
+                <FooterLink to="/showcase" icon={Gem} ariaLabel="View RazorConsole showcase">
                   Showcase
                 </FooterLink>
               </li>
               <li>
-                <FooterLink 
-                  to="/collaborators" 
-                  icon={Heart}
-                  ariaLabel="View project collaborators"
-                >
+                <FooterLink to="/collaborators" icon={Heart} ariaLabel="View project collaborators">
                   Collaborators
                 </FooterLink>
               </li>
@@ -104,7 +117,7 @@ export function Footer() {
             <FooterHeader>Resources</FooterHeader>
             <ul className="space-y-3">
               <li>
-                <FooterLink 
+                <FooterLink
                   to="/docs/tutorial/hello-world"
                   icon={BookOpen}
                   ariaLabel="Read RazorConsole documentation"
@@ -113,18 +126,19 @@ export function Footer() {
                 </FooterLink>
               </li>
               <li>
-                <FooterLink 
-                  to="/api" 
-                  icon={Code}
-                  ariaLabel="Browse API reference"
-                >
+                <FooterLink to="/api" icon={Code} ariaLabel="Browse API reference">
                   API Reference
+                </FooterLink>
+              </li>
+              <li>
+                <FooterLink to="/blog" icon={Newspaper} ariaLabel="Read RazorConsole blog articles">
+                  Blog
                 </FooterLink>
               </li>
               {/* AI Optimized Docs */}
               <li>
-                <FooterLink 
-                  href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/llms.txt`} 
+                <FooterLink
+                  href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/llms.txt`}
                   icon={Bot}
                   ariaLabel="AI-optimized documentation (llms.txt)"
                 >
@@ -132,8 +146,8 @@ export function Footer() {
                 </FooterLink>
               </li>
               <li>
-                <FooterLink 
-                  href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/llms-full.txt`} 
+                <FooterLink
+                  href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/llms-full.txt`}
                   icon={Sparkles}
                   ariaLabel="Full AI-optimized documentation (llms-full.txt)"
                 >
@@ -141,8 +155,8 @@ export function Footer() {
                 </FooterLink>
               </li>
               <li>
-                <FooterLink 
-                  href="https://discord.gg/DphHAnJxCM" 
+                <FooterLink
+                  href="https://discord.gg/DphHAnJxCM"
                   icon={MessageCircle}
                   ariaLabel="Join our Discord community"
                 >
@@ -150,8 +164,8 @@ export function Footer() {
                 </FooterLink>
               </li>
               <li>
-                <FooterLink 
-                  href="https://github.com/RazorConsole/RazorConsole/issues" 
+                <FooterLink
+                  href="https://github.com/RazorConsole/RazorConsole/issues"
                   icon={Bug}
                   ariaLabel="Report an issue on GitHub"
                 >

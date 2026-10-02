@@ -1,6 +1,6 @@
 import type { ComponentInfo } from "@/types/components/componentInfo"
 import { cn } from "@/lib/utils"
-import { NavLink } from "react-router-dom"
+import { NavLink } from "@/components/ui/SiteLink"
 
 interface Props {
   groupedComponents: Record<string, ComponentInfo[]>

@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "test:terminal-input": "tsx --test scripts/terminalInput.test.ts",
+    "test:seo": "tsx --tsconfig tsconfig.app.json --test scripts/seo.test.ts scripts/seo-render.test.tsx",
+    "test:seo:static": "tsx --test scripts/seo-static.test.ts",
+    "check:seo:deployed": "tsx scripts/check-deployed-seo.ts",
     "dev:terminal-input": "vite --config tests/vite.config.ts",
     "dev": "vite",
     "build": "npm run build:docfx && npm run build:wasm && npm run gen:official-apps && tsc -b && react-router build && npm run build:metadata",

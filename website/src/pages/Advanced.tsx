@@ -1,5 +1,9 @@
-import { Navigate } from "react-router"
+import { redirect } from "react-router"
 
-export default function Advanced() {
-  return <Navigate to="/docs#hot-reload" replace />
+export function loader() {
+  return redirect("/blog/hot-reload/")
 }
+
+export const clientLoader = loader
+
+export default function Advanced() { return null }

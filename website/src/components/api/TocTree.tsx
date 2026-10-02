@@ -1,5 +1,6 @@
 import type { DocfxTocNode } from "@/data/api-docs"
 import { cn } from "@/lib/utils"
+import { Link } from "@/components/ui/SiteLink"
 
 interface Props {
   nodes: DocfxTocNode[]
@@ -15,18 +16,22 @@ export default function TocTree({ nodes, activeUid, onSelect }: Props) {
         return (
           <li key={node.uid ?? node.name} className="space-y-1">
             {node.uid ? (
-              <button
-                type="button"
-                onClick={() => node.uid && onSelect(node.uid)}
+              <Link
+                to={`/api/${encodeURIComponent(node.uid)}/`}
+                onClick={(event) => {
+                  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+                  event.preventDefault()
+                  if (node.uid) onSelect(node.uid)
+                }}
                 className={cn(
-                  "w-full rounded-md px-3 py-2 text-left text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-slate-900",
+                  "block w-full rounded-md px-3 py-2 text-left text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-slate-900",
                   isActive
                     ? "bg-blue-500/15 text-blue-700 dark:bg-blue-500/20 dark:text-blue-100"
                     : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                 )}
               >
                 {node.name}
-              </button>
+              </Link>
             ) : (
               <div className="px-3 py-2 text-sm font-semibold tracking-[0.2em] text-slate-500 uppercase dark:text-slate-400">
                 {node.name}
