@@ -127,9 +127,22 @@ public sealed class StackWidget : Widget
         => child.Attributes.TryGetValue("position", out var value)
             && string.Equals(value, "absolute", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Resolves whether a child should claim a share of the Stack's (always vertical) remaining space.
+    /// <c>data-expand</c> is overloaded: Box/Panel's <c>Expand</c> parameter sets it to mean "fill
+    /// WIDTH" (the Spectre <c>Panel.Expand</c> convention - see Box.razor/Panel.razor), which has
+    /// nothing to do with claiming vertical space in a Stack. Box/Panel/Flex nodes always emit an
+    /// explicit <c>data-fill-height</c> value (true OR false), so when that attribute is present we
+    /// trust it outright and ignore <c>data-expand</c>. Only plain elements that never emit
+    /// <c>data-fill-height</c> (e.g. a raw div/text widget with a hand-set <c>data-expand</c>) fall back
+    /// to the generic <c>data-expand</c> interpretation, preserving the existing "expand to fill the
+    /// stack's remaining height" contract for those cases.
+    /// </summary>
     private static bool IsExpanding(Widget child)
-        => child.Attributes.TryGetValue("data-expand", out var value)
-            && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+        => child.Attributes.TryGetValue("data-fill-height", out var fillHeight)
+            ? string.Equals(fillHeight, "true", StringComparison.OrdinalIgnoreCase)
+            : child.Attributes.TryGetValue("data-expand", out var expand)
+                && string.Equals(expand, "true", StringComparison.OrdinalIgnoreCase);
 
     private static int? TryGetIntAttribute(Widget child, string name)
     {

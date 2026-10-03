@@ -429,31 +429,31 @@ public sealed class WidgetTranslationContext
         var start = TryGetIntAttribute(node, "start", 1);
         var rows = node.Children
             .Where(child => child.Kind == VNodeKind.Element && string.Equals(child.TagName, "li", StringComparison.OrdinalIgnoreCase))
-            .Select((child, index) => new TextWidget(
-                child.ID,
-                $"{(isOrdered ? $"{start + index}. " : "• ")}{GetPlainText(child)}",
-                key: child.Key,
-                attributes: child.Attributes,
-                zIndex: zIndex))
+            .Select((child, index) => CreateHtmlListItemWidget(child, isOrdered, start + index, zIndex))
             .Cast<Widget>()
             .ToArray();
 
         return new StackWidget(node.ID, rows, attributes: node.Attributes, zIndex: zIndex);
     }
 
-    private static string GetPlainText(VNode node)
+    private HtmlListItemWidget CreateHtmlListItemWidget(VNode item, bool isOrdered, int ordinal, int zIndex)
     {
-        if (node.Kind == VNodeKind.Text)
-        {
-            return node.Text;
-        }
+        var marker = new TextWidget(item.ID + "-marker", isOrdered ? $"{ordinal}. " : "• ");
 
-        if (IsTruthy(GetAttribute(node, "data-text")))
-        {
-            return GetAttribute(node, "data-content") ?? string.Empty;
-        }
+        // Translate the item's children through the normal translation pipeline (instead of
+        // flattening to plain text) so styled/nested content (e.g. Markup, nested lists,
+        // multi-line text) renders correctly rather than being silently dropped or losing
+        // styling.
+        var contentChildren = TranslateChildren(item);
+        var content = ComposeChildren(item, contentChildren);
 
-        return string.Concat(node.Children.Select(GetPlainText));
+        return new HtmlListItemWidget(
+            item.ID,
+            marker,
+            content,
+            key: item.Key,
+            attributes: item.Attributes,
+            zIndex: zIndex);
     }
 
     private static string? GetAttribute(VNode node, string name)
