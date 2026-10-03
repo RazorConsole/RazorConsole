@@ -135,6 +135,19 @@ public sealed class BoxWidget : Widget
 
     public Widget Child => Children[0];
 
+    /// <summary>
+    /// True when at least one side of <see cref="Border"/> is rendered. Used by the widget
+    /// translation layer to decide whether this box acts as visible "frame" chrome (e.g. a
+    /// bordered Panel) that must stay fixed in place when nested inside a scrollable region -
+    /// see <see cref="WithChild"/> and the <c>view-height-scrollable</c> handling in
+    /// <c>WidgetTranslationContext</c>.
+    /// </summary>
+    public bool HasBorder
+        => Border.Top != BoxBorderStyle.None
+            || Border.Right != BoxBorderStyle.None
+            || Border.Bottom != BoxBorderStyle.None
+            || Border.Left != BoxBorderStyle.None;
+
     public int PaddingLeft { get; }
 
     public int PaddingTop { get; }
@@ -231,6 +244,40 @@ public sealed class BoxWidget : Widget
         PaintBorder(context.Canvas, contentBounds);
         Child.Paint(context);
     }
+
+    /// <summary>
+    /// Creates a copy of this box with the same border/padding/margin/title chrome but a
+    /// different single child. Used to "peel off" a bordered box from inside a scrollable region
+    /// and reinstate it as the outer, fixed frame around a clipped/offset inner content widget
+    /// (see <c>ViewHeightScrollable</c> handling in <c>WidgetTranslationContext</c>), so the
+    /// border/title never move while the content scrolls.
+    /// </summary>
+    public BoxWidget WithChild(Widget child)
+        => new(
+            VNodeId,
+            child,
+            paddingLeft: PaddingLeft,
+            paddingTop: PaddingTop,
+            paddingRight: PaddingRight,
+            paddingBottom: PaddingBottom,
+            marginLeft: MarginLeft,
+            marginTop: MarginTop,
+            marginRight: MarginRight,
+            marginBottom: MarginBottom,
+            width: Width,
+            height: Height,
+            key: Key,
+            attributes: Attributes,
+            zIndex: ZIndex,
+            expand: Expand,
+            fillWidth: FillWidth,
+            fillHeight: FillHeight,
+            title: Title,
+            borderTop: Border.Top,
+            borderRight: Border.Right,
+            borderBottom: Border.Bottom,
+            borderLeft: Border.Left,
+            borderStyle: BorderStyle);
 
     private LayoutRect GetContentBounds(LayoutRect bounds)
         => new(
