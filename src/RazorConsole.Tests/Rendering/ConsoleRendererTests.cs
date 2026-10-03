@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using RazorConsole.Core;
 using RazorConsole.Core.Rendering;
@@ -36,6 +37,46 @@ public sealed class ConsoleRendererTests
         var text = span.Children.Single();
         text.Kind.ShouldBe(Core.Vdom.VNodeKind.Text);
         text.Text.ShouldBe("child");
+    }
+
+    [Fact]
+    public async Task MountComponentAsync_WithOnWheelStopPropagation_SetsStopPropagationOnVNodeEvent()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+
+        var snapshot = await renderer.MountComponentAsync<WheelStopPropagationComponent>(ParameterView.Empty, CancellationToken.None);
+
+        var root = snapshot.Root.ShouldBeOfType<Core.Vdom.VNode>();
+        root.TryGetEvent("onwheel", out var wheelEvent).ShouldBeTrue();
+        wheelEvent.Options.StopPropagation.ShouldBeTrue();
+        wheelEvent.Options.PreventDefault.ShouldBeFalse();
+
+        // Plain attributes must not leak the internal directive-encoding attribute name.
+        root.Attributes.ContainsKey("__internal_stopPropagation_onwheel").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MountComponentAsync_WithoutOnWheelStopPropagation_LeavesStopPropagationFalse()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+
+        var snapshot = await renderer.MountComponentAsync<SimpleComponent>(ParameterView.Empty, CancellationToken.None);
+
+        var root = snapshot.Root.ShouldBeOfType<Core.Vdom.VNode>();
+        root.TryGetEvent("onwheel", out _).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MountComponentAsync_WithOnWheelPreventDefault_SetsPreventDefaultOnVNodeEvent()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+
+        var snapshot = await renderer.MountComponentAsync<WheelPreventDefaultComponent>(ParameterView.Empty, CancellationToken.None);
+
+        var root = snapshot.Root.ShouldBeOfType<Core.Vdom.VNode>();
+        root.TryGetEvent("onwheel", out var wheelEvent).ShouldBeTrue();
+        wheelEvent.Options.PreventDefault.ShouldBeTrue();
+        wheelEvent.Options.StopPropagation.ShouldBeFalse();
     }
 
     [Fact]
@@ -389,6 +430,28 @@ public sealed class ConsoleRendererTests
         {
             builder.OpenElement(0, "div");
             builder.AddContent(1, "Simple");
+            builder.CloseElement();
+        }
+    }
+
+    private sealed class WheelStopPropagationComponent : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "onwheel", EventCallback.Factory.Create<WheelEventArgs>(this, _ => { }));
+            builder.AddEventStopPropagationAttribute(2, "onwheel", true);
+            builder.CloseElement();
+        }
+    }
+
+    private sealed class WheelPreventDefaultComponent : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "onwheel", EventCallback.Factory.Create<WheelEventArgs>(this, _ => { }));
+            builder.AddEventPreventDefaultAttribute(2, "onwheel", true);
             builder.CloseElement();
         }
     }

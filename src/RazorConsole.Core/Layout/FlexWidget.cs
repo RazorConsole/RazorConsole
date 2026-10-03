@@ -248,7 +248,7 @@ public sealed class FlexWidget : Widget
     private bool FillsMainAxis(Widget child)
         => Direction == FlexDirection.Row
             ? IsTruthy(child, "data-expand") || IsTruthy(child, "data-fill-width")
-            : IsTruthy(child, "data-expand") || IsTruthy(child, "data-fill-height");
+            : ResolveFillsHeight(child);
 
     private bool FillsCrossAxis(Widget child)
         => Direction == FlexDirection.Row
@@ -258,6 +258,22 @@ public sealed class FlexWidget : Widget
     private static bool IsTruthy(Widget child, string name)
         => child.Attributes.TryGetValue(name, out var value)
             && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Resolves whether a child should claim a share of VERTICAL space in a Column-direction flex
+    /// (e.g. &lt;Rows&gt;). <c>data-expand</c> is overloaded: Box/Panel's <c>Expand</c> parameter sets
+    /// it to mean "fill WIDTH" (the Spectre <c>Panel.Expand</c> convention - see Box.razor/Panel.razor),
+    /// which is unrelated to claiming a share of the main (vertical) axis here. Box/Panel/Flex nodes
+    /// always emit an explicit <c>data-fill-height</c> value (true OR false), so when that attribute is
+    /// present we trust it outright and ignore <c>data-expand</c>. Only plain elements that never emit
+    /// <c>data-fill-height</c> (e.g. a raw div/text widget with a hand-set <c>data-expand</c>) fall back
+    /// to the generic <c>data-expand</c> interpretation, preserving the existing "expand to fill the
+    /// container's main axis" contract for those cases.
+    /// </summary>
+    private static bool ResolveFillsHeight(Widget child)
+        => child.Attributes.TryGetValue("data-fill-height", out var value)
+            ? string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+            : IsTruthy(child, "data-expand");
 
     private static bool IsAbsolutePositioned(Widget child)
         => child.Attributes.TryGetValue("position", out var value)

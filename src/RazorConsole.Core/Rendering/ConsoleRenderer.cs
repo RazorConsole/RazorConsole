@@ -346,12 +346,31 @@ internal sealed class ConsoleRenderer(
                 var end = index + frame.ElementSubtreeLength;
                 index++;
 
+                List<(string Name, ulong HandlerId)>? pendingEvents = null;
+                Dictionary<string, bool>? stopPropagationByEvent = null;
+                Dictionary<string, bool>? preventDefaultByEvent = null;
+
                 while (index < end && frames.Array[index].FrameType == RenderTreeFrameType.Attribute)
                 {
                     var attribute = frames.Array[index];
                     if (attribute.AttributeEventHandlerId != 0)
                     {
-                        element.SetEvent(attribute.AttributeName!, attribute.AttributeEventHandlerId);
+                        pendingEvents ??= new List<(string Name, ulong HandlerId)>();
+                        pendingEvents.Add((attribute.AttributeName!, attribute.AttributeEventHandlerId));
+                    }
+                    else if (TryParseEventOptionAttribute(attribute.AttributeName!, out var optionEventName, out var isStopPropagation))
+                    {
+                        var flagValue = IsTruthyEventOptionValue(attribute.AttributeValue);
+                        if (isStopPropagation)
+                        {
+                            stopPropagationByEvent ??= new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                            stopPropagationByEvent[optionEventName] = flagValue;
+                        }
+                        else
+                        {
+                            preventDefaultByEvent ??= new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                            preventDefaultByEvent[optionEventName] = flagValue;
+                        }
                     }
                     else
                     {
@@ -360,6 +379,20 @@ internal sealed class ConsoleRenderer(
                     }
 
                     index++;
+                }
+
+                if (pendingEvents is not null)
+                {
+                    foreach (var (name, handlerId) in pendingEvents)
+                    {
+                        var preventDefault = preventDefaultByEvent is not null
+                            && preventDefaultByEvent.TryGetValue(name, out var preventDefaultValue)
+                            && preventDefaultValue;
+                        var stopPropagation = stopPropagationByEvent is not null
+                            && stopPropagationByEvent.TryGetValue(name, out var stopPropagationValue)
+                            && stopPropagationValue;
+                        element.SetEvent(name, handlerId, new VNodeEventOptions(preventDefault, stopPropagation));
+                    }
                 }
 
                 while (index < end)
@@ -706,7 +739,24 @@ internal sealed class ConsoleRenderer(
     {
         if (frame.AttributeEventHandlerId != 0)
         {
-            parent.SetEvent(frame.AttributeName!, frame.AttributeEventHandlerId);
+            var options = parent.TryGetEvent(frame.AttributeName!, out var existingEvent)
+                ? existingEvent.Options
+                : new VNodeEventOptions(false, false);
+            parent.SetEvent(frame.AttributeName!, frame.AttributeEventHandlerId, options);
+            return;
+        }
+
+        if (TryParseEventOptionAttribute(frame.AttributeName!, out var eventName, out var isStopPropagation))
+        {
+            if (parent.TryGetEvent(eventName, out var targetEvent))
+            {
+                var flagValue = IsTruthyEventOptionValue(frame.AttributeValue);
+                var newOptions = isStopPropagation
+                    ? new VNodeEventOptions(targetEvent.Options.PreventDefault, flagValue)
+                    : new VNodeEventOptions(flagValue, targetEvent.Options.StopPropagation);
+                parent.SetEvent(eventName, targetEvent.HandlerId, newOptions);
+            }
+
             return;
         }
 
@@ -717,6 +767,36 @@ internal sealed class ConsoleRenderer(
             parent.SetKey(string.IsNullOrWhiteSpace(value) ? null : value);
         }
     }
+
+    // Blazor encodes `@onX:stoppropagation`/`@onX:preventdefault` directives as plain
+    // Attribute frames (not event-handler frames) named with these special prefixes followed
+    // by the target event name, e.g. "__internal_stopPropagation_onwheel". See
+    // RenderTreeBuilder.AddEventStopPropagationAttribute / AddEventPreventDefaultAttribute.
+    private const string StopPropagationAttributePrefix = "__internal_stopPropagation_";
+    private const string PreventDefaultAttributePrefix = "__internal_preventDefault_";
+
+    private static bool TryParseEventOptionAttribute(string attributeName, out string eventName, out bool isStopPropagation)
+    {
+        if (attributeName.StartsWith(StopPropagationAttributePrefix, StringComparison.Ordinal))
+        {
+            eventName = attributeName[StopPropagationAttributePrefix.Length..];
+            isStopPropagation = true;
+            return true;
+        }
+
+        if (attributeName.StartsWith(PreventDefaultAttributePrefix, StringComparison.Ordinal))
+        {
+            eventName = attributeName[PreventDefaultAttributePrefix.Length..];
+            isStopPropagation = false;
+            return true;
+        }
+
+        eventName = string.Empty;
+        isStopPropagation = false;
+        return false;
+    }
+
+    private static bool IsTruthyEventOptionValue(object? attributeValue) => attributeValue is bool flag && flag;
 
     private static bool IsKeyAttribute(string name)
         => string.Equals(name, "key", StringComparison.OrdinalIgnoreCase)

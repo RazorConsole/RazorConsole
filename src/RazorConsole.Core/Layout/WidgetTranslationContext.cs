@@ -120,23 +120,67 @@ public sealed class WidgetTranslationContext
             var child = ComposeChildren(node, children);
             var scrollbarNode = node.Children.FirstOrDefault(IsScrollbarNode);
             var linesToRender = TryGetIntAttribute(node, "data-lines-to-render", 1);
+
+            var offset = TryGetIntAttribute(node, "data-offset", 0);
+            var pageSize = Math.Max(1, linesToRender);
+            var enableEmbedded = IsTruthy(GetAttribute(node, "data-enable-embedded"));
+            var trackChar = scrollbarNode is null ? '│' : ParseChar(GetAttribute(scrollbarNode, "data-track-char"), '│');
+            var thumbChar = scrollbarNode is null ? '█' : ParseChar(GetAttribute(scrollbarNode, "data-thumb-char"), '█');
+            var trackStyle = scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-track-color"));
+            var thumbStyle = scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-thumb-color"));
+            var minThumbHeight = scrollbarNode is null ? 1 : Math.Max(1, TryGetIntAttribute(scrollbarNode, "data-min-thumb-height", 1));
+            var showScrollbar = scrollbarNode is not null;
+            var autoPageSize = linesToRender == 0;
+            var scrollId = GetAttribute(node, "data-scroll-id");
+
+            // When the scrollable's single child is a bordered box (e.g. a Panel with a Title),
+            // peel the box out so it becomes the OUTER, fixed frame and the scrollable wraps just
+            // its inner content. Otherwise ScrollableWidget would offset/clip the whole box as one
+            // unit, dragging the border and title along with the scroll offset and clipping them
+            // out of view. A borderless box (plain padding/margin wrapper) has no visible frame to
+            // keep fixed, so it is left exactly as-is.
+            if (child is BoxWidget frame && frame.HasBorder)
+            {
+                var innerScrollable = new ScrollableWidget(
+                    node.ID,
+                    frame.Child,
+                    itemsCount: 0,
+                    offset: offset,
+                    pageSize: pageSize,
+                    enableEmbedded: enableEmbedded,
+                    trackChar: trackChar,
+                    thumbChar: thumbChar,
+                    trackStyle: trackStyle,
+                    thumbStyle: thumbStyle,
+                    minThumbHeight: minThumbHeight,
+                    showScrollbar: showScrollbar,
+                    cropLines: true,
+                    autoPageSize: autoPageSize,
+                    layoutCoordinator: _scrollableLayoutCoordinator,
+                    scrollId: scrollId,
+                    attributes: node.Attributes,
+                    zIndex: zIndex);
+
+                return frame.WithChild(innerScrollable);
+            }
+
             return new ScrollableWidget(
                 node.ID,
                 child,
                 itemsCount: 0,
-                offset: TryGetIntAttribute(node, "data-offset", 0),
-                pageSize: Math.Max(1, linesToRender),
-                enableEmbedded: IsTruthy(GetAttribute(node, "data-enable-embedded")),
-                trackChar: scrollbarNode is null ? '│' : ParseChar(GetAttribute(scrollbarNode, "data-track-char"), '│'),
-                thumbChar: scrollbarNode is null ? '█' : ParseChar(GetAttribute(scrollbarNode, "data-thumb-char"), '█'),
-                trackStyle: scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-track-color")),
-                thumbStyle: scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-thumb-color")),
-                minThumbHeight: scrollbarNode is null ? 1 : Math.Max(1, TryGetIntAttribute(scrollbarNode, "data-min-thumb-height", 1)),
-                showScrollbar: scrollbarNode is not null,
+                offset: offset,
+                pageSize: pageSize,
+                enableEmbedded: enableEmbedded,
+                trackChar: trackChar,
+                thumbChar: thumbChar,
+                trackStyle: trackStyle,
+                thumbStyle: thumbStyle,
+                minThumbHeight: minThumbHeight,
+                showScrollbar: showScrollbar,
                 cropLines: true,
-                autoPageSize: linesToRender == 0,
+                autoPageSize: autoPageSize,
                 layoutCoordinator: _scrollableLayoutCoordinator,
-                scrollId: GetAttribute(node, "data-scroll-id"),
+                scrollId: scrollId,
                 attributes: node.Attributes,
                 zIndex: zIndex);
         }
@@ -429,31 +473,31 @@ public sealed class WidgetTranslationContext
         var start = TryGetIntAttribute(node, "start", 1);
         var rows = node.Children
             .Where(child => child.Kind == VNodeKind.Element && string.Equals(child.TagName, "li", StringComparison.OrdinalIgnoreCase))
-            .Select((child, index) => new TextWidget(
-                child.ID,
-                $"{(isOrdered ? $"{start + index}. " : "• ")}{GetPlainText(child)}",
-                key: child.Key,
-                attributes: child.Attributes,
-                zIndex: zIndex))
+            .Select((child, index) => CreateHtmlListItemWidget(child, isOrdered, start + index, zIndex))
             .Cast<Widget>()
             .ToArray();
 
         return new StackWidget(node.ID, rows, attributes: node.Attributes, zIndex: zIndex);
     }
 
-    private static string GetPlainText(VNode node)
+    private HtmlListItemWidget CreateHtmlListItemWidget(VNode item, bool isOrdered, int ordinal, int zIndex)
     {
-        if (node.Kind == VNodeKind.Text)
-        {
-            return node.Text;
-        }
+        var marker = new TextWidget(item.ID + "-marker", isOrdered ? $"{ordinal}. " : "• ");
 
-        if (IsTruthy(GetAttribute(node, "data-text")))
-        {
-            return GetAttribute(node, "data-content") ?? string.Empty;
-        }
+        // Translate the item's children through the normal translation pipeline (instead of
+        // flattening to plain text) so styled/nested content (e.g. Markup, nested lists,
+        // multi-line text) renders correctly rather than being silently dropped or losing
+        // styling.
+        var contentChildren = TranslateChildren(item);
+        var content = ComposeChildren(item, contentChildren);
 
-        return string.Concat(node.Children.Select(GetPlainText));
+        return new HtmlListItemWidget(
+            item.ID,
+            marker,
+            content,
+            key: item.Key,
+            attributes: item.Attributes,
+            zIndex: zIndex);
     }
 
     private static string? GetAttribute(VNode node, string name)

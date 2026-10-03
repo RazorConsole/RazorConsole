@@ -135,6 +135,19 @@ public sealed class BoxWidget : Widget
 
     public Widget Child => Children[0];
 
+    /// <summary>
+    /// True when at least one side of <see cref="Border"/> is rendered. Used by the widget
+    /// translation layer to decide whether this box acts as visible "frame" chrome (e.g. a
+    /// bordered Panel) that must stay fixed in place when nested inside a scrollable region -
+    /// see <see cref="WithChild"/> and the <c>view-height-scrollable</c> handling in
+    /// <c>WidgetTranslationContext</c>.
+    /// </summary>
+    public bool HasBorder
+        => Border.Top != BoxBorderStyle.None
+            || Border.Right != BoxBorderStyle.None
+            || Border.Bottom != BoxBorderStyle.None
+            || Border.Left != BoxBorderStyle.None;
+
     public int PaddingLeft { get; }
 
     public int PaddingTop { get; }
@@ -232,6 +245,40 @@ public sealed class BoxWidget : Widget
         Child.Paint(context);
     }
 
+    /// <summary>
+    /// Creates a copy of this box with the same border/padding/margin/title chrome but a
+    /// different single child. Used to "peel off" a bordered box from inside a scrollable region
+    /// and reinstate it as the outer, fixed frame around a clipped/offset inner content widget
+    /// (see <c>ViewHeightScrollable</c> handling in <c>WidgetTranslationContext</c>), so the
+    /// border/title never move while the content scrolls.
+    /// </summary>
+    public BoxWidget WithChild(Widget child)
+        => new(
+            VNodeId,
+            child,
+            paddingLeft: PaddingLeft,
+            paddingTop: PaddingTop,
+            paddingRight: PaddingRight,
+            paddingBottom: PaddingBottom,
+            marginLeft: MarginLeft,
+            marginTop: MarginTop,
+            marginRight: MarginRight,
+            marginBottom: MarginBottom,
+            width: Width,
+            height: Height,
+            key: Key,
+            attributes: Attributes,
+            zIndex: ZIndex,
+            expand: Expand,
+            fillWidth: FillWidth,
+            fillHeight: FillHeight,
+            title: Title,
+            borderTop: Border.Top,
+            borderRight: Border.Right,
+            borderBottom: Border.Bottom,
+            borderLeft: Border.Left,
+            borderStyle: BorderStyle);
+
     private LayoutRect GetContentBounds(LayoutRect bounds)
         => new(
             bounds.X + MarginLeft,
@@ -327,8 +374,21 @@ public sealed class BoxWidget : Widget
     private static bool FillsWidth(Widget child)
         => IsTruthy(child, "data-expand") || IsTruthy(child, "data-fill-width");
 
+    /// <summary>
+    /// Resolves whether a Box's single child should stretch to fill all available content height.
+    /// <c>data-expand</c> is overloaded: Box/Panel's <c>Expand</c> parameter sets it to mean "fill
+    /// WIDTH" (the Spectre <c>Panel.Expand</c> convention - see Box.razor/Panel.razor), which is
+    /// unrelated to filling height. Box/Panel/Flex nodes always emit an explicit
+    /// <c>data-fill-height</c> value (true OR false), so when that attribute is present on the child we
+    /// trust it outright and ignore <c>data-expand</c> (this matters for a Box nested directly inside
+    /// another Box/Panel, e.g. a nested Expand panel, so it isn't force-stretched to its parent's full
+    /// height just because it also wants to fill width). Plain elements that never emit
+    /// <c>data-fill-height</c> fall back to the generic <c>data-expand</c> interpretation.
+    /// </summary>
     private static bool FillsHeight(Widget child)
-        => IsTruthy(child, "data-expand") || IsTruthy(child, "data-fill-height");
+        => child.Attributes.TryGetValue("data-fill-height", out var value)
+            ? string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+            : IsTruthy(child, "data-expand");
 
     private static bool IsTruthy(Widget child, string name)
         => child.Attributes.TryGetValue(name, out var value)

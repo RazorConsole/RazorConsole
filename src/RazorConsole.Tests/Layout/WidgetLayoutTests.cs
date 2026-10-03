@@ -624,6 +624,113 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void FlexWidget_Column_DoesNotSplitHeightBetweenSiblingExpandPanels()
+    {
+        // Regression test for a bug where a Column-direction flex (<Rows>) treated the generic
+        // "data-expand" attribute as "claim a share of the vertical main axis", even though that
+        // attribute is also how Box/Panel's width-only Expand parameter is encoded (Box.razor /
+        // Panel.razor always emit an explicit data-fill-height alongside it). With two sibling
+        // Expand="true" Panels in the same Rows, the Column flex used to split the available height
+        // evenly between them regardless of their actual content size, starving whichever one needed
+        // more than its even share and silently truncating its content (see
+        // ScrollablePanelListReproTests for the end-to-end Gallery repro).
+        //
+        // A BoxWidget built the way WidgetTranslationContext builds a Panel: Expand=true sets
+        // FillWidth internally, but FillHeight stays false and the translated attributes carry
+        // data-expand=true alongside an EXPLICIT data-fill-height=false - exactly like Box.razor emits.
+        static BoxWidget CreateExpandPanel(string id, Widget child)
+            => new(
+                id,
+                child,
+                border: BoxBorderStyle.Rounded,
+                expand: true,
+                attributes: new Dictionary<string, string?>
+                {
+                    ["data-expand"] = "true",
+                    ["data-fill-width"] = "false",
+                    ["data-fill-height"] = "false",
+                });
+
+        // Panel 1 needs much more natural height than Panel 2.
+        var tallContent = new StackWidget(
+            "tall-content",
+            Enumerable.Range(0, 10).Select(i => (Widget)new TextWidget($"tall-line-{i}", "x")).ToArray());
+        var shortContent = new TextWidget("short-content", "y");
+
+        var panel1 = CreateExpandPanel("panel1", tallContent);
+        var panel2 = CreateExpandPanel("panel2", shortContent);
+
+        var rows = new FlexWidget(
+            "rows",
+            [panel1, panel2],
+            direction: FlexDirection.Column,
+            attributes: new Dictionary<string, string?>());
+
+        var engine = new LayoutEngine();
+
+        // Plenty of headroom (30 rows) for both panels' natural sizes (10+2 border = 12, and 1+2 = 3).
+        engine.Layout(rows, new BoxConstraints(0, 20, 0, 30));
+
+        // Panel 1 must get its full natural height (content + border), not an even 15/15 split with
+        // panel 2 - and panel 2 must likewise size to its own natural content, not get stretched.
+        panel1.Bounds.Height.ShouldBe(12);
+        panel2.Bounds.Height.ShouldBe(3);
+
+        // Every "tall" content line must have actually been arranged with nonzero height - i.e. none
+        // of them silently collapsed to 0 because an earlier sibling absorbed all the space.
+        foreach (var child in tallContent.Children)
+        {
+            child.Bounds.Height.ShouldBe(1);
+        }
+    }
+
+    [Fact]
+    public void StackWidget_DoesNotExpandChildJustBecauseItCarriesWidthOnlyExpandFlag()
+    {
+        // Companion regression test for StackWidget.IsExpanding: a Box/Panel child with Expand="true"
+        // (width-only intent) sitting alongside a plain sibling in a Stack must not be treated as
+        // wanting to consume the Stack's remaining vertical space, because it also carries an explicit
+        // data-fill-height="false" set by Box.razor/Panel.razor.
+        var panelChild = new TextWidget("panel-inner", "content");
+        var panel = new BoxWidget(
+            "panel",
+            panelChild,
+            border: BoxBorderStyle.Rounded,
+            expand: true,
+            attributes: new Dictionary<string, string?>
+            {
+                ["data-expand"] = "true",
+                ["data-fill-width"] = "false",
+                ["data-fill-height"] = "false",
+            });
+        var footer = new TextWidget("footer", "Footer");
+
+        var stack = new StackWidget("stack-1", [panel, footer]);
+        var engine = new LayoutEngine();
+
+        engine.Layout(stack, new BoxConstraints(0, 20, 0, 20));
+
+        // The panel should size to its own natural content (1 line + 2 border rows = 3), not stretch
+        // to consume the Stack's remaining height.
+        panel.Bounds.Height.ShouldBe(3);
+        footer.Bounds.Height.ShouldBe(1);
+
+        // The existing "generic data-expand fills remaining Stack height" contract (for elements that
+        // never emit data-fill-height at all) must still hold.
+        var genericExpandWidget = new TextWidget(
+            "expanding-text",
+            "Body",
+            attributes: new Dictionary<string, string?> { ["data-expand"] = "true" });
+        var stackWithGenericExpand = new StackWidget(
+            "stack-2",
+            [new TextWidget("header", "Header"), genericExpandWidget],
+            expand: true);
+        engine.Layout(stackWithGenericExpand, new BoxConstraints(0, 20, 0, 6));
+
+        genericExpandWidget.Bounds.Height.ShouldBe(5);
+    }
+
+    [Fact]
     public void WidgetTranslationContext_TranslatesScrollableWithScrollbar()
     {
         var node = VNode.CreateElement("scrollable");
