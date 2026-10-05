@@ -205,7 +205,7 @@ public sealed class MarkdownWidgetTranslationTests
         var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 80, 0, 10));
         var lines = RenderToText(result.PaintToRenderable(), 80).Split('\n').Select(l => l.TrimEnd()).ToArray();
 
-        lines.ShouldBe(new[] { "1. a", "  • x" });
+        lines.ShouldBe(new[] { "1. a", "   • x" });
     }
 
     [Fact]

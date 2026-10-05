@@ -127,6 +127,17 @@ public sealed class VNode : IEquatable<VNode>
         _events[name] = new VNodeEvent(name, handlerId, resolvedOptions);
     }
 
+    public bool TryGetEvent(string name, out VNodeEvent vNodeEvent)
+    {
+        if (Kind != VNodeKind.Element || string.IsNullOrWhiteSpace(name))
+        {
+            vNodeEvent = default;
+            return false;
+        }
+
+        return _events.TryGetValue(name, out vNodeEvent);
+    }
+
     public void RemoveEvent(string name)
     {
         if (Kind != VNodeKind.Element || string.IsNullOrWhiteSpace(name))

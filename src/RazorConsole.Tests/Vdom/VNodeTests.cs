@@ -48,6 +48,26 @@ public sealed class VNodeTests
         ((VNode?)null == (VNode?)null).ShouldBeTrue();
     }
 
+    [Fact]
+    public void TryGetEvent_ReturnsEventWithOptions_WhenPresent()
+    {
+        var node = VNode.CreateElement("div");
+        node.SetEvent("onwheel", 42, new VNodeEventOptions(PreventDefault: false, StopPropagation: true));
+
+        node.TryGetEvent("onwheel", out var vNodeEvent).ShouldBeTrue();
+        vNodeEvent.HandlerId.ShouldBe(42UL);
+        vNodeEvent.Options.StopPropagation.ShouldBeTrue();
+        vNodeEvent.Options.PreventDefault.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void TryGetEvent_ReturnsFalse_WhenEventMissing()
+    {
+        var node = VNode.CreateElement("div");
+
+        node.TryGetEvent("onwheel", out _).ShouldBeFalse();
+    }
+
     private static VNode BuildSampleNode()
     {
         var root = VNode.CreateElement("div", "root");
