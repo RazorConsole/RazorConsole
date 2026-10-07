@@ -46,3 +46,9 @@ Stable release on Windows PowerShell:
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App TankBattle
 ```
+
+Latest `main` prerelease on Windows PowerShell:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App TankBattle -Channel Nightly
+```

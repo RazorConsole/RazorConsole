@@ -11,6 +11,16 @@
       "project": "gallery/RazorConsole.Gallery/RazorConsole.Gallery.csproj"
     },
     {
+      "packageId": "RazorConsole.Htop",
+      "title": "Htop",
+      "description": "A cross-platform, mouse-aware htop-style process manager built with RazorConsole.",
+      "projectUrl": "https://github.com/RazorConsole/RazorConsole/tree/main/gallery/RazorConsole.Htop",
+      "repositoryUrl": "https://github.com/RazorConsole/RazorConsole",
+      "commandName": "razorconsole-htop",
+      "assemblyName": "RazorConsole.Htop",
+      "project": "gallery/RazorConsole.Htop/RazorConsole.Htop.csproj"
+    },
+    {
       "packageId": "RazorConsole.Snake",
       "title": "Snake",
       "description": "A responsive terminal Snake game built with RazorConsole.",

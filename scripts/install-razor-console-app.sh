@@ -6,14 +6,14 @@ app=""
 channel="stable"
 
 usage() {
-  echo "Usage: install-razor-console-app.sh --app <Gallery|Snake|TankBattle> [--channel <stable|nightly>]" >&2
+  echo "Usage: install-razor-console-app.sh --app <Gallery|Htop|Snake|TankBattle> [--channel <stable|nightly>]" >&2
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --app)
       if [ "$#" -lt 2 ]; then
-        echo "--app requires Gallery, Snake, or TankBattle." >&2
+        echo "--app requires Gallery, Htop, Snake, or TankBattle." >&2
         exit 1
       fi
       app="$2"
@@ -45,6 +45,12 @@ case "$app" in
     command_name="razorconsole-gallery"
     install_root="${RAZORCONSOLE_GALLERY_INSTALL_DIR:-${HOME}/.local/share/razorconsole-gallery}"
     bin_dir="${RAZORCONSOLE_GALLERY_BIN_DIR:-${RAZORCONSOLE_BIN_DIR:-${HOME}/.local/bin}}"
+    ;;
+  Htop|htop)
+    display_name="Htop"
+    command_name="razorconsole-htop"
+    install_root="${RAZORCONSOLE_HTOP_INSTALL_DIR:-${HOME}/.local/share/razorconsole-htop}"
+    bin_dir="${RAZORCONSOLE_HTOP_BIN_DIR:-${RAZORCONSOLE_BIN_DIR:-${HOME}/.local/bin}}"
     ;;
   Snake|snake)
     display_name="Snake"

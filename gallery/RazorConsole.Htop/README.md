@@ -47,4 +47,28 @@ dotnet publish gallery/RazorConsole.Htop/RazorConsole.Htop.csproj -c Release -f 
 dotnet publish gallery/RazorConsole.Htop/RazorConsole.Htop.csproj -c Release -f net10.0 -r win-x64
 ```
 
-Install a released binary with `install-razor-console-app.sh --app Htop` (or the PowerShell equivalent), as described in the [Snake README](../RazorConsole.Snake/README.md).
+## Install a released binary
+
+Stable release on macOS or Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Htop
+```
+
+Latest `main` prerelease:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Htop --channel nightly
+```
+
+Stable release on Windows PowerShell:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Htop
+```
+
+Latest `main` prerelease on Windows PowerShell:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Htop -Channel Nightly
+```

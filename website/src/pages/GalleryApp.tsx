@@ -7,6 +7,7 @@ import { getOfficialApp } from "@/data/official-apps"
 import { getPageUrl } from "@/lib/utils"
 import { ArrowLeft, Download, ExternalLink, Github, PackageOpen, Terminal } from "lucide-react"
 import type { MetaFunction } from "react-router"
+import { useState } from "react"
 import { useParams } from "react-router"
 
 export const meta: MetaFunction = ({ matches, location, params }) => {
@@ -33,6 +34,7 @@ export const meta: MetaFunction = ({ matches, location, params }) => {
 export default function GalleryApp() {
   const { appSlug } = useParams()
   const app = getOfficialApp(appSlug)
+  const [channel, setChannel] = useState<"stable" | "nightly">("stable")
 
   if (!app) {
     return (
@@ -142,24 +144,54 @@ export default function GalleryApp() {
                 </span>
                 <div>
                   <h2 className="text-xl font-semibold text-slate-950 dark:text-white">Install</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Stable release</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {channel === "nightly" ? "Nightly prerelease" : "Stable release"}
+                  </p>
                 </div>
               </div>
 
-              <div className="mt-6 space-y-5">
-                {app.installCommands?.map((install) => (
-                  <div key={install.label}>
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                        {install.label}
-                      </h3>
-                      <CopyButton content={install.command} />
-                    </div>
-                    <pre className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 text-xs leading-5 text-slate-200">
-                      <code>{install.command}</code>
-                    </pre>
-                  </div>
+              <div
+                className="mt-5 inline-flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800"
+                role="group"
+                aria-label="Release channel"
+              >
+                {(["stable", "nightly"] as const).map((releaseChannel) => (
+                  <button
+                    key={releaseChannel}
+                    type="button"
+                    aria-pressed={channel === releaseChannel}
+                    onClick={() => setChannel(releaseChannel)}
+                    className={`rounded-md px-3.5 py-1.5 text-sm font-medium capitalize transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:outline-none ${
+                      channel === releaseChannel
+                        ? "bg-white text-slate-950 shadow-sm dark:bg-slate-700 dark:text-white"
+                        : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                    }`}
+                  >
+                    {releaseChannel}
+                  </button>
                 ))}
+              </div>
+
+              <div className="mt-6 space-y-5">
+                {app.installCommands?.map((install) => {
+                  const command =
+                    channel === "nightly" && install.nightlyCommand
+                      ? install.nightlyCommand
+                      : install.command
+                  return (
+                    <div key={install.label}>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                          {install.label}
+                        </h3>
+                        <CopyButton content={command} />
+                      </div>
+                      <pre className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 text-xs leading-5 text-slate-200">
+                        <code>{command}</code>
+                      </pre>
+                    </div>
+                  )
+                })}
               </div>
 
               <p className="mt-5 text-xs leading-5 text-slate-500 dark:text-slate-400">
