@@ -30,15 +30,31 @@
         <ClickableLabel Label="@HeaderLabel(SortColumn.Time, "TIME+", TimeWidth, true)" Width="TimeWidth" OnClick="@(() => SortBy(SortColumn.Time))" />
     </Flex>
 
-    @foreach (var row in VisibleRows)
-    {
-        <ProcessRow
-                    Text="@FormatRow(row)"
-                    Selected="@(row.Key == _selectedKey)"
-                    Foreground="@(row.Detail is not null ? Color.Grey58 : row.IsGroup ? Color.Aqua : Color.Grey85)"
-                    OnClick="@(() => Activate(row))"
-                    OnKill="@(() => KillRow(row))" ShowKill="@(row.Detail is null)" />
-    }
+    <Flex Direction="FlexDirection.Row" Height="@PageSize">
+        <Flex Direction="FlexDirection.Column" Width="@(SurfaceWidth - 1)" Height="@PageSize">
+            @foreach (var row in VisibleRows)
+            {
+                <ProcessRow
+                            Text="@FormatRow(row)"
+                            Selected="@(row.Key == _selectedKey)"
+                            Foreground="@(row.Detail is not null ? Color.Grey58 : row.IsGroup ? Color.Aqua : Color.Grey85)"
+                            OnClick="@(() => Activate(row))"
+                            OnKill="@(() => KillRow(row))" ShowKill="@(row.Detail is null)" />
+            }
+        </Flex>
+        <Flex Direction="FlexDirection.Column" Width="1" Height="@PageSize">
+            @for (var cell = 0; cell < PageSize; cell++)
+            {
+                var index = cell;
+                var onThumb = IsThumb(index);
+                <Flex Width="1" Height="1" data-focusable="false"
+                      @onmousedown="@((MouseEventArgs e) => BeginScrollbar(index, e))"
+                      @onmousemove="DragScrollbar" @onmouseup="EndScrollbar">
+                    <Markup Content="@(onThumb ? "┃" : "│")" Foreground="@(onThumb ? (_scrollDragging ? Color.Yellow : Color.DeepSkyBlue1) : Color.Grey35)" />
+                </Flex>
+            }
+        </Flex>
+    </Flex>
 
     @if (_pendingKill is { } pending)
     {
@@ -568,6 +584,60 @@
             ClampOffset();
             StateHasChanged();
         });
+    }
+
+    private int ThumbLength => Math.Max(1, PageSize * PageSize / Math.Max(PageSize, _view.Count));
+    private int MaxOffset => Math.Max(0, _view.Count - PageSize);
+    private int ThumbTop => MaxOffset == 0 ? 0 : (int)Math.Round((double)_offset * (PageSize - ThumbLength) / MaxOffset);
+    private bool IsThumb(int cell) => MaxOffset > 0 && cell >= ThumbTop && cell < ThumbTop + ThumbLength;
+
+    private bool _scrollDragging;
+    private int _scrollStartY;
+    private int _scrollStartOffset;
+
+    private void BeginScrollbar(int cell, MouseEventArgs e)
+    {
+        if (MaxOffset == 0)
+        {
+            return;
+        }
+
+        if (IsThumb(cell))
+        {
+            _scrollDragging = true;
+            _scrollStartY = (int)e.ClientY;
+            _scrollStartOffset = _offset;
+        }
+        else
+        {
+            _offset += cell < ThumbTop ? -PageSize : PageSize;
+            ClampOffset();
+        }
+
+        StateHasChanged();
+    }
+
+    private void DragScrollbar(MouseEventArgs e)
+    {
+        var travel = PageSize - ThumbLength;
+        if (!_scrollDragging || travel <= 0)
+        {
+            return;
+        }
+
+        var offset = _scrollStartOffset + (int)Math.Round((e.ClientY - _scrollStartY) * MaxOffset / travel);
+        offset = Math.Clamp(offset, 0, MaxOffset);
+        if (offset != _offset)
+        {
+            _offset = offset;
+            StateHasChanged();
+        }
+    }
+
+    private void EndScrollbar(MouseEventArgs e)
+    {
+        _scrollDragging = false;
+        StateHasChanged();
     }
 
     private void BeginResize(MouseEventArgs e)
