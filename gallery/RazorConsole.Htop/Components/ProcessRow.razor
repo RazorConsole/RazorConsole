@@ -9,7 +9,7 @@
                 Foreground="@(Selected || _hovered ? Color.Black : Foreground)"
                 Background="@(Selected ? Color.DeepSkyBlue1 : _hovered ? Color.Grey70 : Color.Default)" />
     </Flex>
-    @if (Selected && OnKill.HasDelegate)
+    @if (Selected && ShowKill && OnKill.HasDelegate)
     {
         <ClickableLabel Label=" Kill " Width="6" Background="Color.Red" Foreground="Color.White" HoverBackground="Color.DarkRed" OnClick="OnKill" />
     }
@@ -18,6 +18,7 @@
 @code {
     [Parameter, EditorRequired] public string Text { get; set; } = string.Empty;
     [Parameter] public bool Selected { get; set; }
+    [Parameter] public bool ShowKill { get; set; } = true;
     [Parameter] public Color Foreground { get; set; } = Color.Grey85;
     [Parameter] public EventCallback OnClick { get; set; }
     [Parameter] public EventCallback OnKill { get; set; }

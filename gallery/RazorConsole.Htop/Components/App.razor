@@ -35,9 +35,9 @@
         <ProcessRow
                     Text="@FormatRow(row)"
                     Selected="@(row.Key == _selectedKey)"
-                    Foreground="@(row.IsGroup ? Color.Aqua : Color.Grey85)"
+                    Foreground="@(row.Detail is not null ? Color.Grey58 : row.IsGroup ? Color.Aqua : Color.Grey85)"
                     OnClick="@(() => Activate(row))"
-                    OnKill="@(() => KillRow(row))" />
+                    OnKill="@(() => KillRow(row))" ShowKill="@(row.Detail is null)" />
     }
 
     @if (_pendingKill is { } pending)
@@ -81,7 +81,10 @@
     private readonly ProcessSampler _sampler = new();
     private readonly CancellationTokenSource _shutdown = new();
     private SystemSnapshot _snapshot = new([], 0, 0, 0, 0);
-    private sealed record Row(string Key, ProcessEntry Entry, bool IsGroup, bool IsChild, IReadOnlyList<ProcessEntry> Members);
+    private sealed record Row(string Key, ProcessEntry Entry, bool IsGroup, bool IsChild, IReadOnlyList<ProcessEntry> Members, string? Detail = null, string? OwnerKey = null);
+
+    private readonly HashSet<int> _detailOpen = [];
+    private readonly Dictionary<int, IReadOnlyList<string>> _details = [];
 
     private List<Row> _view = [];
     private readonly HashSet<string> _expanded = [];
@@ -143,6 +146,7 @@
     private void Refresh()
     {
         _snapshot = _sampler.Sample();
+        ReloadDetails();
         Rebuild();
     }
 
@@ -156,7 +160,7 @@
         }
 
         _view = _grouped ? BuildGroups(source) : ProcessSorting.Sort(source, _sortColumn, _descending)
-            .Select(p => new Row(PidKey(p.Id), p, false, false, [p])).ToList();
+            .SelectMany(p => WithDetails(new Row(PidKey(p.Id), p, false, false, [p]))).ToList();
         if ((_selectedKey is null || _view.FindIndex(r => r.Key == _selectedKey) < 0) && _view.Count > 0)
         {
             _selectedKey = _view[0].Key;
@@ -188,15 +192,60 @@
         {
             var members = aggregates[total.Name].Members;
             var groupKey = "g:" + total.Name;
-            rows.Add(new Row(groupKey, total, true, false, members));
+            rows.AddRange(WithDetails(new Row(groupKey, total, true, false, members)));
             if (members.Count > 1 && _expanded.Contains(groupKey))
             {
                 rows.AddRange(ProcessSorting.Sort(members, _sortColumn, _descending)
-                    .Select(m => new Row(PidKey(m.Id), m, false, true, [m])));
+                    .SelectMany(m => WithDetails(new Row(PidKey(m.Id), m, false, true, [m]))));
             }
         }
 
         return rows;
+    }
+
+    private static bool IsProcessRow(Row row) => row.Detail is null && (!row.IsGroup || row.Members.Count == 1);
+
+    private IEnumerable<Row> WithDetails(Row row)
+    {
+        yield return row;
+        if (!IsProcessRow(row) || !_detailOpen.Contains(row.Members[0].Id))
+        {
+            yield break;
+        }
+
+        var pid = row.Members[0].Id;
+        var lines = _details.TryGetValue(pid, out var cached) ? cached : [];
+        for (var i = 0; i < lines.Count; i++)
+        {
+            yield return new Row($"d:{pid}:{i}", row.Entry, false, true, row.Members, lines[i], row.Key);
+        }
+    }
+
+    private void ReloadDetails()
+    {
+        foreach (var stale in _details.Keys.Where(pid => !_detailOpen.Contains(pid)).ToList())
+        {
+            _details.Remove(stale);
+        }
+
+        foreach (var pid in _detailOpen)
+        {
+            _details[pid] = ProcessDetails.Load(pid);
+        }
+    }
+
+    private void SetDetail(int pid, bool open)
+    {
+        if (open)
+        {
+            _detailOpen.Add(pid);
+            _details[pid] = ProcessDetails.Load(pid);
+        }
+        else
+        {
+            _detailOpen.Remove(pid);
+            _details.Remove(pid);
+        }
     }
 
     private void ToggleGroup()
@@ -209,10 +258,24 @@
 
     private void Activate(Row row)
     {
-        Select(row.Key);
-        if (row.IsGroup && row.Members.Count > 1 && !_expanded.Remove(row.Key))
+        if (row.Detail is not null)
         {
-            _expanded.Add(row.Key);
+            Select(row.OwnerKey!);
+            return;
+        }
+
+        Select(row.Key);
+        if (row.IsGroup && row.Members.Count > 1)
+        {
+            if (!_expanded.Remove(row.Key))
+            {
+                _expanded.Add(row.Key);
+            }
+        }
+        else
+        {
+            var pid = row.Members[0].Id;
+            SetDetail(pid, !_detailOpen.Contains(pid));
         }
 
         Rebuild();
@@ -221,19 +284,38 @@
     private void ToggleSelectedGroup(bool expand)
     {
         var index = SelectedIndex;
-        if (index < 0 || !_view[index].IsGroup || _view[index].Members.Count < 2)
+        if (index < 0)
         {
             return;
         }
 
-        var key = _view[index].Key;
-        if (expand)
+        var row = _view[index];
+        if (row.Detail is not null)
         {
-            _expanded.Add(key);
+            if (!expand)
+            {
+                SetDetail(row.Members[0].Id, false);
+                _selectedKey = row.OwnerKey;
+                Rebuild();
+            }
+
+            return;
+        }
+
+        if (row.IsGroup && row.Members.Count > 1)
+        {
+            if (expand)
+            {
+                _expanded.Add(row.Key);
+            }
+            else
+            {
+                _expanded.Remove(row.Key);
+            }
         }
         else
         {
-            _expanded.Remove(key);
+            SetDetail(row.Members[0].Id, expand);
         }
 
         Rebuild();
@@ -275,6 +357,26 @@
         }
 
         var index = SelectedIndex < 0 ? 0 : Math.Clamp(SelectedIndex + delta, 0, _view.Count - 1);
+        var step = delta >= 0 ? 1 : -1;
+        while (index >= 0 && index < _view.Count && _view[index].Detail is not null)
+        {
+            index += step;
+        }
+
+        if (index < 0 || index >= _view.Count)
+        {
+            index = Math.Clamp(index, 0, _view.Count - 1);
+            while (index >= 0 && index < _view.Count && _view[index].Detail is not null)
+            {
+                index -= step;
+            }
+
+            if (index < 0 || index >= _view.Count)
+            {
+                return;
+            }
+        }
+
         _selectedKey = _view[index].Key;
         EnsureSelectionVisible();
     }
@@ -312,7 +414,7 @@
     private void RequestKill()
     {
         var index = SelectedIndex;
-        if (index >= 0)
+        if (index >= 0 && _view[index].Detail is null)
         {
             _pendingKill = _view[index];
         }
@@ -472,12 +574,19 @@
 
     private string FormatRow(Row row)
     {
+        if (row.Detail is { } detail)
+        {
+            var text = new string(' ', PidWidth + 4) + detail;
+            var max = Math.Max(20, SurfaceWidth - 1);
+            return text.Length > max ? text[..max] : text;
+        }
+
         var p = row.Entry;
+        var marker = _detailOpen.Contains(p.Id) ? "▾ " : "▸ ";
         var multi = row.IsGroup && row.Members.Count > 1;
         var label = multi ? $"{(_expanded.Contains(row.Key) ? "▾ " : "▸ ")}{p.Name} ({row.Members.Count})"
-            : row.IsChild ? "    " + p.Name
-            : row.IsGroup ? "  " + p.Name
-            : p.Name;
+            : row.IsChild ? "  " + marker + p.Name
+            : marker + p.Name;
         var name = label.Length > _nameWidth - 1 ? label[..(_nameWidth - 1)] : label;
         var time = p.CpuTime.TotalHours >= 1
             ? $"{(int)p.CpuTime.TotalHours}:{p.CpuTime.Minutes:00}:{p.CpuTime.Seconds:00}"

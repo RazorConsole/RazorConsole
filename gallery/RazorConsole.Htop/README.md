@@ -11,6 +11,7 @@ dotnet run --project gallery/RazorConsole.Htop/RazorConsole.Htop.csproj -f net10
 - CPU and memory meters, task and thread counts (CPU is per-core, so 100% equals one busy core)
 - Sortable columns: PID, Name, CPU%, MEM, THR, TIME+
 - Group by process name; groups show the summed metrics and expand into their members
+- Every process row is an expandable node: click it (or press `→`) to show path, start time, priority, handles, memory breakdown, CPU times and window title (plus command line, parent PID and state on Linux); click again or press `←` to collapse
 - Live filter by name or PID
 - Kill a process or a whole group, always behind a confirmation
 
