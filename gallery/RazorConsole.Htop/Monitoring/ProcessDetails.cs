@@ -18,10 +18,7 @@ internal static class ProcessDetails
         {
             using var p = Process.GetProcessById(pid);
             Add(lines, "Path", Try(() => p.MainModule?.FileName));
-            if (OperatingSystem.IsLinux())
-            {
-                Add(lines, "Cmd", ReadLinuxCmdline(pid));
-            }
+            Add(lines, "Command", CommandLines.Get(pid));
 
             var started = Try(() => (DateTime?)p.StartTime);
             var startedText = started is { } s
@@ -107,19 +104,6 @@ internal static class ProcessDetails
         catch (Exception)
         {
             return default;
-        }
-    }
-
-    private static string? ReadLinuxCmdline(int pid)
-    {
-        try
-        {
-            var text = File.ReadAllText($"/proc/{pid.ToString(CultureInfo.InvariantCulture)}/cmdline");
-            return text.Length == 0 ? null : text;
-        }
-        catch (Exception)
-        {
-            return null;
         }
     }
 

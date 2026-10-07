@@ -28,10 +28,6 @@
         <ClickableLabel Label="@HeaderLabel(SortColumn.Memory, "MEM", MemWidth, true)" Width="MemWidth" OnClick="@(() => SortBy(SortColumn.Memory))" />
         <ClickableLabel Label="@HeaderLabel(SortColumn.Threads, "THR", ThrWidth, true)" Width="ThrWidth" OnClick="@(() => SortBy(SortColumn.Threads))" />
         <ClickableLabel Label="@HeaderLabel(SortColumn.Time, "TIME+", TimeWidth, true)" Width="TimeWidth" OnClick="@(() => SortBy(SortColumn.Time))" />
-        @if (CommandWidth > 0)
-        {
-            <ClickableLabel Label="@(" " + "Command".PadRight(CommandWidth))" Width="@(CommandWidth + 1)" OnClick="@(() => { })" />
-        }
     </Flex>
 
     <Flex Direction="FlexDirection.Row" Height="@PageSize">
@@ -91,8 +87,7 @@
     private bool _nameAuto;
     private int FixedColumns => PidWidth + CpuWidth + MemWidth + ThrWidth + TimeWidth;
     private int NameWidth => Math.Max(MinNameWidth, Math.Min(_nameAuto ? int.MaxValue : _nameWidth, SurfaceWidth - 1 - FixedColumns));
-    private int ListWidth => SurfaceWidth - 1;
-    private int CommandWidth => Math.Max(0, ListWidth - FixedColumns - NameWidth - 1);
+    private int ListWidth => FixedColumns + NameWidth;
     private bool _resizing;
     private bool _handleHot;
     private int _resizeStartX;
@@ -241,9 +236,15 @@
 
         var pid = row.Members[0].Id;
         var lines = _details.TryGetValue(pid, out var cached) ? cached : [];
-        for (var i = 0; i < lines.Count; i++)
+        var index = 0;
+        var width = Math.Max(20, ListWidth - 14);
+        foreach (var line in lines)
         {
-            yield return new Row($"d:{pid}:{i}", row.Entry, false, true, row.Members, lines[i], row.Key);
+            for (var start = 0; start < line.Length || start == 0; start += width)
+            {
+                var chunk = line.Substring(start, Math.Min(width, line.Length - start));
+                yield return new Row($"d:{pid}:{index++}", row.Entry, false, true, row.Members, start == 0 ? chunk : "         " + chunk, row.Key);
+            }
         }
     }
 
@@ -704,24 +705,7 @@
             ? $"{(int)p.CpuTime.TotalHours}:{p.CpuTime.Minutes:00}:{p.CpuTime.Seconds:00}"
             : $"{p.CpuTime.Minutes}:{p.CpuTime.Seconds:00}.{p.CpuTime.Milliseconds / 10:00}";
         return string.Create(CultureInfo.InvariantCulture,
-            $"{(multi ? "-" : p.Id.ToString(CultureInfo.InvariantCulture)),PidWidth - 1} {name.PadRight(NameWidth)}{p.Cpu,CpuWidth - 1:0.0} {FormatBytes(p.MemoryBytes),MemWidth - 1} {p.Threads,ThrWidth - 1} {time,TimeWidth - 1}") + CommandText(row, multi);
-    }
-
-    private string CommandText(Row row, bool multi)
-    {
-        if (CommandWidth <= 0 || multi)
-        {
-            return string.Empty;
-        }
-
-        var text = CommandLines.Get(row.Entry.Id);
-        if (text.Length == 0)
-        {
-            text = row.Entry.Name;
-        }
-
-        var width = CommandWidth - (row.Key == _selectedKey ? 6 : 0);
-        return width <= 0 ? string.Empty : " " + (text.Length > width ? text[..width] : text);
+            $"{(multi ? "-" : p.Id.ToString(CultureInfo.InvariantCulture)),PidWidth - 1} {name.PadRight(NameWidth)}{p.Cpu,CpuWidth - 1:0.0} {FormatBytes(p.MemoryBytes),MemWidth - 1} {p.Threads,ThrWidth - 1} {time,TimeWidth - 1}");
     }
 
     private static string FormatBytes(long bytes)
