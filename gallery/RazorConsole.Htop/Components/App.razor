@@ -28,15 +28,14 @@
         <ClickableLabel Label="@HeaderLabel(SortColumn.Memory, "MEM", MemWidth, true)" Width="MemWidth" OnClick="@(() => SortBy(SortColumn.Memory))" />
         <ClickableLabel Label="@HeaderLabel(SortColumn.Threads, "THR", ThrWidth, true)" Width="ThrWidth" OnClick="@(() => SortBy(SortColumn.Threads))" />
         <ClickableLabel Label="@HeaderLabel(SortColumn.Time, "TIME+", TimeWidth, true)" Width="TimeWidth" OnClick="@(() => SortBy(SortColumn.Time))" />
-        <Markup Content="@HeaderFiller" Background="Color.Green" />
     </Flex>
 
     <Flex Direction="FlexDirection.Row" Height="@PageSize">
-        <Flex Direction="FlexDirection.Column" Width="@(SurfaceWidth - 1)" Height="@PageSize">
+        <Flex Direction="FlexDirection.Column" Width="@ListWidth" Height="@PageSize">
             @foreach (var row in VisibleRows)
             {
                 <ProcessRow
-                            Text="@FormatRow(row).PadRight(SurfaceWidth - 1 - (row.Key == _selectedKey && row.Detail is null ? 6 : 0))"
+                            Text="@FormatRow(row).PadRight(ListWidth - (row.Key == _selectedKey && row.Detail is null ? 6 : 0))"
                             Selected="@(row.Key == _selectedKey)"
                             Foreground="@(row.Detail is not null ? Color.Grey58 : row.IsGroup ? Color.Aqua : Color.Grey85)"
                             OnClick="@(() => Activate(row))"
@@ -84,11 +83,11 @@
     private const int PidWidth = 8;
     private const int MinNameWidth = 12;
     private const int MaxNameWidth = 80;
-    private int _nameWidth = 32;
-    private bool _nameAuto = true;
-    private string HeaderFiller => new(' ', Math.Max(0, SurfaceWidth - 1 - FixedColumns - NameWidth));
+    private int _nameWidth = 40;
+    private bool _nameAuto;
     private int FixedColumns => PidWidth + CpuWidth + MemWidth + ThrWidth + TimeWidth;
-    private int NameWidth => _nameAuto ? Math.Max(MinNameWidth, SurfaceWidth - 1 - FixedColumns) : _nameWidth;
+    private int NameWidth => Math.Max(MinNameWidth, Math.Min(_nameAuto ? int.MaxValue : _nameWidth, SurfaceWidth - 1 - FixedColumns));
+    private int ListWidth => FixedColumns + NameWidth;
     private bool _resizing;
     private bool _handleHot;
     private int _resizeStartX;
