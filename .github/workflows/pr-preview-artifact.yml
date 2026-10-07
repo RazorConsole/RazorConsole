@@ -106,9 +106,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: |
-            pages project list
-            pages deploy website-dist --project-name=razorconsole --branch=pr-${{ steps.get-pr.outputs.pr_number }}
+          command: pages deploy website-dist --project-name=razorconsole --branch=pr-${{ steps.get-pr.outputs.pr_number }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Comment PR with preview info
