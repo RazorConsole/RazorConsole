@@ -19,6 +19,7 @@ dotnet run --project gallery/RazorConsole.Htop/RazorConsole.Htop.csproj -f net10
 - Click a column header to sort (click again to reverse)
 - Click a row to select it; click a group row to expand or collapse it
 - Click the red `Kill` button shown on the selected row (or `F9 Kill` below) and confirm with `Yes`
+- Drag the `┃` handle at the right edge of the Name header to resize the Name column (keyboard: `[` / `]`)
 - Mouse wheel scrolls the list; footer buttons filter, group, pause and quit
 
 ## Keyboard

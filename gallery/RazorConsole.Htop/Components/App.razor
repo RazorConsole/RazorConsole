@@ -18,7 +18,12 @@
 
     <Flex Direction="FlexDirection.Row" Height="1">
         <ClickableLabel Label="@HeaderLabel(SortColumn.Pid, "PID", PidWidth, true)" Width="PidWidth" OnClick="@(() => SortBy(SortColumn.Pid))" />
-        <ClickableLabel Label="@HeaderLabel(SortColumn.Name, "Name", NameWidth, false)" Width="NameWidth" OnClick="@(() => SortBy(SortColumn.Name))" />
+        <ClickableLabel Label="@HeaderLabel(SortColumn.Name, "Name", _nameWidth - 1, false)" Width="@(_nameWidth - 1)" OnClick="@(() => SortBy(SortColumn.Name))" />
+        <Flex Width="1" Height="1" data-focusable="false"
+              @onmousedown="BeginResize" @onmousemove="DragResize" @onmouseup="EndResize"
+              @onmouseenter="() => _handleHot = true" @onmouseleave="() => _handleHot = false">
+            <Markup Content="┃" Foreground="@(_handleHot || _resizing ? Color.Yellow : Color.Black)" Background="Color.Green" />
+        </Flex>
         <ClickableLabel Label="@HeaderLabel(SortColumn.Cpu, "CPU%", CpuWidth, true)" Width="CpuWidth" OnClick="@(() => SortBy(SortColumn.Cpu))" />
         <ClickableLabel Label="@HeaderLabel(SortColumn.Memory, "MEM", MemWidth, true)" Width="MemWidth" OnClick="@(() => SortBy(SortColumn.Memory))" />
         <ClickableLabel Label="@HeaderLabel(SortColumn.Threads, "THR", ThrWidth, true)" Width="ThrWidth" OnClick="@(() => SortBy(SortColumn.Threads))" />
@@ -59,7 +64,13 @@
 
 @code {
     private const int PidWidth = 8;
-    private const int NameWidth = 32;
+    private const int MinNameWidth = 12;
+    private const int MaxNameWidth = 80;
+    private int _nameWidth = 32;
+    private bool _resizing;
+    private bool _handleHot;
+    private int _resizeStartX;
+    private int _resizeStartWidth;
     private const int CpuWidth = 8;
     private const int MemWidth = 11;
     private const int ThrWidth = 6;
@@ -98,7 +109,7 @@
         ? $"Filter: {_filter}_   (Enter/Esc to finish)"
         : !string.IsNullOrEmpty(_message) ? _message
         : _filter.Length > 0 ? $"Filter: \"{_filter}\" ({_view.Count} matches) | click a header to sort | wheel to scroll"
-        : "Click a header to sort, a row to select, wheel to scroll | keys: ↑↓ ←→ / G F9 C M P N T";
+        : "Click a header to sort, a row to select, wheel to scroll | drag ┃ to resize Name | keys: ↑↓ ←→ / G F9 C M P N T";
 
     protected override void OnInitialized()
     {
@@ -381,6 +392,8 @@
             case "F9" or "Delete": RequestKill(); break;
             case "/" or "F4": StartFilter(); break;
             case "g" or "G": ToggleGroup(); break;
+            case "[": _nameWidth = Math.Max(MinNameWidth, _nameWidth - 2); break;
+            case "]": _nameWidth = Math.Min(MaxNameWidth, _nameWidth + 2); break;
             case "ArrowRight" or "Enter": ToggleSelectedGroup(true); break;
             case "ArrowLeft": ToggleSelectedGroup(false); break;
             case " " or "Spacebar": TogglePause(); break;
@@ -423,6 +436,34 @@
         });
     }
 
+    private void BeginResize(MouseEventArgs e)
+    {
+        _resizing = true;
+        _resizeStartX = (int)e.ClientX;
+        _resizeStartWidth = _nameWidth;
+    }
+
+    private void DragResize(MouseEventArgs e)
+    {
+        if (!_resizing)
+        {
+            return;
+        }
+
+        var width = Math.Clamp(_resizeStartWidth + (int)e.ClientX - _resizeStartX, MinNameWidth, MaxNameWidth);
+        if (width != _nameWidth)
+        {
+            _nameWidth = width;
+            StateHasChanged();
+        }
+    }
+
+    private void EndResize(MouseEventArgs e)
+    {
+        _resizing = false;
+        StateHasChanged();
+    }
+
     private string HeaderLabel(SortColumn column, string title, int width, bool right)
     {
         var text = _sortColumn == column ? title + (_descending ? "▼" : "▲") : title;
@@ -437,12 +478,12 @@
             : row.IsChild ? "    " + p.Name
             : row.IsGroup ? "  " + p.Name
             : p.Name;
-        var name = label.Length > NameWidth - 1 ? label[..(NameWidth - 1)] : label;
+        var name = label.Length > _nameWidth - 1 ? label[..(_nameWidth - 1)] : label;
         var time = p.CpuTime.TotalHours >= 1
             ? $"{(int)p.CpuTime.TotalHours}:{p.CpuTime.Minutes:00}:{p.CpuTime.Seconds:00}"
             : $"{p.CpuTime.Minutes}:{p.CpuTime.Seconds:00}.{p.CpuTime.Milliseconds / 10:00}";
         return string.Create(CultureInfo.InvariantCulture,
-            $"{(multi ? "-" : p.Id.ToString(CultureInfo.InvariantCulture)),PidWidth - 1} {name,-NameWidth}{p.Cpu,CpuWidth - 1:0.0} {FormatBytes(p.MemoryBytes),MemWidth - 1} {p.Threads,ThrWidth - 1} {time,TimeWidth - 1}");
+            $"{(multi ? "-" : p.Id.ToString(CultureInfo.InvariantCulture)),PidWidth - 1} {name.PadRight(_nameWidth)}{p.Cpu,CpuWidth - 1:0.0} {FormatBytes(p.MemoryBytes),MemWidth - 1} {p.Threads,ThrWidth - 1} {time,TimeWidth - 1}");
     }
 
     private static string FormatBytes(long bytes)
