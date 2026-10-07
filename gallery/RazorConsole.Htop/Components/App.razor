@@ -238,12 +238,15 @@
         var lines = _details.TryGetValue(pid, out var cached) ? cached : [];
         var index = 0;
         var width = Math.Max(20, ListWidth - 14);
-        foreach (var line in lines)
+        for (var n = 0; n < lines.Count; n++)
         {
+            var line = lines[n];
+            var last = n == lines.Count - 1;
             for (var start = 0; start < line.Length || start == 0; start += width)
             {
                 var chunk = line.Substring(start, Math.Min(width, line.Length - start));
-                yield return new Row($"d:{pid}:{index++}", row.Entry, false, true, row.Members, start == 0 ? chunk : "         " + chunk, row.Key);
+                var prefix = start == 0 ? (last ? "└─ " : "├─ ") : (last ? "   " : "│  ");
+                yield return new Row($"d:{pid}:{index++}", row.Entry, false, true, row.Members, prefix + chunk, row.Key);
             }
         }
     }
@@ -689,7 +692,7 @@
     {
         if (row.Detail is { } detail)
         {
-            var text = new string(' ', PidWidth + 4) + detail;
+            var text = new string(' ', PidWidth + 1) + detail;
             var max = Math.Max(20, SurfaceWidth - 1);
             return text.Length > max ? text[..max] : text;
         }
