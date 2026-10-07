@@ -5,7 +5,7 @@ import { readStaticPages } from "./static-pages"
 
 const source = resolve(process.env.WEBSITE_BUILD_DIR || "build/client")
 const output = resolve(process.env.LEGACY_REDIRECT_OUTPUT || "build/legacy-redirects")
-const rootSite = process.env.VITE_SITE_URL || "https://razorconsole.github.io"
+const rootSite = process.env.VITE_SITE_URL || "https://razorconsole.com"
 
 rmSync(output, { recursive: true, force: true })
 mkdirSync(output, { recursive: true })

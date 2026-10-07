@@ -16,7 +16,7 @@
         <!-- Required license, copyright, and repo information. Packages can override. -->
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Copyright>© RazorConsole. All rights reserved.</Copyright>
-    <PackageProjectUrl>https://github.com/RazorConsole/RazorConsole/</PackageProjectUrl>
+    <PackageProjectUrl>https://razorconsole.com/</PackageProjectUrl>
     <RepositoryUrl>https://github.com/RazorConsole/RazorConsole</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
 

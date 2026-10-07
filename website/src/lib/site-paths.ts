@@ -1,5 +1,8 @@
-export const productionSite = "https://razorconsole.github.io"
-export const legacyProductionSite = `${productionSite}/RazorConsole`
+export const productionSite = "https://razorconsole.com"
+export const legacyProductionSites = [
+  "https://razorconsole.github.io/RazorConsole",
+  "https://razorconsole.github.io",
+]
 
 const fileExtension = /\.(?:avif|css|csv|dat|exe|gif|gz|html|ico|jpeg|jpg|js|json|map|md|mp4|pdf|png|svg|ttf|txt|wasm|webm|webp|woff2?|xml|zip)$/i
 

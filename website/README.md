@@ -141,28 +141,33 @@ Code previews are rendered at build-time using `Shiki`. It sets two theme color 
 
 ## 📤 Deployment
 
-The authoritative website source remains in this repository. Production at
-`https://razorconsole.github.io/` is built by `RazorConsole/RazorConsole.github.io`,
-which checks out this repository into `source/` and uses:
+This repository is the authoritative source and deployment owner for
+`https://razorconsole.com`. Both production paths build the same root artifact with:
 
 ```text
-VITE_SITE_URL=https://razorconsole.github.io
+VITE_SITE_URL=https://razorconsole.com
 VITE_BASE=/
 VITE_ROUTER_BASENAME=/
 ```
 
-Pull requests continue to publish root-based Cloudflare previews. This repository's existing Pages
-deployment keeps serving the complete `/RazorConsole/` project site until the root site is proven
-live. It switches to the generated redirect-only artifact only when the repository variable
-`WEBSITE_DEPLOYMENT_MODE` is explicitly set to `redirects`; any other value preserves the current
-deployment.
+The CI workflow builds, tests, uploads, and deploys `website/build/client` to the existing Cloudflare
+Pages project `razorconsole` on pushes to `main`. A manual CI run performs the same production
+deployment and is the safe first-cutover path. Version tags matched by `release.yml` rebuild the same
+artifact and deploy it only after the website, package, and Native AOT jobs succeed. Both use
+`cloudflare/wrangler-action` with `pages deploy ... --project-name=razorconsole --branch=main`, so
+Cloudflare records them as production deployments. The reusable deployment workflow records the
+source commit and deployment URL, fails on deployment errors, and uses production concurrency to
+prevent an older run from overtaking a newer one.
+
+Pull requests remain build-only in CI and continue to use the existing Cloudflare preview workflow.
+No production Cloudflare credential is available to pull-request code.
 
 ### SEO regression checks
 
 After generating DocFX and WASM data, run a root-production build in PowerShell:
 
 ```powershell
-$env:VITE_SITE_URL = "https://razorconsole.github.io"
+$env:VITE_SITE_URL = "https://razorconsole.com"
 $env:VITE_BASE = "/"
 $env:VITE_ROUTER_BASENAME = "/"
 npm run test:seo
@@ -178,10 +183,10 @@ npm run test:legacy-redirects
 `npm run build` also generates the social images and AI documentation. The focused sequence above
 checks SEO without regenerating those unrelated assets. The static tests inspect HTML before JavaScript
 runs: H1s, unique self-canonicals, Open Graph URLs, readable API descriptions, internal links, redirects,
-and sitemap coverage. CI runs these checks after its full website build for preview and root-production
-paths, plus a `/RazorConsole/` compatibility build. Keep `VITE_BASE` and `VITE_ROUTER_BASENAME`
-aligned. Preview deployments can set their own `VITE_SITE_URL`; local navigation and assets remain
-local rather than linking to production.
+and sitemap coverage. CI runs the complete checks for preview and root production artifacts. Source
+tests retain path-helper coverage for both `/` and the legacy `/RazorConsole/` base where relevant.
+Keep `VITE_BASE` and `VITE_ROUTER_BASENAME` aligned. Preview deployments set their own
+`VITE_SITE_URL`; local navigation and assets remain local rather than linking to production.
 
 `SiteLink` and `site-paths.ts` normalize HTML routes to trailing slashes while preserving query strings,
 anchors, files, and the project base path. Existing redirect routes remain available. Markdown uses
@@ -191,36 +196,56 @@ GitHub Pages can still serve `/index.html` aliases; their generated HTML points 
 depending on host-level redirect rules. The client replaces only `index.html` aliases before
 hydration, retaining the query, fragment, and existing history state so the router matches the page.
 
-### Root migration and owner runbook
+### Custom-domain migration and owner runbook
+
+Cloudflare owner setup:
+
+1. Keep `razorconsole.com` as a Cloudflare zone in the same account as the `razorconsole` Pages
+   project. Apex domains require Cloudflare nameservers.
+2. In **Workers & Pages → razorconsole → Custom domains**, choose **Set up a domain** and add
+   `razorconsole.com`. Use this Pages flow rather than manually creating only a DNS record; Cloudflare
+   creates the apex CNAME after the nameservers are active.
+3. Keep repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. The token needs the
+   narrow **Account → Cloudflare Pages → Edit** permission documented for direct-upload CI.
+4. Check CAA records if certificate issuance fails. No `CNAME` file or Wrangler configuration file is
+   required for this Direct Upload workflow.
+
+Safe cutover:
+
+1. Merge the workflow change with `[skip ci]`, so the old monolithic merge run cannot publish an
+   unrelated nightly/package before the new workflow exists on `main`.
+2. Run `gh workflow run ci.yml --repo RazorConsole/RazorConsole --ref main`. Manual CI runs the full
+   website and repository checks and deploys the verified artifact, while existing nightly/package
+   jobs remain push-only.
+3. Confirm the production deployment on `razorconsole.pages.dev`, finish the custom-domain setup,
+   then verify `https://razorconsole.com`, representative routes, assets, the Google verification file,
+   sitemap, canonical/OG URLs, unknown-route 404, and real tutorial browser navigation.
+4. Only after custom-domain validation, activate and verify the legacy project-site redirects described
+   below. Keep them long term.
+5. Add/verify the Search Console URL-prefix property `https://razorconsole.com/`, submit
+   `https://razorconsole.com/sitemap.xml`, and retain the old GitHub Pages properties to monitor
+   redirects. The verification asset does not prove submission, indexing, or Google's selected
+   canonical.
+
+Ordinary future pushes to `main` deploy production after successful CI. Tags matching `v*.*.*` or
+`*.*.*` deploy again after the complete release matrix; manual `release.yml` runs do not deploy a
+website because they are not releases.
 
 GitHub Pages cannot configure real HTTP 301 responses for project sites. `npm run
 gen:legacy-redirects` therefore derives one minimal HTML redirect for every canonical route in the
-root build. Each page is `noindex, follow`, declares the root canonical, and targets the final root
+custom-domain build. Each page is `noindex, follow`, declares the custom-domain canonical, and targets the final
 URL directly. JavaScript preserves query strings and fragments; the meta-refresh fallback cannot
 reliably preserve them when JavaScript is disabled. The artifact also retains the Google verification
-file, publishes a sitemap containing the new root URLs, and provides a noindex 404 fallback. It does
+file, publishes a sitemap containing the new custom-domain URLs, and provides a noindex 404 fallback. It does
 not copy the old site's content or assets, and it intentionally does not add an ineffective
 `/RazorConsole/robots.txt`.
 
-Use this order; do not combine the first two steps:
-
-1. Merge and configure `RazorConsole/RazorConsole.github.io`, then verify the root Pages deployment,
-   representative root canonicals, assets, Google verification file, sitemap, and browser navigation.
-2. Set this repository's `WEBSITE_DEPLOYMENT_MODE=redirects`, then manually run **Activate legacy
-   website redirects** with its root-live confirmation. This isolated workflow validates the live root
-   site and deploys only redirects; it cannot publish packages or nightly releases. Verify representative
-   and generated old routes redirect directly to their root equivalents. Keep these redirects deployed
-   long term. Future `main` website deployments retain redirect mode. To roll back before search
-   migration, unset the variable and rerun `main` CI.
-3. Add the Search Console URL-prefix property `https://razorconsole.github.io/`, submit
-   `https://razorconsole.github.io/sitemap.xml`, and inspect representative home, component, tutorial,
-   blog, API, and release URLs. Retain the old `https://razorconsole.github.io/RazorConsole/` property
-   to monitor old URL coverage and redirects. Do **not** use Change of Address: this is a same-host
-   subdirectory-to-root move, which that tool does not support.
-
-The existing verification token/file does not prove Search Console access, sitemap submission,
-indexing, or Google's selected canonical. Record those separately and do not close #354 or #355
-without the corresponding evidence.
+Cloudflare does not control `razorconsole.github.io/RazorConsole/`, so that legacy redirect artifact
+remains a separate, non-production GitHub Pages responsibility. Set the repository variable
+`WEBSITE_DEPLOYMENT_MODE=redirects` and manually run **Activate legacy website redirects** with
+`confirm_root_site_live=true` only after `razorconsole.com` is verified. The workflow first checks the
+live custom domain, rebuilds/tests the source, tests every generated redirect, and deploys only the
+redirect artifact. It has no package, tag, release, or Cloudflare production step.
 
 For a read-only post-deployment check, run `npm run check:seo:deployed` (or append
 `-- https://your-preview.example` to inspect a preview). This checks representative HTTP responses,
@@ -228,21 +253,15 @@ initial HTML headings/canonicals, sitemap coverage, and the origin-root robots s
 authenticate to Search Console, interpret every robots directive, or claim Google has indexed a page.
 Before deployment it may correctly fail against the old live site.
 
-The root repository owns any optional origin-wide robots policy. Review existing rules before adding
-one; missing robots.txt does not itself block crawling. If adopted, the root-only content is:
+For rollback, use **Workers & Pages → razorconsole → Deployments → … → Rollback to this deployment**;
+Cloudflare permits any prior successful production deployment as a target. Revert the source commit
+and rerun CI afterward for a durable code rollback. Avoid flipping DNS away and back as a routine
+rollback because Cloudflare documents a reactivation window that can produce errors.
 
-```text
-User-agent: *
-Allow: /
-
-Sitemap: https://razorconsole.github.io/sitemap.xml
-```
-
-Source changes do not need cross-repository credentials to reach production: the root repository has
-`workflow_dispatch` and a schedule fallback and checks out `main`. A real-time source-`main` trigger
-would require an explicitly managed fine-grained PAT, GitHub App, or organization automation. Do not
-hardcode a credential or make source CI fail when one is absent; this repository does not deploy Pages
-to another repository.
+`RazorConsole/RazorConsole.github.io` must not continue serving a duplicate full site after cutover.
+Prefer a lightweight, path-preserving redirect to `razorconsole.com`; if that cannot be maintained,
+disable its Pages deployment after the custom domain and legacy project redirects are verified. This
+repository does not modify that other repository.
 
 ### Search-led content and evidence
 

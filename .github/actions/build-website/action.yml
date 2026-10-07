@@ -1,0 +1,63 @@
+name: Build and verify website
+description: Build the canonical root website and run its source, static, and browser regressions
+
+inputs:
+  site-url:
+    description: Absolute origin used for canonical metadata
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup .NET for documentation and WASM
+      uses: actions/setup-dotnet@v4
+      with:
+        global-json-file: global.json
+        dotnet-version: |
+          8.0.x
+          9.0.x
+          10.0.x
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: npm
+        cache-dependency-path: website/package-lock.json
+
+    - name: Setup Python for browser regressions
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Build API documentation input
+      shell: bash
+      run: dotnet build src/RazorConsole.Core/RazorConsole.Core.csproj --configuration Release --framework net10.0
+
+    - name: Install website dependencies
+      shell: bash
+      working-directory: website
+      run: npm ci
+
+    - name: Install headless browser test tools
+      shell: bash
+      working-directory: website
+      run: |
+        python -m pip install -r tests/requirements.txt
+        python -m playwright install --with-deps chromium
+
+    - name: Build and verify root website
+      shell: bash
+      working-directory: website
+      env:
+        VITE_SITE_URL: ${{ inputs.site-url }}
+        VITE_BASE: /
+        VITE_ROUTER_BASENAME: /
+      run: |
+        npm run test:terminal-input
+        npm run test:seo
+        npm run build
+        npm run test:seo:static
+        python tests/tutorial_navigation.py
+        cp build/client/index.html build/client/404.html
+        touch build/client/.nojekyll

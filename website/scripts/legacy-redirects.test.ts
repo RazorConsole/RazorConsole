@@ -6,7 +6,7 @@ import { JSDOM } from "jsdom"
 import { legacyNotFoundHtml, legacyProjectPath, legacyRedirectHtml, redirectLocation } from "./legacy-redirects"
 import { readStaticPages } from "./static-pages"
 
-const rootSite = "https://razorconsole.github.io"
+const rootSite = "https://razorconsole.com"
 
 test("redirect HTML sends old routes directly to root canonicals", () => {
   const target = `${rootSite}/docs/tutorial/hello-world/`
@@ -55,7 +55,7 @@ test("generated artifact has one redirect for every current root canonical", () 
     const canonical = dom.window.document.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? undefined
     assert.ok(targets.delete(canonical), `${relative(output, file).split(sep).join("/")}: ${canonical}`)
     assert.equal(dom.window.document.querySelector('meta[name="robots"]')?.getAttribute("content"), "noindex, follow")
-    assert.match(dom.window.document.querySelector('meta[http-equiv="refresh"]')?.getAttribute("content") ?? "", /^0; url=https:\/\/razorconsole\.github\.io\//)
+    assert.match(dom.window.document.querySelector('meta[http-equiv="refresh"]')?.getAttribute("content") ?? "", /^0; url=https:\/\/razorconsole\.com\//)
     assert.equal(dom.window.document.querySelectorAll("h1").length, 0)
     dom.window.close()
   }

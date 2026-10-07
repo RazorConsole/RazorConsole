@@ -23,7 +23,7 @@ The game always uses RazorConsole's native WidgetLayout pipeline. Rendering-pipe
 - `Q` or `Escape`: quit
 - Mouse: click the direction, pause, reboot, and quit controls; click or drag the continuous speed slider, or wheel it in 1 ms increments
 
-The in-app footer also contains a terminal hyperlink to the [RazorConsole website](https://razorconsole.github.io/).
+The in-app footer also contains a terminal hyperlink to the [RazorConsole website](https://razorconsole.com/).
 
 ## Publish a Native AOT binary
 

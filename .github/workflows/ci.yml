@@ -9,8 +9,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -290,93 +288,25 @@ jobs:
         with:
           lfs: true
 
-      - name: Setup .NET for documentation and WASM
-        uses: actions/setup-dotnet@v4
+      - name: Build and verify website
+        uses: ./.github/actions/build-website
         with:
-          global-json-file: global.json
-          dotnet-version: |
-            8.0.x
-            9.0.x
-            10.0.x
+          site-url: ${{ github.event_name == 'pull_request' && format('https://pr-{0}.razorconsole.pages.dev', github.event.pull_request.number) || 'https://razorconsole.com' }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: website/package-lock.json
-
-      - name: Build API documentation input
-        run: dotnet build src/RazorConsole.Core/RazorConsole.Core.csproj --configuration Release --framework net10.0
-
-      - name: Install dependencies
-        run: npm ci
-        working-directory: website
-
-      - name: Setup Python for browser regressions
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install headless browser test tools
-        working-directory: website
-        run: |
-          python -m pip install -r tests/requirements.txt
-          python -m playwright install --with-deps chromium
-
-      - name: Build website for preview
-        # Terminal transport checks run independently of the documentation build.
-        run: npm run test:terminal-input && npm run test:seo && npm run build && npm run test:seo:static
-        env:
-          VITE_ROUTER_BASENAME: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.WEBSITE_DEPLOYMENT_MODE != 'redirects' && format('/{0}/', github.event.repository.name) || '/' }}
-          VITE_BASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.WEBSITE_DEPLOYMENT_MODE != 'redirects' && format('/{0}/', github.event.repository.name) || '/' }}
-          VITE_SITE_URL: >-
-            ${{ 
-              github.event_name == 'push' && github.ref == 'refs/heads/main' 
-              && format('https://{0}.github.io', github.repository_owner) 
-              || format('https://pr-{0}.razorconsole.pages.dev', github.event.pull_request.number) 
-            }}
-        working-directory: website
-
-      - name: Upload preview artifact
-        if: github.event_name == 'pull_request'
+      - name: Upload verified website
         uses: actions/upload-artifact@v4
         with:
-          name: website-preview-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+          name: ${{ github.event_name == 'pull_request' && format('website-preview-{0}-{1}', github.event.pull_request.number, github.event.pull_request.head.sha) || format('website-production-{0}', github.sha) }}
           path: website/build/client
           retention-days: 30
 
-      - name: Verify built tutorial client navigation
-        working-directory: website
-        run: python tests/tutorial_navigation.py
-        env:
-          VITE_BASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.WEBSITE_DEPLOYMENT_MODE != 'redirects' && format('/{0}/', github.event.repository.name) || '/' }}
-
-      - name: Prepare current project-site artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.WEBSITE_DEPLOYMENT_MODE != 'redirects'
-        run: |
-          # Move all prerendered pages to build/client
-          cp -r website/build/client/${{ github.event.repository.name }}/* website/build/client/ || true
-          
-          # Create 404 page 
-          cp website/build/client/index.html website/build/client/404.html
-          
-          rm -rf website/build/client/${{ github.event.repository.name }}
-          
-          touch website/build/client/.nojekyll
-
-      - name: Prepare activated legacy redirect artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.WEBSITE_DEPLOYMENT_MODE == 'redirects'
-        working-directory: website
-        run: |
-          npm run gen:legacy-redirects
-          npm run test:legacy-redirects
-          rm -rf build/client
-          mv build/legacy-redirects build/client
-
-      - name: Verify root-production static SEO and redirects
+      - name: Verify custom-domain production metadata and legacy redirects
         if: github.event_name == 'pull_request'
         working-directory: website
+        env:
+          VITE_SITE_URL: https://razorconsole.com
+          VITE_BASE: /
+          VITE_ROUTER_BASENAME: /
         run: |
           npx react-router build
           npm run gen:sitemap
@@ -384,42 +314,28 @@ jobs:
           python tests/tutorial_navigation.py
           npm run gen:legacy-redirects
           npm run test:legacy-redirects
-        env:
-          VITE_ROUTER_BASENAME: /
-          VITE_BASE: /
-          VITE_SITE_URL: https://razorconsole.github.io
 
       - name: Verify legacy project-base compatibility
         if: github.event_name == 'pull_request'
         working-directory: website
-        run: npx react-router build && npm run gen:sitemap && npm run test:seo:static && python tests/tutorial_navigation.py
         env:
-          VITE_ROUTER_BASENAME: /RazorConsole/
+          VITE_SITE_URL: https://razorconsole.com
           VITE_BASE: /RazorConsole/
-          VITE_SITE_URL: https://razorconsole.github.io
+          VITE_ROUTER_BASENAME: /RazorConsole/
+        run: npx react-router build && npm run gen:sitemap && npm run test:seo:static && python tests/tutorial_navigation.py
 
-      - name: Configure Pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: website/build/client
-
-  deploy-pages:
-    name: Deploy to GitHub Pages
-    runs-on: ubuntu-latest
+  deploy-website-production:
+    name: Deploy website production
     needs: [website-build, build-test, validate-format]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      deployments: write
+    uses: ./.github/workflows/deploy-cloudflare-production.yml
+    with:
+      artifact-name: website-production-${{ github.sha }}
+      source-commit: ${{ github.sha }}
+    secrets: inherit
 
   publish-nightly:
     name: Publish nightly build

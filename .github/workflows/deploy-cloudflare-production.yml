@@ -1,0 +1,64 @@
+name: Deploy Cloudflare production
+
+on:
+  workflow_call:
+    inputs:
+      artifact-name:
+        description: Website artifact produced by the calling workflow
+        required: true
+        type: string
+      source-commit:
+        description: Source commit represented by the artifact
+        required: true
+        type: string
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: cloudflare-pages-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy razorconsole.com
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare
+      url: ${{ steps.deploy.outputs.deployment-url }}
+    steps:
+      - name: Download verified website
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: website-dist
+
+      - name: Record source commit
+        run: echo "Deploying source commit ${{ inputs.source-commit }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy Cloudflare Pages production
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy website-dist --project-name=razorconsole --branch=main --commit-hash=${{ inputs.source-commit }}
+          gitHubToken: ${{ github.token }}
+
+      - name: Record production deployment
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          {
+            echo "## Cloudflare Pages production"
+            echo ""
+            echo "- Source commit: \`${{ inputs.source-commit }}\`"
+            echo "- Deployment: $DEPLOYMENT_URL"
+            echo "- Custom domain: https://razorconsole.com"
+          } >> "$GITHUB_STEP_SUMMARY"

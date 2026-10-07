@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm_root_site_live:
-        description: Root Pages site and representative routes have been verified live
+        description: razorconsole.com and representative routes have been verified live
         required: true
         type: boolean
 
@@ -27,55 +27,20 @@ jobs:
         with:
           lfs: true
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Build and verify website
+        uses: ./.github/actions/build-website
         with:
-          global-json-file: global.json
-          dotnet-version: |
-            8.0.x
-            9.0.x
-            10.0.x
+          site-url: https://razorconsole.com
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: website/package-lock.json
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Build API documentation input
-        run: dotnet build src/RazorConsole.Core/RazorConsole.Core.csproj --configuration Release --framework net10.0
-
-      - name: Install website and browser dependencies
-        working-directory: website
-        run: |
-          npm ci
-          python -m pip install -r tests/requirements.txt
-          python -m playwright install --with-deps chromium
-
-      - name: Verify live root production
+      - name: Verify live custom-domain production
         working-directory: website
         run: npm run check:seo:deployed
 
-      - name: Build and verify root source
+      - name: Generate and verify legacy redirects
         working-directory: website
         env:
-          VITE_SITE_URL: https://razorconsole.github.io
-          VITE_BASE: /
-          VITE_ROUTER_BASENAME: /
-        run: |
-          npm run test:terminal-input
-          npm run test:seo
-          npm run build
-          npm run test:seo:static
-          python tests/tutorial_navigation.py
-          npm run gen:legacy-redirects
-          npm run test:legacy-redirects
+          VITE_SITE_URL: https://razorconsole.com
+        run: npm run gen:legacy-redirects && npm run test:legacy-redirects
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

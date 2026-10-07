@@ -56,7 +56,7 @@ test("home positioning and representative routes exist before JavaScript", () =>
   assert.equal(find("/guides"), undefined, "TUI Guides route was removed")
   assert.ok(home.links.includes(`${siteBase}/docs/tutorial/hello-world/`))
   if (!siteBase) {
-    assert.doesNotMatch(readFileSync(home.file, "utf8"), /https:\/\/razorconsole\.github\.io\/RazorConsole/)
+    assert.doesNotMatch(readFileSync(home.file, "utf8"), /https:\/\/razorconsole\.github\.io/)
     assert.ok(existsSync(join(output, "googleddbc334a439061f3.html")), "Verification file must be available at the root URL")
   }
   const tableApi = find("/api/RazorConsole.Components.SpectreTable")!

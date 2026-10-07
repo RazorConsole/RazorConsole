@@ -8,6 +8,7 @@ on:
       - 'src/**'
       - '.github/workflows/pr-preview-artifact.yml'
       - '.github/workflows/ci.yml'
+      - '.github/actions/build-website/**'
   workflow_dispatch:
     inputs:
       pr_number:
@@ -108,6 +109,7 @@ jobs:
           command: |
             pages project list
             pages deploy website-dist --project-name=razorconsole --branch=pr-${{ steps.get-pr.outputs.pr_number }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Comment PR with preview info
         uses: actions/github-script@v7
