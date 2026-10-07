@@ -1,0 +1,38 @@
+name: Dispatch root site
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    name: Dispatch root site deployment
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.ROOT_SITE_DISPATCH_TOKEN }}
+    steps:
+      - name: Validate dispatch token
+        shell: bash
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::ROOT_SITE_DISPATCH_TOKEN is not configured. Add a token with Actions write access to RazorConsole/RazorConsole.github.io."
+            exit 1
+          fi
+
+      - name: Dispatch root site workflow
+        shell: bash
+        run: |
+          if ! output="$(
+            gh api \
+              --method POST \
+              repos/RazorConsole/RazorConsole.github.io/actions/workflows/pages.yml/dispatches \
+              -f ref=main \
+              -f "inputs[source_sha]=$GITHUB_SHA" 2>&1
+          )"; then
+            echo "::error::Root site dispatch was rejected. Verify ROOT_SITE_DISPATCH_TOKEN has Actions write access to RazorConsole/RazorConsole.github.io and that pages.yml accepts the source_sha input."
+            echo "$output"
+            exit 1
+          fi

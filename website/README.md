@@ -145,6 +145,15 @@ The website is automatically deployed to GitHub Pages via **GitHub Actions**.
 
   - The build process injects the repository name as a `basename` (e.g., `/RazorConsole/`).
 
+### Organization-root site dispatch
+
+Every push to `main` dispatches `.github/workflows/pages.yml` on the `main` branch of
+`RazorConsole/RazorConsole.github.io`, passing the source commit as `source_sha`. A repository owner
+must configure the `ROOT_SITE_DISPATCH_TOKEN` Actions secret in this repository with a fine-grained
+PAT or GitHub App installation token that has **Actions: write** access only to
+`RazorConsole/RazorConsole.github.io`. The default `GITHUB_TOKEN` cannot dispatch across repositories.
+The root repository's scheduled sync remains the fallback if an event-driven dispatch is missed.
+
 ### SEO regression checks
 
 After generating DocFX and WASM data, run a production-path build in PowerShell:
