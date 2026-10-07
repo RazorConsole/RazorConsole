@@ -4,7 +4,7 @@
       "packageId": "RazorConsole.Gallery",
       "title": "Component Gallery",
       "description": "Explore RazorConsole components in an interactive terminal gallery.",
-      "projectUrl": "https://razorconsole.com/docs/component-gallery",
+      "projectUrl": "https://razorconsole.com/docs/component-gallery/",
       "repositoryUrl": "https://github.com/RazorConsole/RazorConsole",
       "commandName": "razorconsole-gallery",
       "assemblyName": "RazorConsole.Gallery",

@@ -17,7 +17,7 @@
   <PropertyGroup>
     <Title>Component Gallery</Title>
     <Description>Explore RazorConsole components in an interactive terminal gallery.</Description>
-    <PackageProjectUrl>https://razorconsole.com/docs/component-gallery</PackageProjectUrl>
+    <PackageProjectUrl>https://razorconsole.com/docs/component-gallery/</PackageProjectUrl>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(PublishAot)' == 'true'">
