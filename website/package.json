@@ -7,6 +7,7 @@
     "test:terminal-input": "tsx --test scripts/terminalInput.test.ts",
     "test:seo": "tsx --tsconfig tsconfig.app.json --test scripts/seo.test.ts scripts/seo-render.test.tsx",
     "test:seo:static": "tsx --test scripts/seo-static.test.ts",
+    "test:legacy-redirects": "tsx --test scripts/legacy-redirects.test.ts",
     "check:seo:deployed": "tsx scripts/check-deployed-seo.ts",
     "dev:terminal-input": "vite --config tests/vite.config.ts",
     "dev": "vite",
@@ -18,6 +19,7 @@
     "gen:official-apps": "tsx scripts/generate-official-apps.ts",
     "gen:llms": "tsx scripts/generate-llms.ts",
     "gen:sitemap": "tsx scripts/generate-sitemap.ts",
+    "gen:legacy-redirects": "tsx scripts/generate-legacy-redirects.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write \"./src/**/*.{ts,tsx,js,jsx,json,css,md}\""

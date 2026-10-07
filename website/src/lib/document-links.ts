@@ -1,11 +1,11 @@
 import { docTopicIds, releaseNoteIds } from "../data/docs-ids.ts"
-import { pagePath, productionSite } from "./site-paths.ts"
+import { legacyProductionSite, pagePath, productionSite } from "./site-paths.ts"
 
 export function documentHref(href: string | undefined, baseUrl: string, siteUrl?: string): string | undefined {
   if (!href) return href
   const base = baseUrl.replace(/\/$/, "")
   let route = href
-  for (const site of [productionSite, siteUrl ? `${siteUrl.replace(/\/$/, "")}${base}` : undefined]) {
+  for (const site of [legacyProductionSite, productionSite, siteUrl ? `${siteUrl.replace(/\/$/, "")}${base}` : undefined]) {
     if (site && (route === site || ["/", "?", "#"].some((suffix) => route.startsWith(`${site}${suffix}`)))) {
       route = route.slice(site.length) || "/"
       if (route.startsWith("?") || route.startsWith("#")) route = `/${route}`

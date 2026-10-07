@@ -47,7 +47,8 @@ missing-chapter redirect, and 404), then clicks the homepage Docs, Quick Start, 
 checks actual Hello World keyboard input and restart, switches chapters, and exercises back/forward.
 A document sentinel and request checks reject
 full-page reloads masquerading as client navigation. The missing-chapter redirect must retain the
-deployment base. CI runs it against both `/` preview and `/RazorConsole/` production builds.
+deployment base. CI runs it against `/` preview/root-production builds and a `/RazorConsole/`
+legacy-compatibility build.
 Browser errors are logged with stacks for diagnosis; reference errors and errors identifying the
 Tutorial/route module explicitly fail the test. The module invocation, DOM assertions, and no-reload
 checks also fail independently of that diagnostic filter. This is not a blanket certification of

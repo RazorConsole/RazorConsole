@@ -11,9 +11,9 @@ test("page URLs normalize base paths, index aliases, dotted API symbols and slas
   for (const route of ["/", "/components/table", "/docs/tutorial/hello-world", "/blog/hot-reload", "/api/RazorConsole.Components.SpectreTable", "/release-notes/v0.5.0"]) {
     const expected = `${productionSite}${pagePath(route)}`
     assert.equal(pageUrl(route, productionSite), expected)
-    assert.equal(pageUrl(`/RazorConsole${route}`, productionSite), expected)
     assert.equal(pageUrl(`${pagePath(route)}index.html?q=1#section`, productionSite), expected)
   }
+  assert.equal(pageUrl("/components/table", "https://razorconsole.github.io/RazorConsole"), "https://razorconsole.github.io/RazorConsole/components/table/")
   assert.equal(pageUrl("/api/A.B", "https://pr-12.razorconsole.pages.dev/"), "https://pr-12.razorconsole.pages.dev/api/A.B/")
   assert.equal(pageUrl("/components/table", "http://localhost:5173/RazorConsole/"), "http://localhost:5173/RazorConsole/components/table/")
   assert.equal(pagePath("/blog/hot-reload?view=all#setup"), "/blog/hot-reload/?view=all#setup")
@@ -28,12 +28,12 @@ test("files, external links and in-page navigation are not rewritten as director
 test("absolute legacy documentation links resolve to canonical local routes in production and previews", () => {
   for (const base of ["/", "/RazorConsole/"]) {
     const prefix = base.replace(/\/$/, "")
-    assert.equal(documentHref(`${productionSite}/components/Align`, base), `${prefix}/components/align/`)
-    assert.equal(documentHref(`${productionSite}/components`, base), `${prefix}/components/`)
-    assert.equal(documentHref(`${productionSite}/docs/native-aot#publish`, base), `${prefix}/blog/native-aot/#publish`)
-    assert.equal(documentHref(`${productionSite}/raw/guide.md`, base), `${prefix}/raw/guide.md`)
-    assert.equal(documentHref(`${productionSite}/components/Table.md`, base), `${prefix}/components/Table.md`)
-    assert.equal(documentHref(`${productionSite}?q=table#preview`, base), `${prefix}/?q=table#preview`)
+    assert.equal(documentHref(`${productionSite}/RazorConsole/components/Align`, base), `${prefix}/components/align/`)
+    assert.equal(documentHref(`${productionSite}/RazorConsole/components`, base), `${prefix}/components/`)
+    assert.equal(documentHref(`${productionSite}/RazorConsole/docs/native-aot#publish`, base), `${prefix}/blog/native-aot/#publish`)
+    assert.equal(documentHref(`${productionSite}/RazorConsole/raw/guide.md`, base), `${prefix}/raw/guide.md`)
+    assert.equal(documentHref(`${productionSite}/RazorConsole/components/Table.md`, base), `${prefix}/components/Table.md`)
+    assert.equal(documentHref(`${productionSite}/RazorConsole?q=table#preview`, base), `${prefix}/?q=table#preview`)
     assert.equal(documentHref(`${productionSite}-other/components/Align`, base), `${productionSite}-other/components/Align`)
     assert.equal(documentHref("https://example.com/components/Align", base), "https://example.com/components/Align")
   }

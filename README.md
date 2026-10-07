@@ -13,6 +13,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%209.0%20%7C%2010.0%20%7C%2011.0%20RC-512BD4?style=flat-square)](https://dotnet.microsoft.com/)
 [![codecov](https://img.shields.io/codecov/c/github/RazorConsole/RazorConsole?style=flat-square&logo=codecov&token=)](https://codecov.io/gh/RazorConsole/RazorConsole)
+[![Website](https://img.shields.io/badge/docs-razorconsole.github.io-blue?style=flat-square)](https://razorconsole.github.io/)
 
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/DphHAnJxCM)
 

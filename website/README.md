@@ -141,31 +141,47 @@ Code previews are rendered at build-time using `Shiki`. It sets two theme color 
 
 ## 📤 Deployment
 
-The website is automatically deployed to GitHub Pages via **GitHub Actions**.
+The authoritative website source remains in this repository. Production at
+`https://razorconsole.github.io/` is built by `RazorConsole/RazorConsole.github.io`,
+which checks out this repository into `source/` and uses:
 
-  - The build process injects the repository name as a `basename` (e.g., `/RazorConsole/`).
+```text
+VITE_SITE_URL=https://razorconsole.github.io
+VITE_BASE=/
+VITE_ROUTER_BASENAME=/
+```
+
+Pull requests continue to publish root-based Cloudflare previews. This repository's existing Pages
+deployment keeps serving the complete `/RazorConsole/` project site until the root site is proven
+live. It switches to the generated redirect-only artifact only when the repository variable
+`WEBSITE_DEPLOYMENT_MODE` is explicitly set to `redirects`; any other value preserves the current
+deployment.
 
 ### SEO regression checks
 
-After generating DocFX and WASM data, run a production-path build in PowerShell:
+After generating DocFX and WASM data, run a root-production build in PowerShell:
 
 ```powershell
 $env:VITE_SITE_URL = "https://razorconsole.github.io"
-$env:VITE_BASE = "/RazorConsole/"
-$env:VITE_ROUTER_BASENAME = "/RazorConsole/"
+$env:VITE_BASE = "/"
+$env:VITE_ROUTER_BASENAME = "/"
 npm run test:seo
 npx tsc -b
 npx react-router build
 npm run gen:sitemap
 npm run test:seo:static
+python tests/tutorial_navigation.py
+npm run gen:legacy-redirects
+npm run test:legacy-redirects
 ```
 
 `npm run build` also generates the social images and AI documentation. The focused sequence above
 checks SEO without regenerating those unrelated assets. The static tests inspect HTML before JavaScript
 runs: H1s, unique self-canonicals, Open Graph URLs, readable API descriptions, internal links, redirects,
-and sitemap coverage. CI runs these checks after its full website build, for both preview and production
-base paths. Keep `VITE_BASE` and `VITE_ROUTER_BASENAME` aligned. Preview deployments can set their own
-`VITE_SITE_URL`; local navigation and assets remain local rather than linking to production.
+and sitemap coverage. CI runs these checks after its full website build for preview and root-production
+paths, plus a `/RazorConsole/` compatibility build. Keep `VITE_BASE` and `VITE_ROUTER_BASENAME`
+aligned. Preview deployments can set their own `VITE_SITE_URL`; local navigation and assets remain
+local rather than linking to production.
 
 `SiteLink` and `site-paths.ts` normalize HTML routes to trailing slashes while preserving query strings,
 anchors, files, and the project base path. Existing redirect routes remain available. Markdown uses
@@ -175,20 +191,36 @@ GitHub Pages can still serve `/index.html` aliases; their generated HTML points 
 depending on host-level redirect rules. The client replaces only `index.html` aliases before
 hydration, retaining the query, fragment, and existing history state so the router matches the page.
 
-### Owner follow-up after deployment
+### Root migration and owner runbook
 
-This repository deploys the **project site** at `https://razorconsole.github.io/RazorConsole/`.
-It cannot publish `https://razorconsole.github.io/robots.txt`. An optional root robots file belongs to
-the RazorConsole organization's root Pages site, conventionally the `RazorConsole/razorconsole.github.io`
-repository (its existence/access has not been confirmed). An organization Pages administrator must
-manage that origin-root deployment; a project-subdirectory robots file would not control crawling.
-Missing robots.txt does not block crawling.
+GitHub Pages cannot configure real HTTP 301 responses for project sites. `npm run
+gen:legacy-redirects` therefore derives one minimal HTML redirect for every canonical route in the
+root build. Each page is `noindex, follow`, declares the root canonical, and targets the final root
+URL directly. JavaScript preserves query strings and fragments; the meta-refresh fallback cannot
+reliably preserve them when JavaScript is disabled. The artifact also retains the Google verification
+file, publishes a sitemap containing the new root URLs, and provides a noindex 404 fallback. It does
+not copy the old site's content or assets, and it intentionally does not add an ineffective
+`/RazorConsole/robots.txt`.
 
-The existing Google verification meta token is preserved, but it does not prove Search Console access,
-sitemap submission, or index status. A property owner should submit
-`https://razorconsole.github.io/RazorConsole/sitemap.xml` after deployment and inspect the home,
-table component, tutorial, blog, API, and release pages, including their selected canonical URLs.
-No submission or indexing claim is made by the build.
+Use this order; do not combine the first two steps:
+
+1. Merge and configure `RazorConsole/RazorConsole.github.io`, then verify the root Pages deployment,
+   representative root canonicals, assets, Google verification file, sitemap, and browser navigation.
+2. Set this repository's `WEBSITE_DEPLOYMENT_MODE=redirects`, then manually run **Activate legacy
+   website redirects** with its root-live confirmation. This isolated workflow validates the live root
+   site and deploys only redirects; it cannot publish packages or nightly releases. Verify representative
+   and generated old routes redirect directly to their root equivalents. Keep these redirects deployed
+   long term. Future `main` website deployments retain redirect mode. To roll back before search
+   migration, unset the variable and rerun `main` CI.
+3. Add the Search Console URL-prefix property `https://razorconsole.github.io/`, submit
+   `https://razorconsole.github.io/sitemap.xml`, and inspect representative home, component, tutorial,
+   blog, API, and release URLs. Retain the old `https://razorconsole.github.io/RazorConsole/` property
+   to monitor old URL coverage and redirects. Do **not** use Change of Address: this is a same-host
+   subdirectory-to-root move, which that tool does not support.
+
+The existing verification token/file does not prove Search Console access, sitemap submission,
+indexing, or Google's selected canonical. Record those separately and do not close #354 or #355
+without the corresponding evidence.
 
 For a read-only post-deployment check, run `npm run check:seo:deployed` (or append
 `-- https://your-preview.example` to inspect a preview). This checks representative HTTP responses,
@@ -196,24 +228,21 @@ initial HTML headings/canonicals, sitemap coverage, and the origin-root robots s
 authenticate to Search Console, interpret every robots directive, or claim Google has indexed a page.
 Before deployment it may correctly fail against the old live site.
 
-For the root-site administrator, the optional robots content is:
+The root repository owns any optional origin-wide robots policy. Review existing rules before adding
+one; missing robots.txt does not itself block crawling. If adopted, the root-only content is:
 
 ```text
 User-agent: *
 Allow: /
 
-Sitemap: https://razorconsole.github.io/RazorConsole/sitemap.xml
+Sitemap: https://razorconsole.github.io/sitemap.xml
 ```
 
-Review existing origin-wide rules before adopting this example. Publish it **only through the
-origin-root site's owner-controlled deployment**, not `website/public/robots.txt` in this repository.
-This PR cannot implement that cross-repository deployment or submit to a Google property without
-the owner's authorization and access.
-
-In Search Console, the minimum owner actions are: select a property covering the project URL,
-submit the final sitemap in **Sitemaps**, and use **URL Inspection** for the representative URLs
-listed by the check script. Record submission status, fetch/index eligibility, and user-declared
-versus Google-selected canonical separately. A successful live fetch is not proof of indexing.
+Source changes do not need cross-repository credentials to reach production: the root repository has
+`workflow_dispatch` and a schedule fallback and checks out `main`. A real-time source-`main` trigger
+would require an explicitly managed fine-grained PAT, GitHub App, or organization automation. Do not
+hardcode a credential or make source CI fail when one is absent; this repository does not deploy Pages
+to another repository.
 
 ### Search-led content and evidence
 

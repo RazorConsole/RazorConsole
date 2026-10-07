@@ -328,8 +328,8 @@ jobs:
         # Terminal transport checks run independently of the documentation build.
         run: npm run test:terminal-input && npm run test:seo && npm run build && npm run test:seo:static
         env:
-          VITE_ROUTER_BASENAME: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('/{0}/', github.event.repository.name) || '/' }}
-          VITE_BASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('/{0}/', github.event.repository.name) || '/' }}
+          VITE_ROUTER_BASENAME: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.WEBSITE_DEPLOYMENT_MODE != 'redirects' && format('/{0}/', github.event.repository.name) || '/' }}
+          VITE_BASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.WEBSITE_DEPLOYMENT_MODE != 'redirects' && format('/{0}/', github.event.repository.name) || '/' }}
           VITE_SITE_URL: >-
             ${{ 
               github.event_name == 'push' && github.ref == 'refs/heads/main' 
@@ -350,10 +350,10 @@ jobs:
         working-directory: website
         run: python tests/tutorial_navigation.py
         env:
-          VITE_BASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('/{0}/', github.event.repository.name) || '/' }}
+          VITE_BASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.WEBSITE_DEPLOYMENT_MODE != 'redirects' && format('/{0}/', github.event.repository.name) || '/' }}
 
-      - name: Prepare artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Prepare current project-site artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.WEBSITE_DEPLOYMENT_MODE != 'redirects'
         run: |
           # Move all prerendered pages to build/client
           cp -r website/build/client/${{ github.event.repository.name }}/* website/build/client/ || true
@@ -365,7 +365,31 @@ jobs:
           
           touch website/build/client/.nojekyll
 
-      - name: Verify production-base static SEO
+      - name: Prepare activated legacy redirect artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.WEBSITE_DEPLOYMENT_MODE == 'redirects'
+        working-directory: website
+        run: |
+          npm run gen:legacy-redirects
+          npm run test:legacy-redirects
+          rm -rf build/client
+          mv build/legacy-redirects build/client
+
+      - name: Verify root-production static SEO and redirects
+        if: github.event_name == 'pull_request'
+        working-directory: website
+        run: |
+          npx react-router build
+          npm run gen:sitemap
+          npm run test:seo:static
+          python tests/tutorial_navigation.py
+          npm run gen:legacy-redirects
+          npm run test:legacy-redirects
+        env:
+          VITE_ROUTER_BASENAME: /
+          VITE_BASE: /
+          VITE_SITE_URL: https://razorconsole.github.io
+
+      - name: Verify legacy project-base compatibility
         if: github.event_name == 'pull_request'
         working-directory: website
         run: npx react-router build && npm run gen:sitemap && npm run test:seo:static && python tests/tutorial_navigation.py

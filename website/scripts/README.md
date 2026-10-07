@@ -116,10 +116,10 @@ observations, not results for the new PR output. Both origin-root and project-pa
 returned 404. Missing robots does not mean the site is blocked.
 
 The Pages API identified the current repository as a workflow-deployed project site at
-`https://razorconsole.github.io/RazorConsole/`. A query for the conventional origin-root repository
-returned 404, which does not distinguish nonexistence from unavailable access. No origin-root
-deployment was changed. The website README contains the minimum owner follow-up and an optional
-root-only robots example.
+`https://razorconsole.github.io/RazorConsole/`. The root repository now exists and owns the
+`https://razorconsole.github.io/` Pages deployment while checking out this repository as its
+authoritative website source. The website README contains the staged migration, redirect activation,
+Search Console, and optional root-only robots runbook.
 
 No authenticated Search Console or Keyword Planner integration is available to this session.
 The existing public verification meta tag was not used as evidence of property authorization.

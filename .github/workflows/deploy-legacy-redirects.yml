@@ -1,0 +1,98 @@
+name: Activate legacy website redirects
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_root_site_live:
+        description: Root Pages site and representative routes have been verified live
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build redirect-only project site
+    if: inputs.confirm_root_site_live && vars.WEBSITE_DEPLOYMENT_MODE == 'redirects'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build API documentation input
+        run: dotnet build src/RazorConsole.Core/RazorConsole.Core.csproj --configuration Release --framework net10.0
+
+      - name: Install website and browser dependencies
+        working-directory: website
+        run: |
+          npm ci
+          python -m pip install -r tests/requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Verify live root production
+        working-directory: website
+        run: npm run check:seo:deployed
+
+      - name: Build and verify root source
+        working-directory: website
+        env:
+          VITE_SITE_URL: https://razorconsole.github.io
+          VITE_BASE: /
+          VITE_ROUTER_BASENAME: /
+        run: |
+          npm run test:terminal-input
+          npm run test:seo
+          npm run build
+          npm run test:seo:static
+          python tests/tutorial_navigation.py
+          npm run gen:legacy-redirects
+          npm run test:legacy-redirects
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload redirect artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/build/legacy-redirects
+
+  deploy:
+    name: Deploy redirect-only project site
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
