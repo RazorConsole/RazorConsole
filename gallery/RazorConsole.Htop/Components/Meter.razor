@@ -1,0 +1,22 @@
+@namespace RazorConsole.Htop.Components
+<Flex Direction="FlexDirection.Row" Height="1">
+    <Markup Content="@(Label + "(")" Foreground="Color.Aqua" Decoration="Decoration.Bold" />
+    <Markup Content="@Filled" Foreground="@FillColor" />
+    <Markup Content="@Empty" Foreground="Color.Grey35" />
+    <Markup Content="@(") " + Value)" Foreground="Color.Grey85" />
+</Flex>
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public double Percent { get; set; }
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public int BarWidth { get; set; } = 30;
+
+    private int FilledCount => Math.Clamp((int)Math.Round(Percent / 100.0 * BarWidth), 0, BarWidth);
+    private string Filled => new('|', FilledCount);
+    private string Empty => new(' ', BarWidth - FilledCount);
+    private Color FillColor => Percent >= 80 ? Color.Red : Percent >= 50 ? Color.Yellow : Color.Green;
+}
+
+
+
+

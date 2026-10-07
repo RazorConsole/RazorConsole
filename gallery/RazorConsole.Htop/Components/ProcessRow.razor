@@ -1,0 +1,26 @@
+@namespace RazorConsole.Htop.Components
+<Flex Direction="FlexDirection.Row" Height="1">
+    <Flex Height="1"
+          data-focusable="false"
+          @onclick="OnClick"
+          @onmouseenter="() => _hovered = true"
+          @onmouseleave="() => _hovered = false">
+        <Markup Content="@Text"
+                Foreground="@(Selected || _hovered ? Color.Black : Foreground)"
+                Background="@(Selected ? Color.DeepSkyBlue1 : _hovered ? Color.Grey70 : Color.Default)" />
+    </Flex>
+    @if (Selected && OnKill.HasDelegate)
+    {
+        <ClickableLabel Label=" Kill " Width="6" Background="Color.Red" Foreground="Color.White" HoverBackground="Color.DarkRed" OnClick="OnKill" />
+    }
+</Flex>
+
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = string.Empty;
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public Color Foreground { get; set; } = Color.Grey85;
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public EventCallback OnKill { get; set; }
+
+    private bool _hovered;
+}

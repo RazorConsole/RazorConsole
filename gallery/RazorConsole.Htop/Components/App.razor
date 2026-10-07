@@ -1,0 +1,473 @@
+@namespace RazorConsole.Htop.Components
+@implements IDisposable
+@inject IHostApplicationLifetime Lifetime
+@inject RazorConsole.Core.Rendering.ITerminalViewport Viewport
+
+<Flex Direction="FlexDirection.Column"
+      Width="@SurfaceWidth"
+      Height="@Math.Max(8, Viewport.Height - 1)"
+      data-focusable="true"
+      data-focus-key="razor-htop"
+      data-focus-order="0"
+      data-input-managed="true"
+      @onkeydown="HandleKey"
+      @onwheel="HandleWheel">
+    <Meter Label="CPU " Percent="@_snapshot.TotalCpuPercent" Value="@($"{_snapshot.TotalCpuPercent,5:0.0}%")" BarWidth="@BarWidth" />
+    <Meter Label="Mem " Percent="@MemoryPercent" Value="@($"{FormatBytes(_snapshot.UsedMemoryBytes)}/{FormatBytes(_snapshot.TotalMemoryBytes)}")" BarWidth="@BarWidth" />
+    <Markup Content="@InfoLine" Foreground="Color.Grey70" />
+
+    <Flex Direction="FlexDirection.Row" Height="1">
+        <ClickableLabel Label="@HeaderLabel(SortColumn.Pid, "PID", PidWidth, true)" Width="PidWidth" OnClick="@(() => SortBy(SortColumn.Pid))" />
+        <ClickableLabel Label="@HeaderLabel(SortColumn.Name, "Name", NameWidth, false)" Width="NameWidth" OnClick="@(() => SortBy(SortColumn.Name))" />
+        <ClickableLabel Label="@HeaderLabel(SortColumn.Cpu, "CPU%", CpuWidth, true)" Width="CpuWidth" OnClick="@(() => SortBy(SortColumn.Cpu))" />
+        <ClickableLabel Label="@HeaderLabel(SortColumn.Memory, "MEM", MemWidth, true)" Width="MemWidth" OnClick="@(() => SortBy(SortColumn.Memory))" />
+        <ClickableLabel Label="@HeaderLabel(SortColumn.Threads, "THR", ThrWidth, true)" Width="ThrWidth" OnClick="@(() => SortBy(SortColumn.Threads))" />
+        <ClickableLabel Label="@HeaderLabel(SortColumn.Time, "TIME+", TimeWidth, true)" Width="TimeWidth" OnClick="@(() => SortBy(SortColumn.Time))" />
+    </Flex>
+
+    @foreach (var row in VisibleRows)
+    {
+        <ProcessRow
+                    Text="@FormatRow(row)"
+                    Selected="@(row.Key == _selectedKey)"
+                    Foreground="@(row.IsGroup ? Color.Aqua : Color.Grey85)"
+                    OnClick="@(() => Activate(row))"
+                    OnKill="@(() => KillRow(row))" />
+    }
+
+    @if (_pendingKill is { } pending)
+    {
+        <Flex Direction="FlexDirection.Row" Height="1" Gap="1">
+            <Markup Content="@KillPrompt(pending)" Foreground="Color.Yellow" Decoration="Decoration.Bold" />
+            <ClickableLabel Label=" Yes (y) " Width="9" Background="Color.Red" OnClick="ConfirmKill" />
+            <ClickableLabel Label=" No (n) " Width="8" Background="Color.Grey70" OnClick="CancelKill" />
+        </Flex>
+    }
+    else
+    {
+        <Markup Content="@StatusLine" Foreground="@(_filterMode ? Color.Yellow : Color.Grey70)" />
+    }
+
+    <Flex Direction="FlexDirection.Row" Height="1" Gap="1">
+        <ClickableLabel Label=" / Filter " Width="10" OnClick="StartFilter" />
+        <ClickableLabel Label="@(_grouped ? " G Ungroup " : " G Group ")" Width="12" Background="@(_grouped ? Color.Aqua : Color.Green)" OnClick="ToggleGroup" />
+        <ClickableLabel Label=" F9 Kill " Width="9" OnClick="RequestKill" />
+        <ClickableLabel Label="@(_paused ? " Space Resume " : " Space Pause ")" Width="14" OnClick="TogglePause" />
+        <ClickableLabel Label=" Q Quit " Width="8" Background="Color.Grey70" OnClick="Quit" />
+    </Flex>
+</Flex>
+
+@code {
+    private const int PidWidth = 8;
+    private const int NameWidth = 32;
+    private const int CpuWidth = 8;
+    private const int MemWidth = 11;
+    private const int ThrWidth = 6;
+    private const int TimeWidth = 12;
+    private const int BarWidth = 30;
+    private const int ChromeLines = 8;
+
+    private readonly ProcessSampler _sampler = new();
+    private readonly CancellationTokenSource _shutdown = new();
+    private SystemSnapshot _snapshot = new([], 0, 0, 0, 0);
+    private sealed record Row(string Key, ProcessEntry Entry, bool IsGroup, bool IsChild, IReadOnlyList<ProcessEntry> Members);
+
+    private List<Row> _view = [];
+    private readonly HashSet<string> _expanded = [];
+    private bool _grouped;
+    private SortColumn _sortColumn = SortColumn.Cpu;
+    private bool _descending = true;
+    private string? _selectedKey;
+    private int _offset;
+    private bool _paused;
+    private bool _filterMode;
+    private string _filter = string.Empty;
+    private Row? _pendingKill;
+    private string _message = string.Empty;
+    private readonly DateTimeOffset _started = DateTimeOffset.Now;
+
+    private int SurfaceWidth => Math.Max(40, Viewport.Width - 1);
+    private int PageSize => Math.Max(3, Viewport.Height - ChromeLines);
+    private double MemoryPercent => _snapshot.TotalMemoryBytes == 0 ? 0 : 100.0 * _snapshot.UsedMemoryBytes / _snapshot.TotalMemoryBytes;
+    private IEnumerable<Row> VisibleRows => _view.Skip(_offset).Take(PageSize);
+
+    private string InfoLine =>
+        $"Tasks: {_snapshot.Processes.Count}, {_snapshot.ThreadCount} thr | Cores: {Environment.ProcessorCount} | {RuntimeInformation.OSDescription}{(_paused ? " | PAUSED" : string.Empty)}";
+
+    private string StatusLine => _filterMode
+        ? $"Filter: {_filter}_   (Enter/Esc to finish)"
+        : !string.IsNullOrEmpty(_message) ? _message
+        : _filter.Length > 0 ? $"Filter: \"{_filter}\" ({_view.Count} matches) | click a header to sort | wheel to scroll"
+        : "Click a header to sort, a row to select, wheel to scroll | keys: ↑↓ ←→ / G F9 C M P N T";
+
+    protected override void OnInitialized()
+    {
+        Viewport.OnResized += HandleResize;
+        Refresh();
+        _ = RunAsync(_shutdown.Token);
+    }
+
+    private async Task RunAsync(CancellationToken token)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+            while (await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
+            {
+                if (!_paused)
+                {
+                    await InvokeAsync(() =>
+                    {
+                        Refresh();
+                        StateHasChanged();
+                    }).ConfigureAwait(false);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void Refresh()
+    {
+        _snapshot = _sampler.Sample();
+        Rebuild();
+    }
+
+    private void Rebuild()
+    {
+        IEnumerable<ProcessEntry> source = _snapshot.Processes;
+        if (_filter.Length > 0)
+        {
+            source = source.Where(p => p.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || p.Id.ToString(CultureInfo.InvariantCulture).Contains(_filter, StringComparison.Ordinal));
+        }
+
+        _view = _grouped ? BuildGroups(source) : ProcessSorting.Sort(source, _sortColumn, _descending)
+            .Select(p => new Row(PidKey(p.Id), p, false, false, [p])).ToList();
+        if ((_selectedKey is null || _view.FindIndex(r => r.Key == _selectedKey) < 0) && _view.Count > 0)
+        {
+            _selectedKey = _view[0].Key;
+        }
+
+        ClampOffset();
+    }
+
+    private int SelectedIndex => _view.FindIndex(r => r.Key == _selectedKey);
+
+    private static string PidKey(int pid) => "p:" + pid.ToString(CultureInfo.InvariantCulture);
+
+    private List<Row> BuildGroups(IEnumerable<ProcessEntry> source)
+    {
+        var aggregates = source
+            .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                var members = g.ToList();
+                var total = new ProcessEntry(
+                    members.Min(m => m.Id), g.Key, members.Sum(m => m.Cpu), members.Sum(m => m.MemoryBytes),
+                    members.Sum(m => m.Threads), TimeSpan.FromTicks(members.Sum(m => m.CpuTime.Ticks)));
+                return (Total: total, Members: members);
+            })
+            .ToDictionary(x => x.Total.Name, StringComparer.OrdinalIgnoreCase);
+
+        var rows = new List<Row>();
+        foreach (var total in ProcessSorting.Sort(aggregates.Values.Select(x => x.Total), _sortColumn, _descending))
+        {
+            var members = aggregates[total.Name].Members;
+            var groupKey = "g:" + total.Name;
+            rows.Add(new Row(groupKey, total, true, false, members));
+            if (members.Count > 1 && _expanded.Contains(groupKey))
+            {
+                rows.AddRange(ProcessSorting.Sort(members, _sortColumn, _descending)
+                    .Select(m => new Row(PidKey(m.Id), m, false, true, [m])));
+            }
+        }
+
+        return rows;
+    }
+
+    private void ToggleGroup()
+    {
+        _grouped = !_grouped;
+        _selectedKey = null;
+        _offset = 0;
+        Rebuild();
+    }
+
+    private void Activate(Row row)
+    {
+        Select(row.Key);
+        if (row.IsGroup && row.Members.Count > 1 && !_expanded.Remove(row.Key))
+        {
+            _expanded.Add(row.Key);
+        }
+
+        Rebuild();
+    }
+
+    private void ToggleSelectedGroup(bool expand)
+    {
+        var index = SelectedIndex;
+        if (index < 0 || !_view[index].IsGroup || _view[index].Members.Count < 2)
+        {
+            return;
+        }
+
+        var key = _view[index].Key;
+        if (expand)
+        {
+            _expanded.Add(key);
+        }
+        else
+        {
+            _expanded.Remove(key);
+        }
+
+        Rebuild();
+    }
+
+    private void ClampOffset() => _offset = Math.Clamp(_offset, 0, Math.Max(0, _view.Count - PageSize));
+
+    private void EnsureSelectionVisible()
+    {
+        var index = SelectedIndex;
+        if (index < 0)
+        {
+            return;
+        }
+
+        if (index < _offset)
+        {
+            _offset = index;
+        }
+        else if (index >= _offset + PageSize)
+        {
+            _offset = index - PageSize + 1;
+        }
+
+        ClampOffset();
+    }
+
+    private void Select(string key)
+    {
+        _selectedKey = key;
+        _message = string.Empty;
+    }
+
+    private void Move(int delta)
+    {
+        if (_view.Count == 0)
+        {
+            return;
+        }
+
+        var index = SelectedIndex < 0 ? 0 : Math.Clamp(SelectedIndex + delta, 0, _view.Count - 1);
+        _selectedKey = _view[index].Key;
+        EnsureSelectionVisible();
+    }
+
+    private void SortBy(SortColumn column)
+    {
+        if (_sortColumn == column)
+        {
+            _descending = !_descending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _descending = column is not (SortColumn.Pid or SortColumn.Name);
+        }
+
+        Rebuild();
+        EnsureSelectionVisible();
+    }
+
+    private void HandleWheel(WheelEventArgs e)
+    {
+        _offset += e.DeltaY > 0 ? 3 : -3;
+        ClampOffset();
+    }
+
+    private void TogglePause() => _paused = !_paused;
+
+    private void StartFilter()
+    {
+        _filterMode = true;
+        _pendingKill = null;
+    }
+
+    private void RequestKill()
+    {
+        var index = SelectedIndex;
+        if (index >= 0)
+        {
+            _pendingKill = _view[index];
+        }
+    }
+
+    private static string KillPrompt(Row row) => row.IsGroup && row.Members.Count > 1
+        ? $"Kill all {row.Members.Count} {row.Entry.Name} processes?"
+        : $"Kill {row.Entry.Name} (PID {row.Members[0].Id})?";
+
+    private void KillRow(Row row)
+    {
+        Select(row.Key);
+        _pendingKill = row;
+    }
+
+    private void CancelKill() => _pendingKill = null;
+
+    private void ConfirmKill()
+    {
+        if (_pendingKill is not { } target)
+        {
+            return;
+        }
+
+        _pendingKill = null;
+        var killed = 0;
+        string? error = null;
+        foreach (var member in target.Members)
+        {
+            try
+            {
+                using var process = Process.GetProcessById(member.Id);
+                process.Kill();
+                killed++;
+            }
+            catch (Exception ex)
+            {
+                error = $"PID {member.Id}: {ex.Message}";
+            }
+        }
+
+        _message = error is null ? $"Sent kill to {killed} process(es) of {target.Entry.Name}." : $"Killed {killed}; cannot kill {error}";
+
+        Refresh();
+    }
+
+    private void Quit() => Lifetime.StopApplication();
+
+    private void HandleKey(KeyboardEventArgs args)
+    {
+        if (_pendingKill is not null)
+        {
+            switch (args.Key)
+            {
+                case "y" or "Y" or "Enter": ConfirmKill(); break;
+                default: CancelKill(); break;
+            }
+
+            return;
+        }
+
+        if (_filterMode)
+        {
+            HandleFilterKey(args);
+            return;
+        }
+
+        _message = string.Empty;
+        switch (args.Key)
+        {
+            case "ArrowUp" or "k": Move(-1); break;
+            case "ArrowDown" or "j": Move(1); break;
+            case "PageUp": Move(-PageSize); break;
+            case "PageDown": Move(PageSize); break;
+            case "Home": Move(-_view.Count); break;
+            case "End": Move(_view.Count); break;
+            case "F9" or "Delete": RequestKill(); break;
+            case "/" or "F4": StartFilter(); break;
+            case "g" or "G": ToggleGroup(); break;
+            case "ArrowRight" or "Enter": ToggleSelectedGroup(true); break;
+            case "ArrowLeft": ToggleSelectedGroup(false); break;
+            case " " or "Spacebar": TogglePause(); break;
+            case "c" or "C": SortBy(SortColumn.Cpu); break;
+            case "m" or "M": SortBy(SortColumn.Memory); break;
+            case "p" or "P": SortBy(SortColumn.Pid); break;
+            case "n" or "N": SortBy(SortColumn.Name); break;
+            case "t" or "T": SortBy(SortColumn.Time); break;
+            case "Escape" when _filter.Length > 0: _filter = string.Empty; Rebuild(); break;
+            case "q" or "Q" or "Escape" or "F10": Quit(); break;
+        }
+    }
+
+    private void HandleFilterKey(KeyboardEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case "Enter": _filterMode = false; break;
+            case "Escape": _filterMode = false; _filter = string.Empty; break;
+            case "Backspace" when _filter.Length > 0: _filter = _filter[..^1]; break;
+            default:
+                if (args.Key.Length == 1 && !char.IsControl(args.Key[0]))
+                {
+                    _filter += args.Key;
+                }
+
+                break;
+        }
+
+        _offset = 0;
+        Rebuild();
+    }
+
+    private void HandleResize()
+    {
+        _ = InvokeAsync(() =>
+        {
+            ClampOffset();
+            StateHasChanged();
+        });
+    }
+
+    private string HeaderLabel(SortColumn column, string title, int width, bool right)
+    {
+        var text = _sortColumn == column ? title + (_descending ? "▼" : "▲") : title;
+        return right ? text.PadLeft(width - 1) + " " : text.PadRight(width);
+    }
+
+    private string FormatRow(Row row)
+    {
+        var p = row.Entry;
+        var multi = row.IsGroup && row.Members.Count > 1;
+        var label = multi ? $"{(_expanded.Contains(row.Key) ? "▾ " : "▸ ")}{p.Name} ({row.Members.Count})"
+            : row.IsChild ? "    " + p.Name
+            : row.IsGroup ? "  " + p.Name
+            : p.Name;
+        var name = label.Length > NameWidth - 1 ? label[..(NameWidth - 1)] : label;
+        var time = p.CpuTime.TotalHours >= 1
+            ? $"{(int)p.CpuTime.TotalHours}:{p.CpuTime.Minutes:00}:{p.CpuTime.Seconds:00}"
+            : $"{p.CpuTime.Minutes}:{p.CpuTime.Seconds:00}.{p.CpuTime.Milliseconds / 10:00}";
+        return string.Create(CultureInfo.InvariantCulture,
+            $"{(multi ? "-" : p.Id.ToString(CultureInfo.InvariantCulture)),PidWidth - 1} {name,-NameWidth}{p.Cpu,CpuWidth - 1:0.0} {FormatBytes(p.MemoryBytes),MemWidth - 1} {p.Threads,ThrWidth - 1} {time,TimeWidth - 1}");
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "K", "M", "G", "T"];
+        double value = bytes;
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1)
+        {
+            value /= 1024;
+            unit++;
+        }
+
+        return string.Create(CultureInfo.InvariantCulture, $"{value:0.#}{units[unit]}");
+    }
+
+    public void Dispose()
+    {
+        Viewport.OnResized -= HandleResize;
+        _shutdown.Cancel();
+        _shutdown.Dispose();
+    }
+}
+
+
+
+
+

@@ -130,13 +130,19 @@ internal sealed class TerminalMonitor : ITerminalViewport, IDisposable
     private async Task PollResizeAsync(CancellationToken token)
     {
         using var timer = new PeriodicTimer(CheckInterval);
-        while (await timer.WaitForNextTickAsync(token))
+        try
         {
-            if (AnsiConsole.Console.Profile.Width != _width || AnsiConsole.Console.Profile.Height != _height)
+            while (await timer.WaitForNextTickAsync(token))
             {
-                UpdateCurrentSize();
-                OnResized?.Invoke();
+                if (AnsiConsole.Console.Profile.Width != _width || AnsiConsole.Console.Profile.Height != _height)
+                {
+                    UpdateCurrentSize();
+                    OnResized?.Invoke();
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
         }
     }
 
@@ -155,8 +161,39 @@ internal sealed class TerminalMonitor : ITerminalViewport, IDisposable
 
     public void Dispose()
     {
-        _posixRegistration?.Dispose();
-        _cts?.Cancel();
-        _cts?.Dispose();
+        CancellationTokenSource? cts;
+        CancellationTokenSource? debounceCts;
+        IDisposable? registration;
+        lock (_sync)
+        {
+            cts = _cts;
+            _cts = null;
+            debounceCts = _debounceCts;
+            _debounceCts = null;
+            registration = _posixRegistration;
+            _posixRegistration = null;
+        }
+
+        registration?.Dispose();
+        DisposeSource(cts);
+        DisposeSource(debounceCts);
+    }
+
+    private static void DisposeSource(CancellationTokenSource? source)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        try
+        {
+            source.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        source.Dispose();
     }
 }

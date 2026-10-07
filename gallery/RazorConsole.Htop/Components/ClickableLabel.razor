@@ -1,0 +1,25 @@
+@namespace RazorConsole.Htop.Components
+<Flex Width="@Width"
+      Height="1"
+      Justify="FlexJustify.Start"
+      data-focusable="false"
+      @onclick="OnClick"
+      @onmouseenter="() => _hovered = true"
+      @onmouseleave="() => _hovered = false">
+    <Markup Content="@Label"
+            Foreground="@(_hovered ? Color.Black : Foreground)"
+            Background="@(_hovered ? HoverBackground : Background)"
+            Decoration="Decoration.Bold" />
+</Flex>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public int Width { get; set; } = 8;
+    [Parameter] public Color Foreground { get; set; } = Color.Black;
+    [Parameter] public Color Background { get; set; } = Color.Green;
+    [Parameter] public Color HoverBackground { get; set; } = Color.DeepSkyBlue1;
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private bool _hovered;
+}
+
