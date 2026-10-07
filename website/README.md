@@ -176,8 +176,6 @@ npx react-router build
 npm run gen:sitemap
 npm run test:seo:static
 python tests/tutorial_navigation.py
-npm run gen:legacy-redirects
-npm run test:legacy-redirects
 ```
 
 `npm run build` also generates the social images and AI documentation. The focused sequence above
@@ -207,8 +205,8 @@ Cloudflare owner setup:
    creates the apex CNAME after the nameservers are active.
 3. Keep repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. The token needs the
    narrow **Account → Cloudflare Pages → Edit** permission documented for direct-upload CI.
-4. Check CAA records if certificate issuance fails. No `CNAME` file or Wrangler configuration file is
-   required for this Direct Upload workflow.
+4. Check CAA records if certificate issuance fails. No Wrangler configuration file is required for
+   this Direct Upload workflow.
 
 Safe cutover:
 
@@ -220,8 +218,11 @@ Safe cutover:
 3. Confirm the production deployment on `razorconsole.pages.dev`, finish the custom-domain setup,
    then verify `https://razorconsole.com`, representative routes, assets, the Google verification file,
    sitemap, canonical/OG URLs, unknown-route 404, and real tutorial browser navigation.
-4. Only after custom-domain validation, activate and verify the legacy project-site redirects described
-   below. Keep them long term.
+4. In **RazorConsole/RazorConsole → Settings → Pages → Custom domain**, set `razorconsole.com`.
+   GitHub Pages then redirects the repository's default
+   `https://razorconsole.github.io/RazorConsole/` URL to the custom domain instead of requiring a
+   generated redirect deployment. Verify representative old paths resolve to the matching custom-domain
+   paths before retiring any previous deployment.
 5. Add/verify the Search Console URL-prefix property `https://razorconsole.com/`, submit
    `https://razorconsole.com/sitemap.xml`, and retain the old GitHub Pages properties to monitor
    redirects. The verification asset does not prove submission, indexing, or Google's selected
@@ -231,21 +232,10 @@ Ordinary future pushes to `main` deploy production after successful CI. Tags mat
 `*.*.*` deploy again after the complete release matrix; manual `release.yml` runs do not deploy a
 website because they are not releases.
 
-GitHub Pages cannot configure real HTTP 301 responses for project sites. `npm run
-gen:legacy-redirects` therefore derives one minimal HTML redirect for every canonical route in the
-custom-domain build. Each page is `noindex, follow`, declares the custom-domain canonical, and targets the final
-URL directly. JavaScript preserves query strings and fragments; the meta-refresh fallback cannot
-reliably preserve them when JavaScript is disabled. The artifact also retains the Google verification
-file, publishes a sitemap containing the new custom-domain URLs, and provides a noindex 404 fallback. It does
-not copy the old site's content or assets, and it intentionally does not add an ineffective
+The old project URL is therefore an owner configuration step, not a source-generated redirect
+artifact. Keep GitHub Pages enabled for this repository and retain the custom-domain setting while
+the old URLs are needed. Do not add a second Pages deployment workflow or an ineffective
 `/RazorConsole/robots.txt`.
-
-Cloudflare does not control `razorconsole.github.io/RazorConsole/`, so that legacy redirect artifact
-remains a separate, non-production GitHub Pages responsibility. Set the repository variable
-`WEBSITE_DEPLOYMENT_MODE=redirects` and manually run **Activate legacy website redirects** with
-`confirm_root_site_live=true` only after `razorconsole.com` is verified. The workflow first checks the
-live custom domain, rebuilds/tests the source, tests every generated redirect, and deploys only the
-redirect artifact. It has no package, tag, release, or Cloudflare production step.
 
 For a read-only post-deployment check, run `npm run check:seo:deployed` (or append
 `-- https://your-preview.example` to inspect a preview). This checks representative HTTP responses,
@@ -259,9 +249,9 @@ and rerun CI afterward for a durable code rollback. Avoid flipping DNS away and 
 rollback because Cloudflare documents a reactivation window that can produce errors.
 
 `RazorConsole/RazorConsole.github.io` must not continue serving a duplicate full site after cutover.
-Prefer a lightweight, path-preserving redirect to `razorconsole.com`; if that cannot be maintained,
-disable its Pages deployment after the custom domain and legacy project redirects are verified. This
-repository does not modify that other repository.
+Disable its Pages deployment after `razorconsole.com` and the source repository's automatic default-URL
+redirect are verified. The custom domain belongs on `RazorConsole/RazorConsole`, not on both
+repositories. This repository does not modify that other repository.
 
 ### Search-led content and evidence
 
