@@ -35,7 +35,7 @@
             @foreach (var row in VisibleRows)
             {
                 <ProcessRow
-                            Text="@FormatRow(row)"
+                            Text="@FormatRow(row).PadRight(SurfaceWidth - 1 - (row.Key == _selectedKey && row.Detail is null ? 6 : 0))"
                             Selected="@(row.Key == _selectedKey)"
                             Foreground="@(row.Detail is not null ? Color.Grey58 : row.IsGroup ? Color.Aqua : Color.Grey85)"
                             OnClick="@(() => Activate(row))"
