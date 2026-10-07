@@ -18,7 +18,7 @@
 
     <Flex Direction="FlexDirection.Row" Height="1">
         <ClickableLabel Label="@HeaderLabel(SortColumn.Pid, "PID", PidWidth, true)" Width="PidWidth" OnClick="@(() => SortBy(SortColumn.Pid))" />
-        <ClickableLabel Label="@HeaderLabel(SortColumn.Name, "Name", _nameWidth - 1, false)" Width="@(_nameWidth - 1)" OnClick="@(() => SortBy(SortColumn.Name))" />
+        <ClickableLabel Label="@HeaderLabel(SortColumn.Name, "Name", NameWidth - 1, false)" Width="@(NameWidth - 1)" OnClick="@(() => SortBy(SortColumn.Name))" />
         <Flex Width="1" Height="1" data-focusable="false"
               @onmousedown="BeginResize" @onmousemove="DragResize" @onmouseup="EndResize"
               @onmouseenter="() => _handleHot = true" @onmouseleave="() => _handleHot = false">
@@ -28,6 +28,7 @@
         <ClickableLabel Label="@HeaderLabel(SortColumn.Memory, "MEM", MemWidth, true)" Width="MemWidth" OnClick="@(() => SortBy(SortColumn.Memory))" />
         <ClickableLabel Label="@HeaderLabel(SortColumn.Threads, "THR", ThrWidth, true)" Width="ThrWidth" OnClick="@(() => SortBy(SortColumn.Threads))" />
         <ClickableLabel Label="@HeaderLabel(SortColumn.Time, "TIME+", TimeWidth, true)" Width="TimeWidth" OnClick="@(() => SortBy(SortColumn.Time))" />
+        <Markup Content="@HeaderFiller" Background="Color.Green" />
     </Flex>
 
     <Flex Direction="FlexDirection.Row" Height="@PageSize">
@@ -50,7 +51,7 @@
                 <Flex Width="1" Height="1" data-focusable="false"
                       @onmousedown="@((MouseEventArgs e) => BeginScrollbar(index, e))"
                       @onmousemove="DragScrollbar" @onmouseup="EndScrollbar">
-                    <Markup Content="@(onThumb ? "┃" : "│")" Foreground="@(onThumb ? (_scrollDragging ? Color.Yellow : Color.DeepSkyBlue1) : Color.Grey35)" />
+                    <Markup Content="@(onThumb ? "┃" : "│")" Foreground="@(onThumb ? (_scrollDragging ? Color.Yellow : Color.DeepSkyBlue1) : Color.Grey50)" />
                 </Flex>
             }
         </Flex>
@@ -84,6 +85,10 @@
     private const int MinNameWidth = 12;
     private const int MaxNameWidth = 80;
     private int _nameWidth = 32;
+    private bool _nameAuto = true;
+    private string HeaderFiller => new(' ', Math.Max(0, SurfaceWidth - 1 - FixedColumns - NameWidth));
+    private int FixedColumns => PidWidth + CpuWidth + MemWidth + ThrWidth + TimeWidth;
+    private int NameWidth => _nameAuto ? Math.Max(MinNameWidth, SurfaceWidth - 1 - FixedColumns) : _nameWidth;
     private bool _resizing;
     private bool _handleHot;
     private int _resizeStartX;
@@ -542,8 +547,8 @@
             case "/" or "F4": StartFilter(); break;
             case "g" or "G": ToggleGroup(); break;
             case "e" or "E": ToggleAll(); break;
-            case "[": _nameWidth = Math.Max(MinNameWidth, _nameWidth - 2); break;
-            case "]": _nameWidth = Math.Min(MaxNameWidth, _nameWidth + 2); break;
+            case "[": _nameWidth = Math.Max(MinNameWidth, NameWidth - 2); _nameAuto = false; break;
+            case "]": _nameWidth = Math.Min(MaxNameWidth, NameWidth + 2); _nameAuto = false; break;
             case "ArrowRight" or "Enter": ToggleSelectedGroup(true); break;
             case "ArrowLeft": ToggleSelectedGroup(false); break;
             case " " or "Spacebar": TogglePause(); break;
@@ -644,7 +649,7 @@
     {
         _resizing = true;
         _resizeStartX = (int)e.ClientX;
-        _resizeStartWidth = _nameWidth;
+        _resizeStartWidth = NameWidth;
     }
 
     private void DragResize(MouseEventArgs e)
@@ -655,8 +660,9 @@
         }
 
         var width = Math.Clamp(_resizeStartWidth + (int)e.ClientX - _resizeStartX, MinNameWidth, MaxNameWidth);
-        if (width != _nameWidth)
+        if (width != NameWidth)
         {
+            _nameAuto = false;
             _nameWidth = width;
             StateHasChanged();
         }
@@ -689,12 +695,12 @@
         var label = multi ? $"{(_expanded.Contains(row.Key) ? "▾ " : "▸ ")}{p.Name} ({row.Members.Count})"
             : row.IsChild ? "  " + marker + p.Name
             : marker + p.Name;
-        var name = label.Length > _nameWidth - 1 ? label[..(_nameWidth - 1)] : label;
+        var name = label.Length > NameWidth - 1 ? label[..(NameWidth - 1)] : label;
         var time = p.CpuTime.TotalHours >= 1
             ? $"{(int)p.CpuTime.TotalHours}:{p.CpuTime.Minutes:00}:{p.CpuTime.Seconds:00}"
             : $"{p.CpuTime.Minutes}:{p.CpuTime.Seconds:00}.{p.CpuTime.Milliseconds / 10:00}";
         return string.Create(CultureInfo.InvariantCulture,
-            $"{(multi ? "-" : p.Id.ToString(CultureInfo.InvariantCulture)),PidWidth - 1} {name.PadRight(_nameWidth)}{p.Cpu,CpuWidth - 1:0.0} {FormatBytes(p.MemoryBytes),MemWidth - 1} {p.Threads,ThrWidth - 1} {time,TimeWidth - 1}");
+            $"{(multi ? "-" : p.Id.ToString(CultureInfo.InvariantCulture)),PidWidth - 1} {name.PadRight(NameWidth)}{p.Cpu,CpuWidth - 1:0.0} {FormatBytes(p.MemoryBytes),MemWidth - 1} {p.Threads,ThrWidth - 1} {time,TimeWidth - 1}");
     }
 
     private static string FormatBytes(long bytes)
