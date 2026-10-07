@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scri
 
 Every nightly uses a unique `nightly-<timestamp>-<commit>` prerelease. CI creates it as a draft, uploads all six platform archives and `checksums-sha256.txt`, then publishes it. Formal releases use the same draft-first sequence. This workflow is compatible with GitHub immutable releases and prevents installers from selecting an incomplete build.
 
-See the [Component Gallery guide](/docs/component-gallery) for installation directories, supported archives, and macOS Gatekeeper guidance.
+See the [Component Gallery guide](/docs/component-gallery/) for installation directories, supported archives, and macOS Gatekeeper guidance.
 
 ---
 
