@@ -21,7 +21,7 @@ dotnet run --project gallery/RazorConsole.Htop/RazorConsole.Htop.csproj -f net10
 - Click a row to select it; click a group row to expand or collapse it
 - Click the red `Kill` button shown on the selected row (or `F9 Kill` below) and confirm with `Yes`
 - Drag the `┃` handle at the right edge of the Name header to resize the Name column (keyboard: `[` / `]`)
-- Mouse wheel scrolls the list; footer buttons filter, group, pause and quit
+- Mouse wheel scrolls the list; footer buttons filter, group, expand/collapse all, kill, pause and quit
 
 ## Keyboard
 
@@ -33,6 +33,7 @@ dotnet run --project gallery/RazorConsole.Htop/RazorConsole.Htop.csproj -f net10
 | `F9`, `Delete` | Kill selected process or group (then `y` / `n`) |
 | `/`, `F4` | Filter (`Enter` accepts, `Esc` clears) |
 | `C` `M` `P` `N` `T` | Sort by CPU, memory, PID, name, time |
+| `E` | Expand / collapse all (all groups in group mode, the visible rows otherwise) |
 | `Space` | Pause or resume refreshing |
 | `Q`, `Esc`, `F10` | Quit |
 

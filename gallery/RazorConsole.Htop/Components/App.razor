@@ -56,6 +56,7 @@
     <Flex Direction="FlexDirection.Row" Height="1" Gap="1">
         <ClickableLabel Label=" / Filter " Width="10" OnClick="StartFilter" />
         <ClickableLabel Label="@(_grouped ? " G Ungroup " : " G Group ")" Width="12" Background="@(_grouped ? Color.Aqua : Color.Green)" OnClick="ToggleGroup" />
+        <ClickableLabel Label="@(AnyExpanded ? " E Collapse all " : " E Expand all ")" Width="@(AnyExpanded ? 16 : 14)" Background="Color.Purple" Foreground="Color.White" OnClick="ToggleAll" />
         <ClickableLabel Label=" F9 Kill " Width="9" OnClick="RequestKill" />
         <ClickableLabel Label="@(_paused ? " Space Resume " : " Space Pause ")" Width="14" OnClick="TogglePause" />
         <ClickableLabel Label=" Q Quit " Width="8" Background="Color.Grey70" OnClick="Quit" />
@@ -112,7 +113,7 @@
         ? $"Filter: {_filter}_   (Enter/Esc to finish)"
         : !string.IsNullOrEmpty(_message) ? _message
         : _filter.Length > 0 ? $"Filter: \"{_filter}\" ({_view.Count} matches) | click a header to sort | wheel to scroll"
-        : "Click a header to sort, a row to select, wheel to scroll | drag ┃ to resize Name | keys: ↑↓ ←→ / G F9 C M P N T";
+        : "Click a header to sort, a row to select, wheel to scroll | drag ┃ to resize Name | keys: ↑↓ ←→ / G E F9 C M P N T";
 
     protected override void OnInitialized()
     {
@@ -246,6 +247,36 @@
             _detailOpen.Remove(pid);
             _details.Remove(pid);
         }
+    }
+
+    private bool AnyExpanded => _expanded.Count > 0 || _detailOpen.Count > 0;
+
+    private void ToggleAll()
+    {
+        if (AnyExpanded)
+        {
+            _expanded.Clear();
+            _detailOpen.Clear();
+            _details.Clear();
+        }
+        else if (_grouped)
+        {
+            foreach (var row in _view.Where(r => r.IsGroup && r.Members.Count > 1))
+            {
+                _expanded.Add(row.Key);
+            }
+        }
+        else
+        {
+            // Expanding every process would sample hundreds of them each refresh, so only the visible page opens.
+            foreach (var row in VisibleRows.Where(IsProcessRow))
+            {
+                SetDetail(row.Members[0].Id, true);
+            }
+        }
+
+        Rebuild();
+        EnsureSelectionVisible();
     }
 
     private void ToggleGroup()
@@ -494,6 +525,7 @@
             case "F9" or "Delete": RequestKill(); break;
             case "/" or "F4": StartFilter(); break;
             case "g" or "G": ToggleGroup(); break;
+            case "e" or "E": ToggleAll(); break;
             case "[": _nameWidth = Math.Max(MinNameWidth, _nameWidth - 2); break;
             case "]": _nameWidth = Math.Min(MaxNameWidth, _nameWidth + 2); break;
             case "ArrowRight" or "Enter": ToggleSelectedGroup(true); break;
