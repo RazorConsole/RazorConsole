@@ -52,7 +52,7 @@ test("generated artifact has one redirect for every current root canonical", () 
   for (const file of redirectFiles) {
     const html = readFileSync(file, "utf8")
     const dom = new JSDOM(html)
-    const canonical = dom.window.document.querySelector('link[rel="canonical"]')?.getAttribute("href")
+    const canonical = dom.window.document.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? undefined
     assert.ok(targets.delete(canonical), `${relative(output, file).split(sep).join("/")}: ${canonical}`)
     assert.equal(dom.window.document.querySelector('meta[name="robots"]')?.getAttribute("content"), "noindex, follow")
     assert.match(dom.window.document.querySelector('meta[http-equiv="refresh"]')?.getAttribute("content") ?? "", /^0; url=https:\/\/razorconsole\.github\.io\//)
