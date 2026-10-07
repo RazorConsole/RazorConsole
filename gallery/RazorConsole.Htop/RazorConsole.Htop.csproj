@@ -13,6 +13,7 @@
     <ToolCommandName>razorconsole-htop</ToolCommandName>
     <RazorConsolePublishNativeAot>true</RazorConsolePublishNativeAot>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsAotCompatible>true</IsAotCompatible>
     <InvariantGlobalization>true</InvariantGlobalization>
