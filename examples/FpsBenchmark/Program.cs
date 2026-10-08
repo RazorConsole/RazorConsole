@@ -6,15 +6,11 @@ using Microsoft.Extensions.Hosting;
 using RazorConsole.Core;
 using Spectre.Console;
 
-// Usage: dotnet run -c Release --project examples/FpsBenchmark -- [--legacy|--widget-layout] [--rows N]
-var pipeline = args.Contains("--legacy")
-    ? RazorConsoleRenderingPipeline.LegacySpectre
-    : RazorConsoleRenderingPipeline.WidgetLayout;
-
+// Usage: dotnet run -c Release --project examples/FpsBenchmark -- [--rows N]
 var rowsIndex = Array.IndexOf(args, "--rows");
 var rows = rowsIndex >= 0 && rowsIndex + 1 < args.Length && int.TryParse(args[rowsIndex + 1], out var parsed) ? parsed : 20;
 
-var counter = new FrameCounter { Pipeline = pipeline, Rows = rows };
+var counter = new FrameCounter { Rows = rows };
 
 AnsiConsole.Console = new CountingConsole(AnsiConsole.Console, counter);
 
@@ -24,7 +20,7 @@ var builder = Host.CreateDefaultBuilder(args)
         hostBuilder.ConfigureServices(services =>
         {
             services.AddSingleton(counter);
-            services.Configure<ConsoleAppOptions>(options => options.RenderingPipeline = pipeline);
+            services.Configure<ConsoleAppOptions>(options => options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout);
         });
     });
 

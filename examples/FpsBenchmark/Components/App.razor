@@ -8,7 +8,7 @@
 
 <Box Border="BoxBorder.Rounded" Padding="new (1)">
     <Rows>
-        <Markup Content="@($"RazorConsole render benchmark - pipeline: {Counter.Pipeline}")" Foreground="@Color.Aqua" Decoration="@Decoration.Bold" />
+        <Markup Content="@($"RazorConsole render benchmark - pipeline: WidgetLayout")" Foreground="@Color.Aqua" Decoration="@Decoration.Bold" />
         <Markup Content="@($"Drawn FPS (terminal writes): {_drawnFps:F1}")" Foreground="@Color.Green" Decoration="@Decoration.Bold" />
         <Markup Content="@($"Render FPS (pipeline): {_fps:F1}   avg frame: {(_fps > 0 ? 1000 / _fps : 0):F1} ms   frames: {_frames}")" Foreground="@Color.Green" Decoration="@Decoration.Bold" />
         <Markup Content="@($"Peak FPS: {_peak:F1}   avg since start: {_average:F1}")" Foreground="@Color.Yellow" />

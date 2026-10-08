@@ -1,7 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Diagnostics;
-using RazorConsole.Core;
 
 namespace FpsBenchmark;
 
@@ -10,9 +9,6 @@ public sealed class FrameCounter
 {
     private long _frames;
     private long _writes;
-
-    public RazorConsoleRenderingPipeline Pipeline { get; init; }
-
     public int Rows { get; init; }
 
     public long Frames => Interlocked.Read(ref _frames);
