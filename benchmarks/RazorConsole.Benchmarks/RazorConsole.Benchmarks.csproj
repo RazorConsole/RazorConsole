@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks></TargetFrameworks>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+    <TestingPlatformDotnetTestSupport>false</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RazorConsole.Core\RazorConsole.Core.csproj" />
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+</Project>

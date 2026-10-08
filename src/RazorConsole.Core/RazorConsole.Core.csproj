@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components" />
@@ -15,6 +15,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="RazorConsole.Tests" />
     <InternalsVisibleTo Include="RazorConsole.Website" />
+    <InternalsVisibleTo Include="RazorConsole.Benchmarks" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 

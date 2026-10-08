@@ -52,6 +52,9 @@
   <Folder Name="/tests/">
     <Project Path="src/RazorConsole.Tests/RazorConsole.Tests.csproj" />
   </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/RazorConsole.Benchmarks/RazorConsole.Benchmarks.csproj" />
+  </Folder>
   <Folder Name="/tutorial/">
     <Project Path="tutorial/Tutorial.Components/Tutorial.Components.csproj" />
     <Project Path="tutorial/Tutorial.Runner/Tutorial.Runner.csproj" />
