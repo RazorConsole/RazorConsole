@@ -12,6 +12,7 @@
     <Project Path="examples/Layout/Layout.csproj" />
     <Project Path="examples/MultipageApp/MultipageApp.csproj" />
     <Project Path="examples/TableWidget/TableWidget.csproj" />
+    <Project Path="examples/FpsBenchmark/FpsBenchmark.csproj" />
     <Project Path="examples/GalleryAlign/GalleryAlign.csproj" />
     <Project Path="examples/GalleryBorder/GalleryBorder.csproj" />
     <Project Path="examples/GalleryCliInfo/GalleryCliInfo.csproj" />
