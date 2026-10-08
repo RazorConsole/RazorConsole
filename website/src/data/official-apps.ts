@@ -11,6 +11,7 @@ export interface OfficialApp extends ShowcaseProject {
 
 const mediaByPackageId: Record<string, Pick<ShowcaseProject, "videoUrl" | "imageUrls">> = {
   "RazorConsole.Gallery": { videoUrl: "showcase/gallery-demo.mp4" },
+  "RazorConsole.Htop": { videoUrl: "showcase/htop-demo.mp4" },
   "RazorConsole.Snake": { videoUrl: "showcase/snake-demo.mp4" },
   "RazorConsole.TankBattle": { videoUrl: "showcase/tank-battle-demo.mp4" },
 }
