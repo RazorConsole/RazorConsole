@@ -283,6 +283,10 @@ jobs:
   website-build:
     name: Build website
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -299,6 +303,16 @@ jobs:
           name: ${{ github.event_name == 'pull_request' && format('website-preview-{0}-{1}', github.event.pull_request.number, github.event.pull_request.head.sha) || format('website-production-{0}', github.sha) }}
           path: website/build/client
           retention-days: 30
+
+      - name: Configure GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/build/client
 
       - name: Verify custom-domain production metadata
         if: github.event_name == 'pull_request'
@@ -334,6 +348,22 @@ jobs:
       artifact-name: website-production-${{ github.sha }}
       source-commit: ${{ github.sha }}
     secrets: inherit
+
+  deploy-pages:
+    name: Deploy to GitHub Pages
+    needs: [website-build, build-test, validate-format]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   publish-nightly:
     name: Publish nightly build

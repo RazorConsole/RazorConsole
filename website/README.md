@@ -149,16 +149,17 @@ VITE_BASE=/
 VITE_ROUTER_BASENAME=/
 ```
 
-The CI workflow builds, tests, uploads, and deploys `website/build/client` as static assets on the
-Cloudflare Worker `razorconsole` on pushes to `main`. A manual CI run performs the same production
-deployment and is the safe first-cutover path. Version tags matched by `release.yml` rebuild the same
-artifact and deploy it only after the website, package, and Native AOT jobs succeed. Both use
+The CI workflow builds and tests `website/build/client` as a root-based artifact on pushes to `main`,
+then deploys it to GitHub Pages and to the Cloudflare Worker `razorconsole`. A manual CI run performs
+the Worker deployment without replacing the GitHub Pages site. Version tags matched by `release.yml`
+rebuild the same artifact and deploy it to the Worker only after the website, package, and Native AOT
+jobs succeed. Worker deployments use
 `cloudflare/wrangler-action` with `wrangler deploy --config website/wrangler.jsonc`. The Worker is
 assets-only, uses the generated `404.html` for unmatched routes, preserves automatic trailing-slash
 handling, and is available on its `workers.dev` URL. It does not claim `razorconsole.com`; that domain
-continues to point to GitHub Pages. The reusable deployment workflow records the source commit and
-deployment URL, fails on deployment errors, and uses production concurrency to prevent an older run
-from overtaking a newer one.
+continues to point to the root-based GitHub Pages deployment. The reusable Worker deployment workflow
+records the source commit and deployment URL, fails on deployment errors, and uses production
+concurrency to prevent an older run from overtaking a newer one.
 
 Pull requests remain build-only in CI and continue to use the existing Cloudflare preview workflow.
 No production Cloudflare credential is available to pull-request code.
@@ -208,27 +209,24 @@ Cloudflare owner setup:
 
 Safe cutover:
 
-1. Merge the workflow change with `[skip ci]`, so the old monolithic merge run cannot publish an
-   unrelated nightly/package before the new workflow exists on `main`.
-2. Run `gh workflow run ci.yml --repo RazorConsole/RazorConsole --ref main`. Manual CI runs the full
-   website and repository checks and deploys the verified artifact, while existing nightly/package
-   jobs remain push-only.
-3. Confirm the production deployment on the reported `workers.dev` URL, including representative
+1. Merge the change to `main`. The push run deploys the root-based artifact to GitHub Pages and the
+   Worker; manual CI runs deploy only the Worker, while existing nightly/package jobs remain push-only.
+2. Confirm the production deployment on the reported `workers.dev` URL, including representative
    routes, assets, the Google verification file, sitemap, canonical/OG URLs, unknown-route 404, and
    real tutorial browser navigation.
-4. In **RazorConsole/RazorConsole → Settings → Pages → Custom domain**, set `razorconsole.com`.
+3. In **RazorConsole/RazorConsole → Settings → Pages → Custom domain**, set `razorconsole.com`.
    GitHub Pages then redirects the repository's default
    `https://razorconsole.github.io/RazorConsole/` URL to the custom domain instead of requiring a
    generated redirect deployment. Verify representative old paths resolve to the matching custom-domain
    paths before retiring any previous deployment.
-5. Add/verify the Search Console URL-prefix property `https://razorconsole.com/`, submit
+4. Add/verify the Search Console URL-prefix property `https://razorconsole.com/`, submit
    `https://razorconsole.com/sitemap.xml`, and retain the old GitHub Pages properties to monitor
    redirects. The verification asset does not prove submission, indexing, or Google's selected
    canonical.
 
-Ordinary future pushes to `main` deploy production after successful CI. Tags matching `v*.*.*` or
-`*.*.*` deploy again after the complete release matrix; manual `release.yml` runs do not deploy a
-website because they are not releases.
+Ordinary future pushes to `main` deploy GitHub Pages and the Worker after successful CI. Tags matching
+`v*.*.*` or `*.*.*` deploy the Worker again after the complete release matrix; manual `release.yml`
+runs do not deploy a website because they are not releases.
 
 The old project URL is therefore an owner configuration step, not a source-generated redirect
 artifact. Keep GitHub Pages enabled for this repository and retain the custom-domain setting while
@@ -242,18 +240,16 @@ authenticate to Search Console, interpret every robots directive, or claim Googl
 Before deployment it may correctly fail against the old live site.
 
 For rollback, use **Workers & Pages → razorconsole → Deployments** to select and redeploy a prior
-Worker version. Revert the source commit
-and rerun CI afterward for a durable code rollback. Avoid flipping DNS away and back as a routine
-rollback because Cloudflare documents a reactivation window that can produce errors.
+Worker version. Revert the source commit and rerun CI afterward for a durable code rollback. GitHub
+Pages remains the owner of `razorconsole.com`, so Worker rollbacks do not require DNS changes.
 
 `RazorConsole/RazorConsole.github.io` must not continue serving a duplicate full site after cutover.
 Disable its Pages deployment after `razorconsole.com` and the source repository's automatic default-URL
 redirect are verified. The custom domain belongs on `RazorConsole/RazorConsole`, not on both
 repositories. This repository does not modify that other repository.
 
-After the Worker and Custom Domain are verified, delete the superseded `razorconsole` Pages project
-from Cloudflare so it cannot become a duplicate deployment. This cleanup is intentionally manual and
-must happen only after production traffic has moved successfully.
+After the Worker mirror is verified, delete the superseded `razorconsole` Pages project from
+Cloudflare so it cannot become a duplicate deployment. This cleanup is intentionally manual.
 
 ### Search-led content and evidence
 
