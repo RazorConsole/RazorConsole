@@ -9,7 +9,8 @@
 <Box Border="BoxBorder.Rounded" Padding="new (1)">
     <Rows>
         <Markup Content="@($"RazorConsole render benchmark - pipeline: {Counter.Pipeline}")" Foreground="@Color.Aqua" Decoration="@Decoration.Bold" />
-        <Markup Content="@($"FPS: {_fps:F1}   avg frame: {(_fps > 0 ? 1000 / _fps : 0):F1} ms   frames: {_frames}")" Foreground="@Color.Green" Decoration="@Decoration.Bold" />
+        <Markup Content="@($"Drawn FPS (terminal writes): {_drawnFps:F1}")" Foreground="@Color.Green" Decoration="@Decoration.Bold" />
+        <Markup Content="@($"Render FPS (pipeline): {_fps:F1}   avg frame: {(_fps > 0 ? 1000 / _fps : 0):F1} ms   frames: {_frames}")" Foreground="@Color.Green" Decoration="@Decoration.Bold" />
         <Markup Content="@($"Peak FPS: {_peak:F1}   avg since start: {_average:F1}")" Foreground="@Color.Yellow" />
         <Newline />
         @for (var i = 0; i < Counter.Rows; i++)
@@ -32,6 +33,8 @@
     private double _fps;
     private double _peak;
     private double _average;
+    private double _drawnFps;
+    private long _lastWrites;
     private long _lastFrames;
     private long _lastTimestamp = Stopwatch.GetTimestamp();
 
@@ -62,6 +65,9 @@
                     _fps = (_frames - _lastFrames) / elapsed;
                     _peak = Math.Max(_peak, _fps);
                     _average = _frames / Stopwatch.GetElapsedTime(Counter.StartTimestamp, now).TotalSeconds;
+                    var writes = Counter.Writes;
+                    _drawnFps = (writes - _lastWrites) / elapsed;
+                    _lastWrites = writes;
                     _lastFrames = _frames;
                     _lastTimestamp = now;
                 }

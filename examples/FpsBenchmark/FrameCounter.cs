@@ -9,6 +9,7 @@ namespace FpsBenchmark;
 public sealed class FrameCounter
 {
     private long _frames;
+    private long _writes;
 
     public RazorConsoleRenderingPipeline Pipeline { get; init; }
 
@@ -19,4 +20,8 @@ public sealed class FrameCounter
     public long StartTimestamp { get; } = Stopwatch.GetTimestamp();
 
     public void RecordFrame() => Interlocked.Increment(ref _frames);
+
+    public long Writes => Interlocked.Read(ref _writes);
+
+    public void RecordWrite() => Interlocked.Increment(ref _writes);
 }
