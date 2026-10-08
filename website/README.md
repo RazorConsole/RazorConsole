@@ -2,7 +2,7 @@
 
 This is the official documentation and showcase website for **RazorConsole**, a framework for building rich Terminal User Interfaces (TUI) using C# and Razor syntax.
 
-The site is built as a **Static Site (SSG)** with readable initial HTML and page-specific metadata for hosting on GitHub Pages.
+The site is built as a **Static Site (SSG)** with readable initial HTML and page-specific metadata for hosting as Cloudflare Worker static assets.
 
 ## 🚀 Key Features
 
@@ -150,14 +150,15 @@ VITE_BASE=/
 VITE_ROUTER_BASENAME=/
 ```
 
-The CI workflow builds, tests, uploads, and deploys `website/build/client` to the existing Cloudflare
-Pages project `razorconsole` on pushes to `main`. A manual CI run performs the same production
+The CI workflow builds, tests, uploads, and deploys `website/build/client` as static assets on the
+Cloudflare Worker `razorconsole` on pushes to `main`. A manual CI run performs the same production
 deployment and is the safe first-cutover path. Version tags matched by `release.yml` rebuild the same
 artifact and deploy it only after the website, package, and Native AOT jobs succeed. Both use
-`cloudflare/wrangler-action` with `pages deploy ... --project-name=razorconsole --branch=main`, so
-Cloudflare records them as production deployments. The reusable deployment workflow records the
-source commit and deployment URL, fails on deployment errors, and uses production concurrency to
-prevent an older run from overtaking a newer one.
+`cloudflare/wrangler-action` with `wrangler deploy --config website/wrangler.jsonc`. The Worker is
+assets-only, uses the generated `404.html` for unmatched routes, preserves automatic trailing-slash
+handling, and attaches `razorconsole.com` as a Custom Domain. The reusable deployment workflow
+records the source commit and deployment URL, fails on deployment errors, and uses production
+concurrency to prevent an older run from overtaking a newer one.
 
 Pull requests remain build-only in CI and continue to use the existing Cloudflare preview workflow.
 No production Cloudflare credential is available to pull-request code.
@@ -183,8 +184,9 @@ checks SEO without regenerating those unrelated assets. The static tests inspect
 runs: H1s, unique self-canonicals, Open Graph URLs, readable API descriptions, internal links, redirects,
 and sitemap coverage. CI runs the complete checks for preview and root production artifacts. Source
 tests retain path-helper coverage for both `/` and the legacy `/RazorConsole/` base where relevant.
-Keep `VITE_BASE` and `VITE_ROUTER_BASENAME` aligned. Preview deployments set their own
-`VITE_SITE_URL`; local navigation and assets remain local rather than linking to production.
+Keep `VITE_BASE` and `VITE_ROUTER_BASENAME` aligned. Preview artifacts retain the production
+canonical URL because the temporary Worker Preview URL is assigned only after the build; local
+navigation and assets still remain local rather than linking to production.
 
 `SiteLink` and `site-paths.ts` normalize HTML routes to trailing slashes while preserving query strings,
 anchors, files, and the project base path. Existing redirect routes remain available. Markdown uses
@@ -198,15 +200,15 @@ hydration, retaining the query, fragment, and existing history state so the rout
 
 Cloudflare owner setup:
 
-1. Keep `razorconsole.com` as a Cloudflare zone in the same account as the `razorconsole` Pages
-   project. Apex domains require Cloudflare nameservers.
-2. In **Workers & Pages → razorconsole → Custom domains**, choose **Set up a domain** and add
-   `razorconsole.com`. Use this Pages flow rather than manually creating only a DNS record; Cloudflare
-   creates the apex CNAME after the nameservers are active.
-3. Keep repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. The token needs the
-   narrow **Account → Cloudflare Pages → Edit** permission documented for direct-upload CI.
-4. Check CAA records if certificate issuance fails. No Wrangler configuration file is required for
-   this Direct Upload workflow.
+1. Keep `razorconsole.com` as an active Cloudflare zone in the same account as the `razorconsole`
+   Worker. Workers Custom Domains require Cloudflare-managed nameservers.
+2. Keep repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Initial setup needs
+   permission to create the Worker and **Zone → Workers Routes → Write** for `razorconsole.com`;
+   ordinary updates to the existing Worker need Editor access. Pull requests use isolated Worker
+   Previews and do not create persistent Workers or touch the production Custom Domain.
+3. The production Wrangler configuration declares `razorconsole.com` as a Custom Domain. Wrangler
+   creates the DNS record and certificate when it deploys; remove any conflicting CNAME before the
+   first Worker deployment. Check CAA records if certificate issuance fails.
 
 Safe cutover:
 
@@ -215,7 +217,7 @@ Safe cutover:
 2. Run `gh workflow run ci.yml --repo RazorConsole/RazorConsole --ref main`. Manual CI runs the full
    website and repository checks and deploys the verified artifact, while existing nightly/package
    jobs remain push-only.
-3. Confirm the production deployment on `razorconsole.pages.dev`, finish the custom-domain setup,
+3. Confirm the production deployment on the reported `workers.dev` URL and Custom Domain,
    then verify `https://razorconsole.com`, representative routes, assets, the Google verification file,
    sitemap, canonical/OG URLs, unknown-route 404, and real tutorial browser navigation.
 4. In **RazorConsole/RazorConsole → Settings → Pages → Custom domain**, set `razorconsole.com`.
@@ -243,8 +245,8 @@ initial HTML headings/canonicals, sitemap coverage, and the origin-root robots s
 authenticate to Search Console, interpret every robots directive, or claim Google has indexed a page.
 Before deployment it may correctly fail against the old live site.
 
-For rollback, use **Workers & Pages → razorconsole → Deployments → … → Rollback to this deployment**;
-Cloudflare permits any prior successful production deployment as a target. Revert the source commit
+For rollback, use **Workers & Pages → razorconsole → Deployments** to select and redeploy a prior
+Worker version. Revert the source commit
 and rerun CI afterward for a durable code rollback. Avoid flipping DNS away and back as a routine
 rollback because Cloudflare documents a reactivation window that can produce errors.
 
@@ -252,6 +254,10 @@ rollback because Cloudflare documents a reactivation window that can produce err
 Disable its Pages deployment after `razorconsole.com` and the source repository's automatic default-URL
 redirect are verified. The custom domain belongs on `RazorConsole/RazorConsole`, not on both
 repositories. This repository does not modify that other repository.
+
+After the Worker and Custom Domain are verified, delete the superseded `razorconsole` Pages project
+from Cloudflare so it cannot become a duplicate deployment. This cleanup is intentionally manual and
+must happen only after production traffic has moved successfully.
 
 ### Search-led content and evidence
 

@@ -4,7 +4,7 @@ This document describes how to set up preview deployments for pull requests.
 
 ## Overview
 
-The repository automatically builds and uploads website previews as artifacts for every pull request. Optionally, it can also deploy live preview versions to Cloudflare Pages when configured.
+The repository automatically builds and uploads website previews as artifacts for every pull request. Optionally, it can also deploy live preview versions as Cloudflare Workers with static assets when configured.
 
 ## Default Behavior (No Setup Required)
 
@@ -14,24 +14,23 @@ By default, the preview workflow (`.github/workflows/pr-preview-artifact.yml`) w
 - Post a comment on the PR with download instructions
 - Can be manually triggered via workflow dispatch
 
-## Optional: Enable Live Cloudflare Previews
+## Optional: Enable Live Cloudflare Worker Previews
 
-To enable automatic live preview deployments, configure Cloudflare Pages:
+To enable automatic live preview deployments, configure Cloudflare Workers:
 
-### 1. Create a Cloudflare Pages Project
+### 1. Enable Workers
 
 1. Sign up for a [Cloudflare account](https://dash.cloudflare.com/sign-up) (free tier is sufficient)
 2. Go to **Workers & Pages** in your Cloudflare dashboard
-3. Create a new **Pages** project:
-   - Click **Create application** → **Pages** → **Connect to Git**
-   - Or use **Direct Upload** and configure the project name as `razorconsole`
+3. Enable a `workers.dev` subdomain for the account if one is not already configured
 
 ### 2. Get Cloudflare API Credentials
 
 1. Go to your Cloudflare dashboard
 2. Navigate to **My Profile** → **API Tokens**
-3. Create a new API token with **Cloudflare Pages Edit** permissions
-4. Copy your **Account ID** from the Pages project settings
+3. Create an API token with Editor access to the `razorconsole` Worker. Preview uploads use
+   Cloudflare Worker Previews under that Worker and do not create persistent per-PR Workers.
+4. Copy your **Account ID** from the Workers dashboard
 
 ### 3. Add GitHub Secrets
 
@@ -55,7 +54,8 @@ Add the following secrets to your GitHub repository:
 - The `.github/workflows/pr-preview-artifact.yml` workflow triggers on pull request events or manual dispatch
 - It builds the website using the same process as the production build
 - The built site is always uploaded as a GitHub Actions artifact
-- If Cloudflare secrets are configured, it also deploys to Cloudflare Pages with a unique URL for the PR branch
+- If Cloudflare secrets are configured, it also uploads the static artifact as an isolated Preview
+  under the `razorconsole` Worker, names it `razorconsole-pr-<number>`, and reports its temporary URL
 - A bot comment is added/updated on the PR with download and/or live preview information
 - The preview is automatically updated when new commits are pushed
 
@@ -68,7 +68,7 @@ The workflow can be manually triggered via the GitHub Actions UI:
 
 ## Alternative Services
 
-If you prefer not to use Cloudflare Pages, you can:
+If you prefer not to use Cloudflare Workers, you can:
 
 1. Use GitHub Pages with separate branches (requires additional configuration)
 2. Use Netlify, Vercel, or another similar service (modify the workflow accordingly)

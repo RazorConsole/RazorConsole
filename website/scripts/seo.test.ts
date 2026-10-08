@@ -14,7 +14,7 @@ test("page URLs normalize base paths, index aliases, dotted API symbols and slas
     assert.equal(pageUrl(`${pagePath(route)}index.html?q=1#section`, productionSite), expected)
   }
   assert.equal(pageUrl("/components/table", "https://razorconsole.github.io/RazorConsole"), "https://razorconsole.github.io/RazorConsole/components/table/")
-  assert.equal(pageUrl("/api/A.B", "https://pr-12.razorconsole.pages.dev/"), "https://pr-12.razorconsole.pages.dev/api/A.B/")
+  assert.equal(pageUrl("/api/A.B", "https://preview.example.workers.dev/"), "https://preview.example.workers.dev/api/A.B/")
   assert.equal(pageUrl("/components/table", "http://localhost:5173/RazorConsole/"), "http://localhost:5173/RazorConsole/components/table/")
   assert.equal(pagePath("/blog/hot-reload?view=all#setup"), "/blog/hot-reload/?view=all#setup")
 })

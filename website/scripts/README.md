@@ -117,7 +117,7 @@ returned 404. Missing robots does not mean the site is blocked.
 
 The Pages API identified the current repository as a workflow-deployed project site at
 `https://razorconsole.github.io/RazorConsole/`. Production is now owned by this repository and deployed
-to the existing Cloudflare Pages project at `https://razorconsole.com/`. The website README contains
+to the Cloudflare Worker at `https://razorconsole.com/`. The website README contains
 the staged custom-domain cutover, GitHub Pages default-URL redirect, rollback, and Search Console runbook.
 
 No authenticated Search Console or Keyword Planner integration is available to this session.

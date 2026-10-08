@@ -291,7 +291,7 @@ jobs:
       - name: Build and verify website
         uses: ./.github/actions/build-website
         with:
-          site-url: ${{ github.event_name == 'pull_request' && format('https://pr-{0}.razorconsole.pages.dev', github.event.pull_request.number) || 'https://razorconsole.com' }}
+          site-url: https://razorconsole.com
 
       - name: Upload verified website
         uses: actions/upload-artifact@v4

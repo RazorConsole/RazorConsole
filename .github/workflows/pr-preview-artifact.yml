@@ -91,22 +91,30 @@ jobs:
             core.setOutput('run_id', ciRun.id);
             core.setOutput('artifact_name', expectedArtifactName);
 
+      # pull_request_target must use the trusted default-branch Worker config,
+      # never configuration supplied by pull-request code.
+      - name: Check out trusted Worker configuration
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
       - name: Download website artifact from CI run
         uses: actions/download-artifact@v4
         with:
           name: ${{ steps.find-ci-run.outputs.artifact_name }}
-          path: website-dist
+          path: website/build/client
           run-id: ${{ steps.find-ci-run.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy preview Worker
         id: deploy
         continue-on-error: true
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy website-dist --project-name=razorconsole --branch=pr-${{ steps.get-pr.outputs.pr_number }}
+          wranglerVersion: "4.136.3"
+          command: preview --config website/wrangler.preview.jsonc --name razorconsole-pr-${{ steps.get-pr.outputs.pr_number }} --ignore-base-config
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Comment PR with preview info
@@ -149,7 +157,7 @@ jobs:
 
             ⚠️ **Cloudflare deployment failed.** You can still download and test the artifact locally.
 
-            > 💡 **Tip:** For automatic live preview deployments, ensure Cloudflare Pages
+            > 💡 **Tip:** For automatic live preview deployments, ensure Cloudflare Workers
             > is properly configured with the required secrets.`;
             }
 

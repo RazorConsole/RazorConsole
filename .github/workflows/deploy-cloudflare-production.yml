@@ -22,7 +22,7 @@ permissions:
   deployments: write
 
 concurrency:
-  group: cloudflare-pages-production
+  group: cloudflare-worker-production
   cancel-in-progress: true
 
 jobs:
@@ -33,22 +33,26 @@ jobs:
       name: cloudflare
       url: ${{ steps.deploy.outputs.deployment-url }}
     steps:
+      - name: Check out Worker configuration
+        uses: actions/checkout@v4
+
       - name: Download verified website
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.artifact-name }}
-          path: website-dist
+          path: website/build/client
 
       - name: Record source commit
         run: echo "Deploying source commit ${{ inputs.source-commit }}" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Deploy Cloudflare Pages production
+      - name: Deploy Cloudflare Worker production
         id: deploy
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy website-dist --project-name=razorconsole --branch=main --commit-hash=${{ inputs.source-commit }}
+          wranglerVersion: "4.136.3"
+          command: deploy --config website/wrangler.jsonc
           gitHubToken: ${{ github.token }}
 
       - name: Record production deployment
@@ -56,7 +60,7 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: |
           {
-            echo "## Cloudflare Pages production"
+            echo "## Cloudflare Worker production"
             echo ""
             echo "- Source commit: \`${{ inputs.source-commit }}\`"
             echo "- Deployment: $DEPLOYMENT_URL"
