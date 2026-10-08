@@ -92,11 +92,12 @@ jobs:
             core.setOutput('artifact_name', expectedArtifactName);
 
       # pull_request_target must use the trusted default-branch Worker config,
-      # never configuration supplied by pull-request code.
+      # never configuration supplied by pull-request code. A maintainer-triggered
+      # workflow_dispatch may validate the explicitly selected ref.
       - name: Check out trusted Worker configuration
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || github.event.repository.default_branch }}
 
       - name: Download website artifact from CI run
         uses: actions/download-artifact@v4
