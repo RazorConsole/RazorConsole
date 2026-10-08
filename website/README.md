@@ -141,8 +141,7 @@ Code previews are rendered at build-time using `Shiki`. It sets two theme color 
 
 ## 📤 Deployment
 
-This repository is the authoritative source and deployment owner for
-`https://razorconsole.com`. Both production paths build the same root artifact with:
+This repository is the authoritative source for `https://razorconsole.com`. Production builds use:
 
 ```text
 VITE_SITE_URL=https://razorconsole.com
@@ -156,9 +155,10 @@ deployment and is the safe first-cutover path. Version tags matched by `release.
 artifact and deploy it only after the website, package, and Native AOT jobs succeed. Both use
 `cloudflare/wrangler-action` with `wrangler deploy --config website/wrangler.jsonc`. The Worker is
 assets-only, uses the generated `404.html` for unmatched routes, preserves automatic trailing-slash
-handling, and attaches `razorconsole.com` as a Custom Domain. The reusable deployment workflow
-records the source commit and deployment URL, fails on deployment errors, and uses production
-concurrency to prevent an older run from overtaking a newer one.
+handling, and is available on its `workers.dev` URL. It does not claim `razorconsole.com`; that domain
+continues to point to GitHub Pages. The reusable deployment workflow records the source commit and
+deployment URL, fails on deployment errors, and uses production concurrency to prevent an older run
+from overtaking a newer one.
 
 Pull requests remain build-only in CI and continue to use the existing Cloudflare preview workflow.
 No production Cloudflare credential is available to pull-request code.
@@ -196,19 +196,15 @@ GitHub Pages can still serve `/index.html` aliases; their generated HTML points 
 depending on host-level redirect rules. The client replaces only `index.html` aliases before
 hydration, retaining the query, fragment, and existing history state so the router matches the page.
 
-### Custom-domain migration and owner runbook
+### Deployment owner runbook
 
 Cloudflare owner setup:
 
-1. Keep `razorconsole.com` as an active Cloudflare zone in the same account as the `razorconsole`
-   Worker. Workers Custom Domains require Cloudflare-managed nameservers.
+1. Keep `razorconsole.com` pointed at GitHub Pages. The `razorconsole` Worker is intentionally exposed
+   only through its `workers.dev` URL.
 2. Keep repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Initial setup needs
-   permission to create the Worker and **Zone → Workers Routes → Write** for `razorconsole.com`;
-   ordinary updates to the existing Worker need Editor access. Pull requests use isolated Worker
-   Previews and do not create persistent Workers or touch the production Custom Domain.
-3. The production Wrangler configuration declares `razorconsole.com` as a Custom Domain. Wrangler
-   creates the DNS record and certificate when it deploys; remove any conflicting CNAME before the
-   first Worker deployment. Check CAA records if certificate issuance fails.
+   permission to create and update the Worker. Pull requests use isolated Worker Previews and do not
+   create persistent Workers or modify the GitHub Pages DNS records.
 
 Safe cutover:
 
@@ -217,9 +213,9 @@ Safe cutover:
 2. Run `gh workflow run ci.yml --repo RazorConsole/RazorConsole --ref main`. Manual CI runs the full
    website and repository checks and deploys the verified artifact, while existing nightly/package
    jobs remain push-only.
-3. Confirm the production deployment on the reported `workers.dev` URL and Custom Domain,
-   then verify `https://razorconsole.com`, representative routes, assets, the Google verification file,
-   sitemap, canonical/OG URLs, unknown-route 404, and real tutorial browser navigation.
+3. Confirm the production deployment on the reported `workers.dev` URL, including representative
+   routes, assets, the Google verification file, sitemap, canonical/OG URLs, unknown-route 404, and
+   real tutorial browser navigation.
 4. In **RazorConsole/RazorConsole → Settings → Pages → Custom domain**, set `razorconsole.com`.
    GitHub Pages then redirects the repository's default
    `https://razorconsole.github.io/RazorConsole/` URL to the custom domain instead of requiring a

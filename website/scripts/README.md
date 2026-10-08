@@ -116,9 +116,9 @@ observations, not results for the new PR output. Both origin-root and project-pa
 returned 404. Missing robots does not mean the site is blocked.
 
 The Pages API identified the current repository as a workflow-deployed project site at
-`https://razorconsole.github.io/RazorConsole/`. Production is now owned by this repository and deployed
-to the Cloudflare Worker at `https://razorconsole.com/`. The website README contains
-the staged custom-domain cutover, GitHub Pages default-URL redirect, rollback, and Search Console runbook.
+`https://razorconsole.github.io/RazorConsole/`. The custom domain remains on GitHub Pages, while CI also
+deploys the same root artifact to the Cloudflare Worker on its `workers.dev` URL. The website README
+contains the deployment, GitHub Pages custom-domain, rollback, and Search Console runbook.
 
 No authenticated Search Console or Keyword Planner integration is available to this session.
 The existing public verification meta tag was not used as evidence of property authorization.

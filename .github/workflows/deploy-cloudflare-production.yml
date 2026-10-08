@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy razorconsole.com
+    name: Deploy Worker
     runs-on: ubuntu-latest
     environment:
       name: cloudflare
@@ -64,5 +64,4 @@ jobs:
             echo ""
             echo "- Source commit: \`${{ inputs.source-commit }}\`"
             echo "- Deployment: $DEPLOYMENT_URL"
-            echo "- Custom domain: https://razorconsole.com"
           } >> "$GITHUB_STEP_SUMMARY"
