@@ -225,7 +225,7 @@ internal sealed class ConsoleRenderer(
                     ApplySetAttributeEdit(batch, edit);
                     break;
                 case RenderTreeEditType.RemoveAttribute:
-                    ApplyRemoveAttributeEdit(batch, edit);
+                    ApplyRemoveAttributeEdit(edit);
                     break;
                 case RenderTreeEditType.UpdateText:
                     ApplyUpdateTextEdit(batch, edit);
@@ -287,23 +287,17 @@ internal sealed class ConsoleRenderer(
         ApplyAttributeFrame(child, frame);
     }
 
-    private void ApplyRemoveAttributeEdit(in RenderBatch batch, RenderTreeEdit edit)
+    private void ApplyRemoveAttributeEdit(RenderTreeEdit edit)
     {
+        // RemoveAttribute edits carry only the name; ReferenceFrameIndex is unset.
         var parent = _cursor.Peek();
-        var frame = batch.ReferenceFrames.Array[edit.ReferenceFrameIndex];
-        Debug.Assert(frame.FrameType == RenderTreeFrameType.Attribute, "RemoveAttribute edit must reference an Attribute frame.");
+        var name = edit.RemovedAttributeName!;
         var child = BFSNonRegionChildren(parent).ElementAt(edit.SiblingIndex);
-        if (frame.AttributeEventHandlerId != 0)
+        child.RemoveEvent(name);
+        child.RemoveAttribute(name);
+        if (IsKeyAttribute(name))
         {
-            child.RemoveEvent(frame.AttributeName!);
-        }
-        else
-        {
-            child.RemoveAttribute(frame.AttributeName!);
-            if (IsKeyAttribute(frame.AttributeName!))
-            {
-                parent.SetKey(null);
-            }
+            parent.SetKey(null);
         }
     }
 

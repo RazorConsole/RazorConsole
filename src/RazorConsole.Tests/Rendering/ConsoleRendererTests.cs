@@ -192,6 +192,40 @@ public sealed class ConsoleRendererTests
     }
 
     [Fact]
+    public async Task RemovesAttribute_InsideRegion_AppliesCorrectly()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var parameters = ParameterView.FromDictionary(new Dictionary<string, object?>
+        {
+            { "Value", "Start" }
+        });
+
+        var snapshot = await renderer.MountComponentAsync<RegionTestComponent>(parameters, CancellationToken.None);
+        FindDiv(snapshot.Root!).ShouldNotBeNull().Attributes.ShouldContainKey("data-val");
+
+        var tcs = new TaskCompletionSource<ConsoleRenderer.RenderSnapshot>();
+        using var sub = renderer.Subscribe(new SimpleObserver(s =>
+        {
+            var el = FindDiv(s.Root);
+            if (el != null && !el.Attributes.ContainsKey("data-val"))
+            {
+                tcs.TrySetResult(s);
+            }
+        }));
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            await RegionTestComponent.Instance!.SetParametersAsync(ParameterView.FromDictionary(new Dictionary<string, object?>
+            {
+                { "Value", "Start" },
+                { "HasAttribute", false }
+            }));
+        });
+
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task NestedComponentRenderingTestAsync()
     {
         // Arrange
