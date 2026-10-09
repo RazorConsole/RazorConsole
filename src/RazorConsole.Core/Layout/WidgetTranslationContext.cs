@@ -80,7 +80,7 @@ public sealed class WidgetTranslationContext
         {
             return new TextWidget(
                 node.ID,
-                GetAttribute(node, "data-content"),
+                GetTextContent(node),
                 TryParseStyle(GetAttribute(node, "data-style")),
                 node.Key,
                 node.Attributes,
@@ -612,11 +612,15 @@ public sealed class WidgetTranslationContext
 
         if (IsTruthy(GetAttribute(node, "data-text")))
         {
-            return GetAttribute(node, "data-content") ?? string.Empty;
+            return GetTextContent(node);
         }
 
         return string.Concat(node.Children.Select(GetPlainText));
     }
+
+    // Markup escapes its content for the Spectre pipeline; TextWidget draws text literally.
+    private static string GetTextContent(VNode node)
+        => (GetAttribute(node, "data-content") ?? string.Empty).Replace("[[", "[").Replace("]]", "]");
 
     private static string? GetAttribute(VNode node, string name)
         => node.Attributes.TryGetValue(name, out var value) ? value : null;
