@@ -80,7 +80,7 @@ public sealed class WidgetTranslationContext
         {
             return new TextWidget(
                 node.ID,
-                GetAttribute(node, "data-content"),
+                GetTextContent(node),
                 TryParseStyle(GetAttribute(node, "data-style")),
                 node.Key,
                 node.Attributes,
@@ -612,10 +612,18 @@ public sealed class WidgetTranslationContext
 
         if (IsTruthy(GetAttribute(node, "data-text")))
         {
-            return GetAttribute(node, "data-content") ?? string.Empty;
+            return GetTextContent(node);
         }
 
         return string.Concat(node.Children.Select(GetPlainText));
+    }
+
+    // data-content is Spectre markup (Markup escapes it); TextWidget draws text literally.
+    // Markup.Remove returns "" for whitespace-only input, which would drop spacer text.
+    private static string GetTextContent(VNode node)
+    {
+        var content = GetAttribute(node, "data-content") ?? string.Empty;
+        return string.IsNullOrWhiteSpace(content) ? content : Spectre.Console.Markup.Remove(content);
     }
 
     private static string? GetAttribute(VNode node, string name)
