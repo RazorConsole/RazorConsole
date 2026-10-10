@@ -27,6 +27,9 @@ public sealed class StackWidget : Widget
 
     public bool Expand { get; }
 
+    /// <summary>Clears its bounds before painting, so overlays hide what lies beneath.</summary>
+    internal bool Opaque { get; init; }
+
     protected override LayoutSize MeasureCore(LayoutContext context, BoxConstraints constraints)
     {
         if (Children.Count == 0)
@@ -94,6 +97,11 @@ public sealed class StackWidget : Widget
 
     protected override void PaintCore(PaintContext context)
     {
+        if (Opaque)
+        {
+            context.Canvas.Fill(Bounds, ' ');
+        }
+
         foreach (var child in Children.OrderBy(child => child.ZIndex))
         {
             child.Paint(context);

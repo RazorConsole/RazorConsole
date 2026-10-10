@@ -229,6 +229,29 @@ public sealed class AbsolutePositionLayoutTests
         RenderToText(result, 10).Split('\n')[1].ShouldBe("abcdMMghij");
     }
 
+    [Fact]
+    public void WidgetTranslationContext_Modal_HidesContentBeneathIt()
+    {
+        var root = VNode.CreateElement("div");
+        root.SetAttribute("class", "rows");
+        root.AddChild(VNode.CreateText("0123456789"));
+        root.AddChild(VNode.CreateText("abcdefghij"));
+        root.AddChild(VNode.CreateText("klmnopqrst"));
+        root.AddChild(VNode.CreateText("uvwxyz"));
+        var modal = VNode.CreateElement("modal");
+        modal.AddChild(VNode.CreateText("MMMM"));
+        modal.AddChild(VNode.CreateText("M"));
+        root.AddChild(modal);
+
+        var widget = new WidgetTranslationContext().Translate(root);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 10, 0, 10));
+
+        // A 4x2 modal centered in a 10x4 document covers x=3..6 on rows 1 and 2.
+        var lines = RenderToText(result, 10).Split('\n');
+        lines[1].ShouldBe("abcMMMMhij");
+        lines[2].ShouldBe("klmM   rst");
+    }
+
     private static TextWidget Absolute(string id, string text, int? top = null, int? left = null, int? right = null, int? bottom = null, int zIndex = 0)
         => new(id, text, attributes: AbsoluteAttributes(top, left, right, bottom), zIndex: zIndex);
 

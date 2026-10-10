@@ -73,7 +73,10 @@ public sealed class WidgetTranslationContext
                 node.ID,
                 TranslateChildren(node),
                 attributes: modalAttributes,
-                zIndex: TryGetIntAttribute(node, "zindex", 9999));
+                zIndex: TryGetIntAttribute(node, "zindex", 9999))
+            {
+                Opaque = true,
+            };
         }
 
         if (IsTruthy(GetAttribute(node, "data-text")))
