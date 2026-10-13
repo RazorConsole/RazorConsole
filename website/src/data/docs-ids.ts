@@ -74,6 +74,11 @@ export const docTopicIds = [
         title: "what's new in RazorConsole 0.6.0",
         filePath: "website/src/docs/whats-new-in-razorconsole-0-6-0.md",
     },
+    {
+        id: "widget-layout-rendering-speed",
+        title: "How fast is the WidgetLayout renderer?",
+        filePath: "website/src/docs/widget-layout-rendering-speed.md",
+    },
 ]
 
 export const releaseNoteIds = [
