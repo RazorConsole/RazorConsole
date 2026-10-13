@@ -1,0 +1,70 @@
+@using System.Diagnostics
+@using Microsoft.AspNetCore.Components
+@using RazorConsole.Components
+@using Spectre.Console
+@implements IDisposable
+
+<Box Border="BoxBorder.Rounded" Padding="new (1)">
+    <Rows>
+        <Markup Content="RazorConsole render benchmark - pipeline: WidgetLayout" Foreground="@Color.Aqua" Decoration="@Decoration.Bold" />
+        <Markup Content="@($"Render FPS: {_fps:F1}   avg frame: {(_fps > 0 ? 1000 / _fps : 0):F1} ms   frames: {_frames}")" Foreground="@Color.Green" Decoration="@Decoration.Bold" />
+        <Markup Content="@($"Peak FPS: {_peak:F1}   avg since start: {_average:F1}")" Foreground="@Color.Yellow" />
+        <Newline />
+        @for (var i = 0; i < 8; i++)
+        {
+            var row = i;
+            <Markup Content="@($"Row {row:D2} {Bar(row)}")" Foreground="@(row % 2 == 0 ? Color.Grey70 : Color.Grey50)" />
+        }
+        <Newline />
+        <Markup Content="Redraws as fast as possible, running in your browser" Foreground="@Color.Grey58" />
+    </Rows>
+</Box>
+
+@code {
+    private readonly CancellationTokenSource _cts = new();
+    private readonly long _start = Stopwatch.GetTimestamp();
+    private int _tick;
+    private long _frames;
+    private long _lastFrames;
+    private long _lastTimestamp = Stopwatch.GetTimestamp();
+    private double _fps;
+    private double _peak;
+    private double _average;
+
+    protected override void OnInitialized()
+    {
+        _ = RunAsync(_cts.Token);
+    }
+
+    private string Bar(int row)
+    {
+        const int width = 30;
+        var pos = (_tick + row * 3) % (width * 2);
+        pos = pos < width ? pos : width * 2 - pos;
+        return new string('#', pos).PadRight(width, '.');
+    }
+
+    private async Task RunAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            var now = Stopwatch.GetTimestamp();
+            var elapsed = Stopwatch.GetElapsedTime(_lastTimestamp, now).TotalSeconds;
+            if (elapsed >= 0.5)
+            {
+                _fps = (_frames - _lastFrames) / elapsed;
+                _peak = Math.Max(_peak, _fps);
+                _average = _frames / Stopwatch.GetElapsedTime(_start, now).TotalSeconds;
+                _lastFrames = _frames;
+                _lastTimestamp = now;
+            }
+
+            _tick++;
+            await InvokeAsync(StateHasChanged);
+            _frames++;
+            await Task.Delay(1, CancellationToken.None);
+        }
+    }
+
+    public void Dispose() => _cts.Cancel();
+}

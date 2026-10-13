@@ -2,9 +2,11 @@
 
 Since 0.6.0 RazorConsole renders through the **WidgetLayout** pipeline by default (see [what's new in 0.6.0](/docs/whats-new-in-razorconsole-0-6-0) and the [WidgetLayout guide](/docs/widget-layout)). Instead of a synthetic micro-benchmark, we built a real RazorConsole app that redraws itself as fast as it can and shows its own frame rate on screen.
 
-![FpsBenchmark running in a real terminal](/media/fps-benchmark.gif)
+```preview
+FpsBenchmark
+```
 
-The animation above is a recording of the actual `examples/FpsBenchmark` app, captured through a pseudo-terminal, not a mock-up.
+The terminal above is not a recording: it is a live RazorConsole component (a trimmed-down version of `examples/FpsBenchmark`) running in your browser through WebAssembly and rendered with the WidgetLayout pipeline. Browser numbers will be lower than a native terminal because WASM runs on a single thread.
 
 ## What the app measures
 
@@ -28,7 +30,7 @@ Press `Ctrl+C` to exit. `--rows` controls how many animated progress rows are on
 
 ## Results
 
-In the recording above (12 rows, 100x24 terminal, .NET 9, Release, Windows ConPTY inside a VM) the app sustained roughly **2,800 Render FPS** (about 0.4 ms per frame) and **~800 Drawn FPS**. Numbers vary a lot with the terminal emulator, hardware and row count, so treat them as an order of magnitude, not a guarantee. Terminals themselves typically paint at 60-240 Hz, so the pipeline is far from being the bottleneck for typical TUIs.
+In a native run (12 rows, 100x24 terminal, .NET 9, Release, Windows ConPTY inside a VM) the app sustained roughly **2,800 Render FPS** (about 0.4 ms per frame) and **~800 Drawn FPS**. Numbers vary a lot with the terminal emulator, hardware and row count, so treat them as an order of magnitude, not a guarantee. Terminals themselves typically paint at 60-240 Hz, so the pipeline is far from being the bottleneck for typical TUIs.
 
 > [!NOTE]
 > The benchmark deliberately runs without any frame limiter. Real apps only render when state changes.

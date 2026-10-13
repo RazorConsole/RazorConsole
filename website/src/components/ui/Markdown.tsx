@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useId } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeSlug from "rehype-slug"
@@ -6,6 +6,7 @@ import CodeBlock from "./CodeBlock"
 import type { BundledLanguage } from "shiki"
 import { Info, Lightbulb, OctagonAlert, TriangleAlert, Zap } from "lucide-react"
 import { documentHref } from "@/lib/document-links"
+import XTermPreview from "@/components/components/XTermPreview"
 
 interface MarkdownRendererProps {
   content: string
@@ -57,6 +58,15 @@ const ALERT_CONFIG: Record<
     iconColor: "text-red-500",
   },
 }
+function LivePreview({ componentId }: { componentId: string }) {
+  const instanceId = `doc-preview-${componentId}-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
+  return (
+    <div className="my-4 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
+      <XTermPreview elementId={instanceId} componentId={componentId} className="h-[360px]" />
+    </div>
+  )
+}
+
 export const MarkdownRenderer = React.memo<MarkdownRendererProps>(({ content, className = "" }) => {
   return (
     <div className={`markdown-renderer ${className}`}>
@@ -71,6 +81,10 @@ export const MarkdownRenderer = React.memo<MarkdownRendererProps>(({ content, cl
             const language = match ? (match[1] as BundledLanguage) : undefined
             const inline = !className?.includes("language-")
             const codeContent = String(children).replace(/\n$/, "")
+
+            if (language === ("preview" as BundledLanguage)) {
+              return <LivePreview componentId={codeContent.trim()} />
+            }
 
             if (inline || !match) {
               return (
