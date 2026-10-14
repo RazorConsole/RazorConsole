@@ -102,6 +102,7 @@ public sealed class ConsoleRendererTests
             ((EventId)arguments[1]!).Id.ShouldBe(19);
             var message = arguments[2]!.ToString().ShouldNotBeNull();
             message.ShouldContain("deprecated");
+            message.ShouldContain("will be completely removed in v1.1.0");
             message.ShouldContain("WidgetLayout");
             message.ShouldContain("RAZORCONSOLE_RENDERING_PIPELINE");
         }

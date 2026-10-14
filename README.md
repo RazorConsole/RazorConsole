@@ -89,8 +89,9 @@ For more complete sample applications, check out the [Examples](#examples) secti
 ### Rendering pipeline
 
 WidgetLayout is the default and recommended rendering pipeline. The legacy
-Spectre.Console-based layout pipeline (`LegacySpectre`) is deprecated and retained
-for compatibility only. Selecting it in code produces an obsolete API warning;
+Spectre.Console-based layout pipeline (`LegacySpectre`) is deprecated and will be
+completely removed in v1.1.0. Until then, it is retained for compatibility only.
+Selecting it in code produces an obsolete API warning;
 rendering with it logs a deprecation warning once per renderer, including when
 selected through `RAZORCONSOLE_RENDERING_PIPELINE`.
 

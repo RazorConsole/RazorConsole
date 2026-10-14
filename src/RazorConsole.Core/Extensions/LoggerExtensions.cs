@@ -152,7 +152,7 @@ internal static partial class LoggerExtensions
     [LoggerMessage(
         EventId = 19,
         Level = LogLevel.Warning,
-        Message = "The LegacySpectre rendering pipeline is deprecated. Use WidgetLayout instead by removing the RAZORCONSOLE_RENDERING_PIPELINE override or setting ConsoleAppOptions.RenderingPipeline to WidgetLayout. The legacy pipeline does not support layout metadata or coordinate-aware mouse events.")]
+        Message = "The LegacySpectre rendering pipeline is deprecated and will be completely removed in v1.1.0. Use WidgetLayout instead by removing the RAZORCONSOLE_RENDERING_PIPELINE override or setting ConsoleAppOptions.RenderingPipeline to WidgetLayout. The legacy pipeline does not support layout metadata or coordinate-aware mouse events.")]
     public static partial void LogLegacySpectrePipelineDeprecated(
         this ILogger logger);
 }

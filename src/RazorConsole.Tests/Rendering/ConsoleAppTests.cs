@@ -109,6 +109,7 @@ public sealed class ConsoleAppTests
 
         obsolete.ShouldNotBeNull().IsError.ShouldBeFalse();
         obsolete.Message.ShouldNotBeNull().ShouldContain("WidgetLayout");
+        obsolete.Message.ShouldContain("will be completely removed in v1.1.0");
         legacyField.GetRawConstantValue().ShouldBe(0);
         ((int)RazorConsoleRenderingPipeline.WidgetLayout).ShouldBe(1);
         typeof(RazorConsoleRenderingPipeline).GetField(nameof(RazorConsoleRenderingPipeline.WidgetLayout))!

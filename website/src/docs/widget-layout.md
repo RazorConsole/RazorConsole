@@ -29,7 +29,7 @@ Native widgets such as rows, columns, padding, alignment, panels, tables, text i
 
 ## Migrating from legacy layout
 
-The legacy Spectre layout pipeline (`LegacySpectre`) is deprecated and retained for compatibility only. It does not provide the layout metadata needed for coordinate-aware mouse events. Selecting it in code produces an obsolete API warning, and using it logs a deprecation warning once per renderer, including when selected through the environment variable.
+The legacy Spectre layout pipeline (`LegacySpectre`) is deprecated and will be completely removed in v1.1.0. Until then, it is retained for compatibility only. It does not provide the layout metadata needed for coordinate-aware mouse events. Selecting it in code produces an obsolete API warning, and using it logs a deprecation warning once per renderer, including when selected through the environment variable.
 
 To migrate, remove any `ConsoleAppOptions.RenderingPipeline = RazorConsoleRenderingPipeline.LegacySpectre` assignment and unset `RAZORCONSOLE_RENDERING_PIPELINE`. WidgetLayout has been the default since 0.6.0. You can also explicitly select it:
 
