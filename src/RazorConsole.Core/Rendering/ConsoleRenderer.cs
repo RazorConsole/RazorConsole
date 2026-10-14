@@ -50,6 +50,7 @@ internal sealed class ConsoleRenderer(
     private RenderSnapshot? _pendingObserverSnapshot;
     private int _rootComponentId = -1;
     private bool _observerNotificationScheduled;
+    private bool _legacyPipelineWarningLogged;
     private RenderSnapshot _lastSnapshot = RenderSnapshot.Empty;
     private bool _disposed;
 
@@ -497,6 +498,12 @@ internal sealed class ConsoleRenderer(
             if (_options.RenderingPipeline == RazorConsoleRenderingPipeline.WidgetLayout)
             {
                 return CreateWidgetLayoutSnapshot(rootNode);
+            }
+
+            if (!_legacyPipelineWarningLogged)
+            {
+                _legacyPipelineWarningLogged = true;
+                _logger.LogLegacySpectrePipelineDeprecated();
             }
 
             _translationContext.CollectedOverlays.Clear();

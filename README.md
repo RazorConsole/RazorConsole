@@ -86,6 +86,21 @@ await host.RunAsync();
 
 For more complete sample applications, check out the [Examples](#examples) section below.
 
+### Rendering pipeline
+
+WidgetLayout is the default and recommended rendering pipeline. The legacy
+Spectre.Console-based layout pipeline (`LegacySpectre`) is deprecated and retained
+for compatibility only. Selecting it in code produces an obsolete API warning;
+rendering with it logs a deprecation warning once per renderer, including when
+selected through `RAZORCONSOLE_RENDERING_PIPELINE`.
+
+To migrate, remove any `LegacySpectre` option assignment and unset the
+`RAZORCONSOLE_RENDERING_PIPELINE` override, or explicitly select `WidgetLayout`.
+WidgetLayout provides layout metadata and coordinate-aware mouse events that the
+legacy pipeline does not support. Spectre.Console-backed content and custom
+renderables remain supported; only the legacy layout pipeline is deprecated.
+See the [Widget Layout guide](website/src/docs/widget-layout.md) for details.
+
 ## ✨ Key Features
 
 ### 🧩 **Component-Based Architecture**

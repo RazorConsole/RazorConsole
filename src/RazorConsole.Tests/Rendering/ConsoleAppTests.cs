@@ -1,5 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using System.Reflection;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
@@ -86,13 +87,32 @@ public sealed class ConsoleAppTests
     [InlineData("LegacySpectre")]
     [InlineData("legacy")]
     [InlineData("spectre")]
+    [InlineData("LEGACYSPECTRE")]
+    [InlineData("LEGACY")]
+    [InlineData("SPECTRE")]
     public void ConsoleAppOptions_UsesLegacySpectreWhenRenderingPipelineEnvironmentVariableRequestsIt(string value)
     {
         using var environment = new EnvironmentVariableScope(RenderingPipelineEnvironmentVariableName, value);
 
         var options = new ConsoleAppOptions();
 
+#pragma warning disable CS0618 // Verify compatibility with the deprecated pipeline.
         options.RenderingPipeline.ShouldBe(RazorConsoleRenderingPipeline.LegacySpectre);
+#pragma warning restore CS0618
+    }
+
+    [Fact]
+    public void ConsoleAppOptions_LegacySpectreIsDeprecatedWithoutChangingEnumValues()
+    {
+        var legacyField = typeof(RazorConsoleRenderingPipeline).GetField("LegacySpectre");
+        var obsolete = legacyField.ShouldNotBeNull().GetCustomAttribute<ObsoleteAttribute>();
+
+        obsolete.ShouldNotBeNull().IsError.ShouldBeFalse();
+        obsolete.Message.ShouldNotBeNull().ShouldContain("WidgetLayout");
+        legacyField.GetRawConstantValue().ShouldBe(0);
+        ((int)RazorConsoleRenderingPipeline.WidgetLayout).ShouldBe(1);
+        typeof(RazorConsoleRenderingPipeline).GetField(nameof(RazorConsoleRenderingPipeline.WidgetLayout))!
+            .GetCustomAttribute<ObsoleteAttribute>().ShouldBeNull();
     }
 
     [Theory]
@@ -137,4 +157,3 @@ public sealed class ConsoleAppTests
             => Environment.SetEnvironmentVariable(_name, _originalValue);
     }
 }
-

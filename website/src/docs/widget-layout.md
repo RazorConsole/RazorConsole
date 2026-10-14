@@ -27,27 +27,24 @@ Razor component
 
 Native widgets such as rows, columns, padding, alignment, panels, tables, text input, and scrollable regions compute their own sizes and child bounds. Components that are still difficult to port can be wrapped as `SpectreWidget` leaves, so charts, figlet text, syntax highlighting, and other Spectre-backed output can continue to work while the layout system grows.
 
-## Falling back to legacy layout
+## Migrating from legacy layout
 
-Starting in 0.6.0, WidgetLayout is used by default when no rendering pipeline is configured. To run an app with the legacy Spectre pipeline, set `RAZORCONSOLE_RENDERING_PIPELINE` before launching the app:
+The legacy Spectre layout pipeline (`LegacySpectre`) is deprecated and retained for compatibility only. It does not provide the layout metadata needed for coordinate-aware mouse events. Selecting it in code produces an obsolete API warning, and using it logs a deprecation warning once per renderer, including when selected through the environment variable.
 
-```sh
-$env:RAZORCONSOLE_RENDERING_PIPELINE = "LegacySpectre"
-dotnet run
-```
-
-You can also use the shorter values `legacy` or `spectre`. To explicitly request the default widget pipeline, use `WidgetLayout` or `widget`.
-
-In code, you can choose the pipeline through `ConsoleAppOptions`:
+To migrate, remove any `ConsoleAppOptions.RenderingPipeline = RazorConsoleRenderingPipeline.LegacySpectre` assignment and unset `RAZORCONSOLE_RENDERING_PIPELINE`. WidgetLayout has been the default since 0.6.0. You can also explicitly select it:
 
 ```csharp
 builder.Services.Configure<ConsoleAppOptions>(options =>
 {
-    options.RenderingPipeline = RazorConsoleRenderingPipeline.LegacySpectre;
+    options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
 });
 ```
 
-Use the legacy pipeline when you are comparing output during migration or temporarily depending on Spectre layout behavior that has not been ported to native widgets yet.
+For environment-based configuration, use `RAZORCONSOLE_RENDERING_PIPELINE=WidgetLayout` or `widget`.
+
+The values `LegacySpectre`, `legacy`, and `spectre` remain accepted for temporary output comparisons or compatibility with existing applications. They continue to select legacy rendering, not WidgetLayout, and emit the runtime warning. If you must temporarily keep a legacy assignment in code, suppress `CS0618` only around that assignment rather than disabling obsolete API warnings globally.
+
+This deprecation applies only to the legacy layout pipeline. Spectre.Console-backed components, `IRenderable` content, custom translators, and `SpectreWidget` fallback leaves remain supported in WidgetLayout.
 
 ## Share feedback
 
