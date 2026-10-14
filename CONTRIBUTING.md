@@ -107,7 +107,33 @@ The workflow can also be manually triggered via the Actions tab. For automatic l
 
 ## 🚀 Release Process
 
-Creating a GitHub release triggers `.github/workflows/release.yml` to build, test, pack, and publish platform bundles. Version numbers should follow semantic versioning.
+Pushing a version tag (`v*.*.*` or `*.*.*`) triggers `.github/workflows/release.yml` to build, test, pack, publish NuGet packages, and create a GitHub release with platform bundles. The workflow can also be dispatched manually; manual runs publish NuGet packages but only tag runs create a GitHub release. Version numbers should follow semantic versioning.
+
+### NuGet Trusted Publishing Setup
+
+Both the CI nightly NuGet job in `.github/workflows/ci.yml` and the official release NuGet job in `.github/workflows/release.yml` use [NuGet Trusted Publishing](https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing). They exchange GitHub OIDC tokens for short-lived API keys immediately before pushing packages; neither workflow uses a stored `NUGET_API_KEY`.
+
+Before enabling publishing, a package owner must complete this setup:
+
+1. Sign in to NuGet.org and open **Trusted Publishing**. Create two GitHub policies using these values:
+
+   | Setting | CI nightly | Official release |
+   | --- | --- | --- |
+   | Repository Owner | `RazorConsole` | `RazorConsole` |
+   | Repository | `RazorConsole` | `RazorConsole` |
+   | Workflow File | `ci.yml` | `release.yml` |
+   | Environment | Leave empty | Leave empty |
+   | Package pattern | `RazorConsole.*` | `RazorConsole.*` |
+
+   Choose the individual or organization that owns the packages as the policy owner. Allow publishing new versions of existing packages; allow new packages only if needed. Enter only the workflow filename, not the `.github/workflows/` path. The publishing jobs do not use GitHub Actions environments.
+
+2. Add the repository Actions secret `NUGET_USER` with the NuGet.org **profile username**, not an email address or GitHub username. Use the account associated with the policies; for organization-owned policies, that user must remain an active member with permission to publish the packages.
+
+3. Merge the workflow changes and verify a qualifying push to `main` authenticates and publishes a nightly package. Verify official publishing on the next intended version tag or release dispatch; do not dispatch solely to test authentication, because it publishes packages. CI still publishes nightly packages only when its source-change check passes, and pull requests cannot run the nightly publishing job.
+
+4. After both workflows have successfully published, revoke the old long-lived API key on NuGet.org and remove the repository's `NUGET_API_KEY` secret.
+
+The publishing jobs grant `id-token: write` only at job scope. Login failure stops publishing rather than falling back to the old API key. Temporary keys expire after one hour, so keep login immediately before the push step.
 
 ## 💬 Getting Help
 

@@ -14,6 +14,9 @@ jobs:
   package:
     name: Build, test, and pack
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,9 +57,15 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
+      - name: NuGet login (trusted publishing)
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Push packages to NuGet.org
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
           for package in artifacts/packages/*.nupkg; do
             dotnet nuget push "$package" \

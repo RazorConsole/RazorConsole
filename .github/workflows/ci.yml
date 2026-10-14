@@ -370,6 +370,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate-format, build-test, website-build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -446,10 +449,17 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      - name: NuGet login (trusted publishing)
+        if: steps.check-changes.outputs.source_changed == 'true'
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Push packages to NuGet.org
         if: steps.check-changes.outputs.source_changed == 'true'
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
           for package in artifacts/packages/*.nupkg; do
             dotnet nuget push "$package" \
