@@ -66,6 +66,20 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void WidgetTranslationContext_UnescapesMarkupBracketsInDataText()
+    {
+        var node = VNode.CreateElement("span");
+        node.SetAttribute("data-text", "true");
+        node.SetAttribute("data-content", Markup.Escape("[F1] Queues"));
+        var context = new WidgetTranslationContext();
+
+        var widget = context.Translate(node);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 5));
+
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("[F1] Queues");
+    }
+
+    [Fact]
     public void WidgetTranslationContext_TranslatesFigletElementToSpectreWidgetFallback()
     {
         var node = VNode.CreateElement("div");
