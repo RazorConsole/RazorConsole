@@ -11,7 +11,8 @@ public sealed class StackWidget : Widget
         bool expand = false,
         string? key = null,
         IReadOnlyDictionary<string, string?>? attributes = null,
-        int zIndex = 0)
+        int zIndex = 0,
+        bool opaque = false)
         : base(vnodeId, key, attributes, children, zIndex)
     {
         if (gap < 0)
@@ -21,11 +22,15 @@ public sealed class StackWidget : Widget
 
         Gap = gap;
         Expand = expand;
+        Opaque = opaque;
     }
 
     public int Gap { get; }
 
     public bool Expand { get; }
+
+    /// <summary>Clears its bounds before painting, so overlays hide what lies beneath.</summary>
+    public bool Opaque { get; }
 
     protected override LayoutSize MeasureCore(LayoutContext context, BoxConstraints constraints)
     {
@@ -94,6 +99,11 @@ public sealed class StackWidget : Widget
 
     protected override void PaintCore(PaintContext context)
     {
+        if (Opaque)
+        {
+            context.Canvas.Fill(Bounds, ' ');
+        }
+
         foreach (var child in Children.OrderBy(child => child.ZIndex))
         {
             child.Paint(context);
