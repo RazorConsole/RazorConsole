@@ -102,6 +102,12 @@ legacy pipeline does not support. Spectre.Console-backed content and custom
 renderables remain supported; only the legacy layout pipeline is deprecated.
 See the [Widget Layout guide](website/src/docs/widget-layout.md) for details.
 
+Animated applications can opt into synchronized frame presentation with
+`options.ConsoleLiveDisplayOptions.EnableSynchronizedUpdates = true`.
+On terminals supporting DEC private mode 2026, all changed rows are presented
+together instead of showing partially drawn frames. This option is off by default;
+terminals without synchronized-output support may still show tearing.
+
 ## ✨ Key Features
 
 ### 🧩 **Component-Based Architecture**
