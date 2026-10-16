@@ -50,6 +50,7 @@
                         <Rows>
                             <Markup Content="@ScoreAndLevelText" Foreground="BrandGreen" Decoration="Decoration.Bold" />
                             <Markup Content="@LengthAndSpeedText" Foreground="Color.Grey70" />
+                            <Markup Content="@($"WIDTH {_game.SnakeWidth:00} · TRAPS {_game.WideningItems.Count:00}")" Foreground="WideningItemColor" />
                             <Markup Content="@PhaseText" Foreground="PhaseColor" Decoration="Decoration.Bold" />
                             <SpeedControl Value="@_game.BaseTickDelayMilliseconds" ValueChanged="SetSpeed" />
                             <Flex Width="25" Justify="FlexJustify.Center">
@@ -93,6 +94,7 @@
     private static readonly Color SnakeBody = new(38, 194, 129);
     private static readonly Color SnakeHead = new(143, 255, 182);
     private static readonly Color FoodColor = new(255, 92, 92);
+    private static readonly Color WideningItemColor = new(255, 190, 60);
     private readonly CancellationTokenSource _shutdown = new();
     private SnakeEngine _game = null!;
     private (int x, int y, Color color)[] _boardPixels = [];
@@ -120,11 +122,11 @@
 
     private string PromptText => _game.Phase switch
     {
-        GamePhase.Ready => "READY // USE KEYBOARD OR CLICK A DIRECTION TO LAUNCH",
+        GamePhase.Ready => "READY // RED: GROW LONGER · AMBER: GROW WIDER",
         GamePhase.Paused => "PAUSED // CLICK PAUSE OR PRESS SPACE TO RESUME",
         GamePhase.GameOver => "SIGNAL LOST // REBOOT TO RUN AGAIN",
         GamePhase.Won => "GRID OWNED // REBOOT TO RUN AGAIN",
-        _ => "LIVE // COLLECT THE RED CORES · DO NOT CROSS THE SIGNAL",
+        _ => "LIVE // COLLECT RED · AVOID AMBER WIDTH TRAPS",
     };
 
     private Color PromptColor => _game.Phase is GamePhase.GameOver ? FoodColor : BrandGreen;
@@ -253,27 +255,41 @@
     }
 
     private void RebuildBoard()
+        => _boardPixels = BuildBoard(_game);
+
+    internal static (int x, int y, Color color)[] BuildBoard(SnakeEngine game)
     {
-        var pixels = new (int x, int y, Color color)[_game.Width * _game.Height];
-        for (var y = 0; y < _game.Height; y++)
+        var pixels = new (int x, int y, Color color)[game.Width * game.Height];
+        for (var y = 0; y < game.Height; y++)
         {
-            for (var x = 0; x < _game.Width; x++)
+            for (var x = 0; x < game.Width; x++)
             {
-                pixels[(y * _game.Width) + x] = (x, y, BoardBackground);
+                pixels[(y * game.Width) + x] = (x, y, BoardBackground);
             }
         }
 
-        var food = _game.Food;
-        pixels[(food.Y * _game.Width) + food.X] = (food.X, food.Y, FoodColor);
-
-        for (var index = _game.Snake.Count - 1; index >= 0; index--)
+        if (game.Phase != GamePhase.Won)
         {
-            var segment = _game.Snake[index];
-            pixels[(segment.Y * _game.Width) + segment.X] =
-                (segment.X, segment.Y, index == 0 ? SnakeHead : SnakeBody);
+            var food = game.Food;
+            pixels[(food.Y * game.Width) + food.X] = (food.X, food.Y, FoodColor);
         }
 
-        _boardPixels = pixels;
+        foreach (var item in game.WideningItems)
+        {
+            pixels[(item.Y * game.Width) + item.X] = (item.X, item.Y, WideningItemColor);
+        }
+
+        var headCells = game.GetHeadCells().ToHashSet();
+        foreach (var cell in game.OccupiedCells)
+        {
+            if (cell.X >= 0 && cell.X < game.Width && cell.Y >= 0 && cell.Y < game.Height)
+            {
+                pixels[(cell.Y * game.Width) + cell.X] =
+                    (cell.X, cell.Y, headCells.Contains(cell) ? SnakeHead : SnakeBody);
+            }
+        }
+
+        return pixels;
     }
 
     public void Dispose()

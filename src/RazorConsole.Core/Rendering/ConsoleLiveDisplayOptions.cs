@@ -37,6 +37,16 @@ public sealed class ConsoleLiveDisplayOptions
     public bool UseAlternateScreenBuffer { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether each frame should use synchronized terminal output.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to false. Terminals supporting DEC private mode 2026 present the
+    /// whole frame together instead of displaying partially updated rows.
+    /// Terminals that do not support this mode may still display partial frames.
+    /// </remarks>
+    public bool EnableSynchronizedUpdates { get; set; }
+
+    /// <summary>
     /// Creates a new instance with default settings.
     /// </summary>
     public static ConsoleLiveDisplayOptions Default => new();
@@ -48,5 +58,6 @@ public sealed class ConsoleLiveDisplayOptions
             HideCursor = HideCursor,
             EnableMouseEvents = EnableMouseEvents,
             UseAlternateScreenBuffer = UseAlternateScreenBuffer,
+            EnableSynchronizedUpdates = EnableSynchronizedUpdates,
         };
 }

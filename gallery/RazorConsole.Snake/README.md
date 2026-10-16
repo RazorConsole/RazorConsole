@@ -14,6 +14,12 @@ dotnet run --project gallery/RazorConsole.Snake/RazorConsole.Snake.csproj -f net
 
 The game always uses RazorConsole's native WidgetLayout pipeline. Rendering-pipeline flags and environment variables are intentionally ignored.
 
+The game enables synchronized terminal updates (DEC private mode 2026), so a
+supporting terminal presents all rows of each frame together. This prevents a
+wide snake from appearing to move one row at a time. In terminals without this
+support, row-by-row tearing can still occur even though every row uses the same
+game tick.
+
 ## Controls
 
 - Arrow keys or `WASD`: steer
@@ -24,6 +30,29 @@ The game always uses RazorConsole's native WidgetLayout pipeline. Rendering-pipe
 - Mouse: click the direction, pause, reboot, and quit controls; click or drag the continuous speed slider, or wheel it in 1 ms increments
 
 The in-app footer also contains a terminal hyperlink to the [RazorConsole website](https://razorconsole.com/).
+
+## Food and width traps
+
+Red food adds one segment and 10 points. Each meal also spawns an amber width trap
+on a free cell, separate from the next food. Uneaten traps never expire: they
+accumulate as you collect food, making the board progressively harder to navigate.
+
+Touching an amber trap with the head consumes it and permanently widens every
+segment by two cells (width 1, 3, 5, ...), without adding length or points.
+Each segment occupies a square footprint; the display, food placement, pickups,
+wall collisions, and self-collisions all use that footprint. Movement is checked
+as a sweep from tail to head: every newly entered cell must be clear of the
+existing body, with no exemption based on segment distance. Crossing the
+centerline or widening into a wall or body also ends the game.
+The occupied cells are drawn once as a continuous body, with only the leading
+edge highlighted as the head, so wide horizontal and vertical motion do not
+produce overlapping colored blocks.
+
+The sidebar shows the current width and remaining traps. Restart clears all traps
+and resets the width. Resizing preserves the game unless a body footprint or trap
+would fall outside the new board, in which case it restarts. If no free cell remains
+for food, you win; if only one free cell remains after a meal, it is reserved for
+food rather than a new trap.
 
 ## Publish a Native AOT binary
 

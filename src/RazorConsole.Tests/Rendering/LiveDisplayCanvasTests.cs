@@ -43,6 +43,105 @@ public sealed class LiveDisplayCanvasTests
         captured[0].ShouldBeOfType<RazorConsole.Core.Renderables.DiffRenderable>();
     }
 
+    [Fact]
+    public void SynchronizedUpdates_WrapEachUpdateAndRefresh()
+    {
+        var captured = new List<IRenderable>();
+        var console = CreateConsole(captured);
+        using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions
+        {
+            UseAlternateScreenBuffer = false,
+            EnableSynchronizedUpdates = true,
+        }, console);
+
+        canvas.UpdateTarget(new TextRenderable("first"));
+        canvas.UpdateTarget(new TextRenderable("second"));
+        canvas.Refresh();
+
+        captured.Count.ShouldBe(9);
+        for (var index = 0; index < captured.Count; index += 3)
+        {
+            GetControlCode(captured[index]).ShouldBe("\u001b[?2026h");
+            captured[index + 1].ShouldBeOfType<RazorConsole.Core.Renderables.DiffRenderable>();
+            GetControlCode(captured[index + 2]).ShouldBe("\u001b[?2026l");
+        }
+    }
+
+    [Fact]
+    public void SynchronizedUpdates_EndFrameAndInvalidateWhenRenderingFails()
+    {
+        var captured = new List<IRenderable>();
+        var console = CreateConsole(captured);
+        var fail = true;
+        console.When(static console => console.Write(Arg.Any<RazorConsole.Core.Renderables.DiffRenderable>()))
+            .Do(call =>
+            {
+                if (fail)
+                {
+                    throw new IOException("Frame write failed.");
+                }
+            });
+        using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions
+        {
+            UseAlternateScreenBuffer = false,
+            EnableSynchronizedUpdates = true,
+        }, console);
+
+        Should.Throw<IOException>(() => canvas.UpdateTarget(new TextRenderable("hello")));
+        GetControlCode(captured[^1]).ShouldBe("\u001b[?2026l");
+
+        fail = false;
+        canvas.Refresh();
+        GetControlCode(captured[^3]).ShouldBe("\u001b[?2026h");
+        GetControlCode(captured[^1]).ShouldBe("\u001b[?2026l");
+        var output = string.Concat(captured[^2].Render(CreateRenderOptions(), 80)
+            .Select(segment => segment.Text));
+        output.ShouldContain(ED(2));
+        output.ShouldContain("hello");
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(5)]
+    public void MovingWideShape_AllRowsStayInsideOneSynchronizedFrame(int width)
+    {
+        using var writer = new StringWriter();
+        var console = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Ansi = AnsiSupport.Yes,
+            ColorSystem = ColorSystemSupport.NoColors,
+            Out = new AnsiConsoleOutput(writer),
+        });
+        using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions
+        {
+            UseAlternateScreenBuffer = false,
+            EnableSynchronizedUpdates = true,
+        }, console);
+        for (var step = 0; step < 3; step++)
+        {
+            writer.GetStringBuilder().Clear();
+            var row = new string(' ', step) + new string('#', 8);
+            canvas.UpdateTarget(new Rows(Enumerable.Range(0, width).Select(_ => new Text(row))));
+            var output = writer.ToString();
+            output.ShouldStartWith("\u001b[?2026h");
+            output.ShouldEndWith("\u001b[?2026l");
+            output.Split("\u001b[?2026h").Length.ShouldBe(2);
+            output.Split("\u001b[?2026l").Length.ShouldBe(2);
+            for (var y = 0; y < width; y++)
+            {
+                output.ShouldContain(CUP(y + 1, 1));
+            }
+        }
+    }
+
+    [Fact]
+    public void SynchronizedUpdates_ClonePreservesOptInAndDefaultIsOff()
+    {
+        ConsoleLiveDisplayOptions.Default.EnableSynchronizedUpdates.ShouldBeFalse();
+        var options = new ConsoleLiveDisplayOptions { EnableSynchronizedUpdates = true };
+        options.Clone().EnableSynchronizedUpdates.ShouldBeTrue();
+    }
+
     private static IAnsiConsole CreateConsole(List<IRenderable> captured)
     {
         var console = Substitute.For<IAnsiConsole>();

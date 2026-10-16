@@ -24,6 +24,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="RazorConsole.Tests" />
     <ProjectReference Include="..\..\src\RazorConsole.Core\RazorConsole.Core.csproj" />
   </ItemGroup>
 

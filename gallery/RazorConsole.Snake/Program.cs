@@ -16,6 +16,7 @@ var builder = Host.CreateDefaultBuilder(args)
                 options.EnableTerminalResizing = true;
                 options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
                 options.ConsoleLiveDisplayOptions.EnableMouseEvents = true;
+                options.ConsoleLiveDisplayOptions.EnableSynchronizedUpdates = true;
             });
         });
     });

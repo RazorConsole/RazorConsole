@@ -80,7 +80,22 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
     {
         try
         {
-            ansiConsole.Write(_current!);
+            try
+            {
+                if (options.EnableSynchronizedUpdates)
+                {
+                    ansiConsole.Write(new ControlCode(SM(SynchronizedOutput)));
+                }
+
+                ansiConsole.Write(_current!);
+            }
+            finally
+            {
+                if (options.EnableSynchronizedUpdates)
+                {
+                    ansiConsole.Write(new ControlCode(RM(SynchronizedOutput)));
+                }
+            }
         }
         catch
         {

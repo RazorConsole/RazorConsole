@@ -26,6 +26,7 @@ internal sealed class SnakeEngine
     private const int InitialLength = 5;
     private readonly Random _random;
     private readonly List<Cell> _snake = [];
+    private readonly HashSet<Cell> _wideningItems = [];
     private Direction _direction;
     private Direction _queuedDirection;
 
@@ -53,6 +54,41 @@ internal sealed class SnakeEngine
 
     public IReadOnlyList<Cell> Snake => _snake;
 
+    public IReadOnlySet<Cell> WideningItems => _wideningItems;
+
+    public int SnakeWidth { get; private set; }
+
+    public IReadOnlySet<Cell> OccupiedCells => _snake.SelectMany(GetSegmentCells).ToHashSet();
+
+    public IEnumerable<Cell> GetHeadCells()
+    {
+        var head = _snake[0];
+        var radius = SnakeWidth / 2;
+        for (var offset = -radius; offset <= radius; offset++)
+        {
+            yield return _direction switch
+            {
+                Direction.Up => new Cell(head.X + offset, head.Y - radius),
+                Direction.Right => new Cell(head.X + radius, head.Y + offset),
+                Direction.Down => new Cell(head.X + offset, head.Y + radius),
+                Direction.Left => new Cell(head.X - radius, head.Y + offset),
+                _ => throw new InvalidOperationException("The snake direction is invalid."),
+            };
+        }
+    }
+
+    public IEnumerable<Cell> GetSegmentCells(Cell segment)
+    {
+        var radius = SnakeWidth / 2;
+        for (var y = segment.Y - radius; y <= segment.Y + radius; y++)
+        {
+            for (var x = segment.X - radius; x <= segment.X + radius; x++)
+            {
+                yield return new Cell(x, y);
+            }
+        }
+    }
+
     public Cell Food { get; private set; }
 
     public GamePhase Phase { get; private set; }
@@ -76,6 +112,8 @@ internal sealed class SnakeEngine
     public void Restart()
     {
         _snake.Clear();
+        _wideningItems.Clear();
+        SnakeWidth = 1;
         var centerX = Width / 2;
         var centerY = Height / 2;
         for (var offset = 0; offset < InitialLength; offset++)
@@ -109,7 +147,8 @@ internal sealed class SnakeEngine
 
         Width = width;
         Height = height;
-        if (_snake.Any(IsOutside))
+        if (_snake.Any(segment => GetSegmentCells(segment).Any(IsOutside))
+            || _wideningItems.Any(IsOutside))
         {
             Restart();
             return;
@@ -164,28 +203,40 @@ internal sealed class SnakeEngine
             _ => head,
         };
 
-        var ateFood = next == Food;
-        if (IsOutside(next) || OccupiesSnake(next, includeTail: ateFood))
+        // Expanding the head can reach more items, so resolve the entire pickup chain.
+        int collectedItems;
+        while ((collectedItems = _wideningItems.RemoveWhere(item => Covers(next, item))) > 0)
+        {
+            SnakeWidth += 2 * collectedItems;
+        }
+
+        var ateFood = Covers(next, Food);
+        var nextSnake = new List<Cell>(_snake.Count + 1) { next };
+        nextSnake.AddRange(_snake);
+        if (!ateFood)
+        {
+            nextSnake.RemoveAt(nextSnake.Count - 1);
+        }
+
+        if (HasCollision(nextSnake))
         {
             Phase = GamePhase.GameOver;
             return;
         }
 
-        _snake.Insert(0, next);
+        _snake.Clear();
+        _snake.AddRange(nextSnake);
         if (!ateFood)
         {
-            _snake.RemoveAt(_snake.Count - 1);
             return;
         }
 
         Score += 10;
-        if (_snake.Count == Width * Height)
-        {
-            Phase = GamePhase.Won;
-            return;
-        }
-
         PlaceFood();
+        if (Phase != GamePhase.Won && TryFindEmptyCell(out var item, reserveFood: true))
+        {
+            _wideningItems.Add(item);
+        }
     }
 
     private bool IsOutside(Cell cell)
@@ -196,7 +247,7 @@ internal sealed class SnakeEngine
         var count = includeTail ? _snake.Count : _snake.Count - 1;
         for (var index = 0; index < count; index++)
         {
-            if (_snake[index] == cell)
+            if (Covers(_snake[index], cell))
             {
                 return true;
             }
@@ -207,18 +258,69 @@ internal sealed class SnakeEngine
 
     private void PlaceFood()
     {
+        if (TryFindEmptyCell(out var food))
+        {
+            Food = food;
+        }
+        else
+        {
+            Phase = GamePhase.Won;
+        }
+    }
+
+    private bool TryFindEmptyCell(out Cell cell, bool reserveFood = false)
+    {
         var area = Width * Height;
         var start = _random.Next(area);
         for (var offset = 0; offset < area; offset++)
         {
             var candidateIndex = (start + offset) % area;
             var candidate = new Cell(candidateIndex % Width, candidateIndex / Width);
-            if (!OccupiesSnake(candidate, includeTail: true))
+            if ((!reserveFood || candidate != Food)
+                && !_wideningItems.Contains(candidate)
+                && !OccupiesSnake(candidate, includeTail: true))
             {
-                Food = candidate;
-                return;
+                cell = candidate;
+                return true;
             }
         }
+
+        cell = default;
+        return false;
+    }
+
+    private bool Covers(Cell segment, Cell cell)
+        => Math.Abs(segment.X - cell.X) <= SnakeWidth / 2
+            && Math.Abs(segment.Y - cell.Y) <= SnakeWidth / 2;
+
+    private bool HasCollision(IReadOnlyList<Cell> snake)
+    {
+        var occupied = new HashSet<Cell>();
+        var centers = new HashSet<Cell>();
+        var previousFootprint = new HashSet<Cell>();
+        for (var index = snake.Count - 1; index >= 0; index--)
+        {
+            var footprint = GetSegmentCells(snake[index]).ToHashSet();
+            if (!centers.Add(snake[index]) || footprint.Any(IsOutside))
+            {
+                return true;
+            }
+
+            // Sweep from tail to head. Only the immediately preceding footprint
+            // is shared motion; entering any previously occupied body cell is a hit.
+            foreach (var cell in footprint)
+            {
+                if (occupied.Contains(cell) && !previousFootprint.Contains(cell))
+                {
+                    return true;
+                }
+            }
+
+            occupied.UnionWith(footprint);
+            previousFootprint = footprint;
+        }
+
+        return false;
     }
 
     private static bool IsOpposite(Direction first, Direction second)

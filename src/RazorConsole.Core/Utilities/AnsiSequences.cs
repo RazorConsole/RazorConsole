@@ -36,6 +36,11 @@ public static class AnsiSequences
     public const int DECALTSCR = 1049;
 
     /// <summary>
+    /// Synchronized output mode, deferring presentation until the frame is complete.
+    /// </summary>
+    public const int SynchronizedOutput = 2026;
+
+    /// <summary>
     /// This control function selects one or more character attributes at the same time.
     /// </summary>
     /// <remarks>
