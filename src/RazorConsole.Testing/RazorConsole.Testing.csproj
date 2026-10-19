@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\RazorConsole.Core\RazorConsole.Core.csproj" />
+    <InternalsVisibleTo Include="RazorConsole.Tests" />
+  </ItemGroup>
+  <Import Project="$(RepoRoot)/nuget/nuget-package.props" />
+
+  <!-- Pack this package's own README instead of the repository README. -->
+  <ItemGroup>
+    <None Remove="$(RepoRoot)/README.md" />
+    <None Include="README.md" Pack="true" PackagePath="." />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <Title>RazorConsole Testing</Title>
+    <Description>Test hosts for RazorConsole: mount components headlessly at a fixed terminal size, or run a whole console app in a real pseudoterminal (ConPTY on Windows, a POSIX PTY on Linux and macOS); send keyboard, mouse and raw terminal input, and inspect rendered frames. Works with any test framework.</Description>
+    <PackageTags>$(PackageTags);testing</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!--
+    RazorConsole.Testing is compiled against RazorConsole.Core internals (InternalsVisibleTo),
+    so it only works with the exact Core build it was packed with. NuGet writes project
+    references as ">= version"; pin the dependency to "[version]" instead.
+  -->
+  <Target Name="PinCoreDependencyVersion" AfterTargets="_GetProjectReferenceVersions">
+    <ItemGroup>
+      <_ProjectReferencesWithVersions Update="@(_ProjectReferencesWithVersions)"
+                                      ProjectVersion="[%(ProjectVersion)]" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Fail the build if the pin above stops applying (for example, after an SDK update). -->
+  <Target Name="VerifyCoreDependencyVersionIsExact" AfterTargets="GenerateNuspec"
+          Condition="'$(IsPackable)' == 'true'">
+    <ItemGroup>
+      <_RazorConsoleTestingNuspec Include="@(NuGetPackOutput)" Condition="'%(Extension)' == '.nuspec'" />
+    </ItemGroup>
+
+    <XmlPeek XmlInputPath="%(_RazorConsoleTestingNuspec.FullPath)"
+             Query="//*[local-name()='dependency' and @id='RazorConsole.Core']/@version">
+      <Output TaskParameter="Result" ItemName="_RazorConsoleTestingCoreDependency" />
+    </XmlPeek>
+
+    <ItemGroup>
+      <_RazorConsoleTestingInexactCoreDependency Include="@(_RazorConsoleTestingCoreDependency)"
+                                                 Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('%(_RazorConsoleTestingCoreDependency.Identity)', '^\[[^,\]]+\]$'))" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_RazorConsoleTestingPackageInvalid Condition="'@(_RazorConsoleTestingCoreDependency)' == '' Or '@(_RazorConsoleTestingInexactCoreDependency)' != ''">true</_RazorConsoleTestingPackageInvalid>
+    </PropertyGroup>
+
+    <!-- The package is already written at this point; do not leave an invalid one behind. -->
+    <Delete Files="@(NuGetPackOutput)" Condition="'$(_RazorConsoleTestingPackageInvalid)' == 'true'" />
+    <Error Condition="'@(_RazorConsoleTestingCoreDependency)' == ''"
+           Text="RazorConsole.Testing: no RazorConsole.Core dependency was found in the generated nuspec." />
+    <Error Condition="'@(_RazorConsoleTestingInexactCoreDependency)' != ''"
+           Text="RazorConsole.Testing: the RazorConsole.Core dependency must be an exact version range like [1.0.0], but the nuspec contains '@(_RazorConsoleTestingInexactCoreDependency->Distinct())'. Check the PinCoreDependencyVersion target." />
+  </Target>
+
+</Project>

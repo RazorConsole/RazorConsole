@@ -60,6 +60,11 @@ export const docTopicIds = [
         filePath: "website/src/docs/vdom-debugging.md",
     },
     {
+        id: "testing",
+        title: "Testing",
+        filePath: "website/src/docs/testing.md",
+    },
+    {
         id: "component-gallery",
         title: "Component Gallery",
         filePath: "website/src/docs/component-gallery.md",

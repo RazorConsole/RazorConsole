@@ -5,10 +5,11 @@ using Microsoft.Extensions.DependencyInjection;
 using RazorConsole.Core.Input;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Gallery.Components;
-using RazorConsole.Tests.Integration.Infrastructure;
+using RazorConsole.Testing;
 
 namespace RazorConsole.Tests.Integration;
 
+[Collection(GalleryWheelStressCollection.Name)]
 public sealed class GallerySampleTests
 {
     [Fact]
@@ -25,7 +26,7 @@ public sealed class GallerySampleTests
         await terminal.SendMouseAsync(new(TerminalMouseKind.Up, 99, 39), TestContext.Current.CancellationToken);
         await terminal.WaitUntilAsync(s => s.ContainsText("Position: 28, 7 · Ready"), cancellationToken: TestContext.Current.CancellationToken);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Move, 0, 0), TestContext.Current.CancellationToken);
-        terminal.Snapshot.ContainsText("Position: 28, 7 · Ready").ShouldBeTrue();
+        terminal.CurrentFrame.ContainsText("Position: 28, 7 · Ready").ShouldBeTrue();
         await terminal.SendTerminalInputAsync("\u001b[D\u001b[A", TestContext.Current.CancellationToken);
         await terminal.WaitUntilAsync(s => s.ContainsText("Position: 27, 6"), cancellationToken: TestContext.Current.CancellationToken);
         await Click(terminal, "drag-reset");
@@ -36,7 +37,7 @@ public sealed class GallerySampleTests
     public async Task SyntaxBlocks_StackVertically_AndTableBorderHasContrast()
     {
         await using var syntax = await Start("syntax", 100, 120);
-        var lines = syntax.Snapshot.ScreenText.Split('\n');
+        var lines = syntax.CurrentFrame.ScreenText.Split('\n');
         var previous = -1;
         foreach (var title in new[] { "C#", "TypeScript", "Python", "SQL", "JSON", "Razor" })
         {
@@ -47,11 +48,11 @@ public sealed class GallerySampleTests
 
         await using var table = await Start("table");
         var corners = new List<Spectre.Console.Color>();
-        for (var y = 0; y < table.Snapshot.Height; y++)
+        for (var y = 0; y < table.CurrentFrame.Height; y++)
         {
-            for (var x = 27; x < table.Snapshot.Width; x++)
+            for (var x = 27; x < table.CurrentFrame.Width; x++)
             {
-                var cell = table.Snapshot[x, y];
+                var cell = table.CurrentFrame[x, y];
                 if (cell.Text == "╭")
                 {
                     corners.Add(cell.Style?.Foreground ?? Spectre.Console.Color.Default);
@@ -71,10 +72,15 @@ public sealed class GallerySampleTests
         timeout.CancelAfter(TimeSpan.FromSeconds(60));
         var navigation = new ConsoleNavigationManager();
         navigation.NavigateTo("scrollable");
-        await using var terminal = await TestTerminal.StartAsync<App>(100, 40,
-            cancellationToken: timeout.Token,
-            configureServices: services => services.AddSingleton<NavigationManager>(navigation),
-            captureTerminalOutput: true);
+        await using var terminal = await HeadlessTerminal.StartAsync<App>(
+            new HeadlessTerminalOptions
+            {
+                Width = 100,
+                Height = 40,
+                ConfigureServices = services => services.AddSingleton<NavigationManager>(navigation),
+                CaptureAnsiOutput = true,
+            },
+            timeout.Token);
         await Click(terminal, "scrollable-code");
         for (var batch = 0; batch < 20; batch++)
         {
@@ -94,9 +100,9 @@ public sealed class GallerySampleTests
         await Click(terminal, "gallery-search");
         await terminal.SendTerminalInputAsync("border", timeout.Token);
         await terminal.WaitUntilAsync(s => s.ContainsText("border") && !s.ContainsText("Small Charts"), cancellationToken: timeout.Token);
-        terminal.TerminalOutput.ShouldNotBeEmpty();
-        terminal.TerminalOutput.ShouldNotContain("\u001b[6n");
-        terminal.TerminalOutput.ShouldNotContain("\u001b[3J");
+        terminal.AnsiOutput.ShouldNotBeEmpty();
+        terminal.AnsiOutput.ShouldNotContain("\u001b[6n");
+        terminal.AnsiOutput.ShouldNotContain("\u001b[3J");
     }
     [Theory]
     [InlineData("align", "HorizontalAlignment")]
@@ -141,17 +147,17 @@ public sealed class GallerySampleTests
             // never moves) sits at its literal top/left attributes (9, 0), i.e. anchored to
             // the document root and not offset by the Preview pane (whose own hook,
             // gallery-main, sits at left=28, top=2).
-            terminal.Snapshot.ContainsText("Z-Index").ShouldBeTrue(terminal.DumpDiagnostics());
-            terminal.Snapshot.ContainsText("Layer C").ShouldBeTrue(terminal.DumpDiagnostics());
+            terminal.CurrentFrame.ContainsText("Z-Index").ShouldBeTrue(terminal.DumpDiagnostics());
+            terminal.CurrentFrame.ContainsText("Layer C").ShouldBeTrue(terminal.DumpDiagnostics());
             var layerC = terminal.GetLayout("zindex-layer-c");
             layerC.Top!.Value.ShouldBe(9);
             layerC.Left!.Value.ShouldBe(0);
         }
         else
         {
-            terminal.Snapshot.ContainsText(" ● Preview").ShouldBeTrue(terminal.DumpDiagnostics());
+            terminal.CurrentFrame.ContainsText(" ● Preview").ShouldBeTrue(terminal.DumpDiagnostics());
         }
-        terminal.Snapshot.ContainsText("Ctrl+C quit").ShouldBeTrue();
+        terminal.CurrentFrame.ContainsText("Ctrl+C quit").ShouldBeTrue();
         await Click(terminal, $"{route}-code");
         await terminal.WaitUntilAsync(s => s.ContainsText(" ● Code") && s.ContainsText(code), cancellationToken: TestContext.Current.CancellationToken);
         terminal.Resize(100, 35);
@@ -192,7 +198,7 @@ public sealed class GallerySampleTests
         await terminal.WaitUntilAsync(s => s.ContainsText("Selected: Select"), cancellationToken: TestContext.Current.CancellationToken);
         await Click(terminal, "select-reset");
         await ClickText(terminal, "Align");
-        terminal.Snapshot.ContainsText("Selected: Align").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Selected: Align").ShouldBeTrue(terminal.DumpDiagnostics());
     }
 
     [Fact]
@@ -210,8 +216,8 @@ public sealed class GallerySampleTests
     public async Task ZIndex_ModalCloses_AndResetRestoresLayers()
     {
         await using var terminal = await Start("zindex");
-        terminal.Snapshot.ContainsText("Layer A").ShouldBeTrue(terminal.DumpDiagnostics());
-        terminal.Snapshot.ContainsText("Layer E").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Layer A").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Layer E").ShouldBeTrue(terminal.DumpDiagnostics());
         await Click(terminal, "zindex-swap");
         await terminal.WaitUntilAsync(s => s.ContainsText("Order swapped"), cancellationToken: TestContext.Current.CancellationToken);
         await Click(terminal, "zindex-modal");
@@ -219,7 +225,7 @@ public sealed class GallerySampleTests
         await Click(terminal, "zindex-close");
         await terminal.WaitUntilAsync(s => !s.ContainsText("Close modal"), cancellationToken: TestContext.Current.CancellationToken);
         await Click(terminal, "zindex-reset");
-        terminal.Snapshot.ContainsText("Last action: None").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Last action: None").ShouldBeTrue(terminal.DumpDiagnostics());
     }
 
     [Fact]
@@ -243,7 +249,7 @@ public sealed class GallerySampleTests
         await ClickText(terminal, "Toggle");
         await terminal.WaitUntilAsync(s => s.ContainsText("Button switched on."), cancellationToken: TestContext.Current.CancellationToken);
         await Click(terminal, "textbutton-reset");
-        terminal.Snapshot.ContainsText("Button is off.").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Button is off.").ShouldBeTrue(terminal.DumpDiagnostics());
     }
 
     // Routes whose absolute overlays are intentionally anchored to the whole screen rather
@@ -251,8 +257,8 @@ public sealed class GallerySampleTests
     // exception below for why that changes which assertion applies.
     private static readonly HashSet<string> RootAnchoredOverlayRoutes = new(StringComparer.Ordinal) { "zindex" };
 
-    private static Task<TestTerminal> Start(string route, int width = 100, int height = 40)
-        => TestTerminal.StartAsync<App>(width, height, cancellationToken: TestContext.Current.CancellationToken,
+    private static Task<HeadlessTerminal> Start(string route, int width = 100, int height = 40)
+        => HeadlessTerminal.StartAsync<App>(width, height, cancellationToken: TestContext.Current.CancellationToken,
             configureServices: services =>
             {
                 var navigation = new ConsoleNavigationManager();
@@ -260,15 +266,15 @@ public sealed class GallerySampleTests
                 services.AddSingleton<NavigationManager>(navigation);
             });
 
-    private static async Task Click(TestTerminal terminal, string hook)
+    private static async Task Click(HeadlessTerminal terminal, string hook)
     {
         var box = terminal.GetLayout(hook);
-        await SendClick(terminal, box.Left!.Value, box.Top!.Value);
+        await terminal.ClickAsync(box.Left!.Value, box.Top!.Value, TestContext.Current.CancellationToken);
     }
 
-    private static async Task ClickText(TestTerminal terminal, string text, bool wheel = false)
+    private static async Task ClickText(HeadlessTerminal terminal, string text, bool wheel = false)
     {
-        var lines = terminal.Snapshot.ScreenText.Split('\n');
+        var lines = terminal.CurrentFrame.ScreenText.Split('\n');
         for (var y = 0; y < lines.Length; y++)
         {
             var x = lines[y].IndexOf(text, Math.Min(27, lines[y].Length), StringComparison.Ordinal);
@@ -282,16 +288,10 @@ public sealed class GallerySampleTests
             }
             else
             {
-                await SendClick(terminal, x, y);
+                await terminal.ClickAsync(x, y, TestContext.Current.CancellationToken);
             }
             return;
         }
         Assert.Fail($"Text '{text}' not found.\n{terminal.DumpDiagnostics()}");
-    }
-
-    private static async Task SendClick(TestTerminal terminal, int x, int y)
-    {
-        await terminal.SendMouseAsync(new(TerminalMouseKind.Down, x, y), TestContext.Current.CancellationToken);
-        await terminal.SendMouseAsync(new(TerminalMouseKind.Up, x, y), TestContext.Current.CancellationToken);
     }
 }

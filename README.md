@@ -129,6 +129,9 @@ For a full list of components and usage details, see the [Built-in Components](#
 ### ⚡ **Hot Reload Support**
 Experience rapid development with built-in hot reload support. See your UI changes instantly without restarting your application.
 
+### 🧪 **Testing**
+Test components headlessly or run your whole app in a real pseudoterminal with the `RazorConsole.Testing` package. See the [Testing guide](https://razorconsole.com/blog/testing/).
+
 ### 🎪 **Interactive Component Gallery**
 Explore all components hands-on with the included interactive gallery tool. Install globally and run `razorconsole-gallery` to see live examples of every component in action.
 

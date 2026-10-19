@@ -1,7 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Input;
-using RazorConsole.Tests.Integration.Infrastructure;
+using RazorConsole.Testing;
 using Tutorial.Components.Chapters;
 
 namespace RazorConsole.Tests.Integration;
@@ -12,7 +12,7 @@ public sealed class TutorialChapterTests
     public async Task StateAndEvents_UpdatesStateFromFocusedButtons()
     {
         await using var terminal = await Start<StateAndEvents>(70, 14);
-        terminal.Snapshot.ContainsText("Count: 0").ShouldBeTrue();
+        terminal.CurrentFrame.ContainsText("Count: 0").ShouldBeTrue();
 
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
         await terminal.WaitUntilAsync(
@@ -73,9 +73,9 @@ public sealed class TutorialChapterTests
         await using var terminal = await Start<WidgetLayoutAndResize>(80, 28);
         terminal.Resize(44, 32);
 
-        terminal.Snapshot.Width.ShouldBe(44);
-        terminal.Snapshot.ContainsText("Build").ShouldBeTrue();
-        terminal.Snapshot.ContainsText("Warnings").ShouldBeTrue();
+        terminal.CurrentFrame.Width.ShouldBe(44);
+        terminal.CurrentFrame.ContainsText("Build").ShouldBeTrue();
+        terminal.CurrentFrame.ContainsText("Warnings").ShouldBeTrue();
     }
 
     [Fact]
@@ -117,14 +117,14 @@ public sealed class TutorialChapterTests
     {
         await using var terminal = await Start<CompleteApp>(80, 28);
 
-        terminal.Snapshot.ContainsText("Task Board").ShouldBeTrue();
-        terminal.Snapshot.ContainsText("1/3 complete").ShouldBeTrue();
-        terminal.Snapshot.ContainsText("Ship an app").ShouldBeTrue();
+        terminal.CurrentFrame.ContainsText("Task Board").ShouldBeTrue();
+        terminal.CurrentFrame.ContainsText("1/3 complete").ShouldBeTrue();
+        terminal.CurrentFrame.ContainsText("Ship an app").ShouldBeTrue();
     }
 
-    private static Task<TestTerminal> Start<TComponent>(int width, int height)
+    private static Task<HeadlessTerminal> Start<TComponent>(int width, int height)
         where TComponent : Microsoft.AspNetCore.Components.IComponent
-        => TestTerminal.StartAsync<TComponent>(
+        => HeadlessTerminal.StartAsync<TComponent>(
             width,
             height,
             cancellationToken: TestContext.Current.CancellationToken);

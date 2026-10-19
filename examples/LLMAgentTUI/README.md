@@ -140,7 +140,7 @@ they do not overwrite the developer's clipboard or launch a browser.
 - Core `TextArea`, `TextSelectionState`, mouse routing and terminal actions:
   production interaction behavior shared with other apps.
 
-Framework behavior is not mocked. The TestTerminal mounts this application's
+Framework behavior is not mocked. The HeadlessTerminal mounts this application's
 real root component and sends input through the production event managers.
 Live execution no longer uses IChatService. The framework manages conversation
 history and tool invocation. See [AGENT-TOOLS.md](AGENT-TOOLS.md) for the pinned
@@ -166,7 +166,7 @@ the exact terminal, font, font size, display scale, palette and cursor rendering
 must also be matched before comparing screenshots. Other conversation states
 still require their own reference captures.
 
-TestTerminal exposes immutable cell/style snapshots, frame history, focus and
+HeadlessTerminal exposes immutable cell/style snapshots, frame history, focus and
 named widget bounds. `DumpDiagnostics()` also includes the last mouse dispatch.
 The scripted session exposes an event log; tests control advancement explicitly.
 
@@ -175,18 +175,17 @@ key decoding; SGR mouse reports never pass through `Console.ReadKey`. Non-mouse
 applications retain the existing console input path. The decoder preserves partial
 packets across reads and separates keyboard and mouse events in arrival order.
 
-Optional native Unix input regression (no tmux, no model network access):
+Native terminal input regression (no tmux, no model network access), part of the
+regular test suite on Linux, macOS and Windows:
 
 ```bash
-dotnet build examples/LLMAgentTUI -c Release -f net10.0
-uv run --with pyte python tests/e2e/terminal-input-pty.py
+dotnet test src/RazorConsole.Tests -- --filter-class RazorConsole.Tests.E2E.TerminalInputPtyTests
 ```
 
-This launches the real application in a PTY with `--mock`, sends 201 wheel reports
+`TerminalInputPtyTests` launches the real application in a pseudoterminal with
+`--mock` through `RazorConsole.Testing.PtyTerminal`, sends 201 wheel reports
 (including delayed fragments), checks draft preservation, exercises arrow/Tab menu
-selection, and checks that Ctrl+C disables mouse reporting. Pass `--dotnet PATH`
-if the SDK is not on PATH. Linux still needs native validation; current native
-execution evidence is macOS, in addition to the cross-target .NET unit tests.
+selection, and checks that Ctrl+C disables mouse reporting.
 
 Use `--framework net11.0` with the PTY script to exercise the .NET 11 build
 (build the example with `-c Release -f net11.0` first).

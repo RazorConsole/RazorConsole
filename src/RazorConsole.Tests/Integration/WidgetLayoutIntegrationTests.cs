@@ -1,8 +1,8 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Layout;
+using RazorConsole.Testing;
 using RazorConsole.Tests.Integration.Fixtures;
-using RazorConsole.Tests.Integration.Infrastructure;
 
 namespace RazorConsole.Tests.Integration;
 
@@ -11,12 +11,12 @@ public sealed class WidgetLayoutIntegrationTests
     [Fact]
     public async Task ComponentTree_RendersToExactCellsAndPublishesWidgetBounds()
     {
-        await using var terminal = await TestTerminal.StartAsync<WidgetLayoutIntegrationApp>(
+        await using var terminal = await HeadlessTerminal.StartAsync<WidgetLayoutIntegrationApp>(
             40,
             10,
             cancellationToken: TestContext.Current.CancellationToken);
 
-        var snapshot = terminal.Snapshot;
+        var snapshot = terminal.CurrentFrame;
 
         snapshot.Width.ShouldBe(40);
         snapshot.Height.ShouldBe(10);
@@ -32,14 +32,14 @@ public sealed class WidgetLayoutIntegrationTests
     [Fact]
     public async Task Resize_ReflowsComponentAndCapturesBeforeAndAfterFrames()
     {
-        await using var terminal = await TestTerminal.StartAsync<WidgetLayoutIntegrationApp>(
+        await using var terminal = await HeadlessTerminal.StartAsync<WidgetLayoutIntegrationApp>(
             40,
             10,
             cancellationToken: TestContext.Current.CancellationToken);
-        var before = terminal.Snapshot;
+        var before = terminal.CurrentFrame;
 
         terminal.Resize(30, 8);
-        var after = terminal.Snapshot;
+        var after = terminal.CurrentFrame;
 
         before.GetLayout("content").ShouldMatch(new LayoutRect(12, 0, 28, 5));
         after.Width.ShouldBe(30);
@@ -53,7 +53,7 @@ public sealed class WidgetLayoutIntegrationTests
     [Fact]
     public async Task KeyboardActivation_RendersUpdatedComponentState()
     {
-        await using var terminal = await TestTerminal.StartAsync<InteractiveWidgetIntegrationApp>(
+        await using var terminal = await HeadlessTerminal.StartAsync<InteractiveWidgetIntegrationApp>(
             30,
             8,
             cancellationToken: TestContext.Current.CancellationToken);
@@ -74,7 +74,7 @@ public sealed class WidgetLayoutIntegrationTests
     [Fact]
     public async Task Diagnostics_ExposeScreenFocusAndNamedLayouts()
     {
-        await using var terminal = await TestTerminal.StartAsync<WidgetLayoutIntegrationApp>(
+        await using var terminal = await HeadlessTerminal.StartAsync<WidgetLayoutIntegrationApp>(
             40,
             10,
             cancellationToken: TestContext.Current.CancellationToken);

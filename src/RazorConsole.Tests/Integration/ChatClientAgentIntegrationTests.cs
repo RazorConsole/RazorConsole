@@ -6,7 +6,7 @@ using LLMAgentTUI.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using RazorConsole.Core.Input;
-using RazorConsole.Tests.Integration.Infrastructure;
+using RazorConsole.Testing;
 
 namespace RazorConsole.Tests.Integration;
 
@@ -56,8 +56,13 @@ public sealed class ChatClientAgentIntegrationTests
         var agent = new ChatClientAgent(client, name: "Test agent", tools: [function]);
         await using var controller = new ChatClientAgentController(agent, "test-model", "/workspace");
         var view = new AgentViewState();
-        await using var terminal = await TestTerminal.StartAsync<App>(100, 40,
-            new Dictionary<string, object?> { [nameof(App.Session)] = controller, [nameof(App.ViewState)] = view },
+        await using var terminal = await HeadlessTerminal.StartAsync<App>(
+            new HeadlessTerminalOptions
+            {
+                Width = 100,
+                Height = 40,
+                Parameters = new Dictionary<string, object?> { [nameof(App.Session)] = controller, [nameof(App.ViewState)] = view },
+            },
             TestContext.Current.CancellationToken);
         view.Draft.SetText("Inspect a file");
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
@@ -91,8 +96,13 @@ public sealed class ChatClientAgentIntegrationTests
         using var client = new TestChatClient(new ChatMessage(ChatRole.Assistant, "partial")) { BlockAfterContent = true };
         await using var controller = new ChatClientAgentController(new ChatClientAgent(client), "test-model", "/workspace");
         var view = new AgentViewState();
-        await using var terminal = await TestTerminal.StartAsync<App>(100, 40,
-            new Dictionary<string, object?> { [nameof(App.Session)] = controller, [nameof(App.ViewState)] = view },
+        await using var terminal = await HeadlessTerminal.StartAsync<App>(
+            new HeadlessTerminalOptions
+            {
+                Width = 100,
+                Height = 40,
+                Parameters = new Dictionary<string, object?> { [nameof(App.Session)] = controller, [nameof(App.ViewState)] = view },
+            },
             TestContext.Current.CancellationToken);
         view.Draft.SetText("Start streaming");
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);

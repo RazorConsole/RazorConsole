@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RazorConsole.Core\RazorConsole.Core.csproj" />
+    <ProjectReference Include="..\RazorConsole.Testing\RazorConsole.Testing.csproj" />
+    <ProjectReference Include="..\RazorConsole.Tests.PtyApp\RazorConsole.Tests.PtyApp.csproj" />
     <ProjectReference Include="..\..\gallery\RazorConsole.Gallery\RazorConsole.Gallery.csproj" />
     <ProjectReference Include="..\..\gallery\RazorConsole.Snake\RazorConsole.Snake.csproj" />
     <ProjectReference Include="..\..\examples\LLMAgentTUI\LLMAgentTUI.csproj" />

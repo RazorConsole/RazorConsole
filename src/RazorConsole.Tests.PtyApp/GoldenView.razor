@@ -1,0 +1,15 @@
+@* Rendered both by PtyTerminal (through this app) and by HeadlessTerminal; the cells must match. *@
+<Rows>
+    <Markup Content="Golden view" Foreground="@Color.Yellow" Decoration="@Decoration.Bold" />
+    <Markup Content="Underlined italic" Decoration="@(Decoration.Underline | Decoration.Italic)" />
+    <Markup Content="True color on blue" Foreground="@(new Color(255, 128, 0))" Background="@Color.Blue" />
+    <Markup Content="Palette 208" Foreground="@Color.FromInt32(208)" />
+    <Markup Content="Wide: 漢字テスト" Foreground="@Color.Green" />
+    <Panel Title="Panel" Border="@BoxBorder.Rounded" BorderColor="@Color.Aqua" Expand="false">
+        <Markup Content="Inside a rounded panel" Foreground="@Color.Red" />
+    </Panel>
+    <Columns>
+        <Markup Content="Left" Background="@Color.Grey" />
+        <Markup Content="Right" Decoration="@Decoration.Strikethrough" />
+    </Columns>
+</Rows>

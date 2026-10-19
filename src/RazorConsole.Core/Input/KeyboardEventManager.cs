@@ -436,13 +436,13 @@ internal sealed class KeyboardEventManager
         return !char.IsControl(keyInfo.KeyChar) && keyInfo.KeyChar != '\0';
     }
 
-    private static bool ShouldBatchInput(ConsoleKeyInfo keyInfo)
+    internal static bool ShouldBatchInput(ConsoleKeyInfo keyInfo)
     {
         // Only batch regular text input characters, not special keys
         return (!char.IsControl(keyInfo.KeyChar) && keyInfo.KeyChar != '\0') || keyInfo.Key == ConsoleKey.Backspace;
     }
 
-    private bool IsManagedFocus()
+    internal bool IsManagedFocus()
         => _focusManager.TryGetFocusedTarget(out var target) && target is not null
             && target.Attributes.TryGetValue("data-input-managed", out var managed) && managed == "true";
 

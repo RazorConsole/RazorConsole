@@ -3,7 +3,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using RazorConsole.Snake.Components;
-using RazorConsole.Tests.Integration.Infrastructure;
+using RazorConsole.Testing;
 
 namespace RazorConsole.Tests.Integration;
 
@@ -14,14 +14,14 @@ public sealed class SnakeAppTests
     [InlineData(100, 40)]
     public async Task WidthAndTraps_FitAlongsideExistingControls(int width, int height)
     {
-        await using var terminal = await TestTerminal.StartAsync<App>(width, height,
+        await using var terminal = await HeadlessTerminal.StartAsync<App>(width, height,
             cancellationToken: TestContext.Current.CancellationToken,
             configureServices: services => services.AddSingleton(Substitute.For<IHostApplicationLifetime>()));
 
-        terminal.Snapshot.ContainsText("WIDTH 01").ShouldBeTrue(terminal.DumpDiagnostics());
-        terminal.Snapshot.ContainsText("TRAPS 00").ShouldBeTrue(terminal.DumpDiagnostics());
-        terminal.Snapshot.ContainsText("REBOOT").ShouldBeTrue(terminal.DumpDiagnostics());
-        terminal.Snapshot.ContainsText("QUIT").ShouldBeTrue(terminal.DumpDiagnostics());
-        terminal.Snapshot.ContainsText("razorconsole.com").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("WIDTH 01").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("TRAPS 00").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("REBOOT").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("QUIT").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("razorconsole.com").ShouldBeTrue(terminal.DumpDiagnostics());
     }
 }

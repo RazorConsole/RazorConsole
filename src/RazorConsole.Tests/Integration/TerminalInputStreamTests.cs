@@ -3,7 +3,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
-using RazorConsole.Tests.Integration.Infrastructure;
+using RazorConsole.Testing;
 
 namespace RazorConsole.Tests.Integration;
 
@@ -63,9 +63,14 @@ public sealed class TerminalInputStreamTests
         events.ShouldHaveSingleItem().ShouldBeAssignableTo<KeyboardEventArgs>().Key.ShouldBe("Escape");
     }
 
-    private static Task<TestTerminal> StartAsync(List<EventArgs> events)
-        => TestTerminal.StartAsync<InputSurface>(20, 4,
-            new Dictionary<string, object?> { [nameof(InputSurface.Events)] = events },
+    private static Task<HeadlessTerminal> StartAsync(List<EventArgs> events)
+        => HeadlessTerminal.StartAsync<InputSurface>(
+            new HeadlessTerminalOptions
+            {
+                Width = 20,
+                Height = 4,
+                Parameters = new Dictionary<string, object?> { [nameof(InputSurface.Events)] = events },
+            },
             TestContext.Current.CancellationToken);
 
     public sealed class InputSurface : ComponentBase

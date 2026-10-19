@@ -55,22 +55,22 @@ multi-line update banner is not displayed in the compact footer.
 
 `GalleryWorkbenchTests` and `GallerySampleTests` exercise real Razor rendering,
 mouse controls, navigation, search, keyboard activation, independent scrolling and
-resize through TestTerminal. Every route is checked at 80×24 and resized to 100×35;
+resize through HeadlessTerminal. Every route is checked at 80×24 and resized to 100×35;
 additional tests cover presets/properties, Reset, real input, Select and modal flow.
 
 For output-path regression tests, opt in to
-`TestTerminal.StartAsync<App>(..., captureTerminalOutput: true)`. This replaces the
-no-op canvas with real `LiveDisplayCanvas`/`DiffRenderable` execution and captures
-the last 50 terminal-output batches in `TerminalOutput`. The transport remains
+`HeadlessTerminalOptions.CaptureAnsiOutput`. This replaces the no-op canvas with
+real `LiveDisplayCanvas`/`DiffRenderable` execution and captures the terminal output
+in `AnsiOutput`. The transport remains
 in-memory: it cannot reproduce OS stdin ownership or a missing terminal reply.
 `WheelBurst_WithRealDiffOutput_ResizeAndInput_RemainsResponsive` combines raw SGR
 wheel bursts, resize, stale cursor replies, navigation and text input.
 
-The complementary Unix PTY regression deliberately never answers cursor queries:
+The complementary pseudoterminal regression (`src/RazorConsole.Tests/E2E/GalleryScrollPtyTests.cs`,
+run by `dotnet test` on Linux, macOS and Windows) deliberately never answers cursor queries:
 
 ```sh
-dotnet build gallery/RazorConsole.Gallery -c Release -f net10.0
-uv run --with pyte python tests/e2e/gallery-scroll-pty.py
+dotnet test src/RazorConsole.Tests -- --filter-class RazorConsole.Tests.E2E.GalleryScrollPtyTests
 ```
 
 It sends 1,000 wheel events, resizes, injects a fragmented stale reply, then checks

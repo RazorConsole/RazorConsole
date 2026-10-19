@@ -4,7 +4,7 @@ using LLMAgentTUI.Components;
 using LLMAgentTUI.Services;
 using Microsoft.Extensions.DependencyInjection;
 using RazorConsole.Core.Input;
-using RazorConsole.Tests.Integration.Infrastructure;
+using RazorConsole.Testing;
 using Spectre.Console;
 
 namespace RazorConsole.Tests.Integration;
@@ -17,9 +17,9 @@ public sealed class AgentAppIntegrationTests
         var session = new ScriptedAgentSession([new(AgentEntryKind.Assistant,
             "| 工具 | 用途 |\n|---|---|\n| `read` | 读取工作区中的 UTF-8 文本文件，支持分页读取长文件，不执行任何 shell 命令。 |\n| `write` | Create files |")]);
         await using var terminal = await Start(session, 87, 40);
-        var y = Enumerable.Range(0, 40).Single(row => terminal.Snapshot.GetLine(row).Contains("read"));
-        var x = terminal.Snapshot.GetLine(y).IndexOf("read", StringComparison.Ordinal);
-        terminal.Snapshot[x, y].Style!.Foreground.ShouldBe(new Color(53, 132, 29));
+        var y = Enumerable.Range(0, 40).Single(row => terminal.CurrentFrame.GetLine(row).Contains("read"));
+        var x = terminal.CurrentFrame.GetLine(y).IndexOf("read", StringComparison.Ordinal);
+        terminal.CurrentFrame[x, y].Style!.Foreground.ShouldBe(new Color(53, 132, 29));
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, x, y), TestContext.Current.CancellationToken);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Move, x + 4, y), TestContext.Current.CancellationToken);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Up, x + 4, y), TestContext.Current.CancellationToken);
@@ -29,7 +29,7 @@ public sealed class AgentAppIntegrationTests
         await terminal.WaitUntilAsync(_ => _view.Display.Text != wide, description: "table reflow at 40 columns", cancellationToken: TestContext.Current.CancellationToken);
         _view.Display.Text.ShouldNotContain("|");
         _view.Display.Text.Split('\n').ShouldAllBe(line => TextSelectionState.CellWidth(line) <= 40);
-        terminal.Snapshot.ContainsText("write").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("write").ShouldBeTrue(terminal.DumpDiagnostics());
     }
 
     [Fact]
@@ -37,10 +37,10 @@ public sealed class AgentAppIntegrationTests
     {
         var session = new ScriptedAgentSession([new(AgentEntryKind.Assistant, "Intro\n\n- abcdefghijklmnopqrstuvwxyz abcdefghijklmnopqrstuvwxyz\n- second item")]);
         await using var terminal = await Start(session, 40, 30);
-        var y = Enumerable.Range(0, 30).Single(row => terminal.Snapshot.GetLine(row).Contains("• abcdefghijklmnopqrstuvwxyz"));
-        terminal.Snapshot.GetLine(y).ShouldStartWith("  • ");
-        terminal.Snapshot.GetLine(y + 1).ShouldStartWith("    abcdefghijklmnopqrstuvwxyz");
-        terminal.Snapshot.GetLine(y + 2).ShouldStartWith("  • second item");
+        var y = Enumerable.Range(0, 30).Single(row => terminal.CurrentFrame.GetLine(row).Contains("• abcdefghijklmnopqrstuvwxyz"));
+        terminal.CurrentFrame.GetLine(y).ShouldStartWith("  • ");
+        terminal.CurrentFrame.GetLine(y + 1).ShouldStartWith("    abcdefghijklmnopqrstuvwxyz");
+        terminal.CurrentFrame.GetLine(y + 2).ShouldStartWith("  • second item");
     }
 
     [Fact]
@@ -53,13 +53,13 @@ public sealed class AgentAppIntegrationTests
         (menu.Top + menu.Height).ShouldBe(terminal.GetLayout("composer-surface").Top);
         for (var x = 0; x < 87; x++)
         {
-            terminal.Snapshot[x, menu.Top!.Value].Style!.Background.ShouldBe(new Color(163, 204, 250));
+            terminal.CurrentFrame[x, menu.Top!.Value].Style!.Background.ShouldBe(new Color(163, 204, 250));
         }
-        terminal.Snapshot.GetLine(menu.Top!.Value).ShouldStartWith("› /permissions   choose");
+        terminal.CurrentFrame.GetLine(menu.Top!.Value).ShouldStartWith("› /permissions   choose");
         await terminal.SendKeyAsync(ConsoleKey.DownArrow, cancellationToken: TestContext.Current.CancellationToken);
         await terminal.SendKeyAsync(ConsoleKey.Tab, cancellationToken: TestContext.Current.CancellationToken);
         _view.Draft.Text.ShouldBe("/usage");
-        terminal.CurrentFocusKey.ShouldBe("composer");
+        terminal.FocusKey.ShouldBe("composer");
         _view.Draft.SetText("");
         await terminal.SendKeyAsync(ConsoleKey.Oem2, '/', cancellationToken: TestContext.Current.CancellationToken);
         await terminal.SendKeyAsync(ConsoleKey.P, 'p', cancellationToken: TestContext.Current.CancellationToken);
@@ -77,7 +77,7 @@ public sealed class AgentAppIntegrationTests
         var menu = terminal.GetLayout("command-/permissions");
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, 25, menu.Top!.Value), TestContext.Current.CancellationToken);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Up, 25, menu.Top!.Value), TestContext.Current.CancellationToken);
-        await terminal.WaitUntilAsync(_ => terminal.CurrentFocusKey == "permissions", cancellationToken: TestContext.Current.CancellationToken);
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", cancellationToken: TestContext.Current.CancellationToken);
         session.Transcript.ShouldBeEmpty();
     }
 
@@ -93,27 +93,27 @@ public sealed class AgentAppIntegrationTests
         var top = terminal.GetLayout("transcript").Top!.Value;
         for (var y = top; y < top + 3; y++)
         {
-            terminal.Snapshot[70, y].Style!.Background.ShouldBe(new Color(239, 239, 241));
+            terminal.CurrentFrame[70, y].Style!.Background.ShouldBe(new Color(239, 239, 241));
         }
-        var bold = Enumerable.Range(0, 40).Single(y => terminal.Snapshot.GetLine(y).Contains("Bold and code"));
-        terminal.Snapshot[2, bold].Style!.Decoration.ShouldBe(Decoration.Bold);
-        terminal.Snapshot[11, bold].Style!.Foreground.ShouldBe(new Color(53, 132, 29));
-        var details = Enumerable.Range(0, 40).Single(y => terminal.Snapshot.GetLine(y).Contains("+ Show details"));
-        terminal.Snapshot[2, details].Style!.Foreground.ShouldBe(new Color(17, 96, 220));
-        terminal.Snapshot.ContainsText("four").ShouldBeFalse();
+        var bold = Enumerable.Range(0, 40).Single(y => terminal.CurrentFrame.GetLine(y).Contains("Bold and code"));
+        terminal.CurrentFrame[2, bold].Style!.Decoration.ShouldBe(Decoration.Bold);
+        terminal.CurrentFrame[11, bold].Style!.Foreground.ShouldBe(new Color(53, 132, 29));
+        var details = Enumerable.Range(0, 40).Single(y => terminal.CurrentFrame.GetLine(y).Contains("+ Show details"));
+        terminal.CurrentFrame[2, details].Style!.Foreground.ShouldBe(new Color(17, 96, 220));
+        terminal.CurrentFrame.ContainsText("four").ShouldBeFalse();
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, 3, details), TestContext.Current.CancellationToken);
 
         await terminal.WaitUntilAsync(
-            _ => terminal.Snapshot.ContainsText("four") && terminal.Snapshot.ContainsText("− Hide details"),
+            _ => terminal.CurrentFrame.ContainsText("four") && terminal.CurrentFrame.ContainsText("− Hide details"),
             description: "tool details disclosure",
             cancellationToken: TestContext.Current.CancellationToken);
 
-        var errorY = Enumerable.Range(0, 40).Single(y => terminal.Snapshot.GetLine(y).Contains("request failed"));
-        var errorLine = terminal.Snapshot.GetLine(errorY);
+        var errorY = Enumerable.Range(0, 40).Single(y => terminal.CurrentFrame.GetLine(y).Contains("request failed"));
+        var errorLine = terminal.CurrentFrame.GetLine(errorY);
         var errorX = errorLine.IndexOf("request failed", StringComparison.Ordinal);
 
-        terminal.Snapshot[errorX, errorY].Style.ShouldNotBeNull();
-        terminal.Snapshot[errorX, errorY].Style!.Foreground.ShouldBe(Color.Red);
+        terminal.CurrentFrame[errorX, errorY].Style.ShouldNotBeNull();
+        terminal.CurrentFrame[errorX, errorY].Style!.Foreground.ShouldBe(Color.Red);
 
         await terminal.WaitUntilAsync(_ => _view.Display is not null, cancellationToken: TestContext.Current.CancellationToken);
         _view.Display.Text.ShouldNotContain("**");
@@ -128,15 +128,15 @@ public sealed class AgentAppIntegrationTests
         await using var terminal = await Start(new ScriptedAgentSession(), width, height);
         _view.Draft.SetText("/permission");
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
-        await terminal.WaitUntilAsync(_ => terminal.CurrentFocusKey == "permissions", description: "permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", description: "permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
         var bounds = terminal.GetLayout("permission-0");
-        terminal.Snapshot[0, bounds.Top!.Value].Style!.Background.ShouldBe(new Color(163, 204, 250));
-        terminal.Snapshot.ContainsText("(current)").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame[0, bounds.Top!.Value].Style!.Background.ShouldBe(new Color(163, 204, 250));
+        terminal.CurrentFrame.ContainsText("(current)").ShouldBeTrue(terminal.DumpDiagnostics());
         terminal.Resize(width + 5, height + 2);
-        terminal.Snapshot.ContainsText("Update Model Permissions").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Update Model Permissions").ShouldBeTrue(terminal.DumpDiagnostics());
         await terminal.SendKeyAsync(ConsoleKey.Escape, cancellationToken: TestContext.Current.CancellationToken);
-        await terminal.WaitUntilAsync(_ => terminal.CurrentFocusKey == "composer", description: "composer focus after closing permissions", cancellationToken: TestContext.Current.CancellationToken);
-        terminal.CurrentFocusKey.ShouldBe("composer");
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "composer", description: "composer focus after closing permissions", cancellationToken: TestContext.Current.CancellationToken);
+        terminal.FocusKey.ShouldBe("composer");
     }
 
     [Fact]
@@ -146,23 +146,23 @@ public sealed class AgentAppIntegrationTests
         await using var terminal = await Start(session, 87, 35);
         _view.Draft.SetText("/permission");
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
-        await terminal.WaitUntilAsync(_ => terminal.CurrentFocusKey == "permissions", description: "permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
-        terminal.Snapshot.ContainsText("Update Model Permissions").ShouldBeTrue(terminal.DumpDiagnostics());
-        terminal.CurrentFocusKey.ShouldBe("permissions");
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", description: "permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
+        terminal.CurrentFrame.ContainsText("Update Model Permissions").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.FocusKey.ShouldBe("permissions");
         session.Transcript.ShouldBeEmpty();
         var option = terminal.GetLayout("permission-2");
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, option.Left!.Value, option.Top!.Value), TestContext.Current.CancellationToken);
         session.Permission.ShouldBe(ToolPermission.AskForApproval);
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
         session.Permission.ShouldBe(ToolPermission.AskForApproval);
-        terminal.Snapshot.ContainsText("Enter again").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Enter again").ShouldBeTrue(terminal.DumpDiagnostics());
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
         session.Permission.ShouldBe(ToolPermission.FullAccess);
-        await terminal.WaitUntilAsync(_ => terminal.CurrentFocusKey == "composer", description: "composer focus after applying permissions", cancellationToken: TestContext.Current.CancellationToken);
-        terminal.CurrentFocusKey.ShouldBe("composer");
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "composer", description: "composer focus after applying permissions", cancellationToken: TestContext.Current.CancellationToken);
+        terminal.FocusKey.ShouldBe("composer");
         _view.Draft.SetText("/permission");
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
-        await terminal.WaitUntilAsync(_ => terminal.CurrentFocusKey == "permissions", description: "reopened permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", description: "reopened permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
         await terminal.SendKeyAsync(ConsoleKey.UpArrow, cancellationToken: TestContext.Current.CancellationToken);
         await terminal.SendKeyAsync(ConsoleKey.Escape, cancellationToken: TestContext.Current.CancellationToken);
         session.Permission.ShouldBe(ToolPermission.FullAccess);
@@ -170,10 +170,16 @@ public sealed class AgentAppIntegrationTests
 
     private readonly AgentViewState _view = new() { FollowOutput = false };
     private readonly RecordingTerminalActions _actions = new();
-    private Task<TestTerminal> Start(ScriptedAgentSession session, int width = 80, int height = 24)
-        => TestTerminal.StartAsync<App>(width, height,
-            new Dictionary<string, object?> { [nameof(App.Session)] = session, [nameof(App.ViewState)] = _view }, TestContext.Current.CancellationToken,
-            services => services.AddSingleton<ITerminalActions>(_actions));
+    private Task<HeadlessTerminal> Start(ScriptedAgentSession session, int width = 80, int height = 24)
+        => HeadlessTerminal.StartAsync<App>(
+            new HeadlessTerminalOptions
+            {
+                Width = width,
+                Height = height,
+                Parameters = new Dictionary<string, object?> { [nameof(App.Session)] = session, [nameof(App.ViewState)] = _view },
+                ConfigureServices = services => services.AddSingleton<ITerminalActions>(_actions),
+            },
+            TestContext.Current.CancellationToken);
 
     private sealed class RecordingTerminalActions : ITerminalActions
     {
@@ -187,7 +193,7 @@ public sealed class AgentAppIntegrationTests
     public async Task EmptySession_MatchesReferenceChromeCellsAndStyles()
     {
         await using var terminal = await Start(new ScriptedAgentSession(), 87, 35);
-        var screen = terminal.Snapshot;
+        var screen = terminal.CurrentFrame;
         string CardRow(string text) => "│ " + text.PadRight(46) + " │";
         var expected = Enumerable.Repeat(string.Empty, 35).ToArray();
         expected[0] = "╭" + new string('─', 48) + "╮";
@@ -229,12 +235,12 @@ public sealed class AgentAppIntegrationTests
         var session = new ScriptedAgentSession();
         session.SeedHistory(12);
         await using var terminal = await Start(session, width, height);
-        terminal.Snapshot.ContainsText("LLMAgentTUI").ShouldBeTrue(terminal.DumpDiagnostics());
-        terminal.Snapshot.ContainsText("Codex").ShouldBeFalse(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("LLMAgentTUI").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Codex").ShouldBeFalse(terminal.DumpDiagnostics());
         var composer = terminal.GetLayout("composer");
         (composer.Top!.Value + composer.Height!.Value).ShouldBeLessThanOrEqualTo(height - 2);
         terminal.GetLayout("footer").Top.ShouldBe(height - 1, terminal.DumpDiagnostics());
-        terminal.CurrentFocusKey.ShouldBe("composer");
+        terminal.FocusKey.ShouldBe("composer");
         terminal.Resize(width - 5, height - 2);
         terminal.GetLayout("footer").Top.ShouldBe(height - 3, terminal.DumpDiagnostics());
     }
@@ -254,7 +260,7 @@ public sealed class AgentAppIntegrationTests
         _view.Draft.Selection.ShouldBe("hello", terminal.DumpDiagnostics());
         await terminal.SendKeyAsync(ConsoleKey.H, 'H', cancellationToken: TestContext.Current.CancellationToken);
         _view.Draft.Text.ShouldBe("H world");
-        terminal.Snapshot.ContainsText("H world").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("H world").ShouldBeTrue(terminal.DumpDiagnostics());
 
     }
 
@@ -292,13 +298,13 @@ public sealed class AgentAppIntegrationTests
             await terminal.SendKeyAsync(ConsoleKey.F6, cancellationToken: TestContext.Current.CancellationToken);
         }
 
-        terminal.Snapshot.ContainsText("Would you like to run").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Would you like to run").ShouldBeTrue(terminal.DumpDiagnostics());
         _view.Draft.SetText("1");
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
         await terminal.SendKeyAsync(ConsoleKey.F6, cancellationToken: TestContext.Current.CancellationToken);
         await terminal.SendKeyAsync(ConsoleKey.F6, cancellationToken: TestContext.Current.CancellationToken);
         session.Running.ShouldBeFalse();
-        terminal.Snapshot.ContainsText("Passed: 12").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Passed: 12").ShouldBeTrue(terminal.DumpDiagnostics());
     }
 
     [Fact]
@@ -310,14 +316,14 @@ public sealed class AgentAppIntegrationTests
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
         var usage = terminal.GetLayout("usage-Usage");
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, usage.Left!.Value, usage.Top!.Value), TestContext.Current.CancellationToken);
-        terminal.Snapshot.ContainsText("Model 0").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Model 0").ShouldBeTrue(terminal.DumpDiagnostics());
         var model = terminal.GetLayout("usage-Model");
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, model.Left!.Value, model.Top!.Value), TestContext.Current.CancellationToken);
-        terminal.Snapshot.ContainsText("Model 1").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Model 1").ShouldBeTrue(terminal.DumpDiagnostics());
         await terminal.SendKeyAsync(ConsoleKey.Escape, cancellationToken: TestContext.Current.CancellationToken);
         var warning = terminal.GetLayout("warning-notice");
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, warning.Left!.Value + 3, warning.Top!.Value), TestContext.Current.CancellationToken);
-        terminal.Snapshot.ContainsText("Session notifications").ShouldBeTrue(terminal.DumpDiagnostics());
+        terminal.CurrentFrame.ContainsText("Session notifications").ShouldBeTrue(terminal.DumpDiagnostics());
     }
 
     [Fact]

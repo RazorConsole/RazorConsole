@@ -12,7 +12,7 @@ Mouse coordinates are terminal cells, not browser pixels.
 From `website`, run `npm ci` and `npm run test:terminal-input` for input ordering,
 single delivery, disposal and recovery after a failed dispatch.
 
-The .NET `TerminalInputStreamTests` use real Razor components and TestTerminal to
+The .NET `TerminalInputStreamTests` use real Razor components and HeadlessTerminal to
 exercise raw SGR packets, key/mouse ordering, click synthesis, wheel arguments,
 fragmentation, drag capture, resize hit testing and Escape flushing.
 

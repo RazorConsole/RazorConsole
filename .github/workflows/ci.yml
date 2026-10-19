@@ -42,6 +42,7 @@ jobs:
     name: Build and test
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
@@ -65,15 +66,11 @@ jobs:
         run: dotnet build RazorConsole.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test --configuration Release --no-build -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
+        run: dotnet test --configuration Release --no-build -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --filter-not-trait "Category=E2E"
 
-      - name: Terminal wheel regression (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          python3 -m venv "$RUNNER_TEMP/razorconsole-pty"
-          "$RUNNER_TEMP/razorconsole-pty/bin/pip" install pyte==0.8.2
-          "$RUNNER_TEMP/razorconsole-pty/bin/python" tests/e2e/gallery-scroll-pty.py --dotnet "$(command -v dotnet)" --framework net11.0
+      # Real-terminal tests: one framework, no coverage, so they do not compete with four instrumented test processes.
+      - name: E2E tests
+        run: dotnet test src/RazorConsole.Tests/RazorConsole.Tests.csproj --configuration Release --no-build --framework net11.0 -- --filter-trait "Category=E2E"
 
       - name: Upload test diagnostics
         if: always()
@@ -421,7 +418,11 @@ jobs:
         run: dotnet build RazorConsole.slnx --configuration Release --no-restore -p:VersionSuffix=$VersionSuffix
 
       - name: Test
-        run: dotnet test --configuration Release --no-build -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
+        run: dotnet test --configuration Release --no-build -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --filter-not-trait "Category=E2E"
+
+      # Real-terminal tests: one framework, no coverage, so they do not compete with four instrumented test processes.
+      - name: E2E tests
+        run: dotnet test src/RazorConsole.Tests/RazorConsole.Tests.csproj --configuration Release --no-build --framework net11.0 -- --filter-trait "Category=E2E"
         
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4

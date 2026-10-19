@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using RazorConsole.Core.Input;
-using RazorConsole.Tests.Integration.Infrastructure;
+using RazorConsole.Testing;
 
 namespace RazorConsole.Tests.Integration;
 
@@ -13,13 +13,13 @@ public sealed class RenderFragmentRegionTests
     [Fact]
     public async Task NestedRegions_PreserveSiblingOrderAcrossInsertionAndRemoval()
     {
-        await using var terminal = await TestTerminal.StartAsync<RegionContent>(20, 4,
+        await using var terminal = await HeadlessTerminal.StartAsync<RegionContent>(20, 4,
             cancellationToken: TestContext.Current.CancellationToken);
-        terminal.Snapshot.GetLine(0).TrimEnd().ShouldBe("ABC!");
+        terminal.CurrentFrame.GetLine(0).TrimEnd().ShouldBe("ABC!");
         for (var i = 0; i < 4; i++)
         {
             await terminal.SendMouseAsync(new(TerminalMouseKind.Down, 0, 1), TestContext.Current.CancellationToken);
-            terminal.Snapshot.GetLine(0).TrimEnd().ShouldBe(i % 2 == 0 ? "A!" : "ABC!", terminal.DumpDiagnostics());
+            terminal.CurrentFrame.GetLine(0).TrimEnd().ShouldBe(i % 2 == 0 ? "A!" : "ABC!", terminal.DumpDiagnostics());
         }
     }
 
