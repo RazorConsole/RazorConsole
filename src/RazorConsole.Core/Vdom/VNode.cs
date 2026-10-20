@@ -30,6 +30,13 @@ public sealed class VNode : IEquatable<VNode>
 
     public VNodeKind Kind { get; }
 
+    /// <summary>
+    /// The component represented by this node, or the component that rendered it.
+    /// This is a live reference, not a state snapshot, and is excluded from structural equality.
+    /// </summary>
+    public object? Component { get; internal set; }
+
+
     public string? TagName { get; private set; }
 
     public string Text { get; private set; }

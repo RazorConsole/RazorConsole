@@ -29,6 +29,7 @@ public sealed class ConsoleRendererTests
         var root = snapshot.Root.ShouldBeOfType<Core.Vdom.VNode>();
         root.Kind.ShouldBe(Core.Vdom.VNodeKind.Element);
         root.TagName.ShouldBe("div");
+        var owner = root.Component.ShouldBeOfType<ContainerComponent>();
         Enumerate(root).Skip(1).ShouldNotContain(node => node.Kind == Core.Vdom.VNodeKind.Component);
 
         root.Children.ShouldHaveSingleItem();
@@ -39,6 +40,13 @@ public sealed class ConsoleRendererTests
         var text = span.Children.Single();
         text.Kind.ShouldBe(Core.Vdom.VNodeKind.Text);
         text.Text.ShouldBe("child");
+        span.Component.ShouldNotBeNull();
+        ReferenceEquals(span.Component, owner).ShouldBeFalse();
+        text.Component.ShouldBeSameAs(span.Component);
+
+        var refreshed = renderer.RefreshSnapshot().Root!;
+        refreshed.Component.ShouldBeSameAs(owner);
+        refreshed.Children.Single().Component.ShouldBeSameAs(span.Component);
     }
 
     [Fact]

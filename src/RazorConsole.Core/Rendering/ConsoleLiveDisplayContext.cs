@@ -54,7 +54,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
     }
 
     /// <summary>
-    /// Updates the live display with a new view when the HTML differs from the last rendered HTML.
+    /// Updates the live display when Blazor renders a new batch or the virtual DOM changes.
     /// </summary>
     /// <param name="view">The view to display.</param>
     /// <returns><see langword="true"/> when the view was updated; otherwise <see langword="false"/>.</returns>
@@ -73,7 +73,13 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
 
             bool updated;
 
-            if (previousRoot is not null && currentRoot is not null && _diffService is not null)
+            if (view.RenderRevision != 0 && view.RenderRevision != previous?.RenderRevision)
+            {
+                // Component-backed translators can change output without changing any markup.
+                _canvas.UpdateTarget(view.Renderable);
+                updated = true;
+            }
+            else if (previousRoot is not null && currentRoot is not null && _diffService is not null)
             {
                 var diff = _diffService.Diff(previousRoot, currentRoot);
                 if (!diff.HasChanges)

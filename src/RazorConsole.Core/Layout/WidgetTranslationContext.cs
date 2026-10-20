@@ -56,6 +56,11 @@ public sealed class WidgetTranslationContext
         var zIndex = TryGetIntAttribute(node, "z-index", 0);
         var className = GetAttribute(node, "class");
 
+        if (Rendering.Translation.Translators.TextButtonTranslator.CanHandle(node))
+        {
+            return Rendering.Translation.Translators.TextButtonTranslator.TranslateWidget(node, zIndex);
+        }
+
         if (string.Equals(node.TagName, "table", StringComparison.OrdinalIgnoreCase))
         {
             return CreateTableWidget(node, zIndex);

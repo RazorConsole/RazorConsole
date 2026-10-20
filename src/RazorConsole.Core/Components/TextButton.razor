@@ -8,8 +8,6 @@
      data-focus-order="@FocusOrderAttribute"
      @key="@_generatedFocusKey"
      data-focus-key="@_generatedFocusKey">
-    <Markup Content="@Content" Background="@(_isFocused ? FocusedColor : IsHovered ? HoverColor : BackgroundColor)"
-            Foreground="@(IsHovered && !_isFocused ? HoverForegroundColor : Color.Default)" />
 </div>
 
 @code {
@@ -22,7 +20,8 @@
     /// </remarks>
     private bool _isFocused = false;
     private bool _isHovered;
-    private bool IsHovered => _isHovered && OnClick.HasDelegate;
+    internal bool IsFocused => _isFocused;
+    internal bool IsHovered => _isHovered && OnClick.HasDelegate;
     /// <summary>Background used when the pointer is over an actionable button.</summary>
     [Parameter] public Color HoverColor { get; set; } = Color.Grey70;
     /// <summary>Text color paired with <see cref="HoverColor"/>.</summary>

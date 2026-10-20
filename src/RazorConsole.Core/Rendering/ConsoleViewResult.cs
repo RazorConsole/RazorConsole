@@ -16,12 +16,14 @@ public sealed class ConsoleViewResult
         string html,
         IRenderable renderable,
         IReadOnlyCollection<IAnimatedConsoleRenderable> animatedRenderables,
-        VNode? vdomRoot)
+        VNode? vdomRoot,
+        long renderRevision = 0)
     {
         Html = html ?? string.Empty;
         Renderable = renderable ?? throw new ArgumentNullException(nameof(renderable));
         AnimatedRenderables = animatedRenderables ?? Array.Empty<IAnimatedConsoleRenderable>();
         VdomRoot = vdomRoot;
+        RenderRevision = renderRevision;
     }
 
     /// <summary>
@@ -44,6 +46,8 @@ public sealed class ConsoleViewResult
     /// </summary>
     internal VNode? VdomRoot { get; }
 
+    internal long RenderRevision { get; }
+
     internal static ConsoleViewResult Create(
         string html,
         VNode? vdomRoot,
@@ -60,6 +64,6 @@ public sealed class ConsoleViewResult
         }
 
         var html = VdomHtmlSerializer.Serialize(snapshot.Root);
-        return Create(html, snapshot.Root, snapshot.Renderable, snapshot.AnimatedRenderables);
+        return new ConsoleViewResult(html, snapshot.Renderable, snapshot.AnimatedRenderables, snapshot.Root, snapshot.RenderRevision);
     }
 }

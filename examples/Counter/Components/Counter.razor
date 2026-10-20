@@ -5,7 +5,7 @@
 @using RazorConsole.Components
 @using RazorConsole.Core.Renderables;
 @using Spectre.Console
-
+@* 
 <Box Border="BoxBorder.Rounded" Padding="new (1)">
     <Flex Direction="FlexDirection.Column" Expand="true" Align="FlexAlign.Center" Justify="FlexJustify.Center">
 
@@ -30,7 +30,9 @@
                 Foreground="@Color.Grey58" />
 
     </Flex>
-</Box>
+</Box> *@
+
+<TextButton Content="@($"{currentCount} clicked")" OnClick="IncrementCount"/>
 
 @code {
     private int currentCount = 0;

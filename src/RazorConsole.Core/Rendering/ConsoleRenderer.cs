@@ -52,6 +52,7 @@ internal sealed class ConsoleRenderer(
     private bool _observerNotificationScheduled;
     private bool _legacyPipelineWarningLogged;
     private RenderSnapshot _lastSnapshot = RenderSnapshot.Empty;
+    private long _renderRevision;
     private bool _disposed;
 
     public override Dispatcher Dispatcher => _dispatcher;
@@ -180,6 +181,9 @@ internal sealed class ConsoleRenderer(
                 _componentRoots.Remove(componentId);
             }
 
+            // A rendered component is reported even when its markup diff is empty.
+            // Keep a cumulative revision so coalesced observer notifications retain this signal.
+            _renderRevision++;
             var snapshot = CreateSnapshot();
             _lastSnapshot = snapshot;
             _pendingRender?.TrySetResult(snapshot);
@@ -226,7 +230,7 @@ internal sealed class ConsoleRenderer(
                     ApplySetAttributeEdit(batch, edit);
                     break;
                 case RenderTreeEditType.RemoveAttribute:
-                    ApplyRemoveAttributeEdit(batch, edit);
+                    ApplyRemoveAttributeEdit(edit);
                     break;
                 case RenderTreeEditType.UpdateText:
                     ApplyUpdateTextEdit(batch, edit);
@@ -251,7 +255,7 @@ internal sealed class ConsoleRenderer(
             return;
         }
 
-        var (child, _) = BuildSubtree(batch.ReferenceFrames, edit.ReferenceFrameIndex);
+        var (child, _) = BuildSubtree(batch.ReferenceFrames, edit.ReferenceFrameIndex, _cursor.Peek().Component);
         var siblingIndex = edit.SiblingIndex;
         InsertRenderedChild(parent, ref siblingIndex, child);
     }
@@ -288,23 +292,16 @@ internal sealed class ConsoleRenderer(
         ApplyAttributeFrame(child, frame);
     }
 
-    private void ApplyRemoveAttributeEdit(in RenderBatch batch, RenderTreeEdit edit)
+    private void ApplyRemoveAttributeEdit(RenderTreeEdit edit)
     {
         var parent = _cursor.Peek();
-        var frame = batch.ReferenceFrames.Array[edit.ReferenceFrameIndex];
-        Debug.Assert(frame.FrameType == RenderTreeFrameType.Attribute, "RemoveAttribute edit must reference an Attribute frame.");
         var child = BFSNonRegionChildren(parent).ElementAt(edit.SiblingIndex);
-        if (frame.AttributeEventHandlerId != 0)
+        var name = edit.RemovedAttributeName!;
+        child.RemoveEvent(name);
+        child.RemoveAttribute(name);
+        if (IsKeyAttribute(name))
         {
-            child.RemoveEvent(frame.AttributeName!);
-        }
-        else
-        {
-            child.RemoveAttribute(frame.AttributeName!);
-            if (IsKeyAttribute(frame.AttributeName!))
-            {
-                parent.SetKey(null);
-            }
+            child.SetKey(null);
         }
     }
 
@@ -335,7 +332,7 @@ internal sealed class ConsoleRenderer(
         return;
     }
 
-    private (VNode Node, int NextIndex) BuildSubtree(ArrayRange<RenderTreeFrame> frames, int index)
+    private (VNode Node, int NextIndex) BuildSubtree(ArrayRange<RenderTreeFrame> frames, int index, object? owner)
     {
         var frame = frames.Array[index];
         switch (frame.FrameType)
@@ -343,6 +340,7 @@ internal sealed class ConsoleRenderer(
             case RenderTreeFrameType.Element:
             {
                 var element = VNode.CreateElement(frame.ElementName!);
+                element.Component = owner;
                 element.SetKey(frame.ElementKey?.ToString());
                 var end = index + frame.ElementSubtreeLength;
                 index++;
@@ -365,7 +363,7 @@ internal sealed class ConsoleRenderer(
 
                 while (index < end)
                 {
-                    var (child, next) = BuildSubtree(frames, index);
+                    var (child, next) = BuildSubtree(frames, index, owner);
                     var childIndex = element.Children.Count;
                     InsertRenderedChild(element, ref childIndex, child);
                     index = next;
@@ -375,27 +373,33 @@ internal sealed class ConsoleRenderer(
             }
 
             case RenderTreeFrameType.Text:
-                return (VNode.CreateText(frame.TextContent), index + 1);
+                var text = VNode.CreateText(frame.TextContent);
+                text.Component = owner;
+                return (text, index + 1);
 
             case RenderTreeFrameType.Markup:
                 if (HtmlVdomConverter.TryConvert(frame.MarkupContent, out var vnode) && vnode is not null)
                 {
+                    AssignComponent(vnode, owner);
                     return (vnode, index + 1);
                 }
                 else
                 {
-                    return (VNode.CreateText(frame.MarkupContent), index + 1);
+                    var markupText = VNode.CreateText(frame.MarkupContent);
+                    markupText.Component = owner;
+                    return (markupText, index + 1);
                 }
 
             case RenderTreeFrameType.Region:
             {
                 var region = VNode.CreateRegion();
+                region.Component = owner;
                 var end = index + frame.RegionSubtreeLength;
                 index++;
 
                 while (index < end)
                 {
-                    var (child, next) = BuildSubtree(frames, index);
+                    var (child, next) = BuildSubtree(frames, index, owner);
                     region.AddChild(child);
                     index = next;
                 }
@@ -407,6 +411,7 @@ internal sealed class ConsoleRenderer(
             {
                 var componentId = frame.ComponentId;
                 var component = VNode.CreateComponent();
+                component.Component = frame.Component;
                 component.SetKey(frame.ComponentKey?.ToString());
                 component.SetAttribute("component-id", componentId.ToString(CultureInfo.InvariantCulture));
                 if (frame.ComponentType is not null)
@@ -473,6 +478,7 @@ internal sealed class ConsoleRenderer(
         }
 
         var slot = VNode.CreateComponent();
+        slot.Component = GetComponentState(componentId).Component;
         slot.SetAttribute("component-id", componentId.ToString(CultureInfo.InvariantCulture));
         _componentRoots[componentId] = slot;
         return slot;
@@ -517,7 +523,7 @@ internal sealed class ConsoleRenderer(
 
             UpdateSnapshotAccessors(rootNode, layouts: null);
 
-            return new RenderSnapshot(rootNode, finalRenderable, _translationContext.AnimatedRenderables);
+            return new RenderSnapshot(rootNode, finalRenderable, _translationContext.AnimatedRenderables) { RenderRevision = _renderRevision };
         }
         catch (Exception ex)
         {
@@ -539,7 +545,7 @@ internal sealed class ConsoleRenderer(
 
         UpdateSnapshotAccessors(rootNode, layouts, layoutParents);
 
-        return new RenderSnapshot(rootNode, renderable, _widgetTranslationContext.AnimatedRenderables.ToArray());
+        return new RenderSnapshot(rootNode, renderable, _widgetTranslationContext.AnimatedRenderables.ToArray()) { RenderRevision = _renderRevision };
     }
 
     private BoxConstraints CreateViewportConstraints()
@@ -570,12 +576,26 @@ internal sealed class ConsoleRenderer(
         }
 
         var collected = CollectRenderableChildren(node, visitedComponents);
-        return collected.Count switch
+        var root = collected.Count switch
         {
             0 => null,
             1 => collected[0],
             _ => CreateDivWrapper(collected),
         };
+        if (collected.Count > 1)
+        {
+            root!.Component = node.Component;
+        }
+        return root;
+    }
+
+    private static void AssignComponent(VNode node, object? component)
+    {
+        node.Component = component;
+        foreach (var child in node.Children)
+        {
+            AssignComponent(child, component);
+        }
     }
 
     private List<VNode> CollectRenderableChildren(VNode node, HashSet<int> visitedComponents)
@@ -597,7 +617,9 @@ internal sealed class ConsoleRenderer(
                 result.Add(CloneElementWithRenderableChildren(node, visitedComponents));
                 break;
             case VNodeKind.Text:
-                result.Add(VNode.CreateText(node.Text));
+                var text = VNode.CreateText(node.Text);
+                text.Component = node.Component;
+                result.Add(text);
                 break;
             case VNodeKind.Component:
                 EnumerateComponentRenderableChildren(node, visitedComponents, result);
@@ -640,6 +662,7 @@ internal sealed class ConsoleRenderer(
         }
 
         var clone = VNode.CreateElement(tagName);
+        clone.Component = element.Component;
         clone.ID = element.ID;
         if (!string.IsNullOrWhiteSpace(element.Key))
         {
@@ -759,6 +782,7 @@ internal sealed class ConsoleRenderer(
 
     public readonly record struct RenderSnapshot(VNode? Root, IRenderable? Renderable, IReadOnlyCollection<IAnimatedConsoleRenderable> AnimatedRenderables)
     {
+        public long RenderRevision { get; init; }
         public static RenderSnapshot Empty { get; } = new(null, null, Array.Empty<IAnimatedConsoleRenderable>());
     }
 

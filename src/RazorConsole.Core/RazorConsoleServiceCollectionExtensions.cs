@@ -85,6 +85,7 @@ public static class RazorConsoleServiceCollectionExtensions
         services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.NewlineElementTranslator>();
         services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.SpinerTranslator>();
         services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.ButtonElementTranslator>();
+        services.AddSingleton<ITranslationMiddleware, Rendering.Translation.Translators.TextButtonTranslator>();
 
         // Code and syntax
         services.AddSingleton<ITranslationMiddleware>(sp =>
