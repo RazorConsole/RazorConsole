@@ -697,7 +697,7 @@ public sealed class FocusManagerTests
     {
         public List<(string EventType, ulong HandlerId)> Events { get; } = new();
 
-        public Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken)
+        public Task DispatchAsync(VNodeEvent @event, EventArgs eventArgs, CancellationToken cancellationToken)
         {
             var type = eventArgs switch
             {
@@ -705,7 +705,7 @@ public sealed class FocusManagerTests
                 _ => eventArgs.GetType().Name,
             };
 
-            Events.Add((type, handlerId));
+            Events.Add((type, @event.HandlerId));
             return Task.CompletedTask;
         }
     }

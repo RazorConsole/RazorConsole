@@ -43,6 +43,11 @@ public sealed class WidgetTranslationContext
             throw new ArgumentNullException(nameof(node));
         }
 
+        if (Rendering.Translation.Translators.TextButtonTranslator.CanHandle(node))
+        {
+            return Rendering.Translation.Translators.TextButtonTranslator.TranslateWidget(node, 0);
+        }
+
         return node.Kind switch
         {
             VNodeKind.Text => new TextWidget(node.ID, string.IsNullOrWhiteSpace(node.Text) ? string.Empty : node.Text),
@@ -55,11 +60,6 @@ public sealed class WidgetTranslationContext
     {
         var zIndex = TryGetIntAttribute(node, "z-index", 0);
         var className = GetAttribute(node, "class");
-
-        if (Rendering.Translation.Translators.TextButtonTranslator.CanHandle(node))
-        {
-            return Rendering.Translation.Translators.TextButtonTranslator.TranslateWidget(node, zIndex);
-        }
 
         if (string.Equals(node.TagName, "table", StringComparison.OrdinalIgnoreCase))
         {

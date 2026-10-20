@@ -97,7 +97,7 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
             args.ShiftKey = input.Modifiers.HasFlag(ConsoleModifiers.Shift);
             args.CtrlKey = input.Modifiers.HasFlag(ConsoleModifiers.Control);
             args.AltKey = input.Modifiers.HasFlag(ConsoleModifiers.Alt);
-            await dispatcher.DispatchAsync(handler.HandlerId, args, token).ConfigureAwait(false);
+            await dispatcher.DispatchAsync(handler, args, token).ConfigureAwait(false);
             if (handler.Options.StopPropagation)
             {
                 break;
@@ -122,7 +122,8 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
                 return found;
             }
         }
-        return bounds is not null && node.Kind == VNodeKind.Element ? node : null;
+        return bounds is not null && (node.Kind == VNodeKind.Element
+            || node.Kind == VNodeKind.Component && node.Events.Count > 0) ? node : null;
     }
 
     private static VNode? Find(VNode node, string id)

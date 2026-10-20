@@ -9,6 +9,26 @@ namespace RazorConsole.Tests.Integration;
 public sealed class WidgetLayoutIntegrationTests
 {
     [Fact]
+    public async Task HeadlessButtons_RespectFocusOrder_TabAndShiftTab()
+    {
+        var token = TestContext.Current.CancellationToken;
+        await using var terminal = await TestTerminal.StartAsync<HeadlessButtonsIntegrationApp>(
+            30, 8, cancellationToken: token);
+        var initialFocus = terminal.CurrentFocusKey;
+        initialFocus.ShouldNotBeNullOrEmpty();
+        await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: token);
+        await terminal.WaitUntilAsync(frame => frame.ContainsText("Selected: 2"), cancellationToken: token);
+        await terminal.SendKeyAsync(ConsoleKey.Tab, cancellationToken: token);
+        terminal.CurrentFocusKey.ShouldNotBe(initialFocus);
+        await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: token);
+        await terminal.WaitUntilAsync(frame => frame.ContainsText("Selected: 1"), cancellationToken: token);
+        await terminal.SendKeyAsync(ConsoleKey.Tab, modifiers: ConsoleModifiers.Shift, cancellationToken: token);
+        terminal.CurrentFocusKey.ShouldBe(initialFocus);
+        await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: token);
+        await terminal.WaitUntilAsync(frame => frame.ContainsText("Selected: 2"), cancellationToken: token);
+    }
+
+    [Fact]
     public async Task ComponentTree_RendersToExactCellsAndPublishesWidgetBounds()
     {
         await using var terminal = await TestTerminal.StartAsync<WidgetLayoutIntegrationApp>(

@@ -4,5 +4,5 @@ namespace RazorConsole.Core.Focus;
 
 internal interface IFocusEventDispatcher
 {
-    Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken);
+    Task DispatchAsync(Vdom.VNodeEvent @event, EventArgs eventArgs, CancellationToken cancellationToken);
 }

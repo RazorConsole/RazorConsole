@@ -20,7 +20,7 @@ internal sealed class TerminalKeyboardEventArgs : KeyboardEventArgs
 
 internal interface IKeyboardEventDispatcher
 {
-    Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken);
+    Task DispatchAsync(VNodeEvent @event, EventArgs eventArgs, CancellationToken cancellationToken);
 }
 
 internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher, IFocusEventDispatcher
@@ -32,11 +32,11 @@ internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
     }
 
-    public Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken)
+    public Task DispatchAsync(VNodeEvent @event, EventArgs eventArgs, CancellationToken cancellationToken)
     {
-        if (handlerId == 0)
+        if (@event.HandlerId == 0 && @event.ComponentId is null)
         {
-            throw new ArgumentOutOfRangeException(nameof(handlerId));
+            throw new ArgumentOutOfRangeException(nameof(@event));
         }
 
         if (eventArgs is null)
@@ -45,7 +45,7 @@ internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return _renderer.DispatchEventAsync(handlerId, eventArgs);
+        return _renderer.DispatchEventAsync(@event, eventArgs);
     }
 }
 
@@ -300,7 +300,7 @@ internal sealed class KeyboardEventManager
     {
         try
         {
-            await _dispatcher.DispatchAsync(@event.HandlerId, args, token).ConfigureAwait(false);
+            await _dispatcher.DispatchAsync(@event, args, token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

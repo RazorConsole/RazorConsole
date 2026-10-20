@@ -300,7 +300,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         {
             try
             {
-                await dispatcher.DispatchAsync(focusOutEvent.HandlerId, new FocusEventArgs { Type = "focusout" }, token).ConfigureAwait(false);
+                await dispatcher.DispatchAsync(focusOutEvent, new FocusEventArgs { Type = "focusout" }, token).ConfigureAwait(false);
             }
             catch (ArgumentException ex) when (ex.ParamName == "eventHandlerId")
             {
@@ -311,12 +311,12 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
         if (target.Events.TryGetEvent("onfocusin", out var focusInEvent))
         {
-            await dispatcher.DispatchAsync(focusInEvent.HandlerId, new FocusEventArgs { Type = "focusin" }, token).ConfigureAwait(false);
+            await dispatcher.DispatchAsync(focusInEvent, new FocusEventArgs { Type = "focusin" }, token).ConfigureAwait(false);
         }
 
         if (target.Events.TryGetEvent("onfocus", out var focusEvent))
         {
-            await dispatcher.DispatchAsync(focusEvent.HandlerId, new FocusEventArgs { Type = "focus" }, token).ConfigureAwait(false);
+            await dispatcher.DispatchAsync(focusEvent, new FocusEventArgs { Type = "focus" }, token).ConfigureAwait(false);
         }
     }
 
@@ -428,7 +428,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
     private static void CollectRecursive(VNode node, List<int> path, List<FocusTarget> targets, ref int sequence)
     {
-        if (node.Kind == VNodeKind.Element && IsFocusable(node))
+        if (IsFocusable(node))
         {
             targets.Add(new FocusTarget(node, [.. path]));
         }
@@ -444,7 +444,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
     private static bool IsFocusable(VNode element)
     {
-        if (element.Kind != VNodeKind.Element)
+        if (element.Kind is not (VNodeKind.Element or VNodeKind.Component))
         {
             return false;
         }

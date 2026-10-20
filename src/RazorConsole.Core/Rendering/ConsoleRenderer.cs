@@ -568,6 +568,10 @@ internal sealed class ConsoleRenderer(
 
     private VNode? CreateRenderableRoot(VNode node)
     {
+        if (TextButtonAdapter.CanHandle(node))
+        {
+            return TextButtonAdapter.CreateNode(node, TryGetComponentId(node)!.Value);
+        }
         var visitedComponents = new HashSet<int>();
         var nodeId = TryGetComponentId(node);
         if (nodeId.HasValue)
@@ -639,6 +643,12 @@ internal sealed class ConsoleRenderer(
         if (childId.HasValue && !visitedComponents.Contains(childId.Value) && _componentRoots.TryGetValue(childId.Value, out var componentRoot))
         {
             visitedComponents.Add(childId.Value);
+            if (TextButtonAdapter.CanHandle(componentRoot))
+            {
+                result.Add(TextButtonAdapter.CreateNode(componentRoot, childId.Value));
+                visitedComponents.Remove(childId.Value);
+                return;
+            }
             var descendants = CollectRenderableChildren(componentRoot, visitedComponents);
             TryApplyComponentKey(node.Key, descendants);
             result.AddRange(descendants);
@@ -864,6 +874,33 @@ internal sealed class ConsoleRenderer(
                 errorLogger(ex);
             }
         }
+    }
+
+    internal Task DispatchEventAsync(VNodeEvent @event, EventArgs eventArgs)
+    {
+        if (@event.ComponentId is not { } componentId)
+        {
+            return DispatchEventAsync(@event.HandlerId, eventArgs);
+        }
+
+        ArgumentNullException.ThrowIfNull(eventArgs);
+        return Dispatcher.InvokeAsync(async () =>
+        {
+            // Old snapshots can still carry callbacks after their component has been disposed.
+            if (_disposed || !_componentRoots.ContainsKey(componentId))
+            {
+                return;
+            }
+
+            try
+            {
+                await @event.Callback.InvokeAsync(eventArgs);
+            }
+            catch (Exception exception)
+            {
+                HandleException(exception);
+            }
+        });
     }
 
     internal Task DispatchEventAsync(ulong handlerId, EventArgs eventArgs)

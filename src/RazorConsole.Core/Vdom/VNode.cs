@@ -136,12 +136,26 @@ public sealed class VNode : IEquatable<VNode>
 
     public void RemoveEvent(string name)
     {
-        if (Kind != VNodeKind.Element || string.IsNullOrWhiteSpace(name))
+        if (Kind is not (VNodeKind.Element or VNodeKind.Component) || string.IsNullOrWhiteSpace(name))
         {
             return;
         }
 
         _events.Remove(name);
+    }
+
+    internal void SetComponentEvent(string name, int componentId,
+        Microsoft.AspNetCore.Components.EventCallback<EventArgs> callback)
+    {
+        if (Kind != VNodeKind.Component)
+        {
+            throw new InvalidOperationException("Direct callbacks belong to component nodes.");
+        }
+        _events[name] = new VNodeEvent(name, 0, default)
+        {
+            ComponentId = componentId,
+            Callback = callback,
+        };
     }
 
     public void SetText(string? text)
@@ -292,6 +306,10 @@ public sealed class VNode : IEquatable<VNode>
         };
 }
 
-public readonly record struct VNodeEvent(string Name, ulong HandlerId, VNodeEventOptions Options);
+public readonly record struct VNodeEvent(string Name, ulong HandlerId, VNodeEventOptions Options)
+{
+    internal int? ComponentId { get; init; }
+    internal Microsoft.AspNetCore.Components.EventCallback<EventArgs> Callback { get; init; }
+}
 
 public readonly record struct VNodeEventOptions(bool PreventDefault, bool StopPropagation);

@@ -13,7 +13,7 @@ namespace RazorConsole.Core.Rendering.Translation.Translators;
 public sealed class TextButtonTranslator : ITranslationMiddleware
 {
     internal static bool CanHandle(VNode node)
-        => node.Kind == VNodeKind.Element && node.Component is TextButton;
+        => node.Kind == VNodeKind.Component && node.Component is TextButton;
 
     public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
     {

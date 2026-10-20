@@ -1,0 +1,12 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using RazorConsole.Components
+
+<Rows>
+    <TextButton Content="First" FocusOrder="2" OnClick="() => _selected = 1" />
+    <TextButton Content="Second" FocusOrder="1" OnClick="() => _selected = 2" />
+    <Markup Content="@($"Selected: {_selected}")" />
+</Rows>
+
+@code {
+    private int _selected;
+}

@@ -626,10 +626,10 @@ public class KeyboardEventManagerTests
         public void Reset()
             => _events.Clear();
 
-        public Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken)
+        public Task DispatchAsync(VNodeEvent @event, EventArgs eventArgs, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _events.Add(new DispatchedEvent(handlerId, eventArgs));
+            _events.Add(new DispatchedEvent(@event.HandlerId, eventArgs));
             if (ConsumeKey && eventArgs is TerminalKeyboardEventArgs key)
             {
                 key.Handled = true;
