@@ -180,6 +180,15 @@ public sealed class DiagnosticsConnectionTests
         ex.Code.ShouldBe(DiagnosticsErrorCodes.InvalidParams);
     }
 
+    [Fact]
+    public async Task DisposeAsync_CanBeCalledTwice()
+    {
+        var connection = new DiagnosticsConnection(new MemoryStream());
+
+        await connection.DisposeAsync();
+        await connection.DisposeAsync();
+    }
+
     private sealed class OneByteStream(byte[] data) : MemoryStream(data)
     {
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)

@@ -83,6 +83,12 @@ internal static class DiagnosticsPaths
     public static string AppsDirectory(string stateDirectory) => Path.Combine(stateDirectory, "apps");
 
     /// <summary>
+    /// The discovery file of the app with process id <paramref name="processId"/>.
+    /// </summary>
+    public static string AppDiscoveryFile(string stateDirectory, int processId)
+        => Path.Combine(AppsDirectory(stateDirectory), processId.ToString(CultureInfo.InvariantCulture) + ".json");
+
+    /// <summary>
     /// The session host endpoint: a pipe name on Windows, a socket path elsewhere.
     /// </summary>
     public static string HostEndpoint(string stateDirectory)

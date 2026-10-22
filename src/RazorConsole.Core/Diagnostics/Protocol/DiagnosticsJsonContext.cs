@@ -14,6 +14,23 @@ namespace RazorConsole.Core.Diagnostics.Protocol;
 [JsonSerializable(typeof(HelloParams))]
 [JsonSerializable(typeof(HelloResult))]
 [JsonSerializable(typeof(CancelParams))]
+[JsonSerializable(typeof(DiagnosticsDiscoveryInfo))]
+[JsonSerializable(typeof(TreeParams))]
+[JsonSerializable(typeof(TreeResult))]
+[JsonSerializable(typeof(FindParams))]
+[JsonSerializable(typeof(FindResult))]
+[JsonSerializable(typeof(InspectParams))]
+[JsonSerializable(typeof(InspectResult))]
+[JsonSerializable(typeof(InspectAtParams))]
+[JsonSerializable(typeof(InspectAtResult))]
+[JsonSerializable(typeof(FocusResult))]
+[JsonSerializable(typeof(RouteResult))]
+[JsonSerializable(typeof(ErrorsParams))]
+[JsonSerializable(typeof(ErrorsResult))]
+[JsonSerializable(typeof(LogsParams))]
+[JsonSerializable(typeof(LogsResult))]
+[JsonSerializable(typeof(StatsResult))]
+[JsonSerializable(typeof(AmbiguousSelectorData))]
 internal sealed partial class DiagnosticsJsonContext : JsonSerializerContext
 {
 }
