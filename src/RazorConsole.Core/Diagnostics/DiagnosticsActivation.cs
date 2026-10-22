@@ -13,12 +13,14 @@ internal static class DiagnosticsActivation
 {
     internal const string EnvironmentVariableName = "RAZORCONSOLE_DIAGNOSTICS";
 
+    private static readonly AsyncLocal<bool?> s_entryAssemblyIsDebugBuildOverride = new();
+
     public static bool IsEnabled(IHostEnvironment? environment, RazorConsoleDiagnostics mode)
         => IsEnabled(
             mode,
             isDevelopment: environment?.IsDevelopment() == true,
             environmentOverride: Environment.GetEnvironmentVariable(EnvironmentVariableName),
-            entryAssemblyIsDebugBuild: IsDebugBuild(Assembly.GetEntryAssembly()),
+            entryAssemblyIsDebugBuild: s_entryAssemblyIsDebugBuildOverride.Value ?? IsDebugBuild(Assembly.GetEntryAssembly()),
             isBrowser: OperatingSystem.IsBrowser());
 
     internal static bool IsEnabled(
@@ -36,6 +38,17 @@ internal static class DiagnosticsActivation
         return isDevelopment || entryAssemblyIsDebugBuild;
     }
 
+    /// <summary>
+    /// Replaces the entry-assembly probe for the current async flow until disposed, so tests get the same answer in
+    /// Debug and Release builds without affecting tests running in parallel.
+    /// </summary>
+    internal static IDisposable OverrideEntryAssemblyIsDebugBuild(bool value)
+    {
+        var previous = s_entryAssemblyIsDebugBuildOverride.Value;
+        s_entryAssemblyIsDebugBuildOverride.Value = value;
+        return new ProbeOverride(previous);
+    }
+
     // Only opting out is recognised; any other value leaves the automatic rule in charge.
     internal static bool IsOptOut(string? value)
     {
@@ -51,4 +64,9 @@ internal static class DiagnosticsActivation
     // NativeAOT drops the attribute, so those apps rely on the Development environment instead.
     internal static bool IsDebugBuild(Assembly? assembly)
         => assembly?.GetCustomAttribute<DebuggableAttribute>()?.IsJITOptimizerDisabled == true;
+
+    private sealed class ProbeOverride(bool? previous) : IDisposable
+    {
+        public void Dispose() => s_entryAssemblyIsDebugBuildOverride.Value = previous;
+    }
 }

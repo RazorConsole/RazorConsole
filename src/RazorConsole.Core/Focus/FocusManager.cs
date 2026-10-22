@@ -56,6 +56,24 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
     }
 
     /// <summary>
+    /// Returns the focus targets in focus order, with the focused one marked, from one consistent moment.
+    /// </summary>
+    internal FocusTargetInfo[] GetFocusTargets()
+    {
+        lock (_sync)
+        {
+            var result = new FocusTargetInfo[_focusTargets.Count];
+            for (var i = 0; i < result.Length; i++)
+            {
+                var target = _focusTargets[i];
+                result[i] = new FocusTargetInfo(target.Key, target.VNodeId, i == _currentIndex);
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>
     /// Determines whether the supplied focus key corresponds to the active focus target.
     /// </summary>
     /// <param name="key">Focus key to compare.</param>
@@ -544,6 +562,8 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             TriggerFocusChangedAsync(null, newFocus, sessionToken).ConfigureAwait(false);
         }
     }
+
+    internal readonly record struct FocusTargetInfo(string Key, string VNodeId, bool IsFocused);
 
     internal sealed class FocusTarget : IEquatable<FocusTarget>
     {

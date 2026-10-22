@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core.Controllers;
+using RazorConsole.Core.Diagnostics;
 using RazorConsole.Core.Focus;
 using RazorConsole.Core.Input;
 using RazorConsole.Core.Rendering;
@@ -35,7 +36,7 @@ public static class HostBuilderExtension
         where TComponent : IComponent
     {
         RuntimeEncoding.EnsureUtf8();
-        hostBuilder.ConfigureServices(RegisterDefaults<TComponent>);
+        hostBuilder.ConfigureServices((context, services) => RegisterDefaults<TComponent>(services, context.HostingEnvironment));
         configure?.Invoke(hostBuilder);
 
         return hostBuilder;
@@ -57,7 +58,7 @@ public static class HostBuilderExtension
         where TComponent : IComponent
     {
         RuntimeEncoding.EnsureUtf8();
-        RegisterDefaults<TComponent>(hostBuilder.Services);
+        RegisterDefaults<TComponent>(hostBuilder.Services, hostBuilder.Environment);
 
         configure?.Invoke(hostBuilder);
 
@@ -65,7 +66,7 @@ public static class HostBuilderExtension
     }
 
     private static void RegisterDefaults<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
-    TComponent>(IServiceCollection services) where TComponent : IComponent
+    TComponent>(IServiceCollection services, IHostEnvironment environment) where TComponent : IComponent
     {
         services.AddRazorConsoleServices();
         services.AddHostedService<ComponentService<TComponent>>();
@@ -75,6 +76,9 @@ public static class HostBuilderExtension
         {
             loggingBuilder.ClearProviders();
         });
+
+        // After ClearProviders, so the diagnostics log provider survives it.
+        services.AddRazorConsoleDiagnostics(environment);
     }
 }
 
@@ -83,7 +87,8 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
     ConsoleRenderer consoleRenderer,
     FocusManager focusManager,
     KeyboardEventManager keyboardEventManager,
-    TerminalMonitor terminalMonitor) : BackgroundService where TComponent : IComponent
+    TerminalMonitor terminalMonitor,
+    DiagnosticsState? diagnostics = null) : BackgroundService where TComponent : IComponent
 {
     private readonly SemaphoreSlim _renderSemaphore = new(1, 1);
 
@@ -122,7 +127,7 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
             AnsiConsole.Clear();
         }
 
-        using var liveContext = new ConsoleLiveDisplayContext(new LiveDisplayCanvas(options.ConsoleLiveDisplayOptions, AnsiConsole.Console), consoleRenderer, terminalMonitor, null);
+        using var liveContext = new ConsoleLiveDisplayContext(new LiveDisplayCanvas(options.ConsoleLiveDisplayOptions, AnsiConsole.Console) { Diagnostics = diagnostics }, consoleRenderer, terminalMonitor, null);
         using var _ = consoleRenderer.Subscribe(focusManager);
         using var focusSession = focusManager.BeginSession(liveContext, initialView, token);
         await focusSession.InitializationTask.ConfigureAwait(false);
