@@ -79,6 +79,10 @@ public sealed record LayoutResult(Widget Root, LayoutBox RootBox, LayoutSize Siz
     public IRenderable PaintToRenderable()
         => new WidgetCanvasRenderable(Root, Size);
 
+    // Diagnostics only: painted receives each canvas after it is painted.
+    internal IRenderable PaintToRenderable(Action<TerminalCanvas> painted)
+        => new WidgetCanvasRenderable(Root, Size, painted);
+
     private static void AppendLayoutBoxes(LayoutBox box, List<LayoutBox> result)
     {
         result.Add(box);

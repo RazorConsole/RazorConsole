@@ -3,26 +3,30 @@
 namespace RazorConsole.Core.Input;
 
 /// <summary>Routes a serialized VT input stream from an embedded terminal.</summary>
-internal sealed class TerminalInputDispatcher(KeyboardEventManager keyboard, MouseEventManager mouse)
+internal sealed class TerminalInputDispatcher(KeyboardEventManager keyboard, MouseEventManager? mouse)
 {
     private readonly TerminalInputDecoder _decoder = new();
 
     // Call with empty data after an idle interval to resolve a standalone Escape.
     // The host must serialize calls, including idle flushes and resize events.
-    public async Task HandleAsync(string data, CancellationToken token = default)
+    // endOfInput: the data is complete (injected input), so a trailing Escape is a key press now.
+    public async Task HandleAsync(string data, CancellationToken token = default, bool endOfInput = false)
     {
         var now = Environment.TickCount64;
         if (data.Length > 0)
         {
             _decoder.Feed(data, now);
         }
-        _decoder.FlushEscape(now);
+        _decoder.FlushEscape(endOfInput ? long.MaxValue : now);
         while (true)
         {
             token.ThrowIfCancellationRequested();
             if (_decoder.TryReadMouse(out var input))
             {
-                await mouse.HandleAsync(input, token).ConfigureAwait(false);
+                if (mouse is not null)
+                {
+                    await mouse.HandleAsync(input, token).ConfigureAwait(false);
+                }
             }
             else if (_decoder.KeyAvailable)
             {

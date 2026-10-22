@@ -4,10 +4,11 @@ using Spectre.Console.Rendering;
 
 namespace RazorConsole.Core.Layout;
 
-internal sealed class WidgetCanvasRenderable(Widget root, LayoutSize size) : IRenderable
+internal sealed class WidgetCanvasRenderable(Widget root, LayoutSize size, Action<TerminalCanvas>? painted = null) : IRenderable
 {
     private readonly Widget _root = root ?? throw new ArgumentNullException(nameof(root));
     private readonly LayoutSize _size = size;
+    private readonly Action<TerminalCanvas>? _painted = painted;
 
     public Measurement Measure(RenderOptions options, int maxWidth)
     {
@@ -18,6 +19,8 @@ internal sealed class WidgetCanvasRenderable(Widget root, LayoutSize size) : IRe
     public IEnumerable<Segment> Render(RenderOptions options, int maxWidth)
     {
         var canvas = PaintToCanvas();
+        // Diagnostics only: receives each painted canvas, which is never written again.
+        _painted?.Invoke(canvas);
         return canvas.RenderSegments(maxWidth);
     }
 

@@ -60,9 +60,14 @@ internal sealed class DiagnosticsAppQueries(
     /// <summary>
     /// Hit-tests the layout: the element with the highest z-index, then the deepest, whose rectangle holds the cell.
     /// </summary>
+    /// <remarks>
+    /// Reads the frame on screen, so the stack and the painted cell match what the user sees. Before the first paint
+    /// (and on the legacy pipeline) it reads the latest frame and returns no cell.
+    /// </remarks>
     public InspectAtResult InspectAt(InspectAtParams parameters)
     {
-        var index = CreateIndex();
+        var screen = state.LatestScreen;
+        var index = CreateIndex(screen?.Frame ?? state.LatestFrame);
         DiagnosticsTreeEntry? hit = null;
         DiagnosticsRect? hitRect = null;
         foreach (var entry in index.Nodes)
@@ -82,8 +87,11 @@ internal sealed class DiagnosticsAppQueries(
         }
 
         var stack = hit is null ? [] : index.ElementAncestors(hit).Prepend(hit).Select(index.ToMatch).ToArray();
-        return new InspectAtResult(parameters.X, parameters.Y, stack, index.Frame);
+        var cell = screen is null ? null : DiagnosticsScreenReader.CellAt(screen.Canvas, parameters.X, parameters.Y);
+        return new InspectAtResult(parameters.X, parameters.Y, cell, stack, index.Frame);
     }
+
+    public ScreenResult Screen(ScreenParams parameters) => DiagnosticsScreenReader.Read(state, options, parameters);
 
     public FocusResult Focus()
     {
@@ -154,7 +162,9 @@ internal sealed class DiagnosticsAppQueries(
             state.LatestFrame?.Sequence ?? 0);
     }
 
-    private DiagnosticsTreeIndex CreateIndex() => new(state.LatestFrame, focusManager.GetFocusTargets());
+    private DiagnosticsTreeIndex CreateIndex() => CreateIndex(state.LatestFrame);
+
+    private DiagnosticsTreeIndex CreateIndex(DiagnosticsFrame? frame) => new(frame, focusManager.GetFocusTargets());
 
     private static DiagnosticsTreeEntry Single(DiagnosticsTreeIndex index, DiagnosticsSelector selector, bool first)
     {

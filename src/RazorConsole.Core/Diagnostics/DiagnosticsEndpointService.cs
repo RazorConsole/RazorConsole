@@ -10,12 +10,13 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core.Diagnostics.Protocol;
 using RazorConsole.Core.Focus;
+using RazorConsole.Core.Input;
 
 namespace RazorConsole.Core.Diagnostics;
 
 /// <summary>
-/// The app's diagnostics endpoint: listens on the per-process, current-user-only endpoint, answers the read-only
-/// methods in <see cref="DiagnosticsAppMethods"/>, and advertises itself with a discovery file in the state directory.
+/// The app's diagnostics endpoint: listens on the per-process, current-user-only endpoint, answers the methods in
+/// <see cref="DiagnosticsAppMethods"/>, and advertises itself with a discovery file in the state directory.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -32,6 +33,10 @@ namespace RazorConsole.Core.Diagnostics;
 /// A failure to listen, such as another live process on the endpoint, is logged and leaves the app running without
 /// an endpoint. Requests on one connection are answered in order; every request must follow a successful hello.
 /// </para>
+/// <para>
+/// Injected input goes through a <see cref="DiagnosticsInputQueue"/> that the app's input loop drains, and is
+/// answered after its handlers have run.
+/// </para>
 /// </remarks>
 internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyncDisposable
 {
@@ -42,10 +47,20 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
     /// </summary>
     public const string SessionTokenEnvironmentVariableName = "RAZORCONSOLE_DIAGNOSTICS_SESSION";
 
-    private const int MaxSessionTokenLength = 128;
-    private static readonly TimeSpan RejectTimeout = TimeSpan.FromSeconds(1);
+    /// <summary>
+    /// Longest accepted <see cref="InputParams.Data"/>, in characters. Each key runs the app's handlers in turn.
+    /// </summary>
+    public const int MaxInputDataLength = 64 * 1024;
 
+    private const int MaxSessionTokenLength = 128;
+    private const int MaxClickCount = 3;
+    private static readonly TimeSpan RejectTimeout = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan DefaultInputTimeout = TimeSpan.FromSeconds(10);
+
+    private readonly DiagnosticsState? _state;
+    private readonly ConsoleAppOptions _options;
     private readonly DiagnosticsAppQueries? _queries;
+    private readonly DiagnosticsInputQueue? _input;
     private readonly ILogger<DiagnosticsEndpointService> _logger;
     private readonly DiagnosticsEndpointSettings _settings;
     private readonly CancellationTokenSource _stopping = new();
@@ -62,11 +77,21 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         NavigationManager navigationManager,
         ConsoleAppOptions options,
         ILogger<DiagnosticsEndpointService> logger,
-        DiagnosticsEndpointSettings? settings = null)
+        DiagnosticsEndpointSettings? settings = null,
+        KeyboardEventManager? keyboard = null)
     {
+        _state = state;
+        _options = options;
         _queries = state is null ? null : new DiagnosticsAppQueries(state, focusManager, navigationManager, options);
         _logger = logger;
         _settings = settings ?? new DiagnosticsEndpointSettings();
+
+        // Hosted services are all created before any starts, so the input loop sees the queue from its first pass.
+        if (state is not null && keyboard is not null)
+        {
+            _input = new DiagnosticsInputQueue();
+            keyboard.InjectedInput = _input;
+        }
     }
 
     /// <summary>
@@ -260,7 +285,7 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
             var id = message.Id!.Value;
             if (!helloDone)
             {
-                var (response, accepted) = Hello(message, id);
+                var (response, accepted) = Hello(message, id, _input is not null);
                 await WriteResponseAsync(connection, id, response, cancellationToken).ConfigureAwait(false);
                 if (accepted is null)
                 {
@@ -276,12 +301,15 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
                 continue;
             }
 
-            await WriteResponseAsync(connection, id, Dispatch(message, id), cancellationToken).ConfigureAwait(false);
+            var result = message.Method == DiagnosticsAppMethods.Input
+                ? await InputAsync(message, id, cancellationToken).ConfigureAwait(false)
+                : Dispatch(message, id);
+            await WriteResponseAsync(connection, id, result, cancellationToken).ConfigureAwait(false);
         }
     }
 
     // accepted: true on success, false when the connection must close, null when the client may retry.
-    private static (DiagnosticsMessage Response, bool? Accepted) Hello(DiagnosticsMessage message, long id)
+    private static (DiagnosticsMessage Response, bool? Accepted) Hello(DiagnosticsMessage message, long id, bool acceptsInput)
     {
         if (message.Method != DiagnosticsProtocol.HelloMethod)
         {
@@ -311,7 +339,8 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
                 $"This app speaks diagnostics protocol {DiagnosticsProtocol.Version}, not {hello.Protocol}."), false);
         }
 
-        var result = new HelloResult(DiagnosticsProtocol.Version, ServerName, Environment.ProcessId, DiagnosticsAppMethods.All);
+        var features = acceptsInput ? DiagnosticsAppMethods.AllWithInput : DiagnosticsAppMethods.All;
+        var result = new HelloResult(DiagnosticsProtocol.Version, ServerName, Environment.ProcessId, features);
         return (DiagnosticsMessage.Success(id, result, DiagnosticsJsonContext.Default.HelloResult), true);
     }
 
@@ -332,6 +361,7 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
                 DiagnosticsAppMethods.Errors => Success(id, queries.Errors(message.GetParams(context.ErrorsParams) ?? new ErrorsParams()), context.ErrorsResult),
                 DiagnosticsAppMethods.Logs => Success(id, queries.Logs(message.GetParams(context.LogsParams) ?? new LogsParams()), context.LogsResult),
                 DiagnosticsAppMethods.Stats => Success(id, queries.Stats(), context.StatsResult),
+                DiagnosticsAppMethods.Screen => Success(id, queries.Screen(message.GetParams(context.ScreenParams) ?? new ScreenParams()), context.ScreenResult),
                 DiagnosticsProtocol.HelloMethod => Failure(id, DiagnosticsErrorCodes.InvalidRequest, "hello was already sent."),
                 _ => Failure(id, DiagnosticsErrorCodes.MethodNotFound, $"Unknown method '{message.Method}'."),
             };
@@ -348,6 +378,128 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         {
             LogRequestFailed(_logger, message.Method, ex);
             return Failure(id, DiagnosticsErrorCodes.Internal, ex.Message);
+        }
+    }
+
+    // Answers after the input's handlers have run, or with a timeout error.
+    private async Task<DiagnosticsMessage> InputAsync(DiagnosticsMessage message, long id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (_input is null)
+            {
+                throw DiagnosticsInputQueue.Unavailable();
+            }
+
+            var parameters = Required(message, DiagnosticsJsonContext.Default.InputParams);
+            if (parameters.Data is null && parameters.Mouse is null)
+            {
+                throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, "input needs data or mouse.");
+            }
+
+            if (parameters.Data?.Length > MaxInputDataLength)
+            {
+                throw new DiagnosticsProtocolException(
+                    DiagnosticsErrorCodes.InvalidParams,
+                    $"input data is limited to {MaxInputDataLength} characters.");
+            }
+
+            if (parameters.TimeoutMs <= 0)
+            {
+                throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, "timeoutMs must be positive.");
+            }
+
+            var mouse = parameters.Mouse is null ? null : ToMouseEvents(parameters.Mouse);
+            if (mouse is not null && !_options.ConsoleLiveDisplayOptions.EnableMouseEvents)
+            {
+                throw DiagnosticsInputQueue.Unavailable(DiagnosticsUnavailableReasons.MouseDisabled);
+            }
+
+            var item = _input.Enqueue(parameters.Data, mouse);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(parameters.TimeoutMs is { } ms ? TimeSpan.FromMilliseconds(ms) : DefaultInputTimeout);
+            try
+            {
+                await item.Completion.WaitAsync(timeout.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && !item.Completion.IsCompleted)
+            {
+                var dispatched = !item.TryCancel();
+                throw new DiagnosticsProtocolException(
+                    DiagnosticsErrorCodes.Timeout,
+                    dispatched ? "The app's input handlers did not finish in time." : "The app did not read the input in time.",
+                    errorData: JsonSerializer.SerializeToElement(new InputTimeoutData(dispatched), DiagnosticsJsonContext.Default.InputTimeoutData));
+            }
+
+            return Success(id, new InputResult(_state!.LatestFrame?.Sequence ?? 0), DiagnosticsJsonContext.Default.InputResult);
+        }
+        catch (DiagnosticsProtocolException ex)
+        {
+            return DiagnosticsMessage.Failure(id, ex.ToError());
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            LogRequestFailed(_logger, message.Method, ex);
+            return Failure(id, DiagnosticsErrorCodes.Internal, ex.Message);
+        }
+    }
+
+    private static TerminalMouseEvent[] ToMouseEvents(DiagnosticsMouseInput input)
+    {
+        if (input.X < 0 || input.Y < 0)
+        {
+            throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, "Mouse coordinates must not be negative.");
+        }
+
+        var button = input.Button switch
+        {
+            null or "left" => 0,
+            "middle" => 1,
+            "right" => 2,
+            _ => throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, $"Unknown mouse button '{input.Button}'."),
+        };
+
+        ConsoleModifiers modifiers = 0;
+        foreach (var modifier in input.Modifiers ?? [])
+        {
+            modifiers |= modifier switch
+            {
+                "shift" => ConsoleModifiers.Shift,
+                "ctrl" => ConsoleModifiers.Control,
+                "alt" => ConsoleModifiers.Alt,
+                _ => throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, $"Unknown modifier '{modifier}'."),
+            };
+        }
+
+        TerminalMouseEvent Event(TerminalMouseKind kind) => new(kind, input.X, input.Y, button, input.DeltaY ?? 0, modifiers);
+
+        switch (input.Kind)
+        {
+            case "down":
+                return [Event(TerminalMouseKind.Down)];
+            case "up":
+                return [Event(TerminalMouseKind.Up)];
+            case "move":
+                return [Event(TerminalMouseKind.Move)];
+            case "wheel":
+                return [Event(TerminalMouseKind.Wheel)];
+            case "click":
+                var count = input.Count ?? 1;
+                if (count is < 1 or > MaxClickCount)
+                {
+                    throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, $"count must be 1 to {MaxClickCount}.");
+                }
+
+                var events = new TerminalMouseEvent[count * 2];
+                for (var i = 0; i < count; i++)
+                {
+                    events[2 * i] = Event(TerminalMouseKind.Down);
+                    events[(2 * i) + 1] = Event(TerminalMouseKind.Up);
+                }
+
+                return events;
+            default:
+                throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, $"Unknown mouse kind '{input.Kind}'.");
         }
     }
 

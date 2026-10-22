@@ -173,11 +173,12 @@ public sealed class DiagnosticsHooksTests
     }
 
     [Fact]
-    public async Task DisabledRenderer_FrameAllocationsDifferFromEnabledOnlyByTheFrameRecord()
+    public async Task DisabledRenderer_FrameAllocationsDifferFromEnabledOnlyByTheFrameRecordAndPaintCallback()
     {
         // Every hook is a null check when disabled, so a disabled frame allocates exactly what an enabled frame
-        // allocates minus the one frame record that PublishFrame creates. Anything else on the enabled path would
-        // show up here as a difference, and anything diagnostics adds outside that path would be paid by both.
+        // allocates minus the frame record that PublishFrame creates and the paint callback that publishes the
+        // canvas. Anything else on the enabled path would show up here as a difference, and anything diagnostics
+        // adds outside that path would be paid by both.
         using var disabled = CreateRenderer(diagnostics: null);
         var state = new DiagnosticsState();
         using var enabled = CreateRenderer(state);
@@ -189,10 +190,17 @@ public sealed class DiagnosticsHooksTests
         var disabledBytes = MeasureFrameAllocations(disabled);
         var enabledBytes = MeasureFrameAllocations(enabled);
         var frameRecordBytes = MeasureMinimum(() => state.PublishFrame(null, null, null));
+        var frame = state.PublishFrame(null, null, null);
+        var paintCallbackBytes = MeasureMinimum(() => GC.KeepAlive(PaintCallback(state, frame)));
 
         frameRecordBytes.ShouldBeGreaterThan(0);
-        (enabledBytes - disabledBytes).ShouldBe(frameRecordBytes);
+        paintCallbackBytes.ShouldBeGreaterThan(0);
+        (enabledBytes - disabledBytes).ShouldBe(frameRecordBytes + paintCallbackBytes);
     }
+
+    // The renderer's callback has this shape: a closure over the state and the frame, and its delegate.
+    private static Action<TerminalCanvas> PaintCallback(DiagnosticsState state, DiagnosticsFrame frame)
+        => canvas => state.PublishScreen(frame, canvas);
 
     private static long MeasureFrameAllocations(ConsoleRenderer renderer) => MeasureMinimum(() => renderer.RefreshSnapshot());
 
@@ -215,21 +223,24 @@ public sealed class DiagnosticsHooksTests
         return minimum;
     }
 
-    internal static ConsoleRenderer CreateRenderer(DiagnosticsState? diagnostics)
+    internal static ConsoleRenderer CreateRenderer(DiagnosticsState? diagnostics) => CreateRenderer(diagnostics, out _);
+
+    internal static ConsoleRenderer CreateRenderer(DiagnosticsState? diagnostics, out IServiceProvider provider)
     {
         var services = new ServiceCollection();
         services.AddRazorConsoleServices();
-        var provider = services.BuildServiceProvider();
+        var serviceProvider = services.BuildServiceProvider();
+        provider = serviceProvider;
         return new ConsoleRenderer(
-            provider,
+            serviceProvider,
             NullLoggerFactory.Instance,
-            provider.GetRequiredService<TranslationContext>(),
-            provider.GetService<ConsoleAppOptions>(),
-            provider.GetService<WidgetTranslationContext>(),
-            provider.GetService<LayoutEngine>(),
-            provider.GetService<VNodeIdAccessor>(),
-            provider.GetService<VNodeLayoutAccessor>(),
-            provider.GetService<TerminalMonitor>(),
+            serviceProvider.GetRequiredService<TranslationContext>(),
+            serviceProvider.GetService<ConsoleAppOptions>(),
+            serviceProvider.GetService<WidgetTranslationContext>(),
+            serviceProvider.GetService<LayoutEngine>(),
+            serviceProvider.GetService<VNodeIdAccessor>(),
+            serviceProvider.GetService<VNodeLayoutAccessor>(),
+            serviceProvider.GetService<TerminalMonitor>(),
             diagnostics);
     }
 

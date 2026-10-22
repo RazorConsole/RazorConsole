@@ -2,6 +2,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using RazorConsole.Core.Layout;
 using RazorConsole.Core.Vdom;
 
 namespace RazorConsole.Core.Diagnostics;
@@ -21,6 +22,7 @@ internal sealed class DiagnosticsState
     private readonly long _startedTimestamp = Stopwatch.GetTimestamp();
     private readonly ConditionalWeakTable<Exception, object?> _recordedErrors = [];
     private DiagnosticsFrame? _latestFrame;
+    private DiagnosticsScreen? _latestScreen;
     private long _frameSequence;
 
     public DiagnosticsCounters Counters { get; } = new();
@@ -37,17 +39,34 @@ internal sealed class DiagnosticsState
     public DiagnosticsFrame? LatestFrame => Volatile.Read(ref _latestFrame);
 
     /// <summary>
+    /// Gets the canvas painted last, with the frame it shows, or <see langword="null"/> before the first paint and
+    /// always on the legacy pipeline.
+    /// </summary>
+    /// <remarks>
+    /// It can trail <see cref="LatestFrame"/>: frames built for hit tests or dropped by the display are never painted.
+    /// </remarks>
+    public DiagnosticsScreen? LatestScreen => Volatile.Read(ref _latestScreen);
+
+    /// <summary>
     /// Publishes the tree and layout of one frame with a single reference swap, so readers never mix two frames.
     /// </summary>
     /// <remarks>The renderer passes a fresh tree and fresh layout collections per frame and never changes them later.</remarks>
-    public void PublishFrame(
+    public DiagnosticsFrame PublishFrame(
         VNode? root,
         IReadOnlyCollection<VNodeLayoutInfo>? layouts,
         IReadOnlyDictionary<string, string?>? layoutParents)
     {
         var frame = new DiagnosticsFrame(Interlocked.Increment(ref _frameSequence), root, layouts, layoutParents);
         Volatile.Write(ref _latestFrame, frame);
+        return frame;
     }
+
+    /// <summary>
+    /// Publishes a painted canvas with the frame it was painted from, with a single reference swap.
+    /// </summary>
+    /// <remarks>Called on the display thread after painting; the canvas is never written again.</remarks>
+    public void PublishScreen(DiagnosticsFrame frame, TerminalCanvas canvas)
+        => Volatile.Write(ref _latestScreen, new DiagnosticsScreen(frame, canvas));
 
     /// <summary>
     /// Records an error once. The renderer rethrows from its exception handler, so the same exception can reach it
@@ -81,6 +100,11 @@ internal sealed record DiagnosticsFrame(
     VNode? Root,
     IReadOnlyCollection<VNodeLayoutInfo>? Layouts,
     IReadOnlyDictionary<string, string?>? LayoutParents);
+
+/// <summary>
+/// The renderer's canvas as last painted, with the frame whose tree and layout it shows.
+/// </summary>
+internal sealed record DiagnosticsScreen(DiagnosticsFrame Frame, TerminalCanvas Canvas);
 
 /// <summary>
 /// One caught error.
