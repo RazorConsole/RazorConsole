@@ -30,6 +30,7 @@ internal static class DiagnosticsServiceCollectionExtensions
                 ? null!
                 : new DiagnosticsState());
 
+        services.AddHostedService<DiagnosticsEndpointService>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, DiagnosticsLoggerProvider>());
         services.Configure<LoggerFilterOptions>(options =>
             options.AddFilter<DiagnosticsLoggerProvider>(category: null, DiagnosticsLoggerProvider.MinimumLevel));

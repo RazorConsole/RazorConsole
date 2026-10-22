@@ -36,6 +36,7 @@ internal sealed class DiagnosticsConnection : IAsyncDisposable
 
     private readonly Task _pump;
     private Exception? _readError;
+    private int _disposeStarted;
     private int _queuedMessages;
     private long _queuedBytes;
     private int _lastLineBytes;
@@ -127,6 +128,11 @@ internal sealed class DiagnosticsConnection : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposeStarted, 1) != 0)
+        {
+            return;
+        }
+
         await _disposed.CancelAsync().ConfigureAwait(false);
         await _stream.DisposeAsync().ConfigureAwait(false);
         await _pump.ConfigureAwait(false);

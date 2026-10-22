@@ -89,12 +89,17 @@ internal sealed record HelloResult(int Protocol, string Server, int ProcessId, I
 internal sealed record CancelParams(long Id);
 
 /// <summary>
-/// Raised when a peer breaks the protocol. <see cref="Code"/> is a <see cref="DiagnosticsErrorCodes"/> value.
+/// Raised when a peer breaks the protocol or a request fails. <see cref="Code"/> is a <see cref="DiagnosticsErrorCodes"/> value.
 /// </summary>
-internal sealed class DiagnosticsProtocolException(string code, string message, Exception? innerException = null)
+internal sealed class DiagnosticsProtocolException(string code, string message, Exception? innerException = null, JsonElement? errorData = null)
     : Exception(message, innerException)
 {
     public string Code { get; } = code;
 
-    public DiagnosticsError ToError() => new(Code, Message);
+    /// <summary>
+    /// Details sent as <see cref="DiagnosticsError.Data"/>, such as the candidates of an ambiguous selector.
+    /// </summary>
+    public JsonElement? ErrorData { get; } = errorData;
+
+    public DiagnosticsError ToError() => new(Code, Message, ErrorData);
 }

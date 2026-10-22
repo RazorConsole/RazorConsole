@@ -215,7 +215,7 @@ public sealed class DiagnosticsHooksTests
         return minimum;
     }
 
-    private static ConsoleRenderer CreateRenderer(DiagnosticsState? diagnostics)
+    internal static ConsoleRenderer CreateRenderer(DiagnosticsState? diagnostics)
     {
         var services = new ServiceCollection();
         services.AddRazorConsoleServices();

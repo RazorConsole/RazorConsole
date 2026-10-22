@@ -47,6 +47,7 @@ internal static class DiagnosticsErrorCodes
     public const string MessageTooLarge = "message_too_large";
     public const string ProtocolMismatch = "protocol_mismatch";
     public const string QueueOverflow = "queue_overflow";
+    public const string TooManyConnections = "too_many_connections";
 
     // Commands
     public const string Usage = "usage";
