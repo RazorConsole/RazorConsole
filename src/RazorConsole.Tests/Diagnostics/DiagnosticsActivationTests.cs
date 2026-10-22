@@ -73,6 +73,23 @@ public sealed class DiagnosticsActivationTests
         DiagnosticsActivation.IsDebugBuild(typeof(DiagnosticsActivationTests).Assembly).ShouldBe(expected);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void OverrideEntryAssemblyIsDebugBuild_AppliesUntilDisposed(bool value)
+    {
+        var production = new TestHostEnvironment(Environments.Production);
+        var real = DiagnosticsActivation.IsEnabled(production, RazorConsoleDiagnostics.Auto);
+
+        using (DiagnosticsActivation.OverrideEntryAssemblyIsDebugBuild(value))
+        {
+            DiagnosticsActivation.IsEnabled(production, RazorConsoleDiagnostics.Auto).ShouldBe(
+                value && !DiagnosticsActivation.IsOptOut(Environment.GetEnvironmentVariable(DiagnosticsActivation.EnvironmentVariableName)));
+        }
+
+        DiagnosticsActivation.IsEnabled(production, RazorConsoleDiagnostics.Auto).ShouldBe(real);
+    }
+
     [Fact]
     public void IsDebugBuild_IsFalseWithoutAnAssembly()
     {

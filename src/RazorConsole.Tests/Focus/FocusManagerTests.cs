@@ -61,6 +61,32 @@ public sealed class FocusManagerTests
     }
 
     [Fact]
+    public async Task GetFocusTargets_ReturnsFocusOrderWithTheFocusedTargetMarked()
+    {
+        var manager = new FocusManager();
+        manager.GetFocusTargets().ShouldBeEmpty();
+
+        var keys = new[] { "first", "second", "third" };
+        var initial = CreateView(keys, focusedKey: null);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(
+            new TestCanvas(),
+            initial,
+            new VdomDiffService());
+        using var session = manager.BeginSession(context, initial, CancellationToken.None);
+        await session.InitializationTask;
+
+        PushInitialSnapshot(manager, initial);
+        await manager.FocusNextAsync(session.Token);
+
+        var targets = manager.GetFocusTargets();
+
+        targets.Select(t => t.Key).ShouldBe(keys);
+        targets.Select(t => t.IsFocused).ShouldBe([false, true, false]);
+        targets.ShouldAllBe(t => !string.IsNullOrEmpty(t.VNodeId));
+    }
+
+    [Fact]
     public async Task BeginSession_SelectsElementWithInteractiveEventsWhenNoFocusableAttribute()
     {
         var manager = new FocusManager();

@@ -8,6 +8,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.Extensions.Logging;
+using RazorConsole.Core.Diagnostics;
 using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Layout;
 using RazorConsole.Core.Renderables;
@@ -26,7 +27,8 @@ internal sealed class ConsoleRenderer(
     LayoutEngine? layoutEngine = null,
     VNodeIdAccessor? vnodeIdAccessor = null,
     VNodeLayoutAccessor? vnodeLayoutAccessor = null,
-    TerminalMonitor? terminalMonitor = null)
+    TerminalMonitor? terminalMonitor = null,
+    DiagnosticsState? diagnostics = null)
     : Renderer(services, loggerFactory),
     IObservable<ConsoleRenderer.RenderSnapshot>
 {
@@ -42,6 +44,7 @@ internal sealed class ConsoleRenderer(
     private readonly VNodeIdAccessor? _vnodeIdAccessor = vnodeIdAccessor;
     private readonly VNodeLayoutAccessor? _vnodeLayoutAccessor = vnodeLayoutAccessor;
     private readonly TerminalMonitor? _terminalMonitor = terminalMonitor;
+    private readonly DiagnosticsState? _diagnostics = diagnostics;
     private readonly Lock _observersSync = new();
     private readonly List<IObserver<RenderSnapshot>> _observers = [];
     private readonly Lock _observerNotificationSync = new();
@@ -63,6 +66,8 @@ internal sealed class ConsoleRenderer(
 #endif
 
     internal Translation.Contexts.TranslationContext GetTranslationContext() => _translationContext;
+
+    internal DiagnosticsState? Diagnostics => _diagnostics;
 
     internal RenderSnapshot RefreshSnapshot()
     {
@@ -207,6 +212,7 @@ internal sealed class ConsoleRenderer(
     protected override void HandleException(Exception exception)
     {
         _logger.LogErrorDuringRendering(exception);
+        _diagnostics?.RecordError(exception, "render");
         NotifyError(exception);
         System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(exception).Throw();
     }
@@ -491,6 +497,19 @@ internal sealed class ConsoleRenderer(
 
     private RenderSnapshot CreateSnapshotCore()
     {
+        if (_diagnostics is null)
+        {
+            return CreateSnapshotCore();
+        }
+
+        var started = Stopwatch.GetTimestamp();
+        var snapshot = CreateSnapshotCore();
+        _diagnostics.Counters.RecordFrame(Stopwatch.GetTimestamp() - started);
+        return snapshot;
+    }
+
+    private RenderSnapshot CreateSnapshotCore()
+    {
         try
         {
             if (_rootComponentId == -1 || !_componentRoots.TryGetValue(_rootComponentId, out var componentNode))
@@ -533,6 +552,7 @@ internal sealed class ConsoleRenderer(
         catch (Exception ex)
         {
             _logger.LogErrorCreatingRenderSnapshot(ex);
+            _diagnostics?.RecordError(ex, "snapshot");
             return RenderSnapshot.Empty;
         }
     }
@@ -569,6 +589,7 @@ internal sealed class ConsoleRenderer(
     {
         _vnodeIdAccessor?.UpdateSnapshot(rootNode);
         _vnodeLayoutAccessor?.UpdateSnapshot(rootNode, layouts, layoutParents);
+        _diagnostics?.PublishFrame(rootNode, layouts, layoutParents);
     }
 
     private VNode? CreateRenderableRoot(VNode node)
