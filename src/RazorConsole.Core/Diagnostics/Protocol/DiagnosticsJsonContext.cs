@@ -31,6 +31,12 @@ namespace RazorConsole.Core.Diagnostics.Protocol;
 [JsonSerializable(typeof(LogsResult))]
 [JsonSerializable(typeof(StatsResult))]
 [JsonSerializable(typeof(AmbiguousSelectorData))]
+[JsonSerializable(typeof(DiagnosticsUnavailableData))]
+[JsonSerializable(typeof(ScreenParams))]
+[JsonSerializable(typeof(ScreenResult))]
+[JsonSerializable(typeof(InputParams))]
+[JsonSerializable(typeof(InputResult))]
+[JsonSerializable(typeof(InputTimeoutData))]
 internal sealed partial class DiagnosticsJsonContext : JsonSerializerContext
 {
 }

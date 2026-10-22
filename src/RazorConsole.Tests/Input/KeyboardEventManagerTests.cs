@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using RazorConsole.Core.Controllers;
+using RazorConsole.Core.Diagnostics;
+using RazorConsole.Core.Diagnostics.Protocol;
 using RazorConsole.Core.Focus;
 using RazorConsole.Core.Input;
 using RazorConsole.Core.Rendering;
@@ -476,6 +478,70 @@ public class KeyboardEventManagerTests
         evt.HandlerId.ShouldBe(700UL);
         var args = evt.Args.ShouldBeOfType<ChangeEventArgs>();
         args.Value.ShouldBe("help!");
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task RunAsync_DispatchesInjectedInputThroughTheKeyHandlersBeforeCompleting()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec("input", value: string.Empty, events: new Dictionary<string, ulong> { ["onkeydown"] = 7, ["oninput"] = 8 }));
+        var queue = new DiagnosticsInputQueue();
+        harness.Manager.InjectedInput = queue;
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var loop = harness.Manager.RunAsync(stop.Token);
+
+        // A trailing Escape is a key press at once: injected data is complete.
+        await queue.Enqueue("x\u001b", null).Completion.WaitAsync(ct);
+
+        harness.Dispatcher.Events.Where(e => e.HandlerId == 7).Select(e => ((KeyboardEventArgs)e.Args).Key).ShouldBe(["x", "Escape"]);
+        harness.Dispatcher.Events.ShouldContain(e => e.HandlerId == 8 && Equals(((ChangeEventArgs)e.Args).Value, "x"));
+
+        await stop.CancelAsync();
+        await loop;
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task RunAsync_FailsInjectedMouseWithoutAMouseManagerAndKeepsRunning()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec("input", value: string.Empty, events: new Dictionary<string, ulong> { ["onkeydown"] = 7 }));
+        var queue = new DiagnosticsInputQueue();
+        harness.Manager.InjectedInput = queue;
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var loop = harness.Manager.RunAsync(stop.Token);
+
+        var mouse = queue.Enqueue(null, [new TerminalMouseEvent(TerminalMouseKind.Down, 1, 1, 0, 0, 0)]);
+        var failure = await Should.ThrowAsync<DiagnosticsProtocolException>(() => mouse.Completion.WaitAsync(ct));
+        failure.Code.ShouldBe(DiagnosticsErrorCodes.InputUnavailable);
+
+        await queue.Enqueue("y", null).Completion.WaitAsync(ct);
+        harness.Dispatcher.Events.ShouldContain(e => e.HandlerId == 7);
+
+        await stop.CancelAsync();
+        await loop;
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task RunAsync_SkipsWithdrawnInputAndFailsWhatWaitsWhenItEnds()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec("input", value: string.Empty, events: new Dictionary<string, ulong> { ["onkeydown"] = 7 }));
+        var queue = new DiagnosticsInputQueue();
+        harness.Manager.InjectedInput = queue;
+        var withdrawn = queue.Enqueue("a", null);
+        withdrawn.TryCancel().ShouldBeTrue();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var loop = harness.Manager.RunAsync(stop.Token);
+
+        await queue.Enqueue("b", null).Completion.WaitAsync(ct);
+        harness.Dispatcher.Events.Where(e => e.HandlerId == 7).Select(e => ((KeyboardEventArgs)e.Args).Key).ShouldBe(["b"]);
+
+        await stop.CancelAsync();
+        await loop;
+        Should.Throw<DiagnosticsProtocolException>(() => queue.Enqueue("c", null)).Code.ShouldBe(DiagnosticsErrorCodes.InputUnavailable);
     }
 
     private sealed class KeyboardHarness : IAsyncDisposable

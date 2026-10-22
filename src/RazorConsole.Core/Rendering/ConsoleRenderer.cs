@@ -553,13 +553,20 @@ internal sealed class ConsoleRenderer(
 
         var widgetRoot = _widgetTranslationContext.Translate(rootNode);
         var layoutResult = _layoutEngine.Layout(widgetRoot, CreateViewportConstraints());
-        var renderable = layoutResult.PaintToRenderable();
         var layouts = layoutResult.EnumerateLayoutInfos();
         var layoutParents = layoutResult.EnumerateLayoutParentIds();
 
-        UpdateSnapshotAccessors(rootNode, layouts, layoutParents);
+        var frame = UpdateSnapshotAccessors(rootNode, layouts, layoutParents);
+        var renderable = frame is null ? layoutResult.PaintToRenderable() : PaintToRenderableWithDiagnostics(layoutResult, frame);
 
         return new RenderSnapshot(rootNode, renderable, _widgetTranslationContext.AnimatedRenderables.ToArray());
+    }
+
+    // A separate method so the callback's closure is allocated only when diagnostics are enabled.
+    private IRenderable PaintToRenderableWithDiagnostics(LayoutResult layoutResult, DiagnosticsFrame frame)
+    {
+        var diagnostics = _diagnostics!;
+        return layoutResult.PaintToRenderable(canvas => diagnostics.PublishScreen(frame, canvas));
     }
 
     private BoxConstraints CreateViewportConstraints()
@@ -571,14 +578,15 @@ internal sealed class ConsoleRenderer(
         return new BoxConstraints(0, width, 0, height);
     }
 
-    private void UpdateSnapshotAccessors(
+    // Returns the published diagnostics frame, or null when diagnostics are disabled.
+    private DiagnosticsFrame? UpdateSnapshotAccessors(
         VNode? rootNode,
         IReadOnlyCollection<VNodeLayoutInfo>? layouts,
         IReadOnlyDictionary<string, string?>? layoutParents = null)
     {
         _vnodeIdAccessor?.UpdateSnapshot(rootNode);
         _vnodeLayoutAccessor?.UpdateSnapshot(rootNode, layouts, layoutParents);
-        _diagnostics?.PublishFrame(rootNode, layouts, layoutParents);
+        return _diagnostics?.PublishFrame(rootNode, layouts, layoutParents);
     }
 
     private VNode? CreateRenderableRoot(VNode node)

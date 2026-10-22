@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using RazorConsole.Core.Diagnostics;
+using RazorConsole.Core.Diagnostics.Protocol;
 using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Focus;
 using RazorConsole.Core.Rendering;
@@ -61,6 +63,7 @@ internal sealed class KeyboardEventManager
     private volatile string? _activeFocusKey;
     private readonly MouseEventManager? _mouse;
     private readonly ConsoleAppOptions? _options;
+    private TerminalInputDispatcher? _injectedInputDispatcher;
 
     public KeyboardEventManager(
         FocusManager focusManager,
@@ -80,12 +83,24 @@ internal sealed class KeyboardEventManager
         _focusManager.FocusChanged += OnFocusChanged;
     }
 
+    /// <summary>
+    /// Input injected by the diagnostics endpoint, drained by <see cref="RunAsync"/> between real inputs.
+    /// Set before <see cref="RunAsync"/> starts, and only when diagnostics are enabled.
+    /// </summary>
+    internal DiagnosticsInputQueue? InjectedInput { get; set; }
+
     public async Task RunAsync(CancellationToken token)
     {
+        var injected = InjectedInput;
         while (!token.IsCancellationRequested)
         {
             try
             {
+                if (injected is not null && injected.TryDequeue(out var item))
+                {
+                    await DispatchInjectedAsync(item, token).ConfigureAwait(false);
+                    continue;
+                }
                 if (_mouse is not null && _console.TryReadMouse(out var mouse))
                 {
                     await _mouse.HandleAsync(mouse, token).ConfigureAwait(false);
@@ -93,7 +108,15 @@ internal sealed class KeyboardEventManager
                 }
                 if (!_console.KeyAvailable)
                 {
-                    await Task.Delay(50, token).ConfigureAwait(false);
+                    if (injected is null)
+                    {
+                        await Task.Delay(50, token).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        // Wakes early for injected input.
+                        await injected.WaitAsync(50, token).ConfigureAwait(false);
+                    }
                     continue;
                 }
 
@@ -140,6 +163,51 @@ internal sealed class KeyboardEventManager
                     break;
                 }
             }
+        }
+
+        injected?.Close();
+    }
+
+    private async Task DispatchInjectedAsync(DiagnosticsInputItem item, CancellationToken token)
+    {
+        if (!item.TryStart())
+        {
+            // Withdrawn by the endpoint while waiting.
+            return;
+        }
+
+        try
+        {
+            if (item.Data is not null)
+            {
+                _injectedInputDispatcher ??= new TerminalInputDispatcher(this, _mouse);
+                await _injectedInputDispatcher.HandleAsync(item.Data, token, endOfInput: true).ConfigureAwait(false);
+            }
+
+            if (item.Mouse is not null)
+            {
+                if (_mouse is null)
+                {
+                    throw DiagnosticsInputQueue.Unavailable(DiagnosticsUnavailableReasons.MouseDisabled);
+                }
+
+                foreach (var mouse in item.Mouse)
+                {
+                    await _mouse.HandleAsync(mouse, token).ConfigureAwait(false);
+                }
+            }
+
+            item.Complete();
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            item.Fail(DiagnosticsInputQueue.Unavailable());
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Injected input never ends the loop; the endpoint reports the failure to its client.
+            item.Fail(ex);
         }
     }
 

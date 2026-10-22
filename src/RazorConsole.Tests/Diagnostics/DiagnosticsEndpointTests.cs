@@ -14,6 +14,7 @@ using RazorConsole.Core;
 using RazorConsole.Core.Diagnostics;
 using RazorConsole.Core.Diagnostics.Protocol;
 using RazorConsole.Core.Focus;
+using RazorConsole.Core.Input;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Vdom;
 
@@ -334,6 +335,153 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         await service.StopAsync(ct);
     }
 
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task Endpoint_InjectsKeysAndAnswersAfterTheHandlersRan()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var state = new DiagnosticsState();
+        var focus = new FocusManager();
+        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        using var subscription = renderer.Subscribe(focus);
+        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        var dispatcher = new RecordingDispatcher();
+        var keyboard = new KeyboardEventManager(focus, dispatcher, IdleConsole());
+        var service = await StartAsync(state, focus, keyboard: keyboard);
+        StartInputLoop(keyboard);
+        var client = await ConnectAsync(service, ct);
+
+        (await HelloAsync(client, ct)).Features.ShouldBe(DiagnosticsAppMethods.AllWithInput);
+
+        // Enter activates the focused Save button.
+        var input = Result(await InputAsync(client, new InputParams(Data: "\r"), ct), DiagnosticsJsonContext.Default.InputResult);
+        input.Frame.ShouldBe(state.LatestFrame!.Sequence);
+        dispatcher.Events.ShouldContain(e => e.Args is MouseEventArgs);
+
+        // Mouse input is refused while the app does not handle mouse events.
+        var mouse = Error(await InputAsync(client, new InputParams(Mouse: new DiagnosticsMouseInput("click", 1, 1)), ct));
+        mouse.Code.ShouldBe(DiagnosticsErrorCodes.InputUnavailable);
+        mouse.Data.ShouldNotBeNull().Deserialize(DiagnosticsJsonContext.Default.DiagnosticsUnavailableData)!.Reason.ShouldBe(DiagnosticsUnavailableReasons.MouseDisabled);
+
+        Error(await CallAsync(client, DiagnosticsAppMethods.Input, ct)).Code.ShouldBe(DiagnosticsErrorCodes.InvalidParams);
+        foreach (var invalid in new[]
+        {
+            new InputParams(),
+            new InputParams(Data: "x", TimeoutMs: 0),
+            new InputParams(Data: new string('x', DiagnosticsEndpointService.MaxInputDataLength + 1)),
+            new InputParams(Mouse: new DiagnosticsMouseInput("drag", 1, 1)),
+            new InputParams(Mouse: new DiagnosticsMouseInput("click", 1, 1, Count: 4)),
+            new InputParams(Mouse: new DiagnosticsMouseInput("down", -1, 1)),
+            new InputParams(Mouse: new DiagnosticsMouseInput("down", 1, 1, Button: "fourth")),
+        })
+        {
+            Error(await InputAsync(client, invalid, ct)).Code.ShouldBe(DiagnosticsErrorCodes.InvalidParams);
+        }
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task Endpoint_InjectsMouseClicksWhenTheAppHandlesMouseEvents()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var state = new DiagnosticsState();
+        var focus = new FocusManager();
+        using var renderer = DiagnosticsHooksTests.CreateRenderer(state, out var provider);
+        using var subscription = renderer.Subscribe(focus);
+        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        var options = new ConsoleAppOptions();
+        options.ConsoleLiveDisplayOptions.EnableMouseEvents = true;
+        var dispatcher = new RecordingDispatcher();
+        var mouse = new MouseEventManager(renderer, provider.GetRequiredService<VNodeLayoutAccessor>(), dispatcher, focus);
+        var keyboard = new KeyboardEventManager(focus, dispatcher, IdleConsole(), mouse: mouse, options: options);
+        var service = await StartAsync(state, focus, keyboard: keyboard, options: options);
+        StartInputLoop(keyboard);
+        var client = await ConnectAsync(service, ct);
+        await HelloAsync(client, ct);
+        var cancel = Result(
+            await CallAsync(client, DiagnosticsAppMethods.Find, new FindParams("key:cancel"), DiagnosticsJsonContext.Default.FindParams, ct),
+            DiagnosticsJsonContext.Default.FindResult).Matches.ShouldHaveSingleItem().Rect.ShouldNotBeNull();
+
+        Result(await InputAsync(client, new InputParams(Mouse: new DiagnosticsMouseInput("click", cancel.Left, cancel.Top)), ct), DiagnosticsJsonContext.Default.InputResult);
+
+        dispatcher.Events.ShouldContain(e => e.Args is MouseEventArgs && ((MouseEventArgs)e.Args).Type == "click");
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task Endpoint_TimesOutInputAndSaysWhetherItWasDispatched()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var state = new DiagnosticsState();
+        var focus = new FocusManager();
+        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        using var subscription = renderer.Subscribe(focus);
+        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        var dispatcher = new RecordingDispatcher { Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously) };
+        var keyboard = new KeyboardEventManager(focus, dispatcher, IdleConsole());
+        var service = await StartAsync(state, focus, keyboard: keyboard);
+        var client = await ConnectAsync(service, ct);
+        await HelloAsync(client, ct);
+
+        // The input loop is not running yet: the input is withdrawn unsent.
+        var unread = Error(await InputAsync(client, new InputParams(Data: "\r", TimeoutMs: 100), ct));
+        unread.Code.ShouldBe(DiagnosticsErrorCodes.Timeout);
+        unread.Data.ShouldNotBeNull().Deserialize(DiagnosticsJsonContext.Default.InputTimeoutData)!.Dispatched.ShouldBeFalse();
+
+        // The handler does not finish in time.
+        StartInputLoop(keyboard);
+        var stuck = Error(await InputAsync(client, new InputParams(Data: "\r", TimeoutMs: 200), ct));
+        stuck.Code.ShouldBe(DiagnosticsErrorCodes.Timeout);
+        stuck.Data.ShouldNotBeNull().Deserialize(DiagnosticsJsonContext.Default.InputTimeoutData)!.Dispatched.ShouldBeTrue();
+
+        // Only the second input reached the handlers; the withdrawn one was skipped.
+        dispatcher.Gate.SetResult();
+        Result(await InputAsync(client, new InputParams(Data: "\r"), ct), DiagnosticsJsonContext.Default.InputResult);
+        dispatcher.Events.Count(e => e.Args is MouseEventArgs).ShouldBe(2);
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task Endpoint_WithoutAnInputLoop_AdvertisesNoInputAndRefusesIt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var service = await StartAsync(new DiagnosticsState(), new FocusManager());
+        var client = await ConnectAsync(service, ct);
+
+        (await HelloAsync(client, ct)).Features.ShouldNotBeNull().ShouldNotContain(DiagnosticsAppMethods.Input);
+
+        Error(await InputAsync(client, new InputParams(Data: "x"), ct)).Code.ShouldBe(DiagnosticsErrorCodes.InputUnavailable);
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task Endpoint_ServesTheRendererScreenAndThePaintedCell()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var state = new DiagnosticsState();
+        var focus = new FocusManager();
+        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        using var subscription = renderer.Subscribe(focus);
+        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        var service = await StartAsync(state, focus);
+        var client = await ConnectAsync(service, ct);
+        await HelloAsync(client, ct);
+
+        var unpainted = Error(await CallAsync(client, DiagnosticsAppMethods.Screen, ct));
+        unpainted.Code.ShouldBe(DiagnosticsErrorCodes.ScreenUnavailable);
+
+        DiagnosticsScreenTests.Paint(renderer.RefreshSnapshot().Renderable!);
+        var screen = Result(
+            await CallAsync(client, DiagnosticsAppMethods.Screen, new ScreenParams(IncludeCells: true), DiagnosticsJsonContext.Default.ScreenParams, ct),
+            DiagnosticsJsonContext.Default.ScreenResult);
+        screen.Source.ShouldBe("renderer");
+        screen.Frame.ShouldBe(state.LatestScreen!.Frame.Sequence);
+        screen.Cells.ShouldNotBeNull().Count.ShouldBe(screen.Height);
+        var row = screen.Lines.ToList().FindIndex(line => line.Contains("Save", StringComparison.Ordinal));
+        var column = screen.Lines[row].IndexOf("Save", StringComparison.Ordinal);
+
+        var at = Result(
+            await CallAsync(client, DiagnosticsAppMethods.InspectAt, new InspectAtParams(column, row), DiagnosticsJsonContext.Default.InspectAtParams, ct),
+            DiagnosticsJsonContext.Default.InspectAtResult);
+        at.Cell.ShouldNotBeNull().Text.ShouldBe("S");
+        at.Stack[0].Text.ShouldBe("Save");
+    }
+
     [Fact]
     public void EnabledHost_RegistersTheEndpointService()
     {
@@ -354,19 +502,45 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         string? sessionToken = null,
         RecordingLogger? logger = null,
         string? stateDirectory = null,
-        Func<string, DiagnosticsListener>? listen = null)
+        Func<string, DiagnosticsListener>? listen = null,
+        KeyboardEventManager? keyboard = null,
+        ConsoleAppOptions? options = null)
     {
         var service = new DiagnosticsEndpointService(
             state,
             focus,
             new ConsoleNavigationManager(),
-            new ConsoleAppOptions(),
+            options ?? new ConsoleAppOptions(),
             logger ?? new RecordingLogger(),
-            new DiagnosticsEndpointSettings { StateDirectory = stateDirectory ?? _stateDirectory, SessionToken = sessionToken, Listen = listen });
+            new DiagnosticsEndpointSettings { StateDirectory = stateDirectory ?? _stateDirectory, SessionToken = sessionToken, Listen = listen },
+            keyboard);
         _disposables.Add(service);
         await service.StartAsync(TestContext.Current.CancellationToken);
         return service;
     }
+
+    // Runs the app's input loop until the test ends.
+    private void StartInputLoop(KeyboardEventManager keyboard)
+    {
+        var stop = new CancellationTokenSource();
+        var loop = keyboard.RunAsync(stop.Token);
+        _disposables.Add(new AsyncDisposable(async () =>
+        {
+            await stop.CancelAsync();
+            await loop;
+            stop.Dispose();
+        }));
+    }
+
+    private static IConsoleInput IdleConsole()
+    {
+        var console = Substitute.For<IConsoleInput>();
+        console.KeyAvailable.Returns(false);
+        return console;
+    }
+
+    private Task<DiagnosticsMessage> InputAsync(DiagnosticsConnection client, InputParams parameters, CancellationToken ct)
+        => CallAsync(client, DiagnosticsAppMethods.Input, parameters, DiagnosticsJsonContext.Default.InputParams, ct);
 
     private async Task<DiagnosticsConnection> ConnectAsync(DiagnosticsEndpointService service, CancellationToken ct)
     {
@@ -466,6 +640,30 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
             while (!Entries.Any(e => e.Level == LogLevel.Warning && e.Exception is TException))
             {
                 await Task.Delay(10, ct);
+            }
+        }
+    }
+
+    private sealed class AsyncDisposable(Func<Task> dispose) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync() => await dispose();
+    }
+
+    // Records dispatched events; with a gate, every dispatch waits for it.
+    private sealed class RecordingDispatcher : IKeyboardEventDispatcher
+    {
+        private readonly ConcurrentQueue<(ulong HandlerId, EventArgs Args)> _events = new();
+
+        public TaskCompletionSource? Gate { get; init; }
+
+        public IReadOnlyCollection<(ulong HandlerId, EventArgs Args)> Events => _events;
+
+        public async Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken)
+        {
+            _events.Enqueue((handlerId, eventArgs));
+            if (Gate is not null)
+            {
+                await Gate.Task.WaitAsync(cancellationToken);
             }
         }
     }
