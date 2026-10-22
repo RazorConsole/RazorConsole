@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\RazorConsole.Core\RazorConsole.Core.csproj" />
     <InternalsVisibleTo Include="RazorConsole.Tests" />
+    <InternalsVisibleTo Include="RazorConsole.Cli" />
   </ItemGroup>
   <Import Project="$(RepoRoot)/nuget/nuget-package.props" />
 

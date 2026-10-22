@@ -56,4 +56,23 @@ public sealed class PtyTerminalOptions
     /// (<c>CSI ? Ps $ p</c>) and the text area size (<c>CSI 18 t</c>). Defaults to <see langword="true"/>.
     /// </summary>
     public bool RespondToTerminalQueries { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a callback that receives each chunk of decoded output, in order, as it is read. It runs on the
+    /// reader thread under the terminal's lock, so it must be fast; an exception it throws stops reading and is
+    /// reported through the waits. For hosts that keep their own bounded copy of the output.
+    /// </summary>
+    internal PtyRawOutputObserver? RawOutputObserver { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many of the most recent characters <see cref="PtyTerminal.RawOutput"/> keeps, or
+    /// <see langword="null"/> to keep all of them. A long-lived terminal would otherwise grow without limit.
+    /// </summary>
+    internal int? RawOutputCapacity { get; set; }
 }
+
+/// <summary>
+/// Receives a chunk of decoded terminal output. The span is only valid during the call.
+/// </summary>
+/// <param name="output">The decoded characters.</param>
+internal delegate void PtyRawOutputObserver(ReadOnlySpan<char> output);
