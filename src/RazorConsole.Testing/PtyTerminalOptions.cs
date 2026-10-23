@@ -58,10 +58,15 @@ public sealed class PtyTerminalOptions
     public bool RespondToTerminalQueries { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a callback that receives each chunk of decoded output, in order, as it is read. It runs on the
-    /// reader thread under the terminal's lock, so it must be fast; an exception it throws stops reading and is
-    /// reported through the waits. For hosts that keep their own bounded copy of the output.
+    /// Gets or sets a callback that receives each chunk of decoded output, in order, as it is read. For hosts that
+    /// keep their own bounded copy of the output.
     /// </summary>
+    /// <remarks>
+    /// The callback runs on the reader thread while it holds the terminal's lock, so it must be fast (copy the chunk
+    /// and return) and must not call back into the <see cref="PtyTerminal"/>: no <see cref="PtyTerminal.CurrentFrame"/>
+    /// or other state, no input, no waits. Frame capture and query responses are held up until it returns.
+    /// An exception it throws stops reading and is reported through the waits.
+    /// </remarks>
     internal PtyRawOutputObserver? RawOutputObserver { get; set; }
 
     /// <summary>

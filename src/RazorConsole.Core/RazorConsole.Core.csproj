@@ -16,6 +16,7 @@
     <InternalsVisibleTo Include="RazorConsole.Tests" />
     <InternalsVisibleTo Include="RazorConsole.Website" />
     <InternalsVisibleTo Include="RazorConsole.Testing" />
+    <InternalsVisibleTo Include="RazorConsole.Cli" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 

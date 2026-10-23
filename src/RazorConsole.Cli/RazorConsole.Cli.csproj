@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- A tool needs no net9/net11 builds: the SDK runs the highest TFM the installed runtime supports. -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>razorconsole</ToolCommandName>
+    <RootNamespace>RazorConsole.Cli</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RazorConsole.Core\RazorConsole.Core.csproj" />
+    <ProjectReference Include="..\RazorConsole.Testing\RazorConsole.Testing.csproj" />
+    <PackageReference Include="System.CommandLine" />
+    <InternalsVisibleTo Include="RazorConsole.Tests" />
+  </ItemGroup>
+  <Import Project="$(RepoRoot)/nuget/nuget-package.props" />
+
+  <PropertyGroup>
+    <Title>RazorConsole CLI</Title>
+    <Description>Drive and inspect RazorConsole apps from the command line: run them in a pseudoterminal session, send input, wait for and assert on the screen, and read the component tree, focus, route, errors and logs of a Development or Debug app. Structured JSON results for CI and AI agents.</Description>
+    <PackageTags>$(PackageTags);cli;testing;diagnostics</PackageTags>
+  </PropertyGroup>
+
+</Project>
