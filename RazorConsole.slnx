@@ -41,6 +41,7 @@
     <Project Path="examples/GalleryZIndex/GalleryZIndex.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/RazorConsole.Cli/RazorConsole.Cli.csproj" />
     <Project Path="src/RazorConsole.Core/RazorConsole.Core.csproj" />
     <Project Path="src/RazorConsole.Testing/RazorConsole.Testing.csproj" />
     <Project Path="src/RazorConsole.Website/RazorConsole.Website.csproj" />
