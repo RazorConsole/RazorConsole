@@ -65,6 +65,23 @@ public sealed class WidgetLayoutTests
         RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("Current count:");
     }
 
+    [Theory]
+    [InlineData("[F1] Queues")]
+    [InlineData("[[x]] ]")]
+    [InlineData("   ")]
+    public void WidgetTranslationContext_UnescapesMarkupBracketsInDataText(string text)
+    {
+        var node = VNode.CreateElement("span");
+        node.SetAttribute("data-text", "true");
+        node.SetAttribute("data-content", Markup.Escape(text));
+        var context = new WidgetTranslationContext();
+
+        var widget = context.Translate(node);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 5));
+
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe(text);
+    }
+
     [Fact]
     public void WidgetTranslationContext_TranslatesFigletElementToSpectreWidgetFallback()
     {
