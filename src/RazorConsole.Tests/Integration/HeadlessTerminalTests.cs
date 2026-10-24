@@ -12,6 +12,37 @@ namespace RazorConsole.Tests.Integration;
 public sealed class HeadlessTerminalTests
 {
     [Fact]
+    public async Task DisposeAsync_DisposesAsyncOnlyServices()
+    {
+        var service = new AsyncOnlyService();
+        var terminal = await HeadlessTerminal.StartAsync<TextFields>(
+            new HeadlessTerminalOptions
+            {
+                Width = 30,
+                Height = 4,
+                ConfigureServices = services => services.AddSingleton(_ => service),
+                Parameters = new Dictionary<string, object?> { [nameof(TextFields.Events)] = new List<string>() },
+            },
+            TestContext.Current.CancellationToken);
+        terminal.Services.GetRequiredService<AsyncOnlyService>();
+
+        await terminal.DisposeAsync();
+
+        service.Disposed.ShouldBeTrue();
+    }
+
+    private sealed class AsyncOnlyService : IAsyncDisposable
+    {
+        public bool Disposed { get; private set; }
+
+        public ValueTask DisposeAsync()
+        {
+            Disposed = true;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    [Fact]
     public async Task TypeAsync_MapsCharactersToKeys_LikeAVtTerminal()
     {
         var events = new List<EventArgs>();
