@@ -53,6 +53,12 @@
     /// </remarks>
 
     private readonly string _generatedFocusKey = Guid.NewGuid().ToString("N");
+
+    /// <summary>
+    /// The focus manager key for this input, for use with FocusManager.FocusAsync.
+    /// </summary>
+    public string FocusKey => _generatedFocusKey;
+
     private bool _isFocused;
     private string _currentValue = string.Empty;
     private string _lastIncomingValue = string.Empty;
