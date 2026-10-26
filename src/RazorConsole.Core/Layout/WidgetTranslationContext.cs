@@ -448,6 +448,8 @@ public sealed class WidgetTranslationContext
         => string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
             && string.IsNullOrWhiteSpace(GetAttribute(node, "class"))
             && string.IsNullOrWhiteSpace(GetAttribute(node, "position"))
+            && string.IsNullOrWhiteSpace(GetAttribute(node, "data-layout"))
+            && !node.Attributes.ContainsKey(ConsoleRenderer.ComponentWrapperAttribute)
             && !node.Attributes.ContainsKey(IVNodeIdAccessor.HookAttributeName)
             && !node.Attributes.ContainsKey("data-focus-key");
 
