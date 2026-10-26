@@ -68,6 +68,22 @@ public sealed class TerminalCanvas
         }
     }
 
+    public void ApplyBackground(LayoutRect rect, Color background)
+    {
+        var clipped = rect.Intersect(ClipBounds).Intersect(new LayoutRect(0, 0, Width, Height));
+        for (var y = clipped.Y; y < clipped.Bottom; y++)
+        {
+            for (var x = clipped.X; x < clipped.Right; x++)
+            {
+                var cell = _cells[y, x];
+                _cells[y, x] = cell with
+                {
+                    Style = new Style(cell.Style?.Foreground, background, cell.Style?.Decoration, cell.Style?.Link),
+                };
+            }
+        }
+    }
+
     public void Write(int x, int y, string? text, Style? style = null)
         => Write(x, y, text, maxWidth: null, style);
 
