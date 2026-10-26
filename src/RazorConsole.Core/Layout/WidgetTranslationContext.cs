@@ -339,8 +339,12 @@ public sealed class WidgetTranslationContext
         return TranslateContainer(node);
     }
 
+    // data-opaque hides what is painted beneath the container, e.g. for a dropdown overlay.
     private Widget TranslateContainer(VNode node)
-        => new StackWidget(node.ID, TranslateChildren(node), attributes: node.Attributes, zIndex: TryGetIntAttribute(node, "z-index", 0));
+        => new StackWidget(node.ID, TranslateChildren(node), attributes: node.Attributes, zIndex: TryGetIntAttribute(node, "z-index", 0))
+        {
+            Opaque = IsTruthy(GetAttribute(node, "data-opaque")),
+        };
 
     private Widget? TryCreateSpectreFallbackWidget(VNode node, int zIndex)
     {

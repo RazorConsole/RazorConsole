@@ -252,6 +252,32 @@ public sealed class AbsolutePositionLayoutTests
         lines[2].ShouldBe("klmM   rst");
     }
 
+    [Fact]
+    public void WidgetTranslationContext_OpaqueAbsolute_HidesContentBeneathIt()
+    {
+        var root = VNode.CreateElement("div");
+        root.SetAttribute("class", "rows");
+        root.AddChild(VNode.CreateText("0123456789"));
+        root.AddChild(VNode.CreateText("abcdefghij"));
+
+        var overlay = VNode.CreateElement("div");
+        overlay.SetAttribute("class", "overlay");
+        overlay.SetAttribute("position", "absolute");
+        overlay.SetAttribute("top", "0");
+        overlay.SetAttribute("left", "2");
+        overlay.SetAttribute("data-opaque", "true");
+        overlay.AddChild(VNode.CreateText("XXXX"));
+        overlay.AddChild(VNode.CreateText("X"));
+        root.AddChild(overlay);
+
+        var widget = new WidgetTranslationContext().Translate(root);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 10, 0, 10));
+
+        var lines = RenderToText(result, 10).Split('\n');
+        lines[0].ShouldBe("01XXXX6789");
+        lines[1].ShouldBe("abX   ghij");
+    }
+
     private static TextWidget Absolute(string id, string text, int? top = null, int? left = null, int? right = null, int? bottom = null, int zIndex = 0)
         => new(id, text, attributes: AbsoluteAttributes(top, left, right, bottom), zIndex: zIndex);
 
