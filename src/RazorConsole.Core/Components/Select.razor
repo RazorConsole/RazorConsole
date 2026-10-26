@@ -7,7 +7,7 @@
 <div @onfocus="OnFocus"
      @key="_generatedFocusKey" data-focusable="true" data-focus-key="@_generatedFocusKey"
      @onfocusout="OnFocusOut"
-     @onkeydown="OnKeyDown"
+     @onkeydown="HandleKeyDown"
      @attributes="AdditionalAttributes">
     <Rows Expand="@Expand">
         @for (var index = 0; index < Options.Length; index++)
@@ -113,6 +113,12 @@
     public EventCallback<TItem> ValueChanged { get; set; }
 
     /// <summary>
+    /// Raised for keys the select does not handle itself (navigation, commit, cancel, type-ahead).
+    /// </summary>
+    [Parameter]
+    public EventCallback<KeyboardEventArgs> OnKeyDown { get; set; }
+
+    /// <summary>
     /// Currently highlighted option during keyboard navigation (may differ from committed Value).
     /// </summary>
     [Parameter]
@@ -206,7 +212,7 @@
         await InvokeAsync(StateHasChanged).ConfigureAwait(false);
     }
 
-    private async Task OnKeyDown(KeyboardEventArgs? args)
+    private async Task HandleKeyDown(KeyboardEventArgs? args)
     {
         if (args is null)
         {
@@ -217,6 +223,12 @@
 
         if (string.IsNullOrEmpty(key))
         {
+            return;
+        }
+
+        if (!IsCommitKey(key) && !IsCancelKey(key) && !IsDownKey(key) && !IsUpKey(key) && !IsTypeAheadCandidate(key))
+        {
+            await OnKeyDown.InvokeAsync(args).ConfigureAwait(false);
             return;
         }
 
