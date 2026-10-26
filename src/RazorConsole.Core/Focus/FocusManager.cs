@@ -108,6 +108,10 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
         lock (_sync)
         {
+            // Components can request focus while mounting, before the session starts; keep that request.
+            var requestedKey = _hasPendingFocusRetry ? _pendingFocusKey : CurrentFocusKey;
+            var requestPending = _hasPendingFocusRetry;
+
             ResetState_NoLock();
 
             _context = context;
@@ -121,6 +125,22 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
                     initialView.AnimatedRenderables);
 
                 initialFocus = UpdateFocusTargets(snapshot);
+            }
+
+            if (requestedKey is not null)
+            {
+                var requestedIndex = _focusTargets.FindIndex(t => string.Equals(t.Key, requestedKey, StringComparison.Ordinal));
+                if (requestedIndex >= 0)
+                {
+                    _currentIndex = requestedIndex;
+                    CurrentFocusKey = requestedKey;
+                    initialFocus = _focusTargets[requestedIndex];
+                }
+                else if (requestPending)
+                {
+                    _pendingFocusKey = requestedKey;
+                    _hasPendingFocusRetry = true;
+                }
             }
         }
 
@@ -175,6 +195,10 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
                 return false;
             }
 
+            // Explicit navigation wins over a request still waiting for its target to render.
+            _pendingFocusKey = null;
+            _hasPendingFocusRetry = false;
+
             if (_currentIndex >= 0 && _currentIndex < _focusTargets.Count)
             {
                 previousTarget = _focusTargets[_currentIndex];
@@ -199,14 +223,14 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
     /// <summary>
     /// Attempts to focus the target that matches the supplied key.
-    /// If the target does not exist in the current snapshot, the request is stored and retried
-    /// on the next snapshot update only.
+    /// If the target does not exist in the current snapshot, the request is stored and applied
+    /// when a later snapshot contains it, unless focus is moved explicitly first.
     /// </summary>
     /// <param name="key">Focus key to activate.</param>
     /// <param name="token">Cancellation token.</param>
     /// <returns>
     /// <see langword="true"/> when focus changes immediately; otherwise <see langword="false"/>.
-    /// A <see langword="false"/> result can indicate the key was queued for a one-shot deferred focus retry.
+    /// A <see langword="false"/> result can indicate the key was queued until its target renders.
     /// </returns>
     public async Task<bool> FocusAsync(string key, CancellationToken token = default)
     {
@@ -504,11 +528,6 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
                     _hasPendingFocusRetry = false;
                 }
                 else if (pendingIndex >= 0)
-                {
-                    _pendingFocusKey = null;
-                    _hasPendingFocusRetry = false;
-                }
-                else
                 {
                     _pendingFocusKey = null;
                     _hasPendingFocusRetry = false;
