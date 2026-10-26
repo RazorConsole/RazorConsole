@@ -483,11 +483,11 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     /// <summary>
     /// Stops the terminal and disposes the hosted application's services.
     /// </summary>
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_disposed)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
 
         _disposed = true;
@@ -497,8 +497,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         _snapshotSubscription?.Dispose();
         _liveContext?.Dispose();
         _shutdown.Dispose();
-        _services.Dispose();
-        return ValueTask.CompletedTask;
+        await _services.DisposeAsync().ConfigureAwait(false);
     }
 
     private async Task StartCoreAsync<
