@@ -96,6 +96,16 @@ public sealed class VNode : IEquatable<VNode>
         _children.RemoveAt(index);
     }
 
+    /// <summary>Moves children as one simultaneous permutation, like Blazor's permutation list.</summary>
+    public void PermuteChildren(IReadOnlyList<(int From, int To)> moves)
+    {
+        var snapshot = _children.ToArray();
+        foreach (var (from, to) in moves)
+        {
+            _children[to] = snapshot[from];
+        }
+    }
+
     public void SetAttribute(string name, string? value)
     {
         if ((Kind != VNodeKind.Element && Kind != VNodeKind.Component) || string.IsNullOrWhiteSpace(name))

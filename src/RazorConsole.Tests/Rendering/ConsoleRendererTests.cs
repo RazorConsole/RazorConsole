@@ -239,6 +239,66 @@ public sealed class ConsoleRendererTests
     }
 
     [Fact]
+    public async Task RemovesAttribute_InsideRegion_AppliesCorrectly()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var parameters = ParameterView.FromDictionary(new Dictionary<string, object?>
+        {
+            { "Value", "Start" }
+        });
+
+        var snapshot = await renderer.MountComponentAsync<RegionTestComponent>(parameters, CancellationToken.None);
+        FindDiv(snapshot.Root!).ShouldNotBeNull().Attributes.ContainsKey("data-val").ShouldBeTrue();
+
+        var tcs = new TaskCompletionSource<ConsoleRenderer.RenderSnapshot>();
+        using var sub = renderer.Subscribe(new SimpleObserver(s =>
+        {
+            var el = FindDiv(s.Root);
+            if (el != null && !el.Attributes.ContainsKey("data-val"))
+            {
+                tcs.TrySetResult(s);
+            }
+        }));
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            await RegionTestComponent.Instance!.SetParametersAsync(ParameterView.FromDictionary(new Dictionary<string, object?>
+            {
+                { "Value", "Start" },
+                { "HasAttribute", false }
+            }));
+        });
+
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task ReorderingKeyedChildren_MovesThem()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var snapshot = await renderer.MountComponentAsync<KeyedListComponent>(
+            ParameterView.FromDictionary(new Dictionary<string, object?> { { "Items", new[] { "a", "b", "c" } } }),
+            CancellationToken.None);
+        Texts(snapshot.Root!).ShouldBe(["a", "b", "c"]);
+
+        var tcs = new TaskCompletionSource<ConsoleRenderer.RenderSnapshot>();
+        using var sub = renderer.Subscribe(new SimpleObserver(s =>
+        {
+            if (s.Root is { } root && Texts(root)[0] != "a")
+            {
+                tcs.TrySetResult(s);
+            }
+        }));
+        await renderer.Dispatcher.InvokeAsync(() => KeyedListComponent.Instance!.SetParametersAsync(
+            ParameterView.FromDictionary(new Dictionary<string, object?> { { "Items", new[] { "c", "a", "b" } } })));
+
+        var updated = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        Texts(updated.Root!).ShouldBe(["c", "a", "b"]);
+
+        static string[] Texts(VNode root) => [.. root.Children.Select(c => c.Children.Single().Text)];
+    }
+
+    [Fact]
     public async Task NestedComponentRenderingTestAsync()
     {
         // Arrange
@@ -549,6 +609,30 @@ public sealed class ConsoleRendererTests
             builder.OpenElement(7, "span");
             builder.AddContent(8, "B");
             builder.CloseElement();
+
+            builder.CloseElement();
+        }
+    }
+
+    private sealed class KeyedListComponent : ComponentBase
+    {
+        public static KeyedListComponent? Instance { get; private set; }
+
+        [Parameter]
+        public string[] Items { get; set; } = [];
+
+        protected override void OnInitialized() => Instance = this;
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+            foreach (var item in Items)
+            {
+                builder.OpenElement(1, "span");
+                builder.SetKey(item);
+                builder.AddContent(2, item);
+                builder.CloseElement();
+            }
 
             builder.CloseElement();
         }
