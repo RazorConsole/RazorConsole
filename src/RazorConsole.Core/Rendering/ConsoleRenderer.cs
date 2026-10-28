@@ -211,6 +211,7 @@ internal sealed class ConsoleRenderer(
         ResetCursor(slot);
         var edits = diff.Edits;
         var offset = edits.Offset;
+        var permutation = new List<(int From, int To)>();
         for (var i = 0; i < edits.Count; i++)
         {
             var edit = edits.Array[i + offset];
@@ -236,6 +237,13 @@ internal sealed class ConsoleRenderer(
                     break;
                 case RenderTreeEditType.StepOut:
                     ApplyStepOutEdit();
+                    break;
+                case RenderTreeEditType.PermutationListEntry:
+                    permutation.Add((edit.SiblingIndex, edit.MoveToSiblingIndex));
+                    break;
+                case RenderTreeEditType.PermutationListEnd:
+                    _cursor.Peek().PermuteChildren(permutation);
+                    permutation.Clear();
                     break;
             }
         }
