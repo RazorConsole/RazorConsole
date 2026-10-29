@@ -9,6 +9,81 @@ namespace RazorConsole.Tests.Rendering;
 public sealed class ConsoleRendererThreadSafetyTests
 {
     [Fact]
+    public async Task Dispatcher_RunsWorkItemsOneAtATime()
+    {
+        // Blazor's Renderer is not thread-safe and relies on its dispatcher to admit one
+        // caller at a time. A console app has at least two threads that want in — the key
+        // reading loop dispatching events, and background work calling
+        // InvokeAsync(StateHasChanged) — so a dispatcher that runs work inline on the
+        // calling thread lets them collide, and the render tree corrupts: mismatched pool
+        // returns, expired ParameterViews, then NullReferenceException in the diff builder,
+        // after which the renderer produces no further frames.
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var dispatcher = renderer.Dispatcher;
+
+        var inFlight = 0;
+        var overlapped = false;
+
+        var callers = Enumerable.Range(0, 8).Select(_ => Task.Run(async () =>
+        {
+            for (var i = 0; i < 20; i++)
+            {
+                await dispatcher.InvokeAsync(() =>
+                {
+                    if (Interlocked.Increment(ref inFlight) > 1)
+                    {
+                        Volatile.Write(ref overlapped, true);
+                    }
+
+                    Thread.Sleep(1);
+                    Interlocked.Decrement(ref inFlight);
+                });
+            }
+        })).ToArray();
+
+        await Task.WhenAll(callers);
+
+        Volatile.Read(ref overlapped).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Dispatcher_CheckAccess_IsTrueInsideWorkItemAndFalseOutside()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var dispatcher = renderer.Dispatcher;
+
+        dispatcher.CheckAccess().ShouldBeFalse();
+
+        await dispatcher.InvokeAsync(() =>
+        {
+            dispatcher.CheckAccess().ShouldBeTrue();
+
+            // Nested calls must run inline rather than deadlock waiting on the queue.
+            dispatcher.InvokeAsync(() => dispatcher.CheckAccess().ShouldBeTrue()).IsCompleted.ShouldBeTrue();
+        });
+    }
+
+    [Fact]
+    public async Task Dispatcher_ContinuationsAfterAwait_StayOnTheDispatcher()
+    {
+        // Pages start background loads from an event handler and let them run detached.
+        // Their continuations have to come back to the dispatcher, or they render from a
+        // pool thread while the next keystroke is being dispatched.
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var dispatcher = renderer.Dispatcher;
+
+        var onDispatcherAfterAwait = false;
+
+        await dispatcher.InvokeAsync(async () =>
+        {
+            await Task.Delay(1);
+            onDispatcherAfterAwait = dispatcher.CheckAccess();
+        });
+
+        onDispatcherAfterAwait.ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task Subscribe_FromMultipleThreads_IsThreadSafe()
     {
         using var renderer = TestHelpers.CreateTestRenderer();
