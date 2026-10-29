@@ -182,6 +182,21 @@ public sealed class HeadlessTerminalTests
         keys.ShouldBe(string.Concat(Enumerable.Repeat("abc", 20)));
     }
 
+    [Fact]
+    public async Task CurrentFrame_IgnoresALateCaptureOfAnEarlierRender()
+    {
+        await using var terminal = await StartKeySurfaceAsync([]);
+        var earlier = terminal.Renderer.RefreshSnapshot();
+
+        await terminal.SendKeyAsync(ConsoleKey.X, 'x', cancellationToken: TestContext.Current.CancellationToken);
+        terminal.CurrentFrame.ContainsText("Last key: x").ShouldBeTrue();
+
+        // A render notification can arrive after the input's own capture of a later render.
+        terminal.Capture(earlier);
+
+        terminal.CurrentFrame.ContainsText("Last key: x").ShouldBeTrue();
+    }
+
     private static Task<HeadlessTerminal> StartKeySurfaceAsync(List<EventArgs> events)
         => HeadlessTerminal.StartAsync<KeySurface>(
             new HeadlessTerminalOptions
