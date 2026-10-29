@@ -363,7 +363,8 @@ public sealed class ConsoleRendererTests
         observer.Release();
         await observer.WaitForValueAsync(50, TestContext.Current.CancellationToken);
 
-        observer.Values.Count.ShouldBeLessThanOrEqualTo(3);
+        // The mount snapshot (0) can arrive twice: Subscribe replays it, and its own notification may still be queued.
+        observer.Values.Count(v => v != 0).ShouldBeLessThanOrEqualTo(2);
         observer.Values.ShouldContain(50);
     }
 
@@ -531,7 +532,6 @@ public sealed class ConsoleRendererTests
         private readonly TaskCompletionSource _blocked = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly ConcurrentQueue<int> _values = new();
-        private int _notificationCount;
 
         public IReadOnlyCollection<int> Values => _values.ToArray();
 
@@ -545,13 +545,12 @@ public sealed class ConsoleRendererTests
 
         public void OnNext(ConsoleRenderer.RenderSnapshot value)
         {
-            var count = Interlocked.Increment(ref _notificationCount);
             var snapshotValue = ReadValue(value.Root);
             _values.Enqueue(snapshotValue);
 
-            if (count == 2)
+            // Block on the first update, not on a second call: that can be Subscribe's replay on the test's own thread.
+            if (snapshotValue == 1 && _blocked.TrySetResult())
             {
-                _blocked.TrySetResult();
                 _released.Task.GetAwaiter().GetResult();
             }
         }
