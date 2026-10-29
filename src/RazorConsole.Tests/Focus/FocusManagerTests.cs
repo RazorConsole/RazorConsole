@@ -538,7 +538,7 @@ public sealed class FocusManagerTests
     }
 
     [Fact]
-    public async Task FocusAsync_TargetNotYetRendered_ExpiresAfterNextSnapshotMiss()
+    public async Task FocusAsync_TargetNotYetRendered_SurvivesSnapshotsWithoutIt()
     {
         var manager = new FocusManager();
         var initial = CreateView(new[] { "first" }, focusedKey: null);
@@ -551,24 +551,76 @@ public sealed class FocusManagerTests
         await session.InitializationTask;
 
         PushInitialSnapshot(manager, initial);
+
+        (await manager.FocusAsync("later", CancellationToken.None)).ShouldBeFalse();
+
+        // Snapshots rendered before the target exists must not drop the request.
+        PushInitialSnapshot(manager, CreateView(new[] { "first" }, focusedKey: null));
+        PushInitialSnapshot(manager, CreateView(new[] { "first" }, focusedKey: null));
         manager.CurrentFocusKey.ShouldBe("first");
 
-        var focusedImmediately = await manager.FocusAsync("later", CancellationToken.None);
-        focusedImmediately.ShouldBeFalse();
-
-        // Next snapshot still doesn't contain the target. This consumes the one-shot retry.
-        var stillMissing = CreateView(new[] { "first" }, focusedKey: null);
-        PushInitialSnapshot(manager, stillMissing);
+        PushInitialSnapshot(manager, CreateView(new[] { "first", "later" }, focusedKey: null));
 
         await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
-        manager.CurrentFocusKey.ShouldBe("first");
+        manager.CurrentFocusKey.ShouldBe("later");
+    }
 
-        // A later snapshot introduces the target, but pending request should have expired.
-        var appearsLater = CreateView(new[] { "first", "later" }, focusedKey: null);
-        PushInitialSnapshot(manager, appearsLater);
+    [Fact]
+    public async Task FocusAsync_TargetNotYetRendered_IsCancelledByTabNavigation()
+    {
+        var manager = new FocusManager();
+        var initial = CreateView(new[] { "first", "second" }, focusedKey: null);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(
+            new TestCanvas(),
+            initial,
+            new VdomDiffService());
+        using var session = manager.BeginSession(context, initial, CancellationToken.None);
+        await session.InitializationTask;
+
+        PushInitialSnapshot(manager, initial);
+
+        (await manager.FocusAsync("later", CancellationToken.None)).ShouldBeFalse();
+        await manager.FocusNextAsync(session.Token);
+        manager.CurrentFocusKey.ShouldBe("second");
+
+        PushInitialSnapshot(manager, CreateView(new[] { "first", "second", "later" }, focusedKey: null));
 
         await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+        manager.CurrentFocusKey.ShouldBe("second");
+    }
+
+    [Fact]
+    public async Task BeginSession_KeepsFocusRequestedWhileMounting()
+    {
+        var manager = new FocusManager();
+        var view = CreateView(new[] { "first", "second" }, focusedKey: null);
+        PushInitialSnapshot(manager, view);
+        (await manager.FocusAsync("second", CancellationToken.None)).ShouldBeTrue();
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), view, new VdomDiffService());
+        using var session = manager.BeginSession(context, view, CancellationToken.None);
+        await session.InitializationTask;
+
+        manager.CurrentFocusKey.ShouldBe("second");
+    }
+
+    [Fact]
+    public async Task BeginSession_KeepsPendingFocusForTargetNotYetRendered()
+    {
+        var manager = new FocusManager();
+        (await manager.FocusAsync("later", CancellationToken.None)).ShouldBeFalse();
+
+        var initial = CreateView(new[] { "first" }, focusedKey: null);
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), initial, new VdomDiffService());
+        using var session = manager.BeginSession(context, initial, CancellationToken.None);
+        await session.InitializationTask;
         manager.CurrentFocusKey.ShouldBe("first");
+
+        PushInitialSnapshot(manager, CreateView(new[] { "first", "later" }, focusedKey: null));
+
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+        manager.CurrentFocusKey.ShouldBe("later");
     }
 
     private static void PushInitialSnapshot(FocusManager manager, ConsoleViewResult view)
