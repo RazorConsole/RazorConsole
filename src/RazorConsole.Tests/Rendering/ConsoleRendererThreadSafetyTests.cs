@@ -144,6 +144,7 @@ public sealed class ConsoleRendererThreadSafetyTests
         // Start unsubscribe task concurrently (it will unsubscribe as subscriptions become available)
         // This tests the race condition between subscribe (write) and unsubscribe (write)
         // The mount operation above will trigger notifications that read the observer list concurrently
+        // Not started with the token: the loop watches it, and Task.Run would cancel a task that has not started yet
         var unsubscribeTask = Task.Run(async () =>
         {
             try
@@ -185,7 +186,7 @@ public sealed class ConsoleRendererThreadSafetyTests
             {
                 // Expected when cancellation is requested
             }
-        }, cancellationToken);
+        }, CancellationToken.None);
 
         // Wait for all subscribe tasks to complete
         await Task.WhenAll(subscribeTasks);

@@ -52,6 +52,7 @@ internal sealed class ConsoleRenderer(
     private bool _observerNotificationScheduled;
     private bool _legacyPipelineWarningLogged;
     private RenderSnapshot _lastSnapshot = RenderSnapshot.Empty;
+    private long _snapshotSequence;
     private bool _disposed;
 
     public override Dispatcher Dispatcher => _dispatcher;
@@ -481,6 +482,9 @@ internal sealed class ConsoleRenderer(
     }
 
     private RenderSnapshot CreateSnapshot()
+        => CreateSnapshotCore() with { Sequence = Interlocked.Increment(ref _snapshotSequence) };
+
+    private RenderSnapshot CreateSnapshotCore()
     {
         try
         {
@@ -762,6 +766,9 @@ internal sealed class ConsoleRenderer(
     public readonly record struct RenderSnapshot(VNode? Root, IRenderable? Renderable, IReadOnlyCollection<IAnimatedConsoleRenderable> AnimatedRenderables)
     {
         public static RenderSnapshot Empty { get; } = new(null, null, Array.Empty<IAnimatedConsoleRenderable>());
+
+        /// <summary>Creation order: a snapshot with a higher value reflects a later render.</summary>
+        internal long Sequence { get; init; }
     }
 
     private void NotifyObservers(RenderSnapshot snapshot)
