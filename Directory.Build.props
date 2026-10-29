@@ -1,6 +1,8 @@
 <Project>
   <PropertyGroup>
     <TargetFrameworks>net8.0;net9.0;net10.0;net11.0</TargetFrameworks>
+    <!-- Lets consumers on an older SDK reference this project; restore evaluates every TFM. -->
+    <TargetFrameworks Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.Path]::GetFileName('$(MSBuildBinPath)')), '^(8|9|10)\.'))">net8.0;net9.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableUnsupportedPlatformAnalyzer>true</EnableUnsupportedPlatformAnalyzer>
     <Nullable>enable</Nullable>
