@@ -815,7 +815,10 @@ public sealed class WidgetTranslationContext
             .Select(cell => CreateTableWidgetCell(cell, isHeader || string.Equals(cell.TagName, "th", StringComparison.OrdinalIgnoreCase)))
             .ToArray();
 
-        return new TableWidgetRow(cells);
+        var background = Color.TryFromHex(GetAttribute(row, "data-selected-bg") ?? string.Empty, out var color)
+            ? color
+            : (Color?)null;
+        return new TableWidgetRow(cells, background);
     }
 
     private TableWidgetCell CreateTableWidgetCell(VNode cell, bool isHeader)
