@@ -10,7 +10,20 @@ namespace RazorConsole.Cli.Operations;
 /// </summary>
 internal interface ICliOperations
 {
-    Task<CliResult> ExecuteAsync(CliRequest request, CliGlobalOptions options, CancellationToken cancellationToken);
+    /// <param name="request">What to do.</param>
+    /// <param name="options">The global options.</param>
+    /// <param name="cancellationToken">Cancelled by Ctrl+C.</param>
+    /// <param name="stream">Where a verb that streams (<c>logs --follow</c>) writes its items as they come. The final
+    /// result then carries no data of its own.</param>
+    Task<CliResult> ExecuteAsync(CliRequest request, CliGlobalOptions options, CancellationToken cancellationToken, ICliStream? stream = null);
+}
+
+/// <summary>
+/// Receives the items of a streaming verb: one NDJSON line each with <c>--json</c>, one text line each without.
+/// </summary>
+internal interface ICliStream
+{
+    Task WriteAsync(JsonElement item, string text);
 }
 
 /// <summary>
@@ -36,7 +49,7 @@ internal sealed record CliResult(DiagnosticsError? Error, string? Session, JsonE
 /// </summary>
 internal sealed class NotImplementedOperations : ICliOperations
 {
-    public Task<CliResult> ExecuteAsync(CliRequest request, CliGlobalOptions options, CancellationToken cancellationToken)
+    public Task<CliResult> ExecuteAsync(CliRequest request, CliGlobalOptions options, CancellationToken cancellationToken, ICliStream? stream = null)
         => Task.FromResult(CliResult.Failure(
             DiagnosticsErrorCodes.Internal,
             $"'{request.GetType().Name}' is not implemented yet."));

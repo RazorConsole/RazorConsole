@@ -11,21 +11,24 @@ using RazorConsole.Core.Diagnostics.Protocol;
 namespace RazorConsole.Cli.Operations;
 
 /// <summary>
-/// Runs requests against the session host: PTY sessions, input, the screen and the host itself.
+/// Runs requests against the session host: PTY and attached sessions, input, the screen, the app layer and the host
+/// itself.
 /// </summary>
 /// <remarks>
-/// Only <c>start</c> starts the host. Other commands connect to a running host; with none, a session command fails
-/// with <c>session_not_found</c> and <c>list</c> and <c>host status</c> report nothing running. The session is
-/// <c>--session</c>, then <c>RAZORCONSOLE_SESSION</c> (both already in <see cref="CliGlobalOptions.Session"/>), then
-/// the <c>current</c> file. The app-layer commands, attach and the waits come in later steps.
+/// <c>start</c> and <c>attach</c> start the host. Other commands connect to a running host; with none, a session
+/// command fails with <c>session_not_found</c> and <c>list</c> and <c>host status</c> report nothing running. The
+/// session is <c>--session</c>, then <c>RAZORCONSOLE_SESSION</c> (both already in <see cref="CliGlobalOptions.Session"/>),
+/// then the <c>current</c> file. <c>wait</c> and <c>assert</c> run in the host; the app-layer verbs pass through it to
+/// the app's endpoint.
 /// </remarks>
 internal sealed class HostOperations(HostConnector connector) : ICliOperations
 {
     private static readonly TimeSpan BuildAllowance = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan FollowInterval = TimeSpan.FromMilliseconds(250);
 
     private HostFiles Files => connector.Files;
 
-    public async Task<CliResult> ExecuteAsync(CliRequest request, CliGlobalOptions options, CancellationToken cancellationToken)
+    public async Task<CliResult> ExecuteAsync(CliRequest request, CliGlobalOptions options, CancellationToken cancellationToken, ICliStream? stream = null)
     {
         try
         {
@@ -39,7 +42,13 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
                 HostStatusRequest => await HostStatusAsync(options, cancellationToken).ConfigureAwait(false),
                 HostStopRequest => await HostStopAsync(options, cancellationToken).ConfigureAwait(false),
                 HostRunRequest run => await HostRunAsync(run, cancellationToken).ConfigureAwait(false),
-                KeysRequest { Element: not null } or ClickRequest { Element: not null } => NotImplemented("--element"),
+                AttachRequest attach => await AttachAsync(attach, options, cancellationToken).ConfigureAwait(false),
+                DetachRequest detach => await DetachAsync(detach, options, cancellationToken).ConfigureAwait(false),
+                WaitRequest wait => await WaitAsync(wait, options, cancellationToken).ConfigureAwait(false),
+                AssertRequest assert => await AssertAsync(assert, options, cancellationToken).ConfigureAwait(false),
+                ErrorsRequest or LogsRequest => await EntriesAsync(request, options, stream, cancellationToken).ConfigureAwait(false),
+                TreeRequest or FindRequest or InspectRequest or InspectAtRequest or FocusRequest or RouteRequest or StatsRequest
+                    => await AppVerbAsync(request, options, cancellationToken).ConfigureAwait(false),
                 _ when IsSessionRequest(request) => await SessionAsync(request, options, cancellationToken).ConfigureAwait(false),
                 _ => NotImplemented($"'{request.GetType().Name}'"),
             };
@@ -68,7 +77,13 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
         var state = info.Exited
             ? info.ExitCode is { } code ? $"exited {code.ToString(CultureInfo.InvariantCulture)}" : "exited"
             : "running";
-        return $"{info.Name} (pid {info.Pid.ToString(CultureInfo.InvariantCulture)}, {info.Width.ToString(CultureInfo.InvariantCulture)}x{info.Height.ToString(CultureInfo.InvariantCulture)}, {state}) {info.Command}";
+        var app = info.AppLayer switch
+        {
+            null => string.Empty,
+            { Connected: true } => ", app layer connected",
+            var layer => ", app layer " + (layer.Reason ?? "unavailable"),
+        };
+        return $"{info.Name} (pid {info.Pid.ToString(CultureInfo.InvariantCulture)}, {info.Width.ToString(CultureInfo.InvariantCulture)}x{info.Height.ToString(CultureInfo.InvariantCulture)}, {state}{app}) {info.Command}";
     }
 
     private static DiagnosticsProtocolException NoSession(string? name)
@@ -292,7 +307,8 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
                     case KeysRequest keys:
                     {
                         var presses = keys.Keys.Select(KeyPress.From).ToList();
-                        var result = await client.RequestAsync(HostMethods.Keys, new KeysParams(name, presses), json.KeysParams, json.SentResult, deadline, cancellationToken).ConfigureAwait(false);
+                        var parameters = new KeysParams(name, presses, keys.Element, Milliseconds(options.Timeout));
+                        var result = await client.RequestAsync(HostMethods.Keys, parameters, json.KeysParams, json.SentResult, deadline, cancellationToken).ConfigureAwait(false);
                         return (Json(result, json.SentResult), $"sent {result.Sent.ToString(CultureInfo.InvariantCulture)} key(s)");
                     }
 
@@ -316,7 +332,7 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
 
                     case ClickRequest click:
                     {
-                        var parameters = new ClickParams(name, click.X, click.Y, click.Text, click.Nth, click.Button, click.Double);
+                        var parameters = new ClickParams(name, click.X, click.Y, click.Text, click.Nth, click.Button, click.Double, click.Element, Milliseconds(options.Timeout));
                         var result = await client.RequestAsync(HostMethods.Click, parameters, json.ClickParams, json.ClickResult, deadline, cancellationToken).ConfigureAwait(false);
                         return (Json(result, json.ClickResult), $"clicked ({result.X.ToString(CultureInfo.InvariantCulture)},{result.Y.ToString(CultureInfo.InvariantCulture)})");
                     }
@@ -400,6 +416,210 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
         }
 
         return text.ToString();
+    }
+
+    private async Task<CliResult> AttachAsync(AttachRequest request, CliGlobalOptions options, CancellationToken cancellationToken)
+    {
+        // Like start, attach starts the host when none runs.
+        var client = await connector.ConnectOrStartAsync(cancellationToken).ConfigureAwait(false);
+        await using (client.ConfigureAwait(false))
+        {
+            var parameters = new AttachParams(request.ProcessId, request.Name, Milliseconds(options.Timeout));
+            var info = await client.RequestAsync(HostMethods.Attach, parameters, HostJsonContext.Default.AttachParams, HostJsonContext.Default.SessionInfo, Deadline(options.Timeout), cancellationToken).ConfigureAwait(false);
+            Files.WriteCurrent(info.Name);
+            return CliResult.Success(info.Name, Json(info, HostJsonContext.Default.SessionInfo), "attached " + Describe(info));
+        }
+    }
+
+    private async Task<CliResult> DetachAsync(DetachRequest request, CliGlobalOptions options, CancellationToken cancellationToken)
+    {
+        var name = request.Name ?? ResolveSession(options);
+        var result = await OnHostAsync(
+            name,
+            client => client.RequestAsync(
+                HostMethods.Detach,
+                new SessionParams(name),
+                HostJsonContext.Default.SessionParams,
+                HostJsonContext.Default.DetachResult,
+                Deadline(options.Timeout),
+                cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+        Files.ClearCurrent(name);
+        return CliResult.Success(name, Json(result, HostJsonContext.Default.DetachResult), $"detached {name}");
+    }
+
+    private static WaitSpec ToSpec(WaitCondition condition)
+        => new(condition.Kind, condition.Value, condition.Idle is { } idle ? Milliseconds(idle) : null);
+
+    private async Task<CliResult> WaitAsync(WaitRequest request, CliGlobalOptions options, CancellationToken cancellationToken)
+    {
+        var name = ResolveSession(options);
+        var spec = ToSpec(request.Condition);
+        var json = HostJsonContext.Default;
+
+        // The host sends progress while it waits; the answer is what the CLI reports, so it is only drained here.
+        var result = await OnHostAsync(
+            name,
+            client => client.RequestAsync(
+                HostMethods.Wait,
+                new WaitParams(name, spec, Milliseconds(options.Timeout)),
+                json.WaitParams,
+                json.WaitResult,
+                Deadline(options.Timeout),
+                cancellationToken,
+                static _ => { }),
+            cancellationToken).ConfigureAwait(false);
+        var text = $"{HostWait.Describe(spec)}: met after {result.ElapsedMs.ToString(CultureInfo.InvariantCulture)} ms";
+        return CliResult.Success(name, Json(result, json.WaitResult), text);
+    }
+
+    private async Task<CliResult> AssertAsync(AssertRequest request, CliGlobalOptions options, CancellationToken cancellationToken)
+    {
+        var name = ResolveSession(options);
+        var spec = ToSpec(request.Condition);
+        var json = HostJsonContext.Default;
+        var result = await OnHostAsync(
+            name,
+            client => client.RequestAsync(
+                HostMethods.Assert,
+                new AssertParams(name, spec, request.Not, Milliseconds(options.Timeout)),
+                json.AssertParams,
+                json.AssertResult,
+                Deadline(options.Timeout),
+                cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+        var text = (request.Not ? "assertion passed: not " : "assertion passed: ") + HostWait.Describe(spec);
+        return CliResult.Success(name, Json(result, json.AssertResult), text);
+    }
+
+    // The app-layer verbs: one call to the app's endpoint through the host, shown as text or as the app's own JSON.
+    private async Task<CliResult> AppVerbAsync(CliRequest request, CliGlobalOptions options, CancellationToken cancellationToken)
+    {
+        var name = ResolveSession(options);
+        var app = DiagnosticsJsonContext.Default;
+        var (method, parameters) = request switch
+        {
+            TreeRequest tree => Call(DiagnosticsAppMethods.Tree, Json(new TreeParams(tree.Selector, tree.Depth, tree.IncludeText, tree.IncludeLayout), app.TreeParams)),
+            FindRequest find => Call(DiagnosticsAppMethods.Find, Json(new FindParams(find.Selector), app.FindParams)),
+            InspectRequest inspect => Call(DiagnosticsAppMethods.Inspect, Json(new InspectParams(inspect.Selector), app.InspectParams)),
+            InspectAtRequest at => Call(DiagnosticsAppMethods.InspectAt, Json(new InspectAtParams(at.X, at.Y), app.InspectAtParams)),
+            FocusRequest { Action: FocusAction.Set } focus => Call(DiagnosticsAppMethods.FocusSet, Json(new FocusSetParams(focus.Key!), app.FocusSetParams)),
+            FocusRequest { Action: FocusAction.Next } => Call(DiagnosticsAppMethods.FocusNext),
+            FocusRequest { Action: FocusAction.Previous } => Call(DiagnosticsAppMethods.FocusPrevious),
+            FocusRequest => Call(DiagnosticsAppMethods.Focus),
+            RouteRequest { Go: { } go } => Call(DiagnosticsAppMethods.Navigate, Json(new NavigateParams(go), app.NavigateParams)),
+            RouteRequest => Call(DiagnosticsAppMethods.Route),
+            _ => Call(DiagnosticsAppMethods.Stats),
+        };
+
+        var raw = await OnHostAsync(name, client => AppRequestAsync(client, name, method, parameters, options.Timeout, cancellationToken), cancellationToken).ConfigureAwait(false);
+        switch (request)
+        {
+            case TreeRequest:
+                return CliResult.Success(name, raw, AppText.Tree(AppLayer.Deserialize(raw, app.TreeResult, method)));
+
+            case FindRequest find:
+            {
+                var result = AppLayer.Deserialize(raw, app.FindResult, method);
+                if (find.FirstOnly && result.Matches.Count > 1)
+                {
+                    result = result with { Matches = [result.Matches[0]] };
+                    raw = Json(result, app.FindResult);
+                }
+
+                return CliResult.Success(name, raw, AppText.Find(result));
+            }
+
+            case InspectRequest:
+                return CliResult.Success(name, raw, AppText.Inspect(AppLayer.Deserialize(raw, app.InspectResult, method)));
+
+            case InspectAtRequest:
+                return CliResult.Success(name, raw, AppText.InspectAt(AppLayer.Deserialize(raw, app.InspectAtResult, method)));
+
+            case FocusRequest { Action: FocusAction.List }:
+                return CliResult.Success(name, raw, AppText.Focus(AppLayer.Deserialize(raw, app.FocusResult, method)));
+
+            case FocusRequest:
+                return CliResult.Success(name, raw, AppText.FocusChange(AppLayer.Deserialize(raw, app.FocusChangeResult, method)));
+
+            case RouteRequest { Go: not null }:
+                return CliResult.Success(name, raw, AppText.Navigated(AppLayer.Deserialize(raw, app.NavigateResult, method)));
+
+            case RouteRequest:
+                return CliResult.Success(name, raw, AppText.Route(AppLayer.Deserialize(raw, app.RouteResult, method)));
+
+            default:
+                return CliResult.Success(name, raw, AppText.Stats(AppLayer.Deserialize(raw, app.StatsResult, method)));
+        }
+
+        static (string Method, JsonElement? Params) Call(string method, JsonElement? parameters = null) => (method, parameters);
+    }
+
+    private static Task<JsonElement> AppRequestAsync(HostClient client, string session, string method, JsonElement? parameters, TimeSpan timeout, CancellationToken cancellationToken)
+        => client.RequestAsync(
+            HostMethods.App,
+            new AppParams(session, method, parameters, Milliseconds(timeout)),
+            HostJsonContext.Default.AppParams,
+            HostJsonContext.Default.JsonElement,
+            Deadline(timeout),
+            cancellationToken);
+
+    // errors and logs: once, or with --follow as a stream of entries that ends at Ctrl+C or an explicit --timeout.
+    private async Task<CliResult> EntriesAsync(CliRequest request, CliGlobalOptions options, ICliStream? stream, CancellationToken cancellationToken)
+    {
+        var name = ResolveSession(options);
+        var app = DiagnosticsJsonContext.Default;
+        var logs = request as LogsRequest;
+        var errors = request as ErrorsRequest;
+        var method = logs is null ? DiagnosticsAppMethods.Errors : DiagnosticsAppMethods.Logs;
+        var items = logs is null ? "errors" : "entries";
+        var follow = logs?.Follow ?? errors!.Follow;
+        var since = logs?.Since ?? errors?.Since;
+
+        JsonElement Parameters(long? cursor) => logs is null
+            ? Json(new ErrorsParams(cursor), app.ErrorsParams)
+            : Json(new LogsParams(cursor, logs.Level, logs.Category), app.LogsParams);
+        string Line(JsonElement item) => logs is null ? AppText.ErrorLine(item) : AppText.LogLine(item);
+
+        if (!follow || stream is null)
+        {
+            var raw = await OnHostAsync(name, client => AppRequestAsync(client, name, method, Parameters(since), options.Timeout, cancellationToken), cancellationToken).ConfigureAwait(false);
+            var lines = raw.GetProperty(items).EnumerateArray().Select(Line).ToList();
+            return CliResult.Success(name, raw, lines.Count == 0 ? (logs is null ? "no errors" : "no log entries") : string.Join('\n', lines));
+        }
+
+        // The default timeout is for single calls; only a timeout the user chose bounds a follow.
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        if (options.Timeout != CliGlobalOptions.DefaultTimeout)
+        {
+            limit.CancelAfter(options.Timeout);
+        }
+
+        return await OnHostAsync(
+            name,
+            async client =>
+            {
+                try
+                {
+                    while (true)
+                    {
+                        var raw = await AppRequestAsync(client, name, method, Parameters(since), CliGlobalOptions.DefaultTimeout, limit.Token).ConfigureAwait(false);
+                        foreach (var item in raw.GetProperty(items).EnumerateArray())
+                        {
+                            await stream.WriteAsync(item, Line(item)).ConfigureAwait(false);
+                        }
+
+                        since = raw.GetProperty("next").GetInt64();
+                        await Task.Delay(FollowInterval, limit.Token).ConfigureAwait(false);
+                    }
+                }
+                catch (OperationCanceledException) when (limit.IsCancellationRequested)
+                {
+                    // Ctrl+C or the chosen timeout ends the stream normally.
+                    return CliResult.Success(name, null, null);
+                }
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     private string ResolveSession(CliGlobalOptions options)

@@ -4,11 +4,13 @@ using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RazorConsole.Core;
 using RazorConsole.Tests.PtyApp;
 
 // Modes:
 //   golden              renders GoldenView with RazorConsole
+//   app                 renders AppLayerView with diagnostics on (Development), for the CLI tests of the app layer
 //   echo <id>           echoes lines as "[id] got <line>"; "exit <code>" exits with that code; Ctrl+C exits with 42
 //   serial              validates "L<n>:<60 letters>" lines; "end" prints a summary
 //   size                prints the console size whenever it changes
@@ -22,6 +24,7 @@ Console.InputEncoding = Encoding.UTF8;
 return args.FirstOrDefault() switch
 {
     "golden" => await RunGoldenAsync(args),
+    "app" => await RunAppAsync(args),
     "echo" => Echo(args[1]),
     "serial" => Serial(),
     "size" => Size(),
@@ -41,6 +44,24 @@ static async Task<int> RunGoldenAsync(string[] args)
             options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
             options.EnableTerminalResizing = true;
             options.ConsoleLiveDisplayOptions.UseAlternateScreenBuffer = true;
+        });
+    });
+
+    await builder.Build().RunAsync();
+    return 0;
+}
+
+static async Task<int> RunAppAsync(string[] args)
+{
+    // Development turns the diagnostics endpoint on in a Release build, too.
+    var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = args[1..], EnvironmentName = Environments.Development });
+    builder.Logging.ClearProviders();
+    builder.UseRazorConsole<AppLayerView>(configure: config =>
+    {
+        config.Services.Configure<ConsoleAppOptions>(options =>
+        {
+            options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
+            options.ConsoleLiveDisplayOptions.EnableMouseEvents = true;
         });
     });
 

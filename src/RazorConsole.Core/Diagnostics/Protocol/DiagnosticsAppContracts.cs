@@ -19,14 +19,36 @@ internal static class DiagnosticsAppMethods
     public const string Stats = "stats";
     public const string Screen = "screen";
     public const string Input = "input";
+    public const string FocusSet = "focus.set";
+    public const string FocusNext = "focus.next";
+    public const string FocusPrevious = "focus.previous";
+    public const string Navigate = "navigate";
 
     /// <summary>
     /// Reported as features in the hello result, so clients can tell what this app supports. <see cref="Input"/> is
-    /// added when the app's input loop accepts injected input.
+    /// added when the app's input loop accepts injected input, and the state-changing methods
+    /// (<see cref="Changes"/>) when the app has a renderer to run them on.
     /// </summary>
     public static readonly IReadOnlyList<string> All = [Tree, Find, Inspect, InspectAt, Focus, Route, Errors, Logs, Stats, Screen];
 
+    /// <summary>
+    /// Methods that change focus or the route in-process, on the renderer's dispatcher. Unlike <see cref="Input"/>
+    /// they do not go through the key handlers: <c>focus.next</c> fires focus events only, while a Tab key press is
+    /// real input that the app may handle itself.
+    /// </summary>
+    public static readonly IReadOnlyList<string> Changes = [FocusSet, FocusNext, FocusPrevious, Navigate];
+
     public static readonly IReadOnlyList<string> AllWithInput = [.. All, Input];
+
+    /// <summary>The features for an app with the given capabilities.</summary>
+    public static IReadOnlyList<string> Features(bool acceptsInput, bool canChangeState)
+        => (acceptsInput, canChangeState) switch
+        {
+            (true, true) => [.. All, .. Changes, Input],
+            (true, false) => AllWithInput,
+            (false, true) => [.. All, .. Changes],
+            _ => All,
+        };
 }
 
 /// <summary>
@@ -45,6 +67,18 @@ internal static class DiagnosticsUnavailableReasons
 
     /// <summary>Nothing has been painted yet.</summary>
     public const string NotPainted = "not_painted";
+
+    /// <summary>No endpoint is registered for the process, and the CLI cannot tell why (see the CLI's message).</summary>
+    public const string Disabled = "disabled";
+
+    /// <summary>The app has not registered its endpoint yet.</summary>
+    public const string NotConnectedYet = "not_connected_yet";
+
+    /// <summary>The app speaks another diagnostics protocol version.</summary>
+    public const string IncompatibleProtocol = "incompatible_protocol";
+
+    /// <summary>The session is attached to a running app and has no terminal of its own.</summary>
+    public const string Attached = "attached";
 }
 
 /// <summary>
@@ -238,6 +272,22 @@ internal sealed record FocusTargetResult(string Key, string Id);
 internal sealed record FocusResult(string? Current, IReadOnlyList<FocusTargetResult> Targets);
 
 internal sealed record RouteResult(string Uri, string Relative);
+
+/// <summary>Parameters of <c>focus.set</c>.</summary>
+internal sealed record FocusSetParams(string Key);
+
+/// <summary>
+/// The result of <c>focus.set</c>, <c>focus.next</c> and <c>focus.previous</c>.
+/// </summary>
+/// <param name="Changed">Whether focus moved.</param>
+/// <param name="Current">The focus key afterwards.</param>
+/// <param name="Frame">The latest frame sequence.</param>
+internal sealed record FocusChangeResult(bool Changed, string? Current, long Frame);
+
+/// <summary>Parameters of <c>navigate</c>.</summary>
+internal sealed record NavigateParams(string Uri);
+
+internal sealed record NavigateResult(string Uri, string Relative, long Frame);
 
 /// <summary>
 /// Parameters of <c>errors</c> and <c>logs</c>. <see cref="Since"/> is inclusive: pass the previous result's

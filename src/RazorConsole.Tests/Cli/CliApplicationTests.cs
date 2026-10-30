@@ -169,6 +169,41 @@ public sealed class CliApplicationTests
         result.Error.ShouldContain("not implemented");
     }
 
+    [Fact]
+    public async Task Follow_WritesEachItemAsOneLine_ThenTheFinalResult()
+    {
+        var json = await RunAsync(new StreamingOperations(), "logs", "--follow", "--json");
+        json.ExitCode.ShouldBe(CliExitCodes.Success);
+        var lines = json.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        lines.Length.ShouldBe(3);
+        lines[0].ShouldBe("{\"seq\":1,\"message\":\"first\"}");
+        lines[1].ShouldBe("{\"seq\":2,\"message\":\"second\"}");
+        lines[2].ShouldBe("{\"ok\":true,\"session\":\"s1\"}");
+
+        var text = await RunAsync(new StreamingOperations(), "logs", "--follow");
+        text.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ShouldBe(["first", "second"]);
+    }
+
+    [Theory]
+    [InlineData("element_not_focusable", CliExitCodes.NotFound)]
+    [InlineData("terminal_layer_unavailable", CliExitCodes.AppLayerUnavailable)]
+    public void NewErrorCodes_MapToTheirExitCodes(string code, int exitCode)
+        => CliExitCodes.For(code).ShouldBe(exitCode);
+
+    [Fact]
+    public async Task FailureData_WithAScreen_IsPrintedForPeople()
+    {
+        var data = Json("""{"screen":"line one\nline two"}""");
+        var operations = new FakeOperations(_ => CliResult.Failure("assertion_failed", "Expected x.", data));
+
+        var result = await RunAsync(operations, "assert", "--text", "x");
+
+        result.ExitCode.ShouldBe(CliExitCodes.AssertionFailed);
+        result.Error.ShouldContain("Expected x. [assertion_failed]");
+        result.Error.ShouldContain("--- screen ---");
+        result.Error.ShouldContain("line two");
+    }
+
     private static JsonElement Json(string json) => JsonDocument.Parse(json).RootElement.Clone();
 
     private static Task<RunResult> RunAsync(ICliOperations operations, params string[] args)
@@ -188,10 +223,21 @@ public sealed class CliApplicationTests
     {
         public List<(CliRequest Request, CliGlobalOptions Options)> Requests { get; } = [];
 
-        public Task<CliResult> ExecuteAsync(CliRequest request, CliGlobalOptions options, CancellationToken cancellationToken)
+        public Task<CliResult> ExecuteAsync(CliRequest request, CliGlobalOptions options, CancellationToken cancellationToken, ICliStream? stream = null)
         {
             Requests.Add((request, options));
             return Task.FromResult(execute(request));
+        }
+    }
+
+    // Writes two items to the stream, then ends the way a follow does on Ctrl+C: with no data of its own.
+    private sealed class StreamingOperations : ICliOperations
+    {
+        public async Task<CliResult> ExecuteAsync(CliRequest request, CliGlobalOptions options, CancellationToken cancellationToken, ICliStream? stream = null)
+        {
+            await stream!.WriteAsync(Json("{\"seq\":1,\"message\":\"first\"}"), "first");
+            await stream.WriteAsync(Json("{\"seq\":2,\"message\":\"second\"}"), "second");
+            return CliResult.Success("s1", null, null);
         }
     }
 }

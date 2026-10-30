@@ -12,7 +12,8 @@ using RazorConsole.Core.Diagnostics.Protocol;
 namespace RazorConsole.Cli.Host;
 
 /// <summary>
-/// The background process that owns PTY sessions, so they outlive the CLI invocation that started them.
+/// The background process that owns PTY sessions, so they outlive the CLI invocation that started them. It also
+/// holds attached sessions: connections to apps it did not start, which it never kills.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -41,7 +42,7 @@ internal sealed class SessionHost
     private readonly HostFiles _files;
     private readonly TimeSpan _idleTimeout;
     private readonly string _version;
-    private readonly Dictionary<string, PtySession> _sessions = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, HostSession> _sessions = new(StringComparer.Ordinal);
     private readonly HashSet<string> _starting = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _shutdown = new();
     private readonly List<Task> _connections = [];
@@ -182,7 +183,7 @@ internal sealed class SessionHost
         }
     }
 
-    private static bool SameProcess(int pid, DateTimeOffset startTime, out Process? process)
+    internal static bool SameProcess(int pid, DateTimeOffset startTime, out Process? process)
     {
         process = null;
         try
@@ -454,7 +455,7 @@ internal sealed class SessionHost
         DiagnosticsMessage response;
         try
         {
-            response = await DispatchAsync(message, id, cancellation.Token).ConfigureAwait(false);
+            response = await DispatchAsync(connection, message, id, cancellation.Token).ConfigureAwait(false);
         }
         catch (DiagnosticsProtocolException ex)
         {
@@ -481,7 +482,27 @@ internal sealed class SessionHost
         }
     }
 
-    private async Task<DiagnosticsMessage> DispatchAsync(DiagnosticsMessage message, long id, CancellationToken cancellationToken)
+    // The endpoint methods a client may call through session.app.
+    private static readonly HashSet<string> AppMethods = new(StringComparer.Ordinal)
+    {
+        DiagnosticsAppMethods.Tree,
+        DiagnosticsAppMethods.Find,
+        DiagnosticsAppMethods.Inspect,
+        DiagnosticsAppMethods.InspectAt,
+        DiagnosticsAppMethods.Focus,
+        DiagnosticsAppMethods.FocusSet,
+        DiagnosticsAppMethods.FocusNext,
+        DiagnosticsAppMethods.FocusPrevious,
+        DiagnosticsAppMethods.Navigate,
+        DiagnosticsAppMethods.Route,
+        DiagnosticsAppMethods.Errors,
+        DiagnosticsAppMethods.Logs,
+        DiagnosticsAppMethods.Stats,
+    };
+
+    private static readonly TimeSpan DefaultAppTimeout = TimeSpan.FromSeconds(10);
+
+    private async Task<DiagnosticsMessage> DispatchAsync(DiagnosticsConnection connection, DiagnosticsMessage message, long id, CancellationToken cancellationToken)
     {
         var json = HostJsonContext.Default;
         switch (message.Method)
@@ -493,7 +514,7 @@ internal sealed class SessionHost
                 return Success(id, new HostShutdownResult(await StopAllSessionsAsync().ConfigureAwait(false)), json.HostShutdownResult);
 
             case HostMethods.List:
-                return Success(id, List(), json.ListResult);
+                return Success(id, await ListAsync(cancellationToken).ConfigureAwait(false), json.ListResult);
 
             case HostMethods.Start:
                 return Success(id, await StartAsync(Required(message, json.StartParams), cancellationToken).ConfigureAwait(false), json.SessionInfo);
@@ -508,7 +529,7 @@ internal sealed class SessionHost
             case HostMethods.Restart:
             {
                 var parameters = Required(message, json.RestartParams);
-                var session = Find(parameters.Session);
+                var session = Find(parameters.Session).RequirePty("restart");
                 await session.RestartAsync(TimeSpan.FromMilliseconds(parameters.TimeoutMs), cancellationToken).ConfigureAwait(false);
                 return Success(id, session.Info, json.SessionInfo);
             }
@@ -521,13 +542,13 @@ internal sealed class SessionHost
                     throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, "width and height must be between 1 and 32767.");
                 }
 
-                return Success(id, await Find(parameters.Session).ResizeAsync(parameters.Width, parameters.Height, cancellationToken).ConfigureAwait(false), json.ResizeResult);
+                return Success(id, await Find(parameters.Session).RequirePty("resize").ResizeAsync(parameters.Width, parameters.Height, cancellationToken).ConfigureAwait(false), json.ResizeResult);
             }
 
             case HostMethods.Keys:
             {
                 var parameters = Required(message, json.KeysParams);
-                return Success(id, await Find(parameters.Session).KeysAsync(parameters.Keys, cancellationToken).ConfigureAwait(false), json.SentResult);
+                return Success(id, await Find(parameters.Session).KeysAsync(parameters, cancellationToken).ConfigureAwait(false), json.SentResult);
             }
 
             case HostMethods.Type:
@@ -569,19 +590,64 @@ internal sealed class SessionHost
             case HostMethods.Frames:
             {
                 var parameters = Required(message, json.FramesParams);
-                return Success(id, Find(parameters.Session).Frames(parameters.Last), json.FramesResult);
+                return Success(id, Find(parameters.Session).RequirePty("frames").Frames(parameters.Last), json.FramesResult);
             }
 
             case HostMethods.Diff:
             {
                 var parameters = Required(message, json.DiffParams);
-                return Success(id, Find(parameters.Session).Diff(parameters.From, parameters.To), json.DiffResult);
+                return Success(id, Find(parameters.Session).RequirePty("diff").Diff(parameters.From, parameters.To), json.DiffResult);
             }
 
             case HostMethods.Output:
             {
                 var parameters = Required(message, json.OutputParams);
-                return Success(id, Find(parameters.Session).Output(parameters.Since, parameters.MaxBytes), json.OutputResult);
+                return Success(id, Find(parameters.Session).RequirePty("output").Output(parameters.Since, parameters.MaxBytes), json.OutputResult);
+            }
+
+            case HostMethods.Attach:
+                return Success(id, await AttachAsync(Required(message, json.AttachParams), cancellationToken).ConfigureAwait(false), json.SessionInfo);
+
+            case HostMethods.Detach:
+            {
+                var session = Take(Required(message, json.SessionParams).Session);
+                await session.DisposeAsync().ConfigureAwait(false);
+                return Success(id, new DetachResult(true), json.DetachResult);
+            }
+
+            case HostMethods.App:
+            {
+                var parameters = Required(message, json.AppParams);
+                if (!AppMethods.Contains(parameters.Method))
+                {
+                    throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, $"'{parameters.Method}' is not an app method.");
+                }
+
+                var session = Find(parameters.Session);
+                var timeout = parameters.TimeoutMs > 0 ? TimeSpan.FromMilliseconds(parameters.TimeoutMs) : DefaultAppTimeout;
+                var result = await session.App.CallAsync(parameters.Method, parameters.Params, timeout, cancellationToken).ConfigureAwait(false);
+                return Success(id, session.AdjustAppResult(parameters.Method, result), json.JsonElement);
+            }
+
+            case HostMethods.Wait:
+            {
+                var parameters = Required(message, json.WaitParams);
+                var session = Find(parameters.Session);
+                var result = await HostWait.WaitAsync(
+                    session,
+                    parameters.Condition,
+                    TimeSpan.FromMilliseconds(parameters.TimeoutMs),
+                    (elapsed, frame) => SendProgressAsync(connection, id, elapsed, frame, cancellationToken),
+                    cancellationToken).ConfigureAwait(false);
+                return Success(id, result, json.WaitResult);
+            }
+
+            case HostMethods.Assert:
+            {
+                var parameters = Required(message, json.AssertParams);
+                var timeout = parameters.TimeoutMs > 0 ? TimeSpan.FromMilliseconds(parameters.TimeoutMs) : DefaultAppTimeout;
+                await HostWait.AssertAsync(Find(parameters.Session), parameters.Condition, parameters.Not, timeout, cancellationToken).ConfigureAwait(false);
+                return Success(id, new AssertResult(true), json.AssertResult);
             }
 
             default:
@@ -607,55 +673,97 @@ internal sealed class SessionHost
             (long)_idleTimeout.TotalMilliseconds);
     }
 
-    private ListResult List()
+    private async Task<ListResult> ListAsync(CancellationToken cancellationToken)
     {
-        PtySession[] sessions;
+        HostSession[] sessions;
         lock (_sessions)
         {
             sessions = [.. _sessions.Values];
         }
 
+        // One try each to pair with the app, so the list says where the app layer stands now.
+        await Task.WhenAll(sessions.Select(session => session.App.RefreshAsync(cancellationToken))).ConfigureAwait(false);
         return new ListResult([.. sessions.Select(static session => session.Info).OrderBy(static info => info.Name, StringComparer.Ordinal)]);
+    }
+
+    // Progress is best effort: the client may be gone, and then the request is cancelled anyway.
+    private static async Task SendProgressAsync(DiagnosticsConnection connection, long id, long elapsedMs, long frame, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var notification = DiagnosticsMessage.Notification(DiagnosticsProtocol.ProgressMethod, new WaitProgress(id, elapsedMs, frame), HostJsonContext.Default.WaitProgress);
+            await connection.WriteAsync(notification, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException or DiagnosticsProtocolException)
+        {
+        }
     }
 
     private async Task<SessionInfo> StartAsync(StartParams parameters, CancellationToken cancellationToken)
     {
-        string name;
-        lock (_sessions)
-        {
-            name = parameters.Name ?? NextName();
-            if (_sessions.ContainsKey(name) || !_starting.Add(name))
-            {
-                throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, $"A session named '{name}' already exists.");
-            }
-        }
-
-        PtySession? session = null;
+        var name = Reserve(parameters.Name, "s");
+        HostSession? session = null;
         try
         {
             DiagnosticsPaths.EnsureUserOnlyDirectory(_files.SessionsDirectory);
-            session = await PtySession.StartAsync(name, parameters, _files.LedgerFile(name), cancellationToken).ConfigureAwait(false);
+            session = await PtySession.StartAsync(name, parameters, _files.LedgerFile(name), _files.StateDirectory, cancellationToken).ConfigureAwait(false);
             return session.Info;
         }
         finally
         {
-            lock (_sessions)
+            Publish(name, session);
+        }
+    }
+
+    private async Task<SessionInfo> AttachAsync(AttachParams parameters, CancellationToken cancellationToken)
+    {
+        var name = Reserve(parameters.Name, "a");
+        HostSession? session = null;
+        try
+        {
+            var timeout = parameters.TimeoutMs > 0 ? TimeSpan.FromMilliseconds(parameters.TimeoutMs) : DefaultAppTimeout;
+            session = await AttachSession.AttachAsync(name, parameters.Pid, _files.StateDirectory, timeout, cancellationToken).ConfigureAwait(false);
+            return session.Info;
+        }
+        finally
+        {
+            Publish(name, session);
+        }
+    }
+
+    // Takes a name for a session that is being created, so two starts cannot pick the same one.
+    private string Reserve(string? requested, string prefix)
+    {
+        lock (_sessions)
+        {
+            var name = requested ?? NextName(prefix);
+            if (_sessions.ContainsKey(name) || !_starting.Add(name))
             {
-                _starting.Remove(name);
-                if (session is not null)
-                {
-                    _sessions[name] = session;
-                }
+                throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, $"A session named '{name}' already exists.");
+            }
+
+            return name;
+        }
+    }
+
+    private void Publish(string name, HostSession? session)
+    {
+        lock (_sessions)
+        {
+            _starting.Remove(name);
+            if (session is not null)
+            {
+                _sessions[name] = session;
             }
         }
     }
 
-    // The first free s1, s2, …; called under the sessions lock.
-    private string NextName()
+    // The first free s1, s2, … (or a1, a2, …); called under the sessions lock.
+    private string NextName(string prefix)
     {
         for (var number = 1; ; number++)
         {
-            var name = "s" + number.ToString(CultureInfo.InvariantCulture);
+            var name = prefix + number.ToString(CultureInfo.InvariantCulture);
             if (!_sessions.ContainsKey(name) && !_starting.Contains(name))
             {
                 return name;
@@ -663,7 +771,7 @@ internal sealed class SessionHost
         }
     }
 
-    private PtySession Find(string name)
+    private HostSession Find(string name)
     {
         lock (_sessions)
         {
@@ -671,7 +779,7 @@ internal sealed class SessionHost
         }
     }
 
-    private PtySession Take(string name)
+    private HostSession Take(string name)
     {
         lock (_sessions)
         {
@@ -684,7 +792,7 @@ internal sealed class SessionHost
 
     private async Task<int> StopAllSessionsAsync()
     {
-        PtySession[] sessions;
+        HostSession[] sessions;
         lock (_sessions)
         {
             sessions = [.. _sessions.Values];

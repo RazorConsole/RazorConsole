@@ -20,33 +20,52 @@ namespace RazorConsole.Cli.Host;
 /// effect of earlier input as far as the app has drawn it. Nothing else takes the lock; later waits run concurrently.
 /// The raw output is kept in an <see cref="OutputRing"/> fed by the terminal's raw output observer.
 /// </remarks>
-internal sealed class PtySession : IAsyncDisposable
+internal sealed class PtySession : HostSession
 {
-    public const string Kind = "pty";
+    public const string SessionKind = "pty";
 
     private const int TerminalRawOutputCapacity = 64 * 1024;
     private const int OutputTailLines = 40;
+    private const string CliHomeVariable = "RAZORCONSOLE_CLI_HOME";
     private static readonly TimeSpan BuildTimeout = TimeSpan.FromMinutes(10);
 
     private readonly SemaphoreSlim _operations = new(1, 1);
     private readonly string _ledgerFile;
+    private readonly string _stateDirectory;
+    private readonly AppLayer _app;
     private PtyTerminal _terminal;
     private OutputRing _output;
     private DateTimeOffset _startedAt;
+    private string _token;
+    private long _firstFrameAt;
     private int _disposed;
 
-    private PtySession(string name, StartParams spec, string ledgerFile, PtyTerminal terminal, OutputRing output, string command)
+    private PtySession(string name, StartParams spec, string ledgerFile, string stateDirectory, string token, PtyTerminal terminal, OutputRing output, string command)
+        : base(name)
     {
-        Name = name;
         Spec = spec;
         Command = command;
         _ledgerFile = ledgerFile;
+        _stateDirectory = stateDirectory;
+        _token = token;
         _terminal = terminal;
         _output = output;
         _startedAt = DateTimeOffset.UtcNow;
+        _app = new AppLayer(
+            () => AppPairing.Locate(_stateDirectory, _token, _terminal.ProcessId),
+            GraceElapsed,
+            () => _terminal.HasExited ? ProcessExited() : null);
     }
 
-    public string Name { get; }
+    public override string Kind => SessionKind;
+
+    public override AppLayer App => _app;
+
+    public override bool HasExited => _terminal.HasExited;
+
+    public override int? ExitCode => _terminal.ExitCode;
+
+    public override long Activity => _output.End;
 
     /// <summary>
     /// What was started, kept for <c>restart</c>.
@@ -57,30 +76,50 @@ internal sealed class PtySession : IAsyncDisposable
 
     public PtyTerminal Terminal => _terminal;
 
-    public SessionInfo Info => new(
+    public override SessionInfo Info => new(
         Name,
-        Kind,
+        SessionKind,
         _terminal.ProcessId,
         _terminal.Width,
         _terminal.Height,
         Command,
         _startedAt,
         _terminal.HasExited,
-        _terminal.ExitCode);
+        _terminal.ExitCode,
+        _app.Describe());
+
+    public override PtySession RequirePty(string verb) => this;
+
+    public override JsonElement AdjustAppResult(string method, JsonElement result)
+    {
+        if (method != DiagnosticsAppMethods.InspectAt
+            || JsonSerializer.Deserialize(result, DiagnosticsJsonContext.Default.InspectAtResult) is not { } at)
+        {
+            return result;
+        }
+
+        var frame = _terminal.CurrentFrame;
+        var cell = at.X >= 0 && at.Y >= 0 && at.X < frame.Width && at.Y < frame.Height
+            ? DiagnosticsScreenReader.ToScreenCell(frame[at.X, at.Y])
+            : null;
+        return JsonSerializer.SerializeToElement(at with { Cell = cell }, DiagnosticsJsonContext.Default.InspectAtResult);
+    }
 
     /// <summary>
     /// Starts the target of <paramref name="spec"/>, records it in the ledger and, unless
-    /// <see cref="StartParams.NoWait"/>, waits for its first frame.
+    /// <see cref="StartParams.NoWait"/>, waits for its first frame. The app is told the session's token and the
+    /// host's state directory, so its diagnostics endpoint can be paired with the session.
     /// </summary>
-    public static async Task<PtySession> StartAsync(string name, StartParams spec, string ledgerFile, CancellationToken cancellationToken)
+    public static async Task<PtySession> StartAsync(string name, StartParams spec, string ledgerFile, string stateDirectory, CancellationToken cancellationToken)
     {
-        var (options, command) = await CreateOptionsAsync(spec, cancellationToken).ConfigureAwait(false);
+        var token = AppPairing.NewToken();
+        var (options, command) = await CreateOptionsAsync(spec, stateDirectory, token, cancellationToken).ConfigureAwait(false);
         var output = new OutputRing();
         options.RawOutputObserver = output.Append;
         options.RawOutputCapacity = TerminalRawOutputCapacity;
 
         var terminal = await StartTerminalAsync(options, cancellationToken).ConfigureAwait(false);
-        var session = new PtySession(name, spec, ledgerFile, terminal, output, command);
+        var session = new PtySession(name, spec, ledgerFile, stateDirectory, token, terminal, output, command);
         try
         {
             session.WriteLedger();
@@ -94,7 +133,7 @@ internal sealed class PtySession : IAsyncDisposable
         }
     }
 
-    public async Task<StopResult> StopAsync(TimeSpan timeout)
+    public override async Task<StopResult> StopAsync(TimeSpan timeout)
     {
         var killed = false;
         if (!_terminal.HasExited)
@@ -129,7 +168,9 @@ internal sealed class PtySession : IAsyncDisposable
         try
         {
             await _terminal.DisposeAsync().ConfigureAwait(false);
-            var (options, _) = await CreateOptionsAsync(Spec with { TimeoutMs = (long)timeout.TotalMilliseconds }, cancellationToken).ConfigureAwait(false);
+            await _app.ResetAsync().ConfigureAwait(false);
+            var token = AppPairing.NewToken();
+            var (options, _) = await CreateOptionsAsync(Spec with { TimeoutMs = (long)timeout.TotalMilliseconds }, _stateDirectory, token, cancellationToken).ConfigureAwait(false);
             var output = new OutputRing();
             options.RawOutputObserver = output.Append;
             options.RawOutputCapacity = TerminalRawOutputCapacity;
@@ -138,6 +179,8 @@ internal sealed class PtySession : IAsyncDisposable
             _terminal = await StartTerminalAsync(options, cancellationToken).ConfigureAwait(false);
             _output = output;
             _startedAt = DateTimeOffset.UtcNow;
+            _token = token;
+            Interlocked.Exchange(ref _firstFrameAt, 0);
             WriteLedger();
         }
         finally
@@ -157,7 +200,7 @@ internal sealed class PtySession : IAsyncDisposable
             },
             cancellationToken);
 
-    public Task<SentResult> KeysAsync(IReadOnlyList<KeyPress> keys, CancellationToken cancellationToken)
+    public override Task<SentResult> KeysAsync(IReadOnlyList<KeyPress> keys, CancellationToken cancellationToken)
         => InputAsync(
             async () =>
             {
@@ -170,7 +213,7 @@ internal sealed class PtySession : IAsyncDisposable
             },
             cancellationToken);
 
-    public Task<SentResult> TypeAsync(string text, CancellationToken cancellationToken)
+    public override Task<SentResult> TypeAsync(string text, CancellationToken cancellationToken)
         => InputAsync(
             async () =>
             {
@@ -184,7 +227,7 @@ internal sealed class PtySession : IAsyncDisposable
             },
             cancellationToken);
 
-    public Task<PasteResult> PasteAsync(string text, CancellationToken cancellationToken)
+    public override Task<PasteResult> PasteAsync(string text, CancellationToken cancellationToken)
         => InputAsync(
             async () =>
             {
@@ -194,7 +237,7 @@ internal sealed class PtySession : IAsyncDisposable
             },
             cancellationToken);
 
-    public Task<RawResult> RawAsync(string data, CancellationToken cancellationToken)
+    public override Task<RawResult> RawAsync(string data, CancellationToken cancellationToken)
         => InputAsync(
             async () =>
             {
@@ -203,7 +246,7 @@ internal sealed class PtySession : IAsyncDisposable
             },
             cancellationToken);
 
-    public Task<ClickResult> ClickAsync(ClickParams click, CancellationToken cancellationToken)
+    protected override Task<ClickResult> ClickCoreAsync(ClickParams click, CancellationToken cancellationToken)
         => InputAsync(
             async () =>
             {
@@ -228,7 +271,7 @@ internal sealed class PtySession : IAsyncDisposable
             },
             cancellationToken);
 
-    public Task<MouseResult> MouseAsync(MouseParams mouse, CancellationToken cancellationToken)
+    public override Task<MouseResult> MouseAsync(MouseParams mouse, CancellationToken cancellationToken)
         => InputAsync(
             async () =>
             {
@@ -239,8 +282,19 @@ internal sealed class PtySession : IAsyncDisposable
             },
             cancellationToken);
 
-    public Task<PtyScreenResult> ScreenAsync(PtyScreenParams parameters, CancellationToken cancellationToken)
+    public override Task<PtyScreenResult> ScreenAsync(PtyScreenParams parameters, CancellationToken cancellationToken)
         => WithLockAsync(() => Task.FromResult(ReadScreen(_terminal.CurrentFrame, parameters)), cancellationToken);
+
+    // Waits read the frame without the operation lock, so they run alongside input.
+    public override Task<ScreenSnapshot> SnapshotAsync(CancellationToken cancellationToken)
+    {
+        var frame = _terminal.CurrentFrame;
+        NoteFirstFrame(frame);
+        return Task.FromResult(new ScreenSnapshot(Lines(frame), frame.FrameNumber));
+    }
+
+    protected override Task<(int Width, int Height)> ScreenSizeAsync(CancellationToken cancellationToken)
+        => Task.FromResult((_terminal.Width, _terminal.Height));
 
     public FramesResult Frames(int last)
     {
@@ -293,13 +347,14 @@ internal sealed class PtySession : IAsyncDisposable
         return new OutputResult(offset, next, data);
     }
 
-    public async ValueTask DisposeAsync()
+    public override async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
 
+        await _app.DisposeAsync().ConfigureAwait(false);
         await _terminal.DisposeAsync().ConfigureAwait(false);
         try
         {
@@ -335,7 +390,7 @@ internal sealed class PtySession : IAsyncDisposable
         }
 
         return new PtyScreenResult(
-            Kind,
+            SessionKind,
             region.Width,
             region.Height,
             new ScreenCursor(frame.CursorX, frame.CursorY, frame.CursorVisible),
@@ -354,49 +409,7 @@ internal sealed class PtySession : IAsyncDisposable
     /// of it and its width in cells.
     /// </summary>
     internal static (int X, int Y, int Width) FindText(TerminalFrame frame, string text, int nth)
-    {
-        if (text.Length == 0 || nth < 1)
-        {
-            throw InvalidParams("click text must not be empty, and nth starts at 1.");
-        }
-
-        var seen = 0;
-        for (var y = 0; y < frame.Height; y++)
-        {
-            // Each character's column; wide characters span two cells and their second cell has no text.
-            var line = new StringBuilder();
-            var columns = new List<int>();
-            for (var x = 0; x < frame.Width; x++)
-            {
-                var cellText = frame[x, y].Text;
-                line.Append(cellText);
-                for (var i = 0; i < cellText.Length; i++)
-                {
-                    columns.Add(x);
-                }
-            }
-
-            var lineText = line.ToString();
-            var index = lineText.IndexOf(text, StringComparison.Ordinal);
-            while (index >= 0)
-            {
-                if (++seen == nth)
-                {
-                    var start = columns[index];
-                    var end = index + text.Length < columns.Count ? columns[index + text.Length] : frame.Width;
-                    var width = Math.Max(1, end - start);
-                    return (start + ((width - 1) / 2), y, width);
-                }
-
-                index = lineText.IndexOf(text, index + 1, StringComparison.Ordinal);
-            }
-        }
-
-        var message = seen == 0
-            ? $"'{text}' is not on the screen."
-            : $"'{text}' is on the screen {seen} time(s), not {nth}.";
-        throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.ElementNotFound, message);
-    }
+        => FindText(frame.Width, frame.Height, (x, y) => frame[x, y].Text, text, nth);
 
     private static IReadOnlyList<string> Lines(TerminalFrame frame)
     {
@@ -464,7 +477,11 @@ internal sealed class PtySession : IAsyncDisposable
     private static DiagnosticsProtocolException InvalidParams(string message)
         => new(DiagnosticsErrorCodes.InvalidParams, message);
 
-    private static async Task<(PtyTerminalOptions Options, string Command)> CreateOptionsAsync(StartParams spec, CancellationToken cancellationToken)
+    private static async Task<(PtyTerminalOptions Options, string Command)> CreateOptionsAsync(
+        StartParams spec,
+        string stateDirectory,
+        string token,
+        CancellationToken cancellationToken)
     {
         var options = new PtyTerminalOptions
         {
@@ -473,6 +490,10 @@ internal sealed class PtySession : IAsyncDisposable
             TerminalType = spec.TerminalType,
             WorkingDirectory = spec.WorkingDirectory,
         };
+        // The app writes its discovery file where the host looks, tagged with the session's token. The user's own
+        // environment overrides win, so an app can be pointed elsewhere on purpose.
+        options.Environment[DiagnosticsEndpointService.SessionTokenEnvironmentVariableName] = token;
+        options.Environment[CliHomeVariable] = stateDirectory;
         foreach (var (name, value) in spec.Environment)
         {
             options.Environment[name] = value;
@@ -632,6 +653,7 @@ internal sealed class PtySession : IAsyncDisposable
         try
         {
             await _terminal.WaitUntilAsync(static frame => frame.FrameNumber > 0, limit, "the first frame", cancellationToken).ConfigureAwait(false);
+            NoteFirstFrame(_terminal.CurrentFrame);
         }
         catch (TerminalTimeoutException)
         {
@@ -670,7 +692,24 @@ internal sealed class PtySession : IAsyncDisposable
         }
     }
 
-    private DiagnosticsProtocolException ProcessExited()
+    // The app may register its endpoint until a moment after its first frame; before that, and during that moment,
+    // a missing discovery file only means "not yet".
+    private bool GraceElapsed()
+    {
+        NoteFirstFrame(_terminal.CurrentFrame);
+        var at = Interlocked.Read(ref _firstFrameAt);
+        return at != 0 && Stopwatch.GetElapsedTime(at) >= AppLayer.Grace;
+    }
+
+    private void NoteFirstFrame(TerminalFrame frame)
+    {
+        if (frame.FrameNumber > 0 && Interlocked.Read(ref _firstFrameAt) == 0)
+        {
+            Interlocked.CompareExchange(ref _firstFrameAt, Stopwatch.GetTimestamp(), 0);
+        }
+    }
+
+    public override DiagnosticsProtocolException ProcessExited()
     {
         var data = JsonSerializer.SerializeToElement(new ProcessExitedData(_terminal.ExitCode), HostJsonContext.Default.ProcessExitedData);
         var code = _terminal.ExitCode is { } exitCode ? $" with exit code {exitCode}" : string.Empty;

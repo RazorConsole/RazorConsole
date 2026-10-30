@@ -49,7 +49,7 @@ internal static class CliApplication
         {
             try
             {
-                result = await operations.ExecuteAsync(outcome.Request!, outcome.Options, cancellationToken).ConfigureAwait(false);
+                result = await operations.ExecuteAsync(outcome.Request!, outcome.Options, cancellationToken, new OutputStream(output, outcome.Options.Json)).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -64,5 +64,15 @@ internal static class CliApplication
 
         CliOutput.Write(result, outcome.Options.Json, output, error);
         return result.Error is { } failure ? CliExitCodes.For(failure.Code) : CliExitCodes.Success;
+    }
+
+    // Each item of a streaming verb is flushed as it arrives, so a reader on a pipe sees it at once.
+    private sealed class OutputStream(TextWriter output, bool json) : ICliStream
+    {
+        public async Task WriteAsync(JsonElement item, string text)
+        {
+            await output.WriteLineAsync(json ? item.GetRawText() : text).ConfigureAwait(false);
+            await output.FlushAsync().ConfigureAwait(false);
+        }
     }
 }

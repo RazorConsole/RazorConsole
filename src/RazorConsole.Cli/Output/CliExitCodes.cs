@@ -27,10 +27,12 @@ internal static class CliExitCodes
         DiagnosticsErrorCodes.SessionNotFound
             or DiagnosticsErrorCodes.ElementNotFound
             or DiagnosticsErrorCodes.AmbiguousSelector
-            or DiagnosticsErrorCodes.ElementNotVisible => NotFound,
+            or DiagnosticsErrorCodes.ElementNotVisible
+            or DiagnosticsErrorCodes.ElementNotFocusable => NotFound,
         DiagnosticsErrorCodes.AppLayerUnavailable
             or DiagnosticsErrorCodes.InputUnavailable
-            or DiagnosticsErrorCodes.ScreenUnavailable => AppLayerUnavailable,
+            or DiagnosticsErrorCodes.ScreenUnavailable
+            or DiagnosticsErrorCodes.TerminalLayerUnavailable => AppLayerUnavailable,
         DiagnosticsErrorCodes.Timeout => Timeout,
         DiagnosticsErrorCodes.ProcessExited => ProcessExited,
         DiagnosticsErrorCodes.PtyUnsupported => PlatformUnsupported,
