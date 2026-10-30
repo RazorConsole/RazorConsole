@@ -8,6 +8,8 @@
     <ToolCommandName>razorconsole</ToolCommandName>
     <RootNamespace>RazorConsole.Cli</RootNamespace>
     <IsAotCompatible>true</IsAotCompatible>
+    <!-- The detached host launch on Windows calls CreateProcess with pointers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
