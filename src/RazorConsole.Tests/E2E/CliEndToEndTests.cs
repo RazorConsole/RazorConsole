@@ -103,8 +103,10 @@ public sealed class CliEndToEndTests
         // The app quits with code 3: waiting for the exit works, anything else says the process exited.
         Ok(await cli.RunAsync("--json", "click", "--element", "hook:quit"));
         Ok(await cli.RunAsync("--json", "wait", "--exit")).GetProperty("exitCode").GetInt32().ShouldBe(3);
-        var exited = Failed(await cli.RunAsync("--json", "keys", "Tab"), 6, "process_exited");
+        // The very first app call after the exit already says so; it does not report an unavailable app layer.
+        var exited = Failed(await cli.RunAsync("--json", "tree"), 6, "process_exited");
         exited.GetProperty("data").GetProperty("exitCode").GetInt32().ShouldBe(3);
+        Failed(await cli.RunAsync("--json", "keys", "Tab"), 6, "process_exited");
 
         // The screen and the raw output of a session that ended stay readable: that is where an app that died says why.
         Ok(await cli.RunAsync("--json", "screen")).GetProperty("lines").GetArrayLength().ShouldBeGreaterThan(0);
@@ -300,26 +302,96 @@ public sealed class CliEndToEndTests
     }
 
     [Fact(Timeout = TestTimeoutMs)]
-    public async Task ACrashedApp_LeavesItsReasonOnlyInTheTerminalOutput()
+    public async Task ACrashedApp_ReportsItsReasonInProcessExited()
     {
         await using var cli = CliE2E.Create();
 
-        // The app dies before it draws, so there is no first frame to wait for.
+        // The app dies before it draws, so there is no first frame to wait for, and no endpoint to ask for errors.
         Ok(await cli.RunAsync("--json", "start", "--dll", CliE2E.PtyAppPath, "--no-wait", "--", "crash"));
         var exit = Ok(await cli.RunAsync("--json", "wait", "--exit"));
         exit.GetProperty("exitCode").GetInt32().ShouldNotBe(0);
 
-        // The exit code is all the error data of later commands carries; .NET printed the exception to the terminal,
-        // and the session keeps that output, as raw bytes and on the screen.
+        // .NET printed the exception to the terminal; the error of any later command carries the end of that output.
         var exited = Failed(await cli.RunAsync("--json", "keys", "Tab"), 6, "process_exited");
-        exited.GetProperty("data").GetProperty("exitCode").GetInt32().ShouldBe(exit.GetProperty("exitCode").GetInt32());
-        exited.GetProperty("data").EnumerateObject().Select(static property => property.Name).ShouldBe(["exitCode"]);
+        var data = exited.GetProperty("data");
+        data.GetProperty("exitCode").GetInt32().ShouldBe(exit.GetProperty("exitCode").GetInt32());
+        data.EnumerateObject().Select(static property => property.Name).ShouldBe(["exitCode", "outputTail"]);
+        var tail = data.GetProperty("outputTail").GetString().ShouldNotBeNull();
+        tail.ShouldContain("diag crash");
+        tail.ShouldContain("InvalidOperationException");
+        tail.ShouldNotContain('\u001b');
+        tail.Length.ShouldBeLessThanOrEqualTo(4096);
+
+        // In text the same goes to stderr after the message.
+        var text = await cli.RunAsync("keys", "Tab");
+        text.ExitCode.ShouldBe(6, text.Describe());
+        text.Error.ShouldContain("[process_exited]");
+        text.Error.ShouldContain("--- output tail ---");
+        text.Error.ShouldContain("diag crash");
+        text.Error.ShouldNotContain("--- last errors ---");
+
+        // The raw output and the screen of a session that ended stay readable, too.
         Ok(await cli.RunAsync("--json", "output")).GetProperty("data").GetString().ShouldNotBeNull().ShouldContain("diag crash");
         Ok(await cli.RunAsync("--json", "screen")).GetProperty("lines").EnumerateArray()
             .Select(static line => line.GetString()).ShouldContain(line => line!.Contains("InvalidOperationException", StringComparison.Ordinal));
 
         Ok(await cli.RunAsync("--json", "stop"));
         Ok(await cli.RunAsync("--json", "host", "stop"));
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task AnAppThatQuitsAfterAnError_ReportsTheErrorInProcessExited()
+    {
+        await using var cli = CliE2E.Create();
+
+        Ok(await cli.RunAsync("--json", "start", "--dll", CliE2E.PtyAppPath, "--", "diag"));
+        Ok(await cli.RunAsync("--json", "wait", "--text", "App layer view"));
+
+        // Keys, not clicks: a mouse click whose handler throws stops the app's input, a key press does not (see the
+        // report of this step). Nothing asks for the errors; the session reads them in the background.
+        Ok(await cli.RunAsync("--json", "keys", "Enter", "--element", "hook:fail"));
+        await Task.Delay(TimeSpan.FromSeconds(2.5), Token);
+        Ok(await cli.RunAsync("--json", "keys", "Enter", "--element", "hook:quit"));
+        Ok(await cli.RunAsync("--json", "wait", "--exit")).GetProperty("exitCode").GetInt32().ShouldBe(3);
+
+        var exited = Failed(await cli.RunAsync("--json", "tree"), 6, "process_exited");
+        var data = exited.GetProperty("data");
+        data.GetProperty("exitCode").GetInt32().ShouldBe(3);
+        var last = data.GetProperty("lastErrors").EnumerateArray().ShouldHaveSingleItem();
+        last.GetProperty("source").GetString().ShouldBe("render");
+        last.GetProperty("type").GetString().ShouldBe("System.InvalidOperationException");
+        last.GetProperty("message").GetString().ShouldBe("diag failure");
+        last.GetProperty("stack").GetString().ShouldNotBeNull().ShouldContain("OnFail");
+
+        var text = await cli.RunAsync("tree");
+        text.ExitCode.ShouldBe(6, text.Describe());
+        text.Error.ShouldContain("--- last errors ---");
+        text.Error.ShouldContain("System.InvalidOperationException: diag failure");
+
+        Ok(await cli.RunAsync("--json", "stop"));
+        Ok(await cli.RunAsync("--json", "host", "stop"));
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task FirstRun_OnAFreshStateDirectory_StartsTheHost_AndDoctorPasses()
+    {
+        // Nothing creates the state directory for the tests: the tool has to, before it starts its host there.
+        await using var first = CliE2E.Create();
+        Directory.Exists(first.Home).ShouldBeFalse();
+        Ok(await first.RunAsync("--json", "start", "--dll", CliE2E.PtyAppPath, "--", "diag"));
+        Directory.Exists(first.Home).ShouldBeTrue();
+        Ok(await first.RunAsync("--json", "host", "status")).GetProperty("running").GetBoolean().ShouldBeTrue();
+        Ok(await first.RunAsync("--json", "stop"));
+        Ok(await first.RunAsync("--json", "host", "stop"));
+
+        // Doctor is the other first command people run.
+        await using var second = CliE2E.Create();
+        Directory.Exists(second.Home).ShouldBeFalse();
+        var checks = Checks(Ok(await second.RunAsync("--json", "doctor")));
+        checks.ShouldNotContain(static check => check.Status == "fail");
+        Detail(checks, "host.start").ShouldStartWith("started by doctor");
+        Ok(await second.RunAsync("--json", "host", "status")).GetProperty("running").GetBoolean().ShouldBeFalse();
+        Ok(await second.RunAsync("--json", "host", "stop"));
     }
 
     [Fact(Timeout = TestTimeoutMs)]

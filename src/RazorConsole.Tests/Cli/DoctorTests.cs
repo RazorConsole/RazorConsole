@@ -214,6 +214,28 @@ public sealed class DoctorTests : IAsyncDisposable
     }
 
     [Fact(Timeout = TestTimeoutMs)]
+    public async Task AHostThatCannotBeStarted_IsAHostProblemInTheChecklist_NotAnInternalError()
+    {
+        var files = Files;
+        var connector = new HostConnector(files, new ThrowingLauncher(new System.ComponentModel.Win32Exception(267, "The directory name is invalid.")), "1.0.0");
+
+        // On its own the connector turns it into host_unavailable (exit 8)...
+        var thrown = await Should.ThrowAsync<DiagnosticsProtocolException>(() => connector.ConnectOrStartAsync(Token));
+        thrown.Code.ShouldBe(DiagnosticsErrorCodes.HostUnavailable);
+        thrown.Message.ShouldContain("The directory name is invalid.");
+        CliExitCodes.For(thrown.Code).ShouldBe(CliExitCodes.HostUnavailable);
+
+        // ...and doctor reports the failed check and still runs the others.
+        var result = await new HostOperations(connector).ExecuteAsync(new DoctorRequest(false), new CliGlobalOptions(false, null, TimeSpan.FromSeconds(20)), Token);
+        result.Error.ShouldNotBeNull().Code.ShouldBe(DiagnosticsErrorCodes.ChecksFailed);
+        var checks = Checks(result.Data!.Value);
+        Status(checks, "host.start").ShouldBe("fail");
+        Detail(checks, "host.start").ShouldContain("The directory name is invalid.");
+        Status(checks, "host.socket").ShouldBe("skip");
+        Status(checks, "pty.smoke").ShouldBe("skip");
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
     [UnsupportedOSPlatform("windows")]
     public async Task OnUnix_AStateDirectoryThatOthersCanRead_Fails()
     {
@@ -309,6 +331,11 @@ public sealed class DoctorTests : IAsyncDisposable
     }
 
     private HostOperations Operations(out InProcessLauncher launcher) => new(Connector(out launcher));
+
+    private sealed class ThrowingLauncher(Exception exception) : IHostLauncher
+    {
+        public void Launch(HostFiles files) => throw exception;
+    }
 
     private sealed class NoLauncher : IHostLauncher
     {

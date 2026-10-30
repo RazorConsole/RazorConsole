@@ -33,6 +33,15 @@ internal sealed class AppLayer : IAsyncDisposable
     private static readonly TimeSpan RetryInterval = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan StatsTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan MinimumCall = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan WatchInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan WatchTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ExitCheckLimit = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan ExitCheckInterval = TimeSpan.FromMilliseconds(50);
+
+    // What a process_exited error carries of the app's last errors: the newest few, each trimmed.
+    private const int RecentErrorCount = 5;
+    private const int MaxErrorMessage = 1000;
+    private const int MaxErrorStack = 1500;
 
     private readonly Func<DiagnosticsDiscoveryInfo?> _locate;
     private readonly Func<bool> _graceElapsed;
@@ -41,6 +50,10 @@ internal sealed class AppLayer : IAsyncDisposable
     private volatile AppLink? _link;
     private volatile string? _pipeline;
     private volatile string? _incompatible;
+    private readonly object _errorsSync = new();
+    private readonly List<ErrorResult> _recentErrors = [];
+    private long _errorsNext;
+    private CancellationTokenSource? _watching;
 
     /// <param name="locate">Finds the app's discovery file, or <see langword="null"/> when there is none.</param>
     /// <param name="graceElapsed">Whether the app has had its chance to register: for a PTY, it drew a frame
@@ -70,6 +83,21 @@ internal sealed class AppLayer : IAsyncDisposable
     }
 
     /// <summary>
+    /// The last few errors the app reported before now, oldest first. They outlive the connection, so a session whose
+    /// app died can still say what went wrong; <see cref="ResetAsync"/> forgets them.
+    /// </summary>
+    public IReadOnlyList<JsonElement> RecentErrors
+    {
+        get
+        {
+            lock (_errorsSync)
+            {
+                return [.. _recentErrors.Select(static error => JsonSerializer.SerializeToElement(error, DiagnosticsJsonContext.Default.ErrorResult))];
+            }
+        }
+    }
+
+    /// <summary>
     /// Tries once to connect, for <c>list</c>, and returns the state.
     /// </summary>
     public async Task<AppLayerInfo> RefreshAsync(CancellationToken cancellationToken)
@@ -94,6 +122,13 @@ internal sealed class AppLayer : IAsyncDisposable
         await _connect.WaitAsync().ConfigureAwait(false);
         try
         {
+            StopWatching();
+            lock (_errorsSync)
+            {
+                _recentErrors.Clear();
+                _errorsNext = 0;
+            }
+
             var link = _link;
             _link = null;
             _pipeline = null;
@@ -162,7 +197,27 @@ internal sealed class AppLayer : IAsyncDisposable
         var started = Stopwatch.GetTimestamp();
         var link = await GetLinkAsync(timeout, cancellationToken).ConfigureAwait(false);
         var remaining = timeout - Stopwatch.GetElapsedTime(started);
-        return await link.CallAsync(method, parameters, remaining < MinimumCall ? MinimumCall : remaining, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var result = await link.CallAsync(method, parameters, remaining < MinimumCall ? MinimumCall : remaining, cancellationToken).ConfigureAwait(false);
+            if (method == DiagnosticsAppMethods.Errors)
+            {
+                RecordErrors(result);
+            }
+
+            return result;
+        }
+        catch (DiagnosticsProtocolException ex) when (ex.Code == DiagnosticsErrorCodes.AppLayerUnavailable && link.IsBroken)
+        {
+            // A connection that closed because the app died: the process's exit is noticed a moment later than the
+            // closed pipe, so give it that moment before blaming the app layer.
+            if (await WaitForExitAsync(cancellationToken).ConfigureAwait(false) is { } exited)
+            {
+                throw exited;
+            }
+
+            throw;
+        }
     }
 
     public async Task<TResult> CallAsync<TParams, TResult>(
@@ -241,6 +296,7 @@ internal sealed class AppLayer : IAsyncDisposable
 
             _incompatible = null;
             _link = link;
+            StartWatching(link);
             _pipeline = await ReadPipelineAsync(link, cancellationToken).ConfigureAwait(false);
             return (link, true);
         }
@@ -249,6 +305,110 @@ internal sealed class AppLayer : IAsyncDisposable
             _connect.Release();
         }
     }
+
+    private async Task<DiagnosticsProtocolException?> WaitForExitAsync(CancellationToken cancellationToken)
+    {
+        var started = Stopwatch.GetTimestamp();
+        while (true)
+        {
+            if (_exited() is { } exited)
+            {
+                return exited;
+            }
+
+            if (Stopwatch.GetElapsedTime(started) >= ExitCheckLimit)
+            {
+                return null;
+            }
+
+            await Task.Delay(ExitCheckInterval, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    // Reads the app's errors in the background, so the newest ones are known even when nobody asked for them before the
+    // app died. It uses the connection the session already has, so it takes none of the endpoint's few connections.
+    private void StartWatching(AppLink link)
+    {
+        StopWatching();
+        var watching = new CancellationTokenSource();
+        _watching = watching;
+        _ = WatchErrorsAsync(link, watching.Token);
+    }
+
+    private void StopWatching()
+    {
+        var watching = _watching;
+        _watching = null;
+        if (watching is not null)
+        {
+            watching.Cancel();
+            watching.Dispose();
+        }
+    }
+
+    private async Task WatchErrorsAsync(AppLink link, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!link.IsBroken)
+            {
+                await Task.Delay(WatchInterval, cancellationToken).ConfigureAwait(false);
+                long since;
+                lock (_errorsSync)
+                {
+                    since = _errorsNext;
+                }
+
+                var parameters = JsonSerializer.SerializeToElement(new ErrorsParams(since), DiagnosticsJsonContext.Default.ErrorsParams);
+                RecordErrors(await link.CallAsync(DiagnosticsAppMethods.Errors, parameters, WatchTimeout, cancellationToken).ConfigureAwait(false));
+            }
+        }
+        catch (Exception ex) when (ex is DiagnosticsProtocolException or OperationCanceledException or ObjectDisposedException or JsonException)
+        {
+            // The link is gone or the layer was reset; what was read stays.
+        }
+    }
+
+    private void RecordErrors(JsonElement result)
+    {
+        ErrorsResult? errors;
+        try
+        {
+            errors = result.Deserialize(DiagnosticsJsonContext.Default.ErrorsResult);
+        }
+        catch (JsonException)
+        {
+            return;
+        }
+
+        if (errors is null)
+        {
+            return;
+        }
+
+        lock (_errorsSync)
+        {
+            foreach (var error in errors.Errors)
+            {
+                if (_recentErrors.Exists(known => known.Seq == error.Seq))
+                {
+                    continue;
+                }
+
+                _recentErrors.Add(error with { Message = Trim(error.Message, MaxErrorMessage), Stack = Trim(error.Stack, MaxErrorStack) });
+            }
+
+            _recentErrors.Sort(static (left, right) => left.Seq.CompareTo(right.Seq));
+            if (_recentErrors.Count > RecentErrorCount)
+            {
+                _recentErrors.RemoveRange(0, _recentErrors.Count - RecentErrorCount);
+            }
+
+            _errorsNext = Math.Max(_errorsNext, errors.Next);
+        }
+    }
+
+    private static string Trim(string text, int limit) => text.Length <= limit ? text : text[..limit] + "...";
 
     private static async Task<string?> ReadPipelineAsync(AppLink link, CancellationToken cancellationToken)
     {

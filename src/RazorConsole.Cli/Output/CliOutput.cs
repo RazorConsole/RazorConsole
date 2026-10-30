@@ -42,6 +42,25 @@ internal static class CliOutput
                 error.WriteLine(screen.GetString());
             }
 
+            // An exited process explains itself here: what its app last reported, and what the terminal last showed.
+            if (failure.Data is { ValueKind: JsonValueKind.Object } exited)
+            {
+                if (exited.TryGetProperty("lastErrors", out var lastErrors) && lastErrors.ValueKind == JsonValueKind.Array && lastErrors.GetArrayLength() > 0)
+                {
+                    error.WriteLine("--- last errors ---");
+                    foreach (var item in lastErrors.EnumerateArray())
+                    {
+                        error.WriteLine(AppText.ErrorLine(item));
+                    }
+                }
+
+                if (exited.TryGetProperty("outputTail", out var outputTail) && outputTail.ValueKind == JsonValueKind.String)
+                {
+                    error.WriteLine("--- output tail ---");
+                    error.WriteLine(outputTail.GetString());
+                }
+            }
+
             return;
         }
 

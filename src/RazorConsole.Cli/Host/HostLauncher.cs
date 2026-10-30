@@ -2,6 +2,7 @@
 
 using System.Diagnostics;
 using System.Runtime.Versioning;
+using RazorConsole.Core.Diagnostics;
 using RazorConsole.Testing.Pty;
 
 namespace RazorConsole.Cli.Host;
@@ -26,6 +27,9 @@ internal sealed class ProcessHostLauncher : IHostLauncher
 
     public void Launch(HostFiles files)
     {
+        // The host's working directory: on a first run nothing has created the state directory yet, and neither
+        // CreateProcess nor Process.Start start a process in a directory that does not exist.
+        DiagnosticsPaths.EnsureUserOnlyDirectory(files.StateDirectory);
         var (fileName, arguments) = HostCommand();
         if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763))
         {
