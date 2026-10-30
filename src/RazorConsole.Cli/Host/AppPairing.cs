@@ -75,6 +75,36 @@ internal static class AppPairing
         }
     }
 
+    /// <summary>
+    /// Whether the discovery file at <paramref name="path"/> is left over: it cannot be parsed, or its app is gone (or the
+    /// pid belongs to another process now). A file that cannot be read for now is not stale.
+    /// </summary>
+    /// <param name="path">The discovery file.</param>
+    /// <param name="pid">The app's process id, when the file could be parsed.</param>
+    public static bool IsStale(string path, out int? pid)
+    {
+        pid = null;
+        try
+        {
+            var info = JsonSerializer.Deserialize(File.ReadAllBytes(path), DiagnosticsJsonContext.Default.DiagnosticsDiscoveryInfo);
+            if (info is null)
+            {
+                return true;
+            }
+
+            pid = info.Pid;
+            return !IsAlive(info);
+        }
+        catch (JsonException)
+        {
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     private static bool IsAlive(DiagnosticsDiscoveryInfo info)
     {
         if (!SessionHost.SameProcess(info.Pid, info.ProcessStartTime, out var process))

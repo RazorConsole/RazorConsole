@@ -60,6 +60,44 @@ public sealed class CliApplicationTests
     }
 
     [Fact]
+    public async Task Failure_WithText_PrintsTheTextOnStdout_BeforeTheErrorOnStderr()
+    {
+        var data = Json("""{"checks":[{"name":"os.pty","status":"fail","detail":"no"}]}""");
+        var operations = new FakeOperations(_ => new CliResult(
+            new DiagnosticsError(DiagnosticsErrorCodes.ChecksFailed, "1 of 1 checks failed: os.pty", null), null, data, "fail  os.pty  no"));
+
+        var human = await RunAsync(operations, "doctor");
+        human.ExitCode.ShouldBe(CliExitCodes.AssertionFailed);
+        human.Output.ShouldBe("fail  os.pty  no" + Environment.NewLine);
+        human.Error.ShouldBe("razorconsole: 1 of 1 checks failed: os.pty [checks_failed]" + Environment.NewLine);
+
+        var json = await RunAsync(operations, "doctor", "--json");
+        json.ExitCode.ShouldBe(CliExitCodes.AssertionFailed);
+        json.Error.ShouldBeEmpty();
+        using var document = JsonDocument.Parse(json.Output);
+        document.RootElement.GetProperty("ok").GetBoolean().ShouldBeFalse();
+
+        // The checks are where they are on success; the error sits next to them and carries no copy.
+        document.RootElement.GetProperty("checks")[0].GetProperty("name").GetString().ShouldBe("os.pty");
+        var failure = document.RootElement.GetProperty("error");
+        failure.GetProperty("code").GetString().ShouldBe("checks_failed");
+        failure.TryGetProperty("data", out _).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Success_WithChecks_HasThemAtTheTopLevel_AsAFailureDoes()
+    {
+        var data = Json("""{"checks":[{"name":"os.pty","status":"pass","detail":"ok"}]}""");
+        var result = await RunAsync(new FakeOperations(_ => CliResult.Success(null, data, "pass  os.pty  ok")), "doctor", "--json");
+
+        result.ExitCode.ShouldBe(CliExitCodes.Success);
+        using var document = JsonDocument.Parse(result.Output);
+        document.RootElement.GetProperty("ok").GetBoolean().ShouldBeTrue();
+        document.RootElement.GetProperty("checks")[0].GetProperty("status").GetString().ShouldBe("pass");
+        document.RootElement.TryGetProperty("error", out _).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task UsageErrors_ExitWith2_ListEveryError_AndNeverRunTheOperation()
     {
         var operations = new FakeOperations(_ => throw new InvalidOperationException("must not run"));
@@ -135,6 +173,7 @@ public sealed class CliApplicationTests
 
     [Theory]
     [InlineData("assertion_failed", 1)]
+    [InlineData("checks_failed", 1)]
     [InlineData("usage", 2)]
     [InlineData("invalid_params", 2)]
     [InlineData("session_not_found", 3)]

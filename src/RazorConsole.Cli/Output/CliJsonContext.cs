@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Text.Json.Serialization;
+using RazorConsole.Cli.Operations;
 
 namespace RazorConsole.Cli.Output;
 
@@ -17,6 +18,7 @@ internal sealed record UsageErrorData(IReadOnlyList<string> Errors);
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(UsageErrorData))]
+[JsonSerializable(typeof(DoctorResult))]
 internal sealed partial class CliJsonContext : JsonSerializerContext
 {
 }
