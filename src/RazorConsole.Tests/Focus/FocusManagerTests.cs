@@ -623,6 +623,103 @@ public sealed class FocusManagerTests
         manager.CurrentFocusKey.ShouldBe("later");
     }
 
+    [Fact]
+    public async Task FocusChange_PreviousTargetRerendered_FocusOutReachesItsNewHandler()
+    {
+        var dispatcher = new StaleHandlerDispatcher(staleIds: [3UL]);
+        var manager = new FocusManager(dispatcher);
+        var view = CreateInputsView(firstIdBase: 1UL);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), view, new VdomDiffService());
+        using var session = manager.BeginSession(context, view, CancellationToken.None);
+        await session.InitializationTask;
+        PushInitialSnapshot(manager, view);
+        manager.CurrentFocusKey.ShouldBe("first");
+
+        // "first" re-renders (new handler ids) before FocusManager sees the snapshot.
+        dispatcher.OnStale = () => PushInitialSnapshot(manager, CreateInputsView(firstIdBase: 11UL));
+        (await manager.FocusAsync("second", CancellationToken.None)).ShouldBeTrue();
+
+        dispatcher.Events.ShouldContain(("focusout", 13UL));
+        dispatcher.Events.ShouldContain(("focus", 4UL));
+    }
+
+    [Fact]
+    public async Task FocusChange_LateRetryForSupersededFocus_IsDropped()
+    {
+        // "first" re-rendered, so its focus handler (1) is stale and the dispatch waits for the next snapshot.
+        var dispatcher = new StaleHandlerDispatcher(staleIds: [1UL]);
+        var manager = new FocusManager(dispatcher);
+        var view = CreateInputsView(firstIdBase: 1UL);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), view, new VdomDiffService());
+        using var session = manager.BeginSession(context, view, CancellationToken.None);
+
+        // Focus moves on before that snapshot arrives, like a page focusing its table after loading.
+        (await manager.FocusAsync("second", CancellationToken.None)).ShouldBeTrue();
+        PushInitialSnapshot(manager, CreateInputsView(firstIdBase: 11UL));
+        await session.InitializationTask;
+
+        manager.CurrentFocusKey.ShouldBe("second");
+        dispatcher.Events.ShouldNotContain(("focus", 11UL));
+    }
+
+    [Fact]
+    public async Task FocusChange_TargetGone_DoesNotThrow()
+    {
+        var dispatcher = new StaleHandlerDispatcher(staleIds: [3UL, 5UL, 4UL]);
+        var manager = new FocusManager(dispatcher);
+        var view = CreateInputsView(firstIdBase: 1UL);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), view, new VdomDiffService());
+        using var session = manager.BeginSession(context, view, CancellationToken.None);
+        await session.InitializationTask;
+        PushInitialSnapshot(manager, view);
+
+        (await manager.FocusAsync("second", CancellationToken.None)).ShouldBeTrue();
+        manager.CurrentFocusKey.ShouldBe("second");
+    }
+
+    private static ConsoleViewResult CreateInputsView(ulong firstIdBase)
+    {
+        var first = VNode.CreateElement("input");
+        first.SetKey("first");
+        first.SetEvent("onfocus", firstIdBase);
+        first.SetEvent("onfocusin", firstIdBase + 1);
+        first.SetEvent("onfocusout", firstIdBase + 2);
+
+        var second = VNode.CreateElement("input");
+        second.SetKey("second");
+        second.SetEvent("onfocus", 4UL);
+        second.SetEvent("onfocusin", 5UL);
+        second.SetEvent("onfocusout", 6UL);
+
+        var root = VNode.CreateElement("div");
+        root.AddChild(first);
+        root.AddChild(second);
+        return ConsoleViewResult.Create("focus", root, new FakeRenderable("focus"), Array.Empty<IAnimatedConsoleRenderable>());
+    }
+
+    private sealed class StaleHandlerDispatcher(IReadOnlyCollection<ulong> staleIds) : IFocusEventDispatcher
+    {
+        public List<(string EventType, ulong HandlerId)> Events { get; } = new();
+
+        public Action? OnStale { get; set; }
+
+        public Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken)
+        {
+            if (staleIds.Contains(handlerId))
+            {
+                OnStale?.Invoke();
+                OnStale = null;
+                throw new ArgumentException($"No handler {handlerId}.", "eventHandlerId");
+            }
+
+            Events.Add(((eventArgs as FocusEventArgs)?.Type ?? string.Empty, handlerId));
+            return Task.CompletedTask;
+        }
+    }
+
     private static void PushInitialSnapshot(FocusManager manager, ConsoleViewResult view)
     {
         if (view.VdomRoot is null)

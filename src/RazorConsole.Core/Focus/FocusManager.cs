@@ -19,6 +19,8 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
     private string? _pendingFocusKey;
     private bool _hasPendingFocusRetry;
     private ConsoleLiveDisplayContext? _context;
+    private TaskCompletionSource _snapshotSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private static readonly TimeSpan StaleHandlerRetryTimeout = TimeSpan.FromMilliseconds(100);
     private CancellationTokenSource? _sessionCts;
 
     /// <summary>
@@ -317,30 +319,81 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
         token.ThrowIfCancellationRequested();
 
-        // Dispatch focusout to the previous target. This may fail if the component was disposed
-        // (e.g., during navigation), so we catch and ignore the exception to ensure the new
-        // target still receives its focus events.
-        if (previousTarget is not null && previousTarget.Events.TryGetEvent("onfocusout", out var focusOutEvent))
+        if (previousTarget is not null)
         {
+            await DispatchToLatestAsync(dispatcher, previousTarget, "onfocusout", "focusout", focused: false, token).ConfigureAwait(false);
+        }
+
+        await DispatchToLatestAsync(dispatcher, target, "onfocusin", "focusin", focused: true, token).ConfigureAwait(false);
+        await DispatchToLatestAsync(dispatcher, target, "onfocus", "focus", focused: true, token).ConfigureAwait(false);
+    }
+
+    // A target that is gone (e.g. after navigation) is skipped, and so is an event that focus has
+    // since overtaken: a late "focus" would mark an element focused after focus moved on.
+    private async Task DispatchToLatestAsync(IFocusEventDispatcher dispatcher, FocusTarget target, string eventName, string eventType, bool focused, CancellationToken token)
+    {
+        try
+        {
+            await DispatchToLatestRenderAsync(
+                target,
+                eventName,
+                handlerId => IsCurrentFocus(target) == focused
+                    ? dispatcher.DispatchAsync(handlerId, new FocusEventArgs { Type = eventType }, token)
+                    : Task.CompletedTask,
+                StaleHandlerRetryTimeout,
+                token).ConfigureAwait(false);
+        }
+        catch (ArgumentException ex) when (ex.ParamName == "eventHandlerId")
+        {
+            // Still stale after the next snapshot: the target is gone.
+        }
+    }
+
+    /// <summary>
+    /// Dispatches <paramref name="eventName"/> to the newest known render of <paramref name="target"/>.
+    /// A target captured from one snapshot may have re-rendered since, which replaces its handler ids:
+    /// on a stale id, waits for the next snapshot (at most <paramref name="staleRetryTimeout"/>) and retries once.
+    /// </summary>
+    /// <returns><see langword="false"/> when the target has no handler for the event.</returns>
+    internal async Task<bool> DispatchToLatestRenderAsync(FocusTarget target, string eventName, Func<ulong, Task> dispatch, TimeSpan staleRetryTimeout, CancellationToken token)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var nextSnapshot = Volatile.Read(ref _snapshotSignal).Task;
+            if (!LatestRender(target).Events.TryGetEvent(eventName, out var nodeEvent))
+            {
+                return false;
+            }
+
             try
             {
-                await dispatcher.DispatchAsync(focusOutEvent.HandlerId, new FocusEventArgs { Type = "focusout" }, token).ConfigureAwait(false);
+                await dispatch(nodeEvent.HandlerId).ConfigureAwait(false);
+                return true;
             }
-            catch (ArgumentException ex) when (ex.ParamName == "eventHandlerId")
+            catch (ArgumentException ex) when (ex.ParamName == "eventHandlerId" && attempt == 0)
             {
-                // The previous component was disposed (e.g., during navigation), so the event handler
-                // no longer exists. This is expected and we can safely ignore it.
+                await Task.WhenAny(nextSnapshot, Task.Delay(staleRetryTimeout, token)).ConfigureAwait(false);
             }
         }
+    }
 
-        if (target.Events.TryGetEvent("onfocusin", out var focusInEvent))
+    private bool IsCurrentFocus(FocusTarget target)
+    {
+        lock (_sync)
         {
-            await dispatcher.DispatchAsync(focusInEvent.HandlerId, new FocusEventArgs { Type = "focusin" }, token).ConfigureAwait(false);
+            return string.Equals(CurrentFocusKey, target.Key, StringComparison.Ordinal);
         }
+    }
 
-        if (target.Events.TryGetEvent("onfocus", out var focusEvent))
+    private FocusTarget LatestRender(FocusTarget target)
+    {
+        target.Attributes.TryGetValue("data-focus-key", out var focusKey);
+        lock (_sync)
         {
-            await dispatcher.DispatchAsync(focusEvent.HandlerId, new FocusEventArgs { Type = "focus" }, token).ConfigureAwait(false);
+            return _focusTargets.FirstOrDefault(t =>
+                string.Equals(t.Key, target.Key, StringComparison.Ordinal)
+                && string.Equals(t.Attributes.GetValueOrDefault("data-focus-key"), focusKey, StringComparison.Ordinal))
+                ?? target;
         }
     }
 
@@ -534,6 +587,8 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
                 }
             }
         }
+
+        Interlocked.Exchange(ref _snapshotSignal, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).TrySetResult();
 
         if (pendingFocusTarget is not null)
         {
