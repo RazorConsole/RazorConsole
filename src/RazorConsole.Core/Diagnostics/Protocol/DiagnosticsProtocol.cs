@@ -56,11 +56,13 @@ internal static class DiagnosticsErrorCodes
     public const string ElementNotFound = "element_not_found";
     public const string AmbiguousSelector = "ambiguous_selector";
     public const string ElementNotVisible = "element_not_visible";
+    public const string ElementNotFocusable = "element_not_focusable";
     public const string HostUnavailable = "host_unavailable";
     public const string HostVersionMismatch = "host_version_mismatch";
     public const string AppLayerUnavailable = "app_layer_unavailable";
     public const string InputUnavailable = "input_unavailable";
     public const string ScreenUnavailable = "screen_unavailable";
+    public const string TerminalLayerUnavailable = "terminal_layer_unavailable";
     public const string Timeout = "timeout";
     public const string ProcessExited = "process_exited";
     public const string PtyUnsupported = "pty_unsupported";

@@ -1,5 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using RazorConsole.Cli.Operations;
 using RazorConsole.Core.Diagnostics.Protocol;
@@ -30,6 +31,11 @@ internal static class HostMethods
     public const string Frames = "session.frames";
     public const string Diff = "session.diff";
     public const string Output = "session.output";
+    public const string Attach = "session.attach";
+    public const string Detach = "session.detach";
+    public const string App = "session.app";
+    public const string Wait = "session.wait";
+    public const string Assert = "session.assert";
 }
 
 /// <summary>
@@ -65,7 +71,7 @@ internal sealed record HostShutdownResult(int StoppedSessions);
 /// A session as reported by <c>start</c>, <c>restart</c> and <c>list</c>.
 /// </summary>
 /// <param name="Name">The session name.</param>
-/// <param name="Kind"><c>pty</c> for a pseudoterminal session.</param>
+/// <param name="Kind"><c>pty</c> for a pseudoterminal session, <c>attach</c> for one attached to a running app.</param>
 /// <param name="Pid">The process id the pseudoterminal reports.</param>
 /// <param name="Width">The terminal width.</param>
 /// <param name="Height">The terminal height.</param>
@@ -73,6 +79,7 @@ internal sealed record HostShutdownResult(int StoppedSessions);
 /// <param name="StartedAt">When the session started.</param>
 /// <param name="Exited">Whether the process has exited.</param>
 /// <param name="ExitCode">The exit code, once known.</param>
+/// <param name="AppLayer">The connection to the app's diagnostics endpoint.</param>
 internal sealed record SessionInfo(
     string Name,
     string Kind,
@@ -82,7 +89,18 @@ internal sealed record SessionInfo(
     string Command,
     DateTimeOffset StartedAt,
     bool Exited,
-    int? ExitCode = null);
+    int? ExitCode = null,
+    AppLayerInfo? AppLayer = null);
+
+/// <summary>
+/// Whether the session reaches its app's diagnostics endpoint.
+/// </summary>
+/// <param name="Connected">Whether the host holds a connection.</param>
+/// <param name="Pid">The app's process id, when it registered an endpoint.</param>
+/// <param name="Server">The endpoint's server name, such as <c>RazorConsole.Core/1.2.0</c>.</param>
+/// <param name="Pipeline">The app's rendering pipeline, when known.</param>
+/// <param name="Reason">Why not connected: <c>not_connected_yet</c>, <c>disabled</c> or <c>incompatible_protocol</c>.</param>
+internal sealed record AppLayerInfo(bool Connected, int? Pid = null, string? Server = null, string? Pipeline = null, string? Reason = null);
 
 /// <summary>
 /// Parameters of <see cref="HostMethods.Start"/>. Paths are full paths, because the host runs elsewhere.
@@ -188,7 +206,11 @@ internal sealed record KeyPress(string Char, ConsoleKey Key, ConsoleModifiers Mo
             (Modifiers & ConsoleModifiers.Control) != 0);
 }
 
-internal sealed record KeysParams(string Session, IReadOnlyList<KeyPress> Keys);
+/// <param name="Session">The session.</param>
+/// <param name="Keys">The keys to send.</param>
+/// <param name="Element">A selector; its element gets focus through the app layer before the keys are sent.</param>
+/// <param name="TimeoutMs">How long to wait for the app layer, for <paramref name="Element"/>.</param>
+internal sealed record KeysParams(string Session, IReadOnlyList<KeyPress> Keys, string? Element = null, long? TimeoutMs = null);
 
 internal sealed record TextParams(string Session, string Text);
 
@@ -211,7 +233,9 @@ internal sealed record RawResult(int Bytes);
 /// <param name="Nth">Which occurrence of <paramref name="Text"/>, from 1.</param>
 /// <param name="Button">The button in DOM numbering.</param>
 /// <param name="Double">Whether to click twice.</param>
-internal sealed record ClickParams(string Session, int? X, int? Y, string? Text, int Nth, int Button, bool Double);
+/// <param name="Element">A selector; the click lands in the middle of its element, clipped to the screen.</param>
+/// <param name="TimeoutMs">How long to wait for the app layer, for <paramref name="Element"/>.</param>
+internal sealed record ClickParams(string Session, int? X, int? Y, string? Text, int Nth, int Button, bool Double, string? Element = null, long? TimeoutMs = null);
 
 /// <param name="X">The clicked column.</param>
 /// <param name="Y">The clicked row.</param>
@@ -241,13 +265,13 @@ internal sealed record ScreenCursor(int X, int Y, bool Visible);
 /// <summary>
 /// The screen of a PTY session: what a real terminal shows (§3.7). <see cref="Source"/> is <c>pty</c>.
 /// </summary>
-/// <param name="Source">Where the screen was read; <c>pty</c> here.</param>
+/// <param name="Source">Where the screen was read: <c>pty</c>, or <c>renderer</c> for an attached app.</param>
 /// <param name="Width">Width of the returned lines.</param>
 /// <param name="Height">Number of returned lines.</param>
-/// <param name="Cursor">The cursor, in full-screen coordinates.</param>
-/// <param name="ActiveBuffer"><c>normal</c> or <c>alternate</c>.</param>
-/// <param name="MouseTracking">The mouse reporting modes the app enabled.</param>
-/// <param name="BracketedPaste">Whether the app enabled bracketed paste.</param>
+/// <param name="Cursor">The cursor, in full-screen coordinates; not known for a renderer screen.</param>
+/// <param name="ActiveBuffer"><c>normal</c> or <c>alternate</c>; not known for a renderer screen.</param>
+/// <param name="MouseTracking">The mouse reporting modes the app enabled; not known for a renderer screen.</param>
+/// <param name="BracketedPaste">Whether the app enabled bracketed paste; not known for a renderer screen.</param>
 /// <param name="Lines">Each row's text, trailing spaces kept.</param>
 /// <param name="Frame">The frame number.</param>
 /// <param name="Region">The clipped region, when one was requested.</param>
@@ -257,10 +281,10 @@ internal sealed record PtyScreenResult(
     string Source,
     int Width,
     int Height,
-    ScreenCursor Cursor,
-    string ActiveBuffer,
-    IReadOnlyList<string> MouseTracking,
-    bool BracketedPaste,
+    ScreenCursor? Cursor,
+    string? ActiveBuffer,
+    IReadOnlyList<string>? MouseTracking,
+    bool? BracketedPaste,
     IReadOnlyList<string> Lines,
     long Frame,
     DiagnosticsRegion? Region = null,
@@ -301,6 +325,74 @@ internal sealed record OutputResult(long Offset, long Next, string Data);
 /// The <c>data</c> of a <see cref="DiagnosticsErrorCodes.ProcessExited"/> error.
 /// </summary>
 internal sealed record ProcessExitedData(int? ExitCode);
+
+/// <param name="Pid">The process id of the running app.</param>
+/// <param name="Name">The session name, or <see langword="null"/> for the first free <c>a&lt;n&gt;</c>.</param>
+/// <param name="TimeoutMs">How long to wait for the app's diagnostics endpoint.</param>
+internal sealed record AttachParams(int Pid, string? Name, long TimeoutMs);
+
+/// <param name="Detached">Always true: the session is gone and the app keeps running.</param>
+internal sealed record DetachResult(bool Detached);
+
+/// <summary>
+/// Parameters of <see cref="HostMethods.App"/>: one method of the app's diagnostics endpoint.
+/// </summary>
+/// <param name="Session">The session.</param>
+/// <param name="Method">One of the endpoint's methods (<c>tree</c>, <c>find</c>, <c>focus.next</c>, …).</param>
+/// <param name="Params">The method's parameters.</param>
+/// <param name="TimeoutMs">How long to wait for the connection and for the answer.</param>
+internal sealed record AppParams(string Session, string Method, JsonElement? Params, long TimeoutMs);
+
+/// <summary>
+/// A wait condition on the wire.
+/// </summary>
+/// <param name="Kind">What to wait for.</param>
+/// <param name="Value">The text, pattern, selector, focus key or route.</param>
+/// <param name="IdleMs">For <see cref="WaitConditionKind.Idle"/>: how long the app must stay quiet.</param>
+internal sealed record WaitSpec(WaitConditionKind Kind, string? Value, long? IdleMs);
+
+internal sealed record WaitParams(string Session, WaitSpec Condition, long TimeoutMs);
+
+internal sealed record AssertParams(string Session, WaitSpec Condition, bool Not, long TimeoutMs);
+
+/// <param name="ElapsedMs">How long the wait took.</param>
+/// <param name="Frame">The frame number when it ended.</param>
+/// <param name="ExitCode">For <see cref="WaitConditionKind.Exit"/>: the exit code, when known.</param>
+internal sealed record WaitResult(long ElapsedMs, long Frame, int? ExitCode = null);
+
+/// <summary>
+/// The result of a passing assertion.
+/// </summary>
+internal sealed record AssertResult(bool Passed);
+
+/// <summary>
+/// Params of the <c>progress</c> notification a long wait sends.
+/// </summary>
+/// <param name="Id">The request being answered.</param>
+/// <param name="ElapsedMs">How long it has run.</param>
+/// <param name="Frame">The frame number now.</param>
+internal sealed record WaitProgress(long Id, long ElapsedMs, long Frame);
+
+/// <summary>
+/// The <c>data</c> of a <see cref="DiagnosticsErrorCodes.Timeout"/> error from a wait.
+/// </summary>
+/// <param name="Screen">The screen when the wait gave up.</param>
+internal sealed record WaitTimeoutData(string Screen);
+
+/// <summary>
+/// The <c>data</c> of an <see cref="DiagnosticsErrorCodes.AssertionFailed"/> error: what a person needs to see why.
+/// </summary>
+/// <param name="Condition">The condition that was checked, as text.</param>
+/// <param name="Not">Whether the assertion was negated.</param>
+/// <param name="Screen">The screen when it failed.</param>
+/// <param name="Tree">A short tree of the app (depth 3), when the app layer is connected.</param>
+internal sealed record AssertionData(string Condition, bool Not, string Screen, JsonElement? Tree = null);
+
+/// <summary>
+/// The <c>data</c> of an <see cref="DiagnosticsErrorCodes.AppLayerUnavailable"/> or
+/// <see cref="DiagnosticsErrorCodes.TerminalLayerUnavailable"/> error.
+/// </summary>
+internal sealed record LayerUnavailableData(string Reason);
 
 /// <summary>
 /// Source-generated JSON metadata for the session host protocol, so the tool stays trim and AOT safe.
@@ -345,6 +437,18 @@ internal sealed record ProcessExitedData(int? ExitCode);
 [JsonSerializable(typeof(OutputParams))]
 [JsonSerializable(typeof(OutputResult))]
 [JsonSerializable(typeof(ProcessExitedData))]
+[JsonSerializable(typeof(AttachParams))]
+[JsonSerializable(typeof(DetachResult))]
+[JsonSerializable(typeof(AppParams))]
+[JsonSerializable(typeof(JsonElement))]
+[JsonSerializable(typeof(WaitParams))]
+[JsonSerializable(typeof(AssertParams))]
+[JsonSerializable(typeof(WaitResult))]
+[JsonSerializable(typeof(AssertResult))]
+[JsonSerializable(typeof(WaitProgress))]
+[JsonSerializable(typeof(WaitTimeoutData))]
+[JsonSerializable(typeof(AssertionData))]
+[JsonSerializable(typeof(LayerUnavailableData))]
 internal sealed partial class HostJsonContext : JsonSerializerContext
 {
 }

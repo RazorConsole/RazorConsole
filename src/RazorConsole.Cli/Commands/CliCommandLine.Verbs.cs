@@ -126,8 +126,8 @@ internal sealed partial class CliCommandLine
             Arity = ArgumentArity.OneOrMore,
             CustomParser = ParseKeys,
         };
-        var keysElement = ElementOption("Focus this element first.");
-        Add(_root, new Command("keys", "Press keys.") { keys, keysElement }, context =>
+        var keysElement = ElementOption("Focus this element first (through the app, like focus --set), then press the keys.");
+        Add(_root, new Command("keys", "Press keys. They are real input: the app handles them, so Tab may do more than move focus.") { keys, keysElement }, context =>
             new KeysRequest(context.Get(keys)!, context.Get(keysElement)));
 
         var typeText = new Argument<string>("text") { Description = "The text to type." };
@@ -304,7 +304,7 @@ internal sealed partial class CliCommandLine
         var set = new Option<string?>("--set") { Description = "Focus the element with this key.", HelpName = "key" };
         var next = new Option<bool>("--next") { Description = "Move focus forward." };
         var previous = new Option<bool>("--prev") { Description = "Move focus back." };
-        Add(_root, new Command("focus", "Show or move focus.") { list, set, next, previous }, context =>
+        Add(_root, new Command("focus", "Show or move focus. --set, --next and --prev change the app's focus state directly and fire focus events only; to press the key, use 'keys Tab'.") { list, set, next, previous }, context =>
         {
             var key = context.Get(set);
             RequireAtMostOne(("--list", context.Get(list)), ("--set", key is not null), ("--next", context.Get(next)), ("--prev", context.Get(previous)));

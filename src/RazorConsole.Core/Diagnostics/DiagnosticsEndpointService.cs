@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using RazorConsole.Core.Diagnostics.Protocol;
 using RazorConsole.Core.Focus;
 using RazorConsole.Core.Input;
+using RazorConsole.Core.Rendering;
 
 namespace RazorConsole.Core.Diagnostics;
 
@@ -61,6 +62,9 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
     private readonly ConsoleAppOptions _options;
     private readonly DiagnosticsAppQueries? _queries;
     private readonly DiagnosticsInputQueue? _input;
+    private readonly FocusManager _focusManager;
+    private readonly NavigationManager _navigationManager;
+    private readonly ConsoleRenderer? _renderer;
     private readonly ILogger<DiagnosticsEndpointService> _logger;
     private readonly DiagnosticsEndpointSettings _settings;
     private readonly CancellationTokenSource _stopping = new();
@@ -78,10 +82,14 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         ConsoleAppOptions options,
         ILogger<DiagnosticsEndpointService> logger,
         DiagnosticsEndpointSettings? settings = null,
-        KeyboardEventManager? keyboard = null)
+        KeyboardEventManager? keyboard = null,
+        ConsoleRenderer? renderer = null)
     {
         _state = state;
         _options = options;
+        _focusManager = focusManager;
+        _navigationManager = navigationManager;
+        _renderer = renderer;
         _queries = state is null ? null : new DiagnosticsAppQueries(state, focusManager, navigationManager, options);
         _logger = logger;
         _settings = settings ?? new DiagnosticsEndpointSettings();
@@ -285,7 +293,7 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
             var id = message.Id!.Value;
             if (!helloDone)
             {
-                var (response, accepted) = Hello(message, id, _input is not null);
+                var (response, accepted) = Hello(message, id, _input is not null, _renderer is not null);
                 await WriteResponseAsync(connection, id, response, cancellationToken).ConfigureAwait(false);
                 if (accepted is null)
                 {
@@ -301,15 +309,20 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
                 continue;
             }
 
-            var result = message.Method == DiagnosticsAppMethods.Input
-                ? await InputAsync(message, id, cancellationToken).ConfigureAwait(false)
-                : Dispatch(message, id);
+            var result = message.Method switch
+            {
+                DiagnosticsAppMethods.Input => await InputAsync(message, id, cancellationToken).ConfigureAwait(false),
+                DiagnosticsAppMethods.FocusSet or DiagnosticsAppMethods.FocusNext or DiagnosticsAppMethods.FocusPrevious
+                    or DiagnosticsAppMethods.Navigate when _renderer is not null
+                    => await ChangeAsync(message, id, cancellationToken).ConfigureAwait(false),
+                _ => Dispatch(message, id),
+            };
             await WriteResponseAsync(connection, id, result, cancellationToken).ConfigureAwait(false);
         }
     }
 
     // accepted: true on success, false when the connection must close, null when the client may retry.
-    private static (DiagnosticsMessage Response, bool? Accepted) Hello(DiagnosticsMessage message, long id, bool acceptsInput)
+    private static (DiagnosticsMessage Response, bool? Accepted) Hello(DiagnosticsMessage message, long id, bool acceptsInput, bool canChangeState)
     {
         if (message.Method != DiagnosticsProtocol.HelloMethod)
         {
@@ -339,7 +352,7 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
                 $"This app speaks diagnostics protocol {DiagnosticsProtocol.Version}, not {hello.Protocol}."), false);
         }
 
-        var features = acceptsInput ? DiagnosticsAppMethods.AllWithInput : DiagnosticsAppMethods.All;
+        var features = DiagnosticsAppMethods.Features(acceptsInput, canChangeState);
         var result = new HelloResult(DiagnosticsProtocol.Version, ServerName, Environment.ProcessId, features);
         return (DiagnosticsMessage.Success(id, result, DiagnosticsJsonContext.Default.HelloResult), true);
     }
@@ -380,6 +393,71 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
             return Failure(id, DiagnosticsErrorCodes.Internal, ex.Message);
         }
     }
+
+    // Changes focus or the route in-process and answers after the change ran, or with a timeout error. Focus changes
+    // call FocusManager directly: it dispatches the focus events to the latest render itself, and may wait for a newer
+    // render, which would deadlock if this ran on the dispatcher. Navigation runs on the dispatcher like any event.
+    private async Task<DiagnosticsMessage> ChangeAsync(DiagnosticsMessage message, long id, CancellationToken cancellationToken)
+    {
+        var context = DiagnosticsJsonContext.Default;
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(DefaultInputTimeout);
+            try
+            {
+                switch (message.Method)
+                {
+                    case DiagnosticsAppMethods.FocusSet:
+                        var key = Required(message, context.FocusSetParams).Key;
+                        if (string.IsNullOrWhiteSpace(key)
+                            || !_focusManager.GetFocusTargets().Any(target => string.Equals(target.Key, key, StringComparison.Ordinal)))
+                        {
+                            // FocusAsync would keep an unknown key pending until a target with it renders.
+                            throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.ElementNotFound, $"No focus target has the key '{key}'.");
+                        }
+
+                        return FocusChange(id, await _focusManager.FocusAsync(key, timeout.Token).ConfigureAwait(false));
+                    case DiagnosticsAppMethods.FocusNext:
+                        return FocusChange(id, await _focusManager.FocusNextAsync(timeout.Token).ConfigureAwait(false));
+                    case DiagnosticsAppMethods.FocusPrevious:
+                        return FocusChange(id, await _focusManager.FocusPreviousAsync(timeout.Token).ConfigureAwait(false));
+                    default:
+                        var uri = Required(message, context.NavigateParams).Uri;
+                        if (string.IsNullOrWhiteSpace(uri))
+                        {
+                            throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, "navigate needs a uri.");
+                        }
+
+                        await _renderer!.Dispatcher.InvokeAsync(() => _navigationManager.NavigateTo(uri)).WaitAsync(timeout.Token).ConfigureAwait(false);
+                        var current = _navigationManager.Uri;
+                        return Success(
+                            id,
+                            new NavigateResult(current, _navigationManager.ToBaseRelativePath(current), _state!.LatestFrame?.Sequence ?? 0),
+                            context.NavigateResult);
+                }
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.Timeout, $"{message.Method} did not finish in time.");
+            }
+        }
+        catch (DiagnosticsProtocolException ex)
+        {
+            return DiagnosticsMessage.Failure(id, ex.ToError());
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            LogRequestFailed(_logger, message.Method, ex);
+            return Failure(id, DiagnosticsErrorCodes.Internal, ex.Message);
+        }
+    }
+
+    private DiagnosticsMessage FocusChange(long id, bool changed)
+        => Success(
+            id,
+            new FocusChangeResult(changed, _queries!.Focus().Current, _state!.LatestFrame?.Sequence ?? 0),
+            DiagnosticsJsonContext.Default.FocusChangeResult);
 
     // Answers after the input's handlers have run, or with a timeout error.
     private async Task<DiagnosticsMessage> InputAsync(DiagnosticsMessage message, long id, CancellationToken cancellationToken)

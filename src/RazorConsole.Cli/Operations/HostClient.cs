@@ -93,6 +93,8 @@ internal sealed class HostClient : IAsyncDisposable
 
     /// <summary>
     /// Sends one request and waits for its answer for up to <paramref name="timeout"/>; then sends <c>cancel</c>.
+    /// <paramref name="onNotification"/> sees the notifications that arrive meanwhile, such as a wait's <c>progress</c>;
+    /// it runs on the read loop and must not block.
     /// </summary>
     /// <exception cref="DiagnosticsProtocolException">The host answered with an error, timed out, or went away.</exception>
     public async Task<TResult> RequestAsync<TParams, TResult>(
@@ -101,14 +103,15 @@ internal sealed class HostClient : IAsyncDisposable
         JsonTypeInfo<TParams> parametersType,
         JsonTypeInfo<TResult> resultType,
         TimeSpan timeout,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<DiagnosticsMessage>? onNotification = null)
     {
         var id = _nextId++;
         var request = DiagnosticsMessage.Request(id, method, parameters, parametersType);
         DiagnosticsMessage? response;
         try
         {
-            response = await RoundTripAsync(_connection, request, timeout, cancellationToken).ConfigureAwait(false);
+            response = await RoundTripAsync(_connection, request, timeout, cancellationToken, onNotification).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is TimeoutException or OperationCanceledException)
         {
@@ -151,7 +154,8 @@ internal sealed class HostClient : IAsyncDisposable
         DiagnosticsConnection connection,
         DiagnosticsMessage request,
         TimeSpan timeout,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<DiagnosticsMessage>? onNotification = null)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(timeout);
@@ -169,6 +173,11 @@ internal sealed class HostClient : IAsyncDisposable
                 if (message.IsResponse && message.Id == request.Id || message is { Id: null, Method: null, Error: not null })
                 {
                     return message;
+                }
+
+                if (message.IsNotification)
+                {
+                    onNotification?.Invoke(message);
                 }
             }
         }

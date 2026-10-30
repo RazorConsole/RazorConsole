@@ -25,6 +25,16 @@ internal static class CliOutput
         if (result.Error is { } failure)
         {
             error.WriteLine($"razorconsole: {failure.Message} [{failure.Code}]");
+
+            // A timed-out wait and a failed assertion carry the screen; people need it more than the code.
+            if (failure.Data is { ValueKind: JsonValueKind.Object } data
+                && data.TryGetProperty("screen", out var screen)
+                && screen.ValueKind == JsonValueKind.String)
+            {
+                error.WriteLine("--- screen ---");
+                error.WriteLine(screen.GetString());
+            }
+
             return;
         }
 

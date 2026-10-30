@@ -450,6 +450,60 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
     }
 
     [Fact(Timeout = TestTimeoutMs)]
+    public async Task Endpoint_ChangesFocusAndTheRouteInProcess()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var state = new DiagnosticsState();
+        var focus = new FocusManager();
+        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        using var subscription = renderer.Subscribe(focus);
+        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        var service = await StartAsync(state, focus, renderer: renderer);
+        var client = await ConnectAsync(service, ct);
+
+        (await HelloAsync(client, ct)).Features.ShouldBe(DiagnosticsAppMethods.Features(acceptsInput: false, canChangeState: true));
+
+        var next = Result(await CallAsync(client, DiagnosticsAppMethods.FocusNext, ct), DiagnosticsJsonContext.Default.FocusChangeResult);
+        next.Changed.ShouldBeTrue();
+        next.Current.ShouldBe("cancel");
+        next.Frame.ShouldBe(state.LatestFrame!.Sequence);
+
+        Result(await CallAsync(client, DiagnosticsAppMethods.FocusPrevious, ct), DiagnosticsJsonContext.Default.FocusChangeResult).Current.ShouldBe("save");
+
+        var set = Result(
+            await CallAsync(client, DiagnosticsAppMethods.FocusSet, new FocusSetParams("cancel"), DiagnosticsJsonContext.Default.FocusSetParams, ct),
+            DiagnosticsJsonContext.Default.FocusChangeResult);
+        set.Changed.ShouldBeTrue();
+        set.Current.ShouldBe("cancel");
+        Result(await CallAsync(client, DiagnosticsAppMethods.Focus, ct), DiagnosticsJsonContext.Default.FocusResult).Current.ShouldBe("cancel");
+
+        // An unknown key is an error, not a request that waits for a target to render.
+        Error(await CallAsync(client, DiagnosticsAppMethods.FocusSet, new FocusSetParams("missing"), DiagnosticsJsonContext.Default.FocusSetParams, ct))
+            .Code.ShouldBe(DiagnosticsErrorCodes.ElementNotFound);
+
+        var navigate = Result(
+            await CallAsync(client, DiagnosticsAppMethods.Navigate, new NavigateParams("counter"), DiagnosticsJsonContext.Default.NavigateParams, ct),
+            DiagnosticsJsonContext.Default.NavigateResult);
+        navigate.Uri.ShouldBe("app:///counter");
+        navigate.Relative.ShouldBe("counter");
+        Result(await CallAsync(client, DiagnosticsAppMethods.Route, ct), DiagnosticsJsonContext.Default.RouteResult).Relative.ShouldBe("counter");
+
+        Error(await CallAsync(client, DiagnosticsAppMethods.Navigate, new NavigateParams(" "), DiagnosticsJsonContext.Default.NavigateParams, ct))
+            .Code.ShouldBe(DiagnosticsErrorCodes.InvalidParams);
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task Endpoint_WithoutARenderer_AdvertisesNoStateChangesAndRefusesThem()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var service = await StartAsync(new DiagnosticsState(), new FocusManager());
+        var client = await ConnectAsync(service, ct);
+
+        (await HelloAsync(client, ct)).Features.ShouldNotBeNull().ShouldNotContain(DiagnosticsAppMethods.Navigate);
+        Error(await CallAsync(client, DiagnosticsAppMethods.FocusNext, ct)).Code.ShouldBe(DiagnosticsErrorCodes.MethodNotFound);
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
     public async Task Endpoint_ServesTheRendererScreenAndThePaintedCell()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -504,7 +558,8 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         string? stateDirectory = null,
         Func<string, DiagnosticsListener>? listen = null,
         KeyboardEventManager? keyboard = null,
-        ConsoleAppOptions? options = null)
+        ConsoleAppOptions? options = null,
+        ConsoleRenderer? renderer = null)
     {
         var service = new DiagnosticsEndpointService(
             state,
@@ -513,7 +568,8 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
             options ?? new ConsoleAppOptions(),
             logger ?? new RecordingLogger(),
             new DiagnosticsEndpointSettings { StateDirectory = stateDirectory ?? _stateDirectory, SessionToken = sessionToken, Listen = listen },
-            keyboard);
+            keyboard,
+            renderer);
         _disposables.Add(service);
         await service.StartAsync(TestContext.Current.CancellationToken);
         return service;
