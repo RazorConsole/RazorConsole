@@ -98,12 +98,18 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
             args.CtrlKey = input.Modifiers.HasFlag(ConsoleModifiers.Control);
             args.AltKey = input.Modifiers.HasFlag(ConsoleModifiers.Alt);
             await dispatcher.DispatchAsync(handler.HandlerId, args, token).ConfigureAwait(false);
-            if (handler.Options.StopPropagation)
+            if (handler.Options.StopPropagation || StopsPropagation(node, name))
             {
                 break;
             }
         }
     }
+
+    // Razor compiles @onclick:stopPropagation to this attribute rather than an event option.
+    private static bool StopsPropagation(VNode node, string name)
+        => node.Attributes.TryGetValue($"__internal_stopPropagation_{name}", out var value)
+            && value is not null
+            && !value.Equals("false", StringComparison.OrdinalIgnoreCase);
 
     private VNode? Hit(VNode node, int x, int y)
     {
