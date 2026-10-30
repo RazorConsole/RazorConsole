@@ -261,13 +261,37 @@ public sealed class DoctorTests : IAsyncDisposable
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "Socket path limits are a Unix concept.");
         var longDirectory = Path.Combine(_directory, new string('a', 120));
-        var connector = new HostConnector(new HostFiles(longDirectory), new NoLauncher(), "1.0.0") { StartTimeout = TimeSpan.FromMilliseconds(300) };
+        var launcher = new ThrowingLauncher(new InvalidOperationException("the host must not be launched"));
+        var connector = new HostConnector(new HostFiles(longDirectory), launcher, "1.0.0") { StartTimeout = TimeSpan.FromMilliseconds(300) };
 
         var result = await new Doctor(connector, DoctorProbes.Default).RunAsync(false, Token);
 
         Status(result.Checks, "state.dir").ShouldBe("fail");
         Detail(result.Checks, "state.dir").ShouldContain("bytes of path");
         Detail(result.Checks, "state.dir").ShouldContain("RAZORCONSOLE_CLI_HOME");
+
+        // Everything that needs the host is skipped, and the host is not even tried.
+        Status(result.Checks, "host.start").ShouldBe("skip");
+        Detail(result.Checks, "host.start").ShouldBe("needs state.dir");
+        Status(result.Checks, "host.socket").ShouldBe("skip");
+        Status(result.Checks, "pty.smoke").ShouldBe("skip");
+        result.Checks.Select(static check => check.Name).ShouldBe(CheckNames);
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task AnyExceptionOfTheHostStartCheck_IsItsFailure_NotACrashOfDoctor()
+    {
+        // An exception the connector does not translate, as the socket path limit was before it was checked up front.
+        var launcher = new ThrowingLauncher(new ArgumentOutOfRangeException("path", "The path is of an invalid length."));
+        var connector = new HostConnector(Files, launcher, "1.0.0") { StartTimeout = TimeSpan.FromMilliseconds(300) };
+
+        var result = await new Doctor(connector, DoctorProbes.Default).RunAsync(false, Token);
+
+        Status(result.Checks, "host.start").ShouldBe("fail");
+        Detail(result.Checks, "host.start").ShouldContain("ArgumentOutOfRangeException");
+        Status(result.Checks, "host.socket").ShouldBe("skip");
+        Status(result.Checks, "pty.smoke").ShouldBe("skip");
+        Status(result.Checks, "apps.stale").ShouldNotBe("skip");
     }
 
     [Fact(Timeout = TestTimeoutMs)]

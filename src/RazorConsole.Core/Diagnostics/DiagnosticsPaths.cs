@@ -104,6 +104,35 @@ internal static class DiagnosticsPaths
             ? $"razorconsole-app-{StableHash(stateDirectory)}-{processId.ToString(CultureInfo.InvariantCulture)}"
             : Path.Combine(AppsDirectory(stateDirectory), processId.ToString(CultureInfo.InvariantCulture) + ".sock");
 
+    /// <summary>
+    /// The longest Unix domain socket path in bytes, not counting the terminator: <c>sun_path</c> holds 104 bytes on macOS
+    /// and 108 on Linux.
+    /// </summary>
+    internal static int MaxSocketPathBytes(DiagnosticsPlatform platform) => platform == DiagnosticsPlatform.MacOS ? 103 : 107;
+
+    /// <summary>
+    /// Throws when a socket at <paramref name="path"/> cannot be created or reached on this platform, with a message that
+    /// names the way out. Named pipes on Windows have no such limit.
+    /// </summary>
+    /// <exception cref="PathTooLongException">The path is longer than the platform's socket path limit.</exception>
+    internal static void EnsureSocketPathFits(string path) => EnsureSocketPathFits(path, CurrentPlatform());
+
+    internal static void EnsureSocketPathFits(string path, DiagnosticsPlatform platform)
+    {
+        if (platform == DiagnosticsPlatform.Windows)
+        {
+            return;
+        }
+
+        var limit = MaxSocketPathBytes(platform);
+        var bytes = Encoding.UTF8.GetByteCount(path);
+        if (bytes > limit)
+        {
+            throw new PathTooLongException(
+                $"The socket path '{path}' needs {bytes.ToString(CultureInfo.InvariantCulture)} bytes and the limit is {limit.ToString(CultureInfo.InvariantCulture)}; set {HomeEnvironmentVariableName} to a shorter path.");
+        }
+    }
+
     // Pipe names are machine-wide, so they carry a hash of the per-user directory. FNV-1a: stable across
     // processes and runtimes, unlike string.GetHashCode. Access control comes from PipeOptions.CurrentUserOnly.
     internal static string StableHash(string value)

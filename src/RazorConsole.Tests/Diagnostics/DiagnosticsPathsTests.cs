@@ -60,6 +60,38 @@ public sealed class DiagnosticsPathsTests
         (DiagnosticsPaths.StableHash("abc") == DiagnosticsPaths.StableHash("ABC")).ShouldBe(OperatingSystem.IsWindows());
     }
 
+    [Theory]
+    [InlineData(false, 107, 108)]
+    [InlineData(true, 103, 104)]
+    public void SocketPath_FitsUpToThePlatformLimit_AndNotOneByteMore(bool macOS, int longestFitting, int shortestFailing)
+    {
+        var platform = macOS ? DiagnosticsPlatform.MacOS : DiagnosticsPlatform.Unix;
+        DiagnosticsPaths.MaxSocketPathBytes(platform).ShouldBe(longestFitting);
+
+        DiagnosticsPaths.EnsureSocketPathFits("/" + new string('a', longestFitting - 1), platform);
+
+        var error = Should.Throw<PathTooLongException>(
+            () => DiagnosticsPaths.EnsureSocketPathFits("/" + new string('a', shortestFailing - 1), platform));
+        error.Message.ShouldContain($"needs {shortestFailing} bytes");
+        error.Message.ShouldContain($"limit is {longestFitting}");
+        error.Message.ShouldContain("RAZORCONSOLE_CLI_HOME");
+    }
+
+    [Fact]
+    public void SocketPath_CountsBytesNotCharacters()
+    {
+        // 54 two-byte characters plus "/" is 109 bytes but only 55 characters.
+        var path = "/" + new string('é', 54);
+
+        Should.Throw<PathTooLongException>(() => DiagnosticsPaths.EnsureSocketPathFits(path, DiagnosticsPlatform.Unix));
+    }
+
+    [Fact]
+    public void SocketPath_HasNoLimitOnWindows_WherePipesAreNamedInstead()
+    {
+        DiagnosticsPaths.EnsureSocketPathFits(new string('a', 1000), DiagnosticsPlatform.Windows);
+    }
+
     [Fact]
     public void EnsureUserOnlyDirectory_CreatesAndTightensTheDirectory()
     {

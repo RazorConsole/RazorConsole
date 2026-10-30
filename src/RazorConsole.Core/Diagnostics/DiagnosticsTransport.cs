@@ -22,6 +22,7 @@ internal static class DiagnosticsTransport
     /// Starts listening on <paramref name="endpoint"/> (see <see cref="DiagnosticsPaths"/>).
     /// </summary>
     /// <exception cref="IOException">Another live process already listens on the endpoint.</exception>
+    /// <exception cref="PathTooLongException">A Unix socket path is longer than the platform allows.</exception>
     public static DiagnosticsListener Listen(string endpoint)
         => OperatingSystem.IsWindows()
             ? new NamedPipeListener(endpoint)
@@ -58,6 +59,8 @@ internal static class DiagnosticsTransport
     [UnsupportedOSPlatform("windows")]
     private static async Task<Stream> ConnectSocketAsync(string path, TimeSpan timeout, CancellationToken cancellationToken)
     {
+        DiagnosticsPaths.EnsureSocketPathFits(path);
+
         // A missing or stale socket refuses at once, so retry until the deadline like a pipe client waits.
         var deadline = DateTime.UtcNow + timeout;
         while (true)
@@ -144,6 +147,7 @@ internal static class DiagnosticsTransport
         public UnixSocketListener(string path)
         {
             _path = path;
+            DiagnosticsPaths.EnsureSocketPathFits(path);
             RemoveStaleSocket(path);
 
             _socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);

@@ -274,6 +274,20 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
     }
 
     [Fact(Timeout = TestTimeoutMs)]
+    public async Task OnUnix_ATooLongSocketPath_IsLoggedAsAWarningAndTheAppRunsWithoutAnEndpoint()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Socket path limits are a Unix concept.");
+        var logger = new RecordingLogger();
+
+        var service = await StartAsync(new DiagnosticsState(), new FocusManager(), logger: logger, stateDirectory: Path.Combine(_stateDirectory, new string('a', 120)));
+
+        service.Endpoint.ShouldBeNull();
+        service.DiscoveryFile.ShouldBeNull();
+        logger.ShouldHaveWarning<PathTooLongException>();
+        await service.StopAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
     public async Task DiscoveryFileWriteFailure_IsLoggedAndReleasesTheEndpoint()
     {
         // A directory where the discovery file belongs makes the final move fail.

@@ -35,6 +35,7 @@ internal sealed class HostConnector(HostFiles files, IHostLauncher launcher, str
     /// </summary>
     public async Task<HostClient?> ConnectExistingAsync(CancellationToken cancellationToken)
     {
+        HostClient.EnsureEndpointFits(Files.Endpoint);
         if (!Files.IsLocked())
         {
             return null;
@@ -47,11 +48,14 @@ internal sealed class HostConnector(HostFiles files, IHostLauncher launcher, str
     /// Connects to the host, starting it first when none runs.
     /// </summary>
     /// <exception cref="DiagnosticsProtocolException">
-    /// <c>host_unavailable</c> when no host answered within <see cref="StartTimeout"/>, or
+    /// <c>host_unavailable</c> when no host answered within <see cref="StartTimeout"/> or the socket path is too long, or
     /// <c>host_version_mismatch</c> when a host of another version holds sessions.
     /// </exception>
     public async Task<HostClient> ConnectOrStartAsync(CancellationToken cancellationToken)
     {
+        // Before launching: a host in a directory whose socket path is too long could never listen.
+        HostClient.EnsureEndpointFits(Files.Endpoint);
+
         var started = DateTimeOffset.UtcNow;
         DateTimeOffset? launchedAt = null;
         while (true)

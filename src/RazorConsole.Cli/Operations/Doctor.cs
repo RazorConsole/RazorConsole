@@ -78,8 +78,6 @@ internal sealed record DoctorProbes(Func<bool> PtySupported, Func<string> Dotnet
 /// </remarks>
 internal sealed partial class Doctor(HostConnector connector, DoctorProbes probes)
 {
-    private const int MaxMacSocketPath = 103;
-    private const int MaxUnixSocketPath = 107;
     private const int LongestPid = 10;
 
     private static readonly TimeSpan DotnetTimeout = TimeSpan.FromSeconds(10);
@@ -98,20 +96,28 @@ internal sealed partial class Doctor(HostConnector connector, DoctorProbes probe
         var pty = await RunCheckAsync("os.pty", () => Task.FromResult(CheckPty()), checks).ConfigureAwait(false);
         await RunCheckAsync("os.shell", () => Task.FromResult(CheckShell()), checks).ConfigureAwait(false);
         var dotnet = await RunCheckAsync("dotnet", () => CheckDotnetAsync(cancellationToken), checks).ConfigureAwait(false);
-        await RunCheckAsync("state.dir", () => Task.FromResult(CheckStateDirectory()), checks).ConfigureAwait(false);
+        var stateDirectory = await RunCheckAsync("state.dir", () => Task.FromResult(CheckStateDirectory()), checks).ConfigureAwait(false);
 
         HostClient? client = null;
         var startedByDoctor = false;
         try
         {
-            var start = await CheckHostStartAsync(cancellationToken).ConfigureAwait(false);
-            client = start.Client;
-            startedByDoctor = start.Started;
-            checks.Add(start.Check);
+            if (stateDirectory.Status == DoctorStatus.Fail)
+            {
+                // A host cannot live in a state directory that failed its check; starting one would only fail differently.
+                checks.Add(Skip("host.start", "needs state.dir"));
+            }
+            else
+            {
+                var start = await CheckHostStartAsync(cancellationToken).ConfigureAwait(false);
+                client = start.Client;
+                startedByDoctor = start.Started;
+                checks.Add(start.Check);
+            }
 
             if (client is null)
             {
-                checks.Add(Skip("host.socket", "needs host.start"));
+                checks.Add(Skip("host.socket", stateDirectory.Status == DoctorStatus.Fail ? "needs state.dir" : "needs host.start"));
             }
             else
             {
@@ -120,7 +126,7 @@ internal sealed partial class Doctor(HostConnector connector, DoctorProbes probe
 
             if (client is null || pty.Status != DoctorStatus.Pass || dotnet.Status != DoctorStatus.Pass)
             {
-                var missing = client is null ? "host.start" : pty.Status != DoctorStatus.Pass ? "os.pty" : "dotnet";
+                var missing = client is null ? (stateDirectory.Status == DoctorStatus.Fail ? "state.dir" : "host.start") : pty.Status != DoctorStatus.Pass ? "os.pty" : "dotnet";
                 checks.Add(Skip("pty.smoke", "needs " + missing));
             }
             else
@@ -308,7 +314,7 @@ internal sealed partial class Doctor(HostConnector connector, DoctorProbes probe
 
         if (!OperatingSystem.IsWindows())
         {
-            var limit = OperatingSystem.IsMacOS() ? MaxMacSocketPath : MaxUnixSocketPath;
+            var limit = DiagnosticsPaths.MaxSocketPathBytes(OperatingSystem.IsMacOS() ? DiagnosticsPlatform.MacOS : DiagnosticsPlatform.Unix);
             var longest = new[]
             {
                 Files.Endpoint,
@@ -433,9 +439,11 @@ internal sealed partial class Doctor(HostConnector connector, DoctorProbes probe
                 throw;
             }
         }
-        catch (Exception ex) when (ex is DiagnosticsProtocolException or IOException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return (Fail("host.start", ex.Message), null, false);
+            // Like RunCheckAsync: whatever the check throws is its failure. This one is not run through it because it
+            // returns the client the later checks use.
+            return (Fail("host.start", ex is DiagnosticsProtocolException or IOException ? ex.Message : $"{ex.GetType().Name}: {ex.Message}"), null, false);
         }
     }
 

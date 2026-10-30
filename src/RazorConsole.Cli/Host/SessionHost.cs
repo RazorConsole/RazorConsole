@@ -79,7 +79,7 @@ internal sealed class SessionHost
         {
             listener = DiagnosticsTransport.Listen(_files.Endpoint);
         }
-        catch (IOException)
+        catch (IOException ex) when (ex is not PathTooLongException)
         {
             // A host from another state directory with the same endpoint, or one that just lost its lock.
             return false;

@@ -38,12 +38,34 @@ internal sealed class HostClient : IAsyncDisposable
     public string HostVersion { get; }
 
     /// <summary>
+    /// Checks that the host endpoint can exist at all: a Unix socket path has a length limit, and a state directory over
+    /// it can never have a host.
+    /// </summary>
+    /// <exception cref="DiagnosticsProtocolException"><c>host_unavailable</c> when the socket path is too long.</exception>
+    public static void EnsureEndpointFits(string endpoint)
+    {
+        try
+        {
+            DiagnosticsPaths.EnsureSocketPathFits(endpoint);
+        }
+        catch (PathTooLongException ex)
+        {
+            throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.HostUnavailable, "The session host cannot run here. " + ex.Message, ex);
+        }
+    }
+
+    /// <summary>
     /// Connects and says hello, or returns <see langword="null"/> when nothing answers on the endpoint in
     /// <paramref name="probe"/>.
     /// </summary>
-    /// <exception cref="DiagnosticsProtocolException">The host speaks another protocol version (<c>host_version_mismatch</c>).</exception>
+    /// <exception cref="DiagnosticsProtocolException">
+    /// The host speaks another protocol version (<c>host_version_mismatch</c>), or the endpoint cannot exist
+    /// (<c>host_unavailable</c>, see <see cref="EnsureEndpointFits"/>).
+    /// </exception>
     public static async Task<HostClient?> TryConnectAsync(string endpoint, string clientVersion, TimeSpan probe, CancellationToken cancellationToken)
     {
+        EnsureEndpointFits(endpoint);
+
         Stream stream;
         try
         {
