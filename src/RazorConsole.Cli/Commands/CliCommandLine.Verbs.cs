@@ -347,7 +347,7 @@ internal sealed partial class CliCommandLine
     private void AddToolVerbs()
     {
         var fix = new Option<bool>("--fix") { Description = "Remove stale state files that the checks find." };
-        Add(_root, new Command("doctor", "Check the environment, the session host and the sessions.") { fix }, context =>
+        Add(_root, new Command("doctor", "Check the environment, the session host and a real terminal session. Starts the session host if none runs, and stops it again afterwards.") { fix }, context =>
             new DoctorRequest(context.Get(fix)));
 
         var host = new Command("host", "Manage the background session host.");

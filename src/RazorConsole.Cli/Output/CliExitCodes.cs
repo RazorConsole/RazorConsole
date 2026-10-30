@@ -22,7 +22,7 @@ internal static class CliExitCodes
 
     public static int For(string errorCode) => errorCode switch
     {
-        DiagnosticsErrorCodes.AssertionFailed => AssertionFailed,
+        DiagnosticsErrorCodes.AssertionFailed or DiagnosticsErrorCodes.ChecksFailed => AssertionFailed,
         DiagnosticsErrorCodes.Usage or DiagnosticsErrorCodes.InvalidParams => Usage,
         DiagnosticsErrorCodes.SessionNotFound
             or DiagnosticsErrorCodes.ElementNotFound

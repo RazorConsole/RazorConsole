@@ -9,7 +9,8 @@ namespace RazorConsole.Cli.Output;
 
 /// <summary>
 /// Writes a <see cref="CliResult"/>. With <c>--json</c>, success and failure are both one JSON line on stdout:
-/// <c>{"ok":true,"session":"s1",…result fields}</c> or <c>{"ok":false,"error":{"code","message","data"}}</c>.
+/// <c>{"ok":true,"session":"s1",…result fields}</c> or <c>{"ok":false,"error":{"code","message","data"}}</c>. A failure
+/// that also has result fields (doctor's <c>checks</c>) writes them at the top level, next to <c>error</c>.
 /// Without it, the result text goes to stdout and errors to stderr.
 /// </summary>
 internal static class CliOutput
@@ -24,6 +25,12 @@ internal static class CliOutput
 
         if (result.Error is { } failure)
         {
+            // A failure can still carry a result people read first, such as doctor's checklist.
+            if (!string.IsNullOrEmpty(result.Text))
+            {
+                output.WriteLine(result.Text);
+            }
+
             error.WriteLine($"razorconsole: {failure.Message} [{failure.Code}]");
 
             // A timed-out wait and a failed assertion carry the screen; people need it more than the code.
@@ -69,12 +76,13 @@ internal static class CliOutput
 
                 writer.WriteEndObject();
             }
-            else if (result.Data is { ValueKind: JsonValueKind.Object } data)
+
+            if (result.Data is { ValueKind: JsonValueKind.Object } data)
             {
                 foreach (var property in data.EnumerateObject())
                 {
-                    // The envelope's own fields win over a result field of the same name.
-                    if (property.NameEquals("ok") || property.NameEquals("session"))
+                    // The envelope's own fields (ok, session, error) win over a result field of the same name.
+                    if (property.NameEquals("ok") || property.NameEquals("session") || property.NameEquals("error"))
                     {
                         continue;
                     }

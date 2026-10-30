@@ -52,6 +52,7 @@ internal static class DiagnosticsErrorCodes
     // Commands
     public const string Usage = "usage";
     public const string AssertionFailed = "assertion_failed";
+    public const string ChecksFailed = "checks_failed";
     public const string SessionNotFound = "session_not_found";
     public const string ElementNotFound = "element_not_found";
     public const string AmbiguousSelector = "ambiguous_selector";

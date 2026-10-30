@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using RazorConsole.Cli.Host;
+using RazorConsole.Cli.Output;
 using RazorConsole.Core.Diagnostics.Protocol;
 
 namespace RazorConsole.Cli.Operations;
@@ -42,6 +43,7 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
                 HostStatusRequest => await HostStatusAsync(options, cancellationToken).ConfigureAwait(false),
                 HostStopRequest => await HostStopAsync(options, cancellationToken).ConfigureAwait(false),
                 HostRunRequest run => await HostRunAsync(run, cancellationToken).ConfigureAwait(false),
+                DoctorRequest doctor => await DoctorAsync(doctor, cancellationToken).ConfigureAwait(false),
                 AttachRequest attach => await AttachAsync(attach, options, cancellationToken).ConfigureAwait(false),
                 DetachRequest detach => await DetachAsync(detach, options, cancellationToken).ConfigureAwait(false),
                 WaitRequest wait => await WaitAsync(wait, options, cancellationToken).ConfigureAwait(false),
@@ -416,6 +418,22 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
         }
 
         return text.ToString();
+    }
+
+    private async Task<CliResult> DoctorAsync(DoctorRequest request, CancellationToken cancellationToken)
+    {
+        var result = await new Doctor(connector, DoctorProbes.Default).RunAsync(request.Fix, cancellationToken).ConfigureAwait(false);
+        var data = JsonSerializer.SerializeToElement(result, CliJsonContext.Default.DoctorResult);
+        var failed = result.Failed;
+        if (failed.Count == 0)
+        {
+            return CliResult.Success(null, data, result.ToText());
+        }
+
+        var message = $"{failed.Count.ToString(CultureInfo.InvariantCulture)} of {result.Checks.Count.ToString(CultureInfo.InvariantCulture)} checks failed: {string.Join(", ", failed.Select(static check => check.Name))}";
+
+        // The checks stay at the top level of the JSON, as on success; the error sits next to them.
+        return new CliResult(new DiagnosticsError(DiagnosticsErrorCodes.ChecksFailed, message, null), null, data, result.ToText());
     }
 
     private async Task<CliResult> AttachAsync(AttachRequest request, CliGlobalOptions options, CancellationToken cancellationToken)
