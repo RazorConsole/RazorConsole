@@ -180,12 +180,19 @@ public sealed class TableWidget : Widget
         var preferred = widths.Sum();
         if (available >= preferred)
         {
+            // Like Spectre's TableColumn.Width: a column with a fixed width does not grow.
+            var growable = Enumerable.Range(0, widths.Length).Where(column => !IsFixedWidth(column)).ToArray();
+            if (growable.Length == 0)
+            {
+                growable = Enumerable.Range(0, widths.Length).ToArray();
+            }
+
             var remaining = available - preferred;
-            var column = 0;
+            var next = 0;
             while (remaining > 0)
             {
-                widths[column % widths.Length]++;
-                column++;
+                widths[growable[next % growable.Length]]++;
+                next++;
                 remaining--;
             }
 
@@ -208,6 +215,9 @@ public sealed class TableWidget : Widget
 
         return widths;
     }
+
+    private bool IsFixedWidth(int column) =>
+        HeaderRows.Concat(BodyRows).Any(row => column < row.Cells.Count && row.Cells[column].Width is not null);
 
     private int[] CalculateRowHeights(IReadOnlyList<TableWidgetRow> rows, int[] columnWidths)
     {

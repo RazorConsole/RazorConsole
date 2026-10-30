@@ -448,6 +448,27 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void TableWidget_Expand_DoesNotGrowFixedWidthColumns()
+    {
+        var widget = new TableWidget(
+            "table-1",
+            [
+                new TableWidgetRow(
+                [
+                    new TableWidgetCell("th-1", new TextWidget("text-1", "x"), width: 3),
+                    new TableWidgetCell("th-2", new TextWidget("text-2", "Name")),
+                ]),
+            ],
+            [],
+            expand: true);
+
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 10));
+
+        // 20 wide: 3 borders, the fixed column keeps 3, the other column takes the remaining 14.
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).Split('\n')[1].ShouldBe("│ x │ Name         │");
+    }
+
+    [Fact]
     public void TableWidget_Layout_ExpandsToConstraintWidth()
     {
         var widget = new TableWidget(
