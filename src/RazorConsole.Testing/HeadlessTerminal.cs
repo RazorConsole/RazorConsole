@@ -31,6 +31,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(2);
 
     private readonly object _sync = new();
+    private readonly object _captureSync = new();
     private readonly SemaphoreSlim _inputGate = new(1, 1);
     private readonly ServiceProvider _services;
     private readonly TerminalMonitor _terminalMonitor;
@@ -51,6 +52,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     private FocusManager.FocusSession? _focusSession;
     private Exception? _observerError;
     private long _frameNumber;
+    private long _capturedSequence = long.MinValue;
     private volatile bool _disposed;
 
     private HeadlessTerminal(HeadlessTerminalOptions options)
@@ -110,6 +112,8 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     /// Gets the most recently captured frame.
     /// </summary>
     /// <exception cref="InvalidOperationException">No frame has been rendered yet.</exception>
+    internal ConsoleRenderer Renderer => _renderer;
+
     public HeadlessTerminalFrame CurrentFrame
     {
         get
@@ -483,11 +487,11 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     /// <summary>
     /// Stops the terminal and disposes the hosted application's services.
     /// </summary>
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_disposed)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
 
         _disposed = true;
@@ -497,8 +501,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         _snapshotSubscription?.Dispose();
         _liveContext?.Dispose();
         _shutdown.Dispose();
-        _services.Dispose();
-        return ValueTask.CompletedTask;
+        await _services.DisposeAsync().ConfigureAwait(false);
     }
 
     private async Task StartCoreAsync<
@@ -566,35 +569,47 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         return keys;
     }
 
-    private void Capture(ConsoleRenderer.RenderSnapshot renderSnapshot)
+    internal void Capture(ConsoleRenderer.RenderSnapshot renderSnapshot)
     {
         if (renderSnapshot.Renderable is not WidgetCanvasRenderable renderable || renderSnapshot.Root is null)
         {
             return;
         }
 
-        var canvas = renderable.PaintToCanvas();
-        var layouts = CollectHookLayouts(renderSnapshot.Root);
-        var frame = new HeadlessTerminalFrame(
-            Interlocked.Increment(ref _frameNumber),
-            DateTimeOffset.UtcNow,
-            canvas,
-            _terminalMonitor.Width,
-            _terminalMonitor.Height,
-            FocusKey,
-            layouts);
-
-        lock (_sync)
+        // Render notifications (thread pool) and input (caller) both capture. Capture one at a time and
+        // skip a snapshot older than one already captured, so a late capture of an earlier render never
+        // becomes the current frame.
+        lock (_captureSync)
         {
-            if (_frames.Count > 0 && IsEquivalent(_frames[^1], frame))
+            if (renderSnapshot.Sequence < _capturedSequence)
             {
                 return;
             }
 
-            _frames.Add(frame);
-            if (_frames.Count > MaximumFrameHistory)
+            _capturedSequence = renderSnapshot.Sequence;
+            var canvas = renderable.PaintToCanvas();
+            var layouts = CollectHookLayouts(renderSnapshot.Root);
+            var frame = new HeadlessTerminalFrame(
+                Interlocked.Increment(ref _frameNumber),
+                DateTimeOffset.UtcNow,
+                canvas,
+                _terminalMonitor.Width,
+                _terminalMonitor.Height,
+                FocusKey,
+                layouts);
+
+            lock (_sync)
             {
-                _frames.RemoveAt(0);
+                if (_frames.Count > 0 && IsEquivalent(_frames[^1], frame))
+                {
+                    return;
+                }
+
+                _frames.Add(frame);
+                if (_frames.Count > MaximumFrameHistory)
+                {
+                    _frames.RemoveAt(0);
+                }
             }
         }
     }

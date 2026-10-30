@@ -12,6 +12,37 @@ namespace RazorConsole.Tests.Integration;
 public sealed class HeadlessTerminalTests
 {
     [Fact]
+    public async Task DisposeAsync_DisposesAsyncOnlyServices()
+    {
+        var service = new AsyncOnlyService();
+        var terminal = await HeadlessTerminal.StartAsync<TextFields>(
+            new HeadlessTerminalOptions
+            {
+                Width = 30,
+                Height = 4,
+                ConfigureServices = services => services.AddSingleton(_ => service),
+                Parameters = new Dictionary<string, object?> { [nameof(TextFields.Events)] = new List<string>() },
+            },
+            TestContext.Current.CancellationToken);
+        terminal.Services.GetRequiredService<AsyncOnlyService>();
+
+        await terminal.DisposeAsync();
+
+        service.Disposed.ShouldBeTrue();
+    }
+
+    private sealed class AsyncOnlyService : IAsyncDisposable
+    {
+        public bool Disposed { get; private set; }
+
+        public ValueTask DisposeAsync()
+        {
+            Disposed = true;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    [Fact]
     public async Task TypeAsync_MapsCharactersToKeys_LikeAVtTerminal()
     {
         var events = new List<EventArgs>();
@@ -149,6 +180,21 @@ public sealed class HeadlessTerminalTests
 
         var keys = string.Concat(events.Cast<KeyboardEventArgs>().Select(e => e.Key));
         keys.ShouldBe(string.Concat(Enumerable.Repeat("abc", 20)));
+    }
+
+    [Fact]
+    public async Task CurrentFrame_IgnoresALateCaptureOfAnEarlierRender()
+    {
+        await using var terminal = await StartKeySurfaceAsync([]);
+        var earlier = terminal.Renderer.RefreshSnapshot();
+
+        await terminal.SendKeyAsync(ConsoleKey.X, 'x', cancellationToken: TestContext.Current.CancellationToken);
+        terminal.CurrentFrame.ContainsText("Last key: x").ShouldBeTrue();
+
+        // A render notification can arrive after the input's own capture of a later render.
+        terminal.Capture(earlier);
+
+        terminal.CurrentFrame.ContainsText("Last key: x").ShouldBeTrue();
     }
 
     private static Task<HeadlessTerminal> StartKeySurfaceAsync(List<EventArgs> events)

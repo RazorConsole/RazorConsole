@@ -615,6 +615,17 @@ public class KeyboardEventManagerTests
             return new KeyboardHarness(focusManager, manager, dispatcher, renderer, context, session);
         }
 
+        /// <summary>A newer render reaches FocusManager, as the renderer's notification would.</summary>
+        public void PushSnapshot(params FocusElementSpec[] elements)
+        {
+            var view = BuildView(elements);
+            if (view.VdomRoot is not null)
+            {
+                ((IObserver<ConsoleRenderer.RenderSnapshot>)FocusManager).OnNext(
+                    new ConsoleRenderer.RenderSnapshot(view.VdomRoot, view.Renderable, view.AnimatedRenderables));
+            }
+        }
+
         public ValueTask DisposeAsync()
         {
             _session.Dispose();
@@ -682,6 +693,39 @@ public class KeyboardEventManagerTests
         harness.FocusManager.CurrentFocusKey.ShouldBe("first");
     }
 
+    [Fact]
+    public async Task KeyDown_FocusedTargetRerendered_ReachesItsNewHandler()
+    {
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec("list", events: new Dictionary<string, ulong> { ["onkeydown"] = 21 }));
+
+        // "list" re-rendered (new handler id) before FocusManager saw that snapshot.
+        harness.Dispatcher.StaleIds.Add(21);
+        harness.Dispatcher.OnStale = () => harness.PushSnapshot(
+            new FocusElementSpec("list", events: new Dictionary<string, ulong> { ["onkeydown"] = 31 }));
+
+        var escape = new ConsoleKeyInfo('\u001b', ConsoleKey.Escape, shift: false, alt: false, control: false);
+        await harness.Manager.HandleKeyAsync(escape, CancellationToken.None);
+
+        harness.Dispatcher.Events.Select(e => e.HandlerId).ShouldBe([31UL]);
+    }
+
+    [Fact]
+    public async Task Enter_FocusedButtonRerendered_ClicksItsNewHandler()
+    {
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec("ok", events: new Dictionary<string, ulong> { ["onclick"] = 41 }));
+
+        harness.Dispatcher.StaleIds.Add(41);
+        harness.Dispatcher.OnStale = () => harness.PushSnapshot(
+            new FocusElementSpec("ok", events: new Dictionary<string, ulong> { ["onclick"] = 51 }));
+
+        var enter = new ConsoleKeyInfo('\r', ConsoleKey.Enter, shift: false, alt: false, control: false);
+        await harness.Manager.HandleKeyAsync(enter, CancellationToken.None);
+
+        harness.Dispatcher.Events.Select(e => e.HandlerId).ShouldBe([51UL]);
+    }
+
     private sealed class TestKeyboardEventDispatcher : IKeyboardEventDispatcher
     {
         private readonly List<DispatchedEvent> _events = new();
@@ -689,12 +733,25 @@ public class KeyboardEventManagerTests
         public IReadOnlyList<DispatchedEvent> Events => _events;
         public bool ConsumeKey { get; set; }
 
+        /// <summary>Handler ids of a replaced render: dispatching one fails as the renderer does.</summary>
+        public HashSet<ulong> StaleIds { get; } = [];
+
+        /// <summary>Runs once, on the first stale dispatch.</summary>
+        public Action? OnStale { get; set; }
+
         public void Reset()
             => _events.Clear();
 
         public Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (StaleIds.Contains(handlerId))
+            {
+                OnStale?.Invoke();
+                OnStale = null;
+                throw new ArgumentException($"No handler {handlerId}.", "eventHandlerId");
+            }
+
             _events.Add(new DispatchedEvent(handlerId, eventArgs));
             if (ConsumeKey && eventArgs is TerminalKeyboardEventArgs key)
             {

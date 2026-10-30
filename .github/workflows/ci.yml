@@ -41,6 +41,8 @@ jobs:
   build-test:
     name: Build and test
     runs-on: ${{ matrix.os }}
+    # A hung test run would otherwise hold the runner until GitHub's 6-hour limit.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

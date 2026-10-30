@@ -56,6 +56,8 @@ internal sealed class KeyboardEventManager
     private const int MaxPasteBatchSize = 1000;
 
     private readonly FocusManager _focusManager;
+    // A key must not be lost: wait longer than focus events do for the render that replaced its handler.
+    private static readonly TimeSpan StaleHandlerRetryTimeout = TimeSpan.FromSeconds(1);
     private readonly IKeyboardEventDispatcher _dispatcher;
     private readonly IConsoleInput _console;
     private readonly ILogger<KeyboardEventManager> _logger;
@@ -332,7 +334,7 @@ internal sealed class KeyboardEventManager
         if (target.Events.TryGetEvent("oninput", out var inputEvent))
         {
             var args = new ChangeEventArgs { Value = updatedValue };
-            await DispatchAsync(inputEvent, args, token).ConfigureAwait(false);
+            await DispatchAsync(target, inputEvent, args, token).ConfigureAwait(false);
         }
     }
 
@@ -354,21 +356,27 @@ internal sealed class KeyboardEventManager
                 Button = 0,
             };
 
-            await DispatchAsync(clickEvent, clickArgs, token).ConfigureAwait(false);
+            await DispatchAsync(target, clickEvent, clickArgs, token).ConfigureAwait(false);
         }
 
         if (target.Events.TryGetEvent("onchange", out var changeEvent))
         {
             var changeArgs = new ChangeEventArgs { Value = value };
-            await DispatchAsync(changeEvent, changeArgs, token).ConfigureAwait(false);
+            await DispatchAsync(target, changeEvent, changeArgs, token).ConfigureAwait(false);
         }
     }
 
-    private async Task DispatchAsync(VNodeEvent @event, EventArgs args, CancellationToken token)
+    // The focused target can be a render behind the renderer; its handler ids then belong to a replaced render.
+    private async Task DispatchAsync(FocusManager.FocusTarget target, VNodeEvent @event, EventArgs args, CancellationToken token)
     {
         try
         {
-            await _dispatcher.DispatchAsync(@event.HandlerId, args, token).ConfigureAwait(false);
+            await _focusManager.DispatchToLatestRenderAsync(
+                target,
+                @event.Name,
+                handlerId => _dispatcher.DispatchAsync(handlerId, args, token),
+                StaleHandlerRetryTimeout,
+                token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -388,7 +396,7 @@ internal sealed class KeyboardEventManager
         }
 
         var args = CreateKeyboardEventArgs(keyInfo, eventName);
-        await DispatchAsync(nodeEvent, args, token).ConfigureAwait(false);
+        await DispatchAsync(target, nodeEvent, args, token).ConfigureAwait(false);
         return args.Handled;
     }
 
@@ -539,7 +547,7 @@ internal sealed class KeyboardEventManager
                 if (target.Events.TryGetEvent("oninput", out var inputEvent))
                 {
                     var args = new ChangeEventArgs { Value = currentValue };
-                    await DispatchAsync(inputEvent, args, token).ConfigureAwait(false);
+                    await DispatchAsync(target, inputEvent, args, token).ConfigureAwait(false);
                 }
 
                 // Handle the special key normally (Enter, Tab, etc.)
@@ -557,7 +565,7 @@ internal sealed class KeyboardEventManager
         if (target.Events.TryGetEvent("oninput", out var finalInputEvent))
         {
             var finalArgs = new ChangeEventArgs { Value = finalValue };
-            await DispatchAsync(finalInputEvent, finalArgs, token).ConfigureAwait(false);
+            await DispatchAsync(target, finalInputEvent, finalArgs, token).ConfigureAwait(false);
         }
     }
 

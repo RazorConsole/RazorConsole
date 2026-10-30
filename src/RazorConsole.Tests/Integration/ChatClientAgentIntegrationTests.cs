@@ -71,7 +71,7 @@ public sealed class ChatClientAgentIntegrationTests
         executions.ShouldBe(0);
         controller.ApprovalDescription.ShouldContain("inspect");
         var hook = approve ? "approve-tool" : "deny-tool";
-        var approvalFrame = await terminal.WaitUntilAsync(s => s.Layouts.ContainsKey(hook), cancellationToken: TestContext.Current.CancellationToken);
+        var approvalFrame = await terminal.WaitUntilAsync(s => s.Layouts.ContainsKey(hook), TimeSpan.FromSeconds(10), cancellationToken: TestContext.Current.CancellationToken);
         var button = approvalFrame.Layouts[hook];
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, button.Left!.Value, button.Top!.Value), TestContext.Current.CancellationToken);
         await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);

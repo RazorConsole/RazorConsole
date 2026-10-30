@@ -55,6 +55,7 @@ internal sealed class ConsoleRenderer(
     private bool _observerNotificationScheduled;
     private bool _legacyPipelineWarningLogged;
     private RenderSnapshot _lastSnapshot = RenderSnapshot.Empty;
+    private long _snapshotSequence;
     private bool _disposed;
 
     public override Dispatcher Dispatcher => _dispatcher;
@@ -217,6 +218,7 @@ internal sealed class ConsoleRenderer(
         ResetCursor(slot);
         var edits = diff.Edits;
         var offset = edits.Offset;
+        var permutation = new List<(int From, int To)>();
         for (var i = 0; i < edits.Count; i++)
         {
             var edit = edits.Array[i + offset];
@@ -232,7 +234,7 @@ internal sealed class ConsoleRenderer(
                     ApplySetAttributeEdit(batch, edit);
                     break;
                 case RenderTreeEditType.RemoveAttribute:
-                    ApplyRemoveAttributeEdit(batch, edit);
+                    ApplyRemoveAttributeEdit(edit);
                     break;
                 case RenderTreeEditType.UpdateText:
                     ApplyUpdateTextEdit(batch, edit);
@@ -242,6 +244,13 @@ internal sealed class ConsoleRenderer(
                     break;
                 case RenderTreeEditType.StepOut:
                     ApplyStepOutEdit();
+                    break;
+                case RenderTreeEditType.PermutationListEntry:
+                    permutation.Add((edit.SiblingIndex, edit.MoveToSiblingIndex));
+                    break;
+                case RenderTreeEditType.PermutationListEnd:
+                    _cursor.Peek().PermuteChildren(permutation);
+                    permutation.Clear();
                     break;
             }
         }
@@ -294,23 +303,17 @@ internal sealed class ConsoleRenderer(
         ApplyAttributeFrame(child, frame);
     }
 
-    private void ApplyRemoveAttributeEdit(in RenderBatch batch, RenderTreeEdit edit)
+    private void ApplyRemoveAttributeEdit(RenderTreeEdit edit)
     {
+        // RemoveAttribute edits carry only the name; ReferenceFrameIndex is unset.
         var parent = _cursor.Peek();
-        var frame = batch.ReferenceFrames.Array[edit.ReferenceFrameIndex];
-        Debug.Assert(frame.FrameType == RenderTreeFrameType.Attribute, "RemoveAttribute edit must reference an Attribute frame.");
+        var name = edit.RemovedAttributeName!;
         var child = BFSNonRegionChildren(parent).ElementAt(edit.SiblingIndex);
-        if (frame.AttributeEventHandlerId != 0)
+        child.RemoveEvent(name);
+        child.RemoveAttribute(name);
+        if (IsKeyAttribute(name))
         {
-            child.RemoveEvent(frame.AttributeName!);
-        }
-        else
-        {
-            child.RemoveAttribute(frame.AttributeName!);
-            if (IsKeyAttribute(frame.AttributeName!))
-            {
-                parent.SetKey(null);
-            }
+            parent.SetKey(null);
         }
     }
 
@@ -485,6 +488,9 @@ internal sealed class ConsoleRenderer(
     }
 
     private RenderSnapshot CreateSnapshot()
+        => CreateSnapshotCore() with { Sequence = Interlocked.Increment(ref _snapshotSequence) };
+
+    private RenderSnapshot CreateSnapshotCore()
     {
         if (_diagnostics is null)
         {
@@ -789,6 +795,9 @@ internal sealed class ConsoleRenderer(
     public readonly record struct RenderSnapshot(VNode? Root, IRenderable? Renderable, IReadOnlyCollection<IAnimatedConsoleRenderable> AnimatedRenderables)
     {
         public static RenderSnapshot Empty { get; } = new(null, null, Array.Empty<IAnimatedConsoleRenderable>());
+
+        /// <summary>Creation order: a snapshot with a higher value reflects a later render.</summary>
+        internal long Sequence { get; init; }
     }
 
     private void NotifyObservers(RenderSnapshot snapshot)
