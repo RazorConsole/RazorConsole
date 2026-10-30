@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Cli;
+using RazorConsole.Cli.Host;
 using RazorConsole.Cli.Operations;
 
 using var cancellation = new CancellationTokenSource();
@@ -16,7 +17,7 @@ Console.CancelKeyPress += (_, e) =>
 
 return await CliApplication.RunAsync(
     args,
-    new NotImplementedOperations(),
+    new HostOperations(new HostConnector(HostFiles.Resolve(Environment.GetEnvironmentVariable), ProcessHostLauncher.Instance)),
     Console.Out,
     Console.Error,
     Environment.GetEnvironmentVariable,
