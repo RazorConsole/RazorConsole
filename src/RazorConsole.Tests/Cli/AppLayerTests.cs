@@ -325,6 +325,51 @@ public sealed class AppLayerTests : IAsyncDisposable
     }
 
     [Fact(Timeout = TestTimeoutMs)]
+    public async Task AnAppThatExits_GivesProcessExitedAtOnce_WithTheErrorsItReportedBefore_AndRestartForgetsThem()
+    {
+        Assert.SkipUnless(PtyTerminal.IsSupported, "PTY is not supported on this OS.");
+        var operations = Operations();
+        var options = Options();
+        var enter = new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false);
+        try
+        {
+            Succeeded(await StartAsync(operations, options, "diag"));
+            Succeeded(await operations.ExecuteAsync(new TreeRequest(null, 1, false, false), options, Token));
+
+            // Keys, not clicks: a mouse click whose handler throws stops the app's input, a key press does not.
+            Succeeded(await operations.ExecuteAsync(new KeysRequest([enter], "hook:fail"), options, Token));
+
+            // Nobody asks for the errors; the session reads them in the background while the app still answers.
+            await Task.Delay(TimeSpan.FromSeconds(2.5), Token);
+            Succeeded(await operations.ExecuteAsync(new KeysRequest([enter], "hook:quit"), options, Token));
+            Succeeded(await operations.ExecuteAsync(new WaitRequest(new WaitCondition(WaitConditionKind.Exit)), options, Token));
+
+            // The first app call after the exit already says the process is gone, not that the layer is unavailable.
+            var gone = await operations.ExecuteAsync(new TreeRequest(null, 1, false, false), options, Token);
+            var error = gone.Error.ShouldNotBeNull();
+            error.Code.ShouldBe(DiagnosticsErrorCodes.ProcessExited);
+            CliExitCodes.For(error.Code).ShouldBe(CliExitCodes.ProcessExited);
+            error.Data!.Value.GetProperty("exitCode").GetInt32().ShouldBe(3);
+            var last = error.Data!.Value.GetProperty("lastErrors").EnumerateArray().ShouldHaveSingleItem();
+            last.GetProperty("type").GetString().ShouldBe("System.InvalidOperationException");
+            last.GetProperty("message").GetString().ShouldBe("diag failure");
+
+            // A restart starts over: nothing of the old app's errors is reported for the new one.
+            Succeeded(await operations.ExecuteAsync(new RestartRequest(null), options, Token));
+            Succeeded(await operations.ExecuteAsync(new TreeRequest(null, 1, false, false), options, Token));
+            Succeeded(await operations.ExecuteAsync(new KeysRequest([enter], "hook:quit"), options, Token));
+            Succeeded(await operations.ExecuteAsync(new WaitRequest(new WaitCondition(WaitConditionKind.Exit)), options, Token));
+            var again = (await operations.ExecuteAsync(new TreeRequest(null, 1, false, false), options, Token)).Error.ShouldNotBeNull();
+            again.Code.ShouldBe(DiagnosticsErrorCodes.ProcessExited);
+            again.Data!.Value.TryGetProperty("lastErrors", out _).ShouldBeFalse();
+        }
+        finally
+        {
+            await StopHostAsync(operations, options);
+        }
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
     public async Task Attach_ToAProcessWithoutAnEndpoint_OrNoProcess_FailsClearly()
     {
         var operations = Operations();

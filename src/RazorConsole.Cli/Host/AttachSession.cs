@@ -172,10 +172,15 @@ internal sealed class AttachSession : HostSession
     public override async ValueTask DisposeAsync() => await _app.DisposeAsync().ConfigureAwait(false);
 
     public override DiagnosticsProtocolException ProcessExited()
-        => new(
+    {
+        var lastErrors = _app.RecentErrors;
+        return new(
             DiagnosticsErrorCodes.ProcessExited,
             $"The process {_pid} of '{Name}' has exited.",
-            errorData: JsonSerializer.SerializeToElement(new ProcessExitedData(null), HostJsonContext.Default.ProcessExitedData));
+            errorData: JsonSerializer.SerializeToElement(
+                new ProcessExitedData(null, LastErrors: lastErrors.Count == 0 ? null : lastErrors),
+                HostJsonContext.Default.ProcessExitedData));
+    }
 
     protected override async Task<ClickResult> ClickCoreAsync(ClickParams click, CancellationToken cancellationToken)
     {

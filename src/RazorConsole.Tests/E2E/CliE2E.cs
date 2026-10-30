@@ -157,13 +157,9 @@ internal sealed class CliE2E : IAsyncDisposable
     public static CliE2E Create()
     {
         Assert.SkipUnless(PtyTerminal.IsSupported, "Pseudoterminals are not supported here.");
-        var cli = new CliE2E();
 
-        // The state directory exists before the first command. A first command on a machine without it fails today:
-        // ProcessHostLauncher starts the host with the state directory as its working directory before anything has
-        // created it ("The directory name is invalid"). That is reported with this step, not worked around in the tool.
-        Directory.CreateDirectory(cli.Home);
-        return cli;
+        // Home does not exist yet: every test starts on a machine that has never run the tool.
+        return new CliE2E();
     }
 
     /// <summary>

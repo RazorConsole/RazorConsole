@@ -73,7 +73,7 @@ internal sealed class HostConnector(HostFiles files, IHostLauncher launcher, str
             if ((launchedAt is null || now - launchedAt >= RelaunchAfter) && !Files.IsLocked())
             {
                 HostFiles.TryDelete(Files.InfoFile);
-                launcher.Launch(Files);
+                Launch();
                 launchedAt = now;
             }
 
@@ -85,6 +85,22 @@ internal sealed class HostConnector(HostFiles files, IHostLauncher launcher, str
             }
 
             await Task.Delay(PollInterval, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    // A process that cannot be started is a host problem (exit 8), not an internal error.
+    private void Launch()
+    {
+        try
+        {
+            launcher.Launch(Files);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            throw new DiagnosticsProtocolException(
+                DiagnosticsErrorCodes.HostUnavailable,
+                $"The session host could not be started: {ex.Message} Run 'razorconsole doctor' to see why.",
+                ex);
         }
     }
 

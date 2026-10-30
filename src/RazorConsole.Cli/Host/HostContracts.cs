@@ -324,7 +324,12 @@ internal sealed record OutputResult(long Offset, long Next, string Data);
 /// <summary>
 /// The <c>data</c> of a <see cref="DiagnosticsErrorCodes.ProcessExited"/> error.
 /// </summary>
-internal sealed record ProcessExitedData(int? ExitCode);
+/// <param name="ExitCode">The exit code, when the tool started the process and so knows it.</param>
+/// <param name="OutputTail">The end of the terminal output as plain text, where .NET prints an unhandled exception.
+/// Only for sessions the tool started.</param>
+/// <param name="LastErrors">The last errors the app reported through its diagnostics endpoint before it went away, oldest
+/// first, in the shape of an <c>errors</c> result.</param>
+internal sealed record ProcessExitedData(int? ExitCode, string? OutputTail = null, IReadOnlyList<JsonElement>? LastErrors = null);
 
 /// <param name="Pid">The process id of the running app.</param>
 /// <param name="Name">The session name, or <see langword="null"/> for the first free <c>a&lt;n&gt;</c>.</param>

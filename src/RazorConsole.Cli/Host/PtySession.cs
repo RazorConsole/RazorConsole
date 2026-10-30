@@ -711,7 +711,10 @@ internal sealed class PtySession : HostSession
 
     public override DiagnosticsProtocolException ProcessExited()
     {
-        var data = JsonSerializer.SerializeToElement(new ProcessExitedData(_terminal.ExitCode), HostJsonContext.Default.ProcessExitedData);
+        var lastErrors = _app.RecentErrors;
+        var data = JsonSerializer.SerializeToElement(
+            new ProcessExitedData(_terminal.ExitCode, OutputTail.From(_output), lastErrors.Count == 0 ? null : lastErrors),
+            HostJsonContext.Default.ProcessExitedData);
         var code = _terminal.ExitCode is { } exitCode ? $" with exit code {exitCode}" : string.Empty;
         return new DiagnosticsProtocolException(DiagnosticsErrorCodes.ProcessExited, $"The process of '{Name}' has exited{code}.", errorData: data);
     }
