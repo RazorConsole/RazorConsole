@@ -1,0 +1,15 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+
+@* The button comes first in the document; the scrollable's lower focus order must still win. *@
+<TextButton Content="button" FocusOrder="2" />
+<ViewHeightScrollable LinesToRender="2" Scrollbar="new()" FocusOrder="1" OnKeyDown="@(e => Forwarded.Add(e.Key))">
+    <Markup Content="line 1" />
+    <Markup Content="line 2" />
+    <Markup Content="line 3" />
+</ViewHeightScrollable>
+
+@code {
+    [Parameter] public List<string> Forwarded { get; set; } = [];
+}

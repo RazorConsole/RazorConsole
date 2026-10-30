@@ -5,8 +5,10 @@
 @implements IDisposable
 @inject ScrollableLayoutCoordinator LayoutCoordinator;
 
+@* Not a Tab stop itself: the wheel handler would otherwise make it focusable; the scrollbar takes focus. *@
 <view-height-scrollable
     @onwheel="HandleWheel" @onwheel:stopPropagation="true"
+    data-focusable="false"
     data-offset="@ScrollOffset"
     data-lines-to-render="@LinesToRender"
     data-enable-embedded="@IsScrollbarEmbedded.ToString()"
@@ -15,6 +17,7 @@
     @if (Scrollbar != null)
     {
         <div data-scrollbar="true"
+             data-focus-order="@FocusOrder"
              @onfocusin="OnFocusIn"
              @onfocusout="OnFocusOut"
              @onkeydown="HandleKeyDown"
@@ -74,6 +77,17 @@
     [Parameter]
     public bool IsScrollbarEmbedded { get; set; } = true;
 
+    /// <summary>Tab order of the scrollbar, which takes focus; lower values first. Null keeps document order.</summary>
+    [Parameter]
+    public int? FocusOrder { get; set; }
+
+    /// <summary>
+    /// Raised for keys the scrollable does not handle itself (anything but arrows, paging, Home and End),
+    /// so a page can keep its shortcuts while the scrollable has focus.
+    /// </summary>
+    [Parameter]
+    public EventCallback<KeyboardEventArgs> OnKeyDown { get; set; }
+
     [Parameter] public required RenderFragment<ScrollContext> ChildContent { get; set; }
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
@@ -93,6 +107,9 @@
             case "PageUp": newOffset = Math.Max(0, newOffset - page); break;
             case "Home": newOffset = 0; break;
             case "End": newOffset = maxOffset; break;
+            default:
+                await OnKeyDown.InvokeAsync(e);
+                return;
         }
 
         newOffset = Math.Clamp(newOffset, 0, maxOffset);
