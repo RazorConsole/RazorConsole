@@ -87,6 +87,37 @@ public sealed class TextInputTests
         maskedSpan!.Attributes["data-content"].ShouldBe("••••••");
     }
 
+    [Fact]
+    public async Task TextInput_FocusKey_IsTheKeyItRendersForFocus()
+    {
+        using var services = new ServiceCollection().BuildServiceProvider();
+        using var renderer = TestHelpers.CreateTestRenderer(services);
+        TextInput? input = null;
+        var parameters = ParameterView.FromDictionary(new Dictionary<string, object?>
+        {
+            [nameof(CaptureHost.Captured)] = (Action<TextInput>)(captured => input = captured),
+        });
+
+        var snapshot = await renderer.MountComponentAsync<CaptureHost>(parameters, CancellationToken.None);
+
+        var root = snapshot.Root.ShouldBeOfType<VNode>();
+        input.ShouldNotBeNull().FocusKey.ShouldBe(root.Attributes["data-focus-key"]);
+    }
+
+    private sealed class CaptureHost : ComponentBase
+    {
+        [Parameter]
+        public Action<TextInput> Captured { get; set; } = _ => { };
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<TextInput>(0);
+            builder.AddAttribute(1, "Label", "Name");
+            builder.AddComponentReferenceCapture(2, component => Captured((TextInput)component));
+            builder.CloseComponent();
+        }
+    }
+
     private sealed class ValueHost : ComponentBase
     {
         protected override void BuildRenderTree(RenderTreeBuilder builder)
