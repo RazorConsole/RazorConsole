@@ -65,6 +65,11 @@ export const docTopicIds = [
         filePath: "website/src/docs/testing.md",
     },
     {
+        id: "cli",
+        title: "Command-Line Tool",
+        filePath: "website/src/docs/cli.md",
+    },
+    {
         id: "component-gallery",
         title: "Component Gallery",
         filePath: "website/src/docs/component-gallery.md",

@@ -341,6 +341,9 @@ public sealed class AppLayerTests : IAsyncDisposable
 
             // Nobody asks for the errors; the session reads them in the background while the app still answers.
             await Task.Delay(TimeSpan.FromSeconds(2.5), Token);
+
+            // Right after the exception the app can be between two renders with no focus targets for a moment.
+            await WaitForFocusTargetAsync(operations, options, "quit");
             Succeeded(await operations.ExecuteAsync(new KeysRequest([enter], "hook:quit"), options, Token));
             Succeeded(await operations.ExecuteAsync(new WaitRequest(new WaitCondition(WaitConditionKind.Exit)), options, Token));
 
@@ -404,6 +407,26 @@ public sealed class AppLayerTests : IAsyncDisposable
             new StartRequest(null, StartTargetKind.Dll, AppPath, arguments, 80, 12, new Dictionary<string, string>(), null, StartRequest.DefaultTerminalType, false),
             options,
             Token);
+
+    private static async Task WaitForFocusTargetAsync(HostOperations operations, CliGlobalOptions options, string key)
+    {
+        var deadline = DateTimeOffset.UtcNow + Patience;
+        while (true)
+        {
+            var focus = await operations.ExecuteAsync(new FocusRequest(FocusAction.List, null), options, Token);
+            if (focus.Error is null && focus.Data!.Value.GetProperty("targets").EnumerateArray().Any(target => target.GetProperty("key").GetString() == key))
+            {
+                return;
+            }
+
+            if (DateTimeOffset.UtcNow >= deadline)
+            {
+                throw new TimeoutException($"Timed out waiting for the focus target '{key}'.");
+            }
+
+            await Task.Delay(100, Token);
+        }
+    }
 
     private static async Task WaitForTextAsync(HostOperations operations, CliGlobalOptions options, string text)
         => Succeeded(await operations.ExecuteAsync(new WaitRequest(new WaitCondition(WaitConditionKind.Text, text)), options, Token));

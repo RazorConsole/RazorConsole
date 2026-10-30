@@ -74,6 +74,13 @@ jobs:
       - name: E2E tests
         run: dotnet test src/RazorConsole.Tests/RazorConsole.Tests.csproj --configuration Release --no-build --framework net11.0 -- --filter-trait "Category=E2E"
 
+      # The tool package is written by the Release build. Check what is in it, install it from that folder alone and run
+      # it (doctor starts a real session host and a pseudoterminal session).
+      - name: Verify and smoke-test the RazorConsole.Cli tool package
+        if: matrix.os == 'ubuntu-latest'
+        shell: pwsh
+        run: ./scripts/verify-cli-package.ps1 -PackageDirectory artifacts/package/release -Install
+
       - name: Upload test diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -441,6 +448,11 @@ jobs:
             --no-build \
             --output artifacts/packages \
             -p:VersionSuffix=$VersionSuffix
+
+      # Before anything is pushed: a tool package that does not hold together must not reach NuGet.
+      - name: Verify and smoke-test the RazorConsole.Cli tool package
+        shell: pwsh
+        run: ./scripts/verify-cli-package.ps1 -PackageDirectory artifacts/packages -Install
 
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4

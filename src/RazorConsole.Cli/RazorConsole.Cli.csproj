@@ -8,6 +8,8 @@
     <ToolCommandName>razorconsole</ToolCommandName>
     <RootNamespace>RazorConsole.Cli</RootNamespace>
     <IsAotCompatible>true</IsAotCompatible>
+    <!-- The SDK picks tools/net8.0 for a machine whose SDK runs on .NET 9 (or 8), which only has that runtime. -->
+    <RollForward>Major</RollForward>
     <!-- The detached host launch on Windows calls CreateProcess with pointers. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
@@ -20,7 +22,19 @@
   </ItemGroup>
   <Import Project="$(RepoRoot)/nuget/nuget-package.props" />
 
+  <!-- Pack this package's own README instead of the repository README. -->
+  <ItemGroup>
+    <None Remove="$(RepoRoot)/README.md" />
+    <None Include="README.md" Pack="true" PackagePath="." />
+  </ItemGroup>
+
   <PropertyGroup>
+    <!--
+      The tool compares its own version with the running session host's (see HostConnector) and prints it for the
+      version option.
+      nuget-package.props sets only PackageVersion, so without this every build reports 1.0.0, nightlies included.
+    -->
+    <Version>$(PackageVersion)</Version>
     <Title>RazorConsole CLI</Title>
     <Description>Drive and inspect RazorConsole apps from the command line: run them in a pseudoterminal session, send input, wait for and assert on the screen, and read the component tree, focus, route, errors and logs of a Development or Debug app. Structured JSON results for CI and AI agents.</Description>
     <PackageTags>$(PackageTags);cli;testing;diagnostics</PackageTags>
