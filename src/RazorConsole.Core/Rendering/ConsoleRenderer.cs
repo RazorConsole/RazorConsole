@@ -488,9 +488,9 @@ internal sealed class ConsoleRenderer(
     }
 
     private RenderSnapshot CreateSnapshot()
-        => CreateSnapshotCore() with { Sequence = Interlocked.Increment(ref _snapshotSequence) };
+        => CreateTimedSnapshot() with { Sequence = Interlocked.Increment(ref _snapshotSequence) };
 
-    private RenderSnapshot CreateSnapshotCore()
+    private RenderSnapshot CreateTimedSnapshot()
     {
         if (_diagnostics is null)
         {
