@@ -11,6 +11,9 @@ using RazorConsole.Tests.PtyApp;
 // Modes:
 //   golden              renders GoldenView with RazorConsole
 //   app                 renders AppLayerView with diagnostics on (Development), for the CLI tests of the app layer
+//   diag                like app, plus Quit (exits with code 3), Fail (a click handler throws) and Boom (a component throws
+//                       while rendering) buttons, for the end-to-end tests of the CLI
+//   crash               throws an unhandled exception at once, so the process dies and .NET prints it
 //   echo <id>           echoes lines as "[id] got <line>"; "exit <code>" exits with that code; Ctrl+C exits with 42
 //   serial              validates "L<n>:<60 letters>" lines; "end" prints a summary
 //   size                prints the console size whenever it changes
@@ -24,7 +27,9 @@ Console.InputEncoding = Encoding.UTF8;
 return args.FirstOrDefault() switch
 {
     "golden" => await RunGoldenAsync(args),
-    "app" => await RunAppAsync(args),
+    "app" => await RunAppAsync<AppLayerView>(args),
+    "diag" => await RunAppAsync<DiagView>(args),
+    "crash" => Crash(),
     "echo" => Echo(args[1]),
     "serial" => Serial(),
     "size" => Size(),
@@ -51,12 +56,13 @@ static async Task<int> RunGoldenAsync(string[] args)
     return 0;
 }
 
-static async Task<int> RunAppAsync(string[] args)
+static async Task<int> RunAppAsync<TView>(string[] args)
+    where TView : Microsoft.AspNetCore.Components.IComponent
 {
     // Development turns the diagnostics endpoint on in a Release build, too.
     var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = args[1..], EnvironmentName = Environments.Development });
     builder.Logging.ClearProviders();
-    builder.UseRazorConsole<AppLayerView>(configure: config =>
+    builder.UseRazorConsole<TView>(configure: config =>
     {
         config.Services.Configure<ConsoleAppOptions>(options =>
         {
@@ -68,6 +74,8 @@ static async Task<int> RunAppAsync(string[] args)
     await builder.Build().RunAsync();
     return 0;
 }
+
+static int Crash() => throw new InvalidOperationException("diag crash");
 
 static int Echo(string id)
 {

@@ -17,11 +17,47 @@
          @onfocus="OnFocusCancel" @onfocusout="OnBlurCancel" @onclick="OnCancel">
         <Markup Content="@(_focused == "cancel" ? "[Cancel]" : " Cancel ")" />
     </div>
+    @if (ShowQuit)
+    {
+        <div data-vnode-hook="quit" data-focusable="true" data-focus-key="quit" @key="@("quit")"
+             @onfocus="OnFocusQuit" @onfocusout="OnBlurQuit" @onclick="OnQuit">
+            <Markup Content="@(_focused == "quit" ? "[Quit]" : " Quit ")" />
+        </div>
+    }
+    @if (ShowFail)
+    {
+        <div data-vnode-hook="fail" data-focusable="true" data-focus-key="fail" @key="@("fail")"
+             @onfocus="OnFocusFail" @onfocusout="OnBlurFail" @onclick="OnFail">
+            <Markup Content="@(_focused == "fail" ? "[Fail]" : " Fail ")" />
+        </div>
+        <div data-vnode-hook="boom" data-focusable="true" data-focus-key="boom" @key="@("boom")"
+             @onfocus="OnFocusBoom" @onfocusout="OnBlurBoom" @onclick="OnBoom">
+            <Markup Content="@(_focused == "boom" ? "[Boom]" : " Boom ")" />
+        </div>
+        @if (_boom)
+        {
+            <BoomView />
+        }
+    }
 </Rows>
 
 @code {
+    /// <summary>
+    /// Adds a Fail button whose click handler throws and a Boom button that renders a component that throws, to see what
+    /// the CLI can learn about an app's exceptions.
+    /// </summary>
+    [Parameter]
+    public bool ShowFail { get; set; }
+
+    /// <summary>
+    /// Adds a Quit button that ends the process with exit code 3, for the end-to-end tests of <c>process_exited</c>.
+    /// </summary>
+    [Parameter]
+    public bool ShowQuit { get; set; }
+
     private string? _focused;
     private int _clicks;
+    private bool _boom;
 
     private string Route => Navigation.ToBaseRelativePath(Navigation.Uri);
 
@@ -43,6 +79,28 @@
     private void OnFocusCancel(FocusEventArgs e) => Focus("cancel");
 
     private void OnBlurCancel(FocusEventArgs e) => Blur("cancel");
+
+    private void OnFocusQuit(FocusEventArgs e) => Focus("quit");
+
+    private void OnBlurQuit(FocusEventArgs e) => Blur("quit");
+
+    private void OnQuit(MouseEventArgs e) => Environment.Exit(3);
+
+    private void OnFocusFail(FocusEventArgs e) => Focus("fail");
+
+    private void OnBlurFail(FocusEventArgs e) => Blur("fail");
+
+    private void OnFail(MouseEventArgs e) => throw new InvalidOperationException("diag failure");
+
+    private void OnFocusBoom(FocusEventArgs e) => Focus("boom");
+
+    private void OnBlurBoom(FocusEventArgs e) => Blur("boom");
+
+    private void OnBoom(MouseEventArgs e)
+    {
+        _boom = true;
+        StateHasChanged();
+    }
 
     private void Focus(string key)
     {
