@@ -91,6 +91,27 @@ public sealed class DiagnosticsAppQueriesTests
     }
 
     [Fact]
+    public void Tree_GivesAMarkupElementItsRenderedText_AndKeepsItsAttributes()
+    {
+        // <Markup Content="[bold]Razor[[Console]][/]"/> renders <span data-text="true" data-content="…"/>: no text node.
+        var root = VNode.CreateElement("div");
+        var markup = VNode.CreateElement("span", "markup");
+        markup.SetAttribute("data-text", "true");
+        markup.SetAttribute("data-content", "[bold]Razor[[Console]][/]");
+        var plain = VNode.CreateElement("span", "plain");
+        plain.SetAttribute("data-content", "not markup");
+        root.AddChild(markup);
+        root.AddChild(plain);
+        Publish(root, Layout(root, 0, 0, 40, 2));
+
+        var children = _queries.Tree(new TreeParams()).Root.ShouldNotBeNull().Children.ShouldNotBeNull();
+
+        children[0].Text.ShouldBe("Razor[Console]");
+        children[0].Attributes.ShouldNotBeNull()["data-content"].ShouldBe("[bold]Razor[[Console]][/]");
+        children[1].Text.ShouldBeNull();
+    }
+
+    [Fact]
     public void Tree_StartsAtASelectedNode()
     {
         var result = _queries.Tree(new TreeParams(Selector: "key:cancel"));

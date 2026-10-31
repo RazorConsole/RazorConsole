@@ -223,7 +223,8 @@ internal sealed class DiagnosticsAppQueries(
             Tag = node.TagName,
             Key = node.Key,
             Hook = node.Attributes.TryGetValue(IVNodeIdAccessor.HookAttributeName, out var hook) ? hook : null,
-            Text = node.Kind == VNodeKind.Text ? node.Text : null,
+            // A Markup element holds its text in an attribute; it is shown here like a text node's.
+            Text = node.Kind == VNodeKind.Text ? node.Text : DiagnosticsTreeIndex.RenderedText(node),
             Attributes = isElement ? OwnAttributes(node) : null,
             Events = isElement && node.Events.Count > 0 ? node.Events.Select(e => e.Name).ToArray() : null,
             Rect = includeLayout ? index.RectOf(node) : null,
