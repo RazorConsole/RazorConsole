@@ -22,11 +22,26 @@ public sealed class HostLauncherTests
         arguments.ShouldBe(["__host"]);
     }
 
+    // A backslash separates path segments only on Windows, so each path is tried only on the OS that has such paths.
     [Theory]
     [InlineData("/usr/share/dotnet/dotnet")]
+    [InlineData("/usr/local/bin/dotnet")]
+    public void OnUnix_TheDotnetHost_RunsTheToolsAssemblyWithTheHostVerb(string processPath)
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Unix paths.");
+        AssertRunsTheAssembly(processPath);
+    }
+
+    [Theory]
     [InlineData(@"C:\Program Files\dotnet\dotnet.exe")]
     [InlineData(@"C:\Program Files\dotnet\DOTNET.EXE")]
-    public void TheDotnetHost_RunsTheToolsAssemblyWithTheHostVerb(string processPath)
+    public void OnWindows_TheDotnetHost_RunsTheToolsAssemblyWithTheHostVerb(string processPath)
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Windows paths.");
+        AssertRunsTheAssembly(processPath);
+    }
+
+    private static void AssertRunsTheAssembly(string processPath)
     {
         var baseDirectory = Path.Combine(Path.GetTempPath(), "razorconsole-cli");
 
