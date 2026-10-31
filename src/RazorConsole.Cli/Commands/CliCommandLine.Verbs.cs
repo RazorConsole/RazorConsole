@@ -50,9 +50,14 @@ internal sealed partial class CliCommandLine
             DefaultValueFactory = _ => StartRequest.DefaultTerminalType,
         };
         var noWait = new Option<bool>("--no-wait") { Description = "Return without waiting for the first frame." };
+        var framework = new Option<string?>("--framework")
+        {
+            Description = "With --project, the target framework to build and run, such as net9.0. Defaults to the highest one with an installed runtime.",
+            HelpName = "tfm",
+        };
         var start = new Command("start", "Start an app in a new PTY session. Pass the app's arguments after --.")
         {
-            startName, exe, dll, project, width, height, environment, cwd, term, noWait,
+            startName, exe, dll, project, framework, width, height, environment, cwd, term, noWait,
         };
         Add(_root, start, context =>
         {
@@ -65,6 +70,19 @@ internal sealed partial class CliCommandLine
             if (targets.Count != 1)
             {
                 throw new CliUsageException("Use exactly one of --exe, --dll or --project.");
+            }
+
+            if (context.Get(framework) is { } requested)
+            {
+                if (targets[0].Kind != StartTargetKind.Project)
+                {
+                    throw new CliUsageException("--framework can only be used with --project.");
+                }
+
+                if (string.IsNullOrWhiteSpace(requested))
+                {
+                    throw new CliUsageException("--framework needs a target framework, such as net9.0.");
+                }
             }
 
             var variables = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -83,7 +101,8 @@ internal sealed partial class CliCommandLine
                 variables,
                 context.Get(cwd) is { } directory ? FullPath(directory) : null,
                 context.Get(term)!,
-                context.Get(noWait));
+                context.Get(noWait),
+                context.Get(framework));
         });
 
         var stopName = SessionNameArgument("The session to stop. Defaults to the current session.");

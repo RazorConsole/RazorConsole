@@ -27,6 +27,10 @@ razorconsole stop                                  # Ctrl+C, then kill
 
 Start the app with `--project <dir>` (builds it first), `--dll <path>` (runs it with `dotnet`) or `--exe <path>`. Everything after `--` goes to the app. The terminal is 120x40 unless you pass `--width` and `--height`, and `--env NAME=value` sets an environment variable for the app.
 
+A project that targets several frameworks (net8.0 to net11.0, like the Gallery) needs one to run. `--framework <tfm>` picks it, for example `--project ./MyApp --framework net9.0`; it is passed to both `dotnet build` and `dotnet run`, and it is a usage error with `--dll` or `--exe`. Without it the tool takes the highest target framework that has an installed .NET runtime, and says which one: `start` prints it (`started demo (pid 26444, 120x40, running, net10.0, …)`) and `--json` has it as `framework`. If none of the project's frameworks can run, `start` fails with exit code 2 and lists the project's frameworks and the installed runtimes. `dotnet run` would otherwise show an interactive "select the target framework" prompt inside the terminal, so the tool always passes the framework explicitly.
+
+Text output is UTF-8, whatever the console's code page is, so the box corners, `●` and arrows of `screen` come through when you pipe the output to another program. `--json` output is ASCII-escaped and does not depend on it.
+
 ```text
 $ razorconsole start demo --dll ./bin/Debug/net10.0/MyApp.dll
 started demo (pid 26444, 120x40, running, app layer not_connected_yet) dotnet ./bin/Debug/net10.0/MyApp.dll

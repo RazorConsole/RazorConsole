@@ -86,7 +86,8 @@ internal sealed class PtySession : HostSession
         _startedAt,
         _terminal.HasExited,
         _terminal.ExitCode,
-        _app.Describe());
+        _app.Describe(),
+        Spec.Framework);
 
     public override PtySession RequirePty(string verb) => this;
 
@@ -112,6 +113,12 @@ internal sealed class PtySession : HostSession
     /// </summary>
     public static async Task<PtySession> StartAsync(string name, StartParams spec, string ledgerFile, string stateDirectory, CancellationToken cancellationToken)
     {
+        // Pinned in the spec, so restart runs the same framework without evaluating the project again.
+        if (spec.TargetKind == StartTargetKind.Project)
+        {
+            spec = spec with { Framework = await ProjectFramework.ResolveAsync(spec.TargetPath, spec.Framework, cancellationToken).ConfigureAwait(false) };
+        }
+
         var token = AppPairing.NewToken();
         var (options, command) = await CreateOptionsAsync(spec, stateDirectory, token, cancellationToken).ConfigureAwait(false);
         var output = new OutputRing();
@@ -524,12 +531,21 @@ internal sealed class PtySession : HostSession
                     throw InvalidParams($"The project '{spec.TargetPath}' does not exist.");
                 }
 
-                await BuildProjectAsync(spec.TargetPath, cancellationToken).ConfigureAwait(false);
+                await BuildProjectAsync(spec.TargetPath, spec.Framework, cancellationToken).ConfigureAwait(false);
                 options.FileName = PtyTerminal.ResolveDotnetHost();
                 options.Arguments.Add("run");
                 options.Arguments.Add("--no-build");
                 options.Arguments.Add("--project");
                 options.Arguments.Add(spec.TargetPath);
+
+                // Without --framework a multi-targeting project makes dotnet run ask which one to run, a prompt nobody
+                // answers inside the pseudoterminal.
+                if (spec.Framework is { } framework)
+                {
+                    options.Arguments.Add("--framework");
+                    options.Arguments.Add(framework);
+                }
+
                 options.Arguments.Add("--");
                 break;
         }
@@ -556,7 +572,7 @@ internal sealed class PtySession : HostSession
     }
 
     // Builds outside the terminal, so build output never shows up as the app's screen.
-    private static async Task BuildProjectAsync(string project, CancellationToken cancellationToken)
+    private static async Task BuildProjectAsync(string project, string? framework, CancellationToken cancellationToken)
     {
         var startInfo = new ProcessStartInfo(PtyTerminal.ResolveDotnetHost())
         {
@@ -569,6 +585,11 @@ internal sealed class PtySession : HostSession
         startInfo.ArgumentList.Add("build");
         startInfo.ArgumentList.Add(project);
         startInfo.ArgumentList.Add("-nologo");
+        if (framework is not null)
+        {
+            startInfo.ArgumentList.Add("--framework");
+            startInfo.ArgumentList.Add(framework);
+        }
 
         using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("dotnet build did not start.");
         process.StandardInput.Close();

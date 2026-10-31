@@ -80,6 +80,7 @@ internal sealed record HostShutdownResult(int StoppedSessions);
 /// <param name="Exited">Whether the process has exited.</param>
 /// <param name="ExitCode">The exit code, once known.</param>
 /// <param name="AppLayer">The connection to the app's diagnostics endpoint.</param>
+/// <param name="Framework">The target framework a project was built and run with, for <c>start --project</c> sessions.</param>
 internal sealed record SessionInfo(
     string Name,
     string Kind,
@@ -90,7 +91,8 @@ internal sealed record SessionInfo(
     DateTimeOffset StartedAt,
     bool Exited,
     int? ExitCode = null,
-    AppLayerInfo? AppLayer = null);
+    AppLayerInfo? AppLayer = null,
+    string? Framework = null);
 
 /// <summary>
 /// Whether the session reaches its app's diagnostics endpoint.
@@ -116,6 +118,7 @@ internal sealed record AppLayerInfo(bool Connected, int? Pid = null, string? Ser
 /// <param name="TerminalType">The <c>TERM</c> value on Linux and macOS.</param>
 /// <param name="NoWait">Whether to return before the first frame.</param>
 /// <param name="TimeoutMs">How long to wait for the first frame.</param>
+/// <param name="Framework">For a project, the target framework to build and run with. The host picks one when this is <see langword="null"/>.</param>
 internal sealed record StartParams(
     string? Name,
     StartTargetKind TargetKind,
@@ -127,7 +130,8 @@ internal sealed record StartParams(
     string? WorkingDirectory,
     string TerminalType,
     bool NoWait,
-    long TimeoutMs);
+    long TimeoutMs,
+    string? Framework = null);
 
 /// <summary>
 /// The parameters of methods that take none.

@@ -423,6 +423,45 @@ public sealed class CliEndToEndTests
         Ok(await cli.RunAsync("--json", "host", "stop"));
     }
 
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task StartProject_OfAMultiTargetingProject_PicksAFramework_AndConnectsTheAppLayer()
+    {
+        await using var cli = CliE2E.Create();
+        var project = Path.Combine(FindRepositoryRoot(), "src", "RazorConsole.Tests.PtyApp");
+
+        // The PtyApp targets net8.0 to net11.0, so a plain 'dotnet run' would ask which one in the pseudoterminal.
+        // The test run builds Release, so the host builds Release too (MSBuild reads the variable): an incremental build.
+        var environment = new Dictionary<string, string> { ["Configuration"] = "Release" };
+        var start = Ok(await cli.RunAsync(environment, "--json", "start", "--project", project, "--", "diag"));
+
+        var framework = start.GetProperty("framework").GetString();
+        framework.ShouldNotBeNullOrEmpty();
+        framework.ShouldStartWith("net");
+        start.GetProperty("command").GetString()!.ShouldContain("--framework " + framework);
+
+        // The app layer is up on the framework that was chosen, and the screen shows the app, not a prompt.
+        Ok(await cli.RunAsync("--json", "wait", "--text", "App layer view"));
+        Ok(await cli.RunAsync("--json", "tree")).GetRawText().ShouldContain("\"hook\":\"save\"");
+        Ok(await cli.RunAsync("--json", "list")).GetProperty("sessions").EnumerateArray().ShouldHaveSingleItem().GetProperty("framework").GetString().ShouldBe(framework);
+        Stdout(await cli.RunAsync("screen")).ShouldNotContain("target framework");
+
+        Ok(await cli.RunAsync("--json", "stop"));
+        Ok(await cli.RunAsync("--json", "host", "stop"));
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "RazorConsole.slnx")))
+            {
+                return directory.FullName;
+            }
+        }
+
+        throw new InvalidOperationException("RazorConsole.slnx was not found above the test output.");
+    }
+
     // The errors of the app so far, once there are at least this many (the app records them as it renders).
     private static async Task<IReadOnlyList<JsonElement>> ErrorsAsync(CliE2E cli, int count)
     {
