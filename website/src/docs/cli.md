@@ -9,6 +9,8 @@ razorconsole doctor
 
 The tool needs .NET 8 or newer. Sessions run in a real pseudoterminal: ConPTY on Windows 10 version 1809 or later, a POSIX PTY on Linux and macOS. `doctor` checks that all of this works on your machine.
 
+Each [GitHub release](https://github.com/RazorConsole/RazorConsole/releases) also has a Native AOT build of the tool as `razorconsole-<version>-<platform>.zip` (Windows) or `.tar.gz` (Linux and macOS), for x64 and arm64. Unpack it anywhere and run `razorconsole`; it starts without a .NET runtime of its own, though the apps it runs (`--project`, `--dll`) still need .NET.
+
 ## The loop
 
 ```bash

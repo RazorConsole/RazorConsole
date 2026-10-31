@@ -1,5 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using System.Diagnostics;
 using System.Text.Json;
 using RazorConsole.Core.Diagnostics.Protocol;
 
@@ -27,6 +28,9 @@ internal abstract class HostSession : IAsyncDisposable
     /// The timeout for the calls to the app layer that input verbs make to resolve an element.
     /// </summary>
     protected static readonly TimeSpan DefaultAppTimeout = TimeSpan.FromSeconds(10);
+
+    private static readonly TimeSpan ElementPollInterval = TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan MinimumAttemptTimeout = TimeSpan.FromSeconds(1);
 
     protected HostSession(string name)
     {
@@ -97,7 +101,10 @@ internal abstract class HostSession : IAsyncDisposable
         if (click.Element is { } selector)
         {
             var timeout = click.TimeoutMs is { } ms ? TimeSpan.FromMilliseconds(ms) : DefaultAppTimeout;
-            var (x, y) = await CenterOfAsync(selector, timeout, cancellationToken).ConfigureAwait(false);
+            var (x, y) = await WaitForElementAsync(
+                callTimeout => CenterOfAsync(selector, callTimeout, cancellationToken),
+                timeout,
+                cancellationToken).ConfigureAwait(false);
             click = click with { X = x, Y = y, Text = null, Element = null };
         }
 
@@ -113,27 +120,60 @@ internal abstract class HostSession : IAsyncDisposable
         if (keys.Element is { } selector)
         {
             var timeout = keys.TimeoutMs is { } ms ? TimeSpan.FromMilliseconds(ms) : DefaultAppTimeout;
-            var inspected = await App.CallAsync(
-                DiagnosticsAppMethods.Inspect,
-                new InspectParams(selector, First: false),
-                DiagnosticsJsonContext.Default.InspectParams,
-                DiagnosticsJsonContext.Default.InspectResult,
-                timeout,
-                cancellationToken).ConfigureAwait(false);
-            var key = inspected.Node.FocusKey ?? throw new DiagnosticsProtocolException(
-                DiagnosticsErrorCodes.ElementNotFocusable,
-                $"The element '{selector}' cannot take focus: it has no focus key.");
-            await App.CallAsync(
-                DiagnosticsAppMethods.FocusSet,
-                new FocusSetParams(key),
-                DiagnosticsJsonContext.Default.FocusSetParams,
-                DiagnosticsJsonContext.Default.FocusChangeResult,
+            await WaitForElementAsync(
+                async callTimeout =>
+                {
+                    var inspected = await App.CallAsync(
+                        DiagnosticsAppMethods.Inspect,
+                        new InspectParams(selector, First: false),
+                        DiagnosticsJsonContext.Default.InspectParams,
+                        DiagnosticsJsonContext.Default.InspectResult,
+                        callTimeout,
+                        cancellationToken).ConfigureAwait(false);
+                    var key = inspected.Node.FocusKey ?? throw new DiagnosticsProtocolException(
+                        DiagnosticsErrorCodes.ElementNotFocusable,
+                        $"The element '{selector}' cannot take focus: it has no focus key.");
+                    return await App.CallAsync(
+                        DiagnosticsAppMethods.FocusSet,
+                        new FocusSetParams(key),
+                        DiagnosticsJsonContext.Default.FocusSetParams,
+                        DiagnosticsJsonContext.Default.FocusChangeResult,
+                        callTimeout,
+                        cancellationToken).ConfigureAwait(false);
+                },
                 timeout,
                 cancellationToken).ConfigureAwait(false);
         }
 
         return await KeysAsync(keys.Keys, cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Runs <paramref name="attempt"/> until it stops failing with an element that is not there yet: not found, not
+    /// focusable or not visible. An app draws and registers its focus targets a moment after it starts, so an element
+    /// can be missing for a few frames. After <paramref name="timeout"/> the last such error is thrown as it is; any
+    /// other error (an ambiguous selector, an exited process) is thrown at once.
+    /// </summary>
+    internal static async Task<T> WaitForElementAsync<T>(Func<TimeSpan, Task<T>> attempt, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var started = Stopwatch.GetTimestamp();
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var remaining = timeout - Stopwatch.GetElapsedTime(started);
+            try
+            {
+                return await attempt(remaining < MinimumAttemptTimeout ? MinimumAttemptTimeout : remaining).ConfigureAwait(false);
+            }
+            catch (DiagnosticsProtocolException ex) when (IsElementNotReady(ex.Code) && remaining > ElementPollInterval)
+            {
+                await Task.Delay(ElementPollInterval, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static bool IsElementNotReady(string code)
+        => code is DiagnosticsErrorCodes.ElementNotFound or DiagnosticsErrorCodes.ElementNotFocusable or DiagnosticsErrorCodes.ElementNotVisible;
 
     protected abstract Task<ClickResult> ClickCoreAsync(ClickParams click, CancellationToken cancellationToken);
 

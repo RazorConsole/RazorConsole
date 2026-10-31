@@ -63,9 +63,17 @@ public sealed class AppLayerTests : IAsyncDisposable
             Succeeded(tree);
             tree.Text.ShouldNotBeNull().ShouldContain("Save");
 
+            // The tree above needed the pairing, so the app layer is connected by now; wait for it all the same.
+            JsonElement layer = default;
             var list = await operations.ExecuteAsync(new ListRequest(), options, Token);
-            var layer = list.Data!.Value.GetProperty("sessions")[0].GetProperty("appLayer");
-            layer.GetProperty("connected").GetBoolean().ShouldBeTrue();
+            await WaitUntilAsync(
+                async () =>
+                {
+                    list = await operations.ExecuteAsync(new ListRequest(), options, Token);
+                    layer = list.Data!.Value.GetProperty("sessions")[0].GetProperty("appLayer");
+                    return layer.GetProperty("connected").GetBoolean();
+                },
+                "the app layer to connect");
             layer.GetProperty("pipeline").GetString().ShouldBe("WidgetLayout");
             list.Text.ShouldNotBeNull().ShouldContain("app layer connected");
 
@@ -104,7 +112,8 @@ public sealed class AppLayerTests : IAsyncDisposable
             set.Data!.Value.GetProperty("current").GetString().ShouldBe("save");
             await WaitForTextAsync(operations, options, "[Save]");
 
-            var missing = await operations.ExecuteAsync(new FocusRequest(FocusAction.Set, "nope"), options, Token);
+            // A key that is no target is waited for until the timeout, then reported as not found.
+            var missing = await operations.ExecuteAsync(new FocusRequest(FocusAction.Set, "nope"), Options(TimeSpan.FromSeconds(1)), Token);
             missing.Error.ShouldNotBeNull().Code.ShouldBe(DiagnosticsErrorCodes.ElementNotFound);
 
             var route = await operations.ExecuteAsync(new RouteRequest("counter"), options, Token);
@@ -342,8 +351,6 @@ public sealed class AppLayerTests : IAsyncDisposable
             // Nobody asks for the errors; the session reads them in the background while the app still answers.
             await Task.Delay(TimeSpan.FromSeconds(2.5), Token);
 
-            // Right after the exception the app can be between two renders with no focus targets for a moment.
-            await WaitForFocusTargetAsync(operations, options, "quit");
             Succeeded(await operations.ExecuteAsync(new KeysRequest([enter], "hook:quit"), options, Token));
             Succeeded(await operations.ExecuteAsync(new WaitRequest(new WaitCondition(WaitConditionKind.Exit)), options, Token));
 
@@ -408,23 +415,17 @@ public sealed class AppLayerTests : IAsyncDisposable
             options,
             Token);
 
-    private static async Task WaitForFocusTargetAsync(HostOperations operations, CliGlobalOptions options, string key)
+    private static async Task WaitUntilAsync(Func<Task<bool>> condition, string what)
     {
         var deadline = DateTimeOffset.UtcNow + Patience;
-        while (true)
+        while (!await condition())
         {
-            var focus = await operations.ExecuteAsync(new FocusRequest(FocusAction.List, null), options, Token);
-            if (focus.Error is null && focus.Data!.Value.GetProperty("targets").EnumerateArray().Any(target => target.GetProperty("key").GetString() == key))
-            {
-                return;
-            }
-
             if (DateTimeOffset.UtcNow >= deadline)
             {
-                throw new TimeoutException($"Timed out waiting for the focus target '{key}'.");
+                throw new TimeoutException($"Timed out waiting for {what}.");
             }
 
-            await Task.Delay(100, Token);
+            await Task.Delay(50, Token);
         }
     }
 

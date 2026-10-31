@@ -16,6 +16,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
     private readonly Lock _sync = new();
     private List<FocusTarget> _focusTargets = new();
     private int _currentIndex = -1;
+    private long _snapshotSequence;
     private string? _pendingFocusKey;
     private bool _hasPendingFocusRetry;
     private ConsoleLiveDisplayContext? _context;
@@ -72,6 +73,39 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             }
 
             return result;
+        }
+    }
+
+    /// <summary>
+    /// Gets the highest render snapshot sequence processed so far. It never goes down, and a session reset keeps it.
+    /// </summary>
+    internal long SnapshotSequence => Volatile.Read(ref _snapshotSequence);
+
+    /// <summary>
+    /// Waits until a snapshot with at least <paramref name="sequence"/> has been processed.
+    /// Observers get snapshots asynchronously, so the targets can trail the newest render.
+    /// </summary>
+    /// <returns><see langword="true"/> when the manager caught up; <see langword="false"/> on timeout.</returns>
+    internal async Task<bool> WaitForSnapshotAsync(long sequence, TimeSpan timeout, CancellationToken token)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeoutCts.CancelAfter(timeout);
+        try
+        {
+            while (true)
+            {
+                var next = Volatile.Read(ref _snapshotSignal).Task;
+                if (SnapshotSequence >= sequence)
+                {
+                    return true;
+                }
+
+                await next.WaitAsync(timeoutCts.Token).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        {
+            return SnapshotSequence >= sequence;
         }
     }
 
@@ -583,6 +617,11 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             sessionToken = _sessionCts?.Token ?? CancellationToken.None;
 
             newFocus = UpdateFocusTargets_NoLock(value);
+            if (value.Sequence > _snapshotSequence)
+            {
+                Volatile.Write(ref _snapshotSequence, value.Sequence);
+            }
+
             if (_hasPendingFocusRetry && !string.IsNullOrWhiteSpace(_pendingFocusKey))
             {
                 var pendingKey = _pendingFocusKey;

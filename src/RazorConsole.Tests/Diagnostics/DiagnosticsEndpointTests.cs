@@ -507,6 +507,73 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
     }
 
     [Fact(Timeout = TestTimeoutMs)]
+    public async Task Endpoint_WaitsForTheFocusManagerToSeeTheFrame_BeforeAnsweringWithFocusKeys()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var state = new DiagnosticsState();
+        var focus = new FocusManager();
+        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+
+        // The frame is published, the focus manager has not been told about it yet.
+        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        state.LatestFrame!.RenderSequence.ShouldBeGreaterThan(0);
+        focus.SnapshotSequence.ShouldBe(0);
+        var service = await StartAsync(state, focus, renderer: renderer);
+        var client = await ConnectAsync(service, ct);
+        await HelloAsync(client, ct);
+
+        var find = CallAsync(client, DiagnosticsAppMethods.Find, new FindParams("key:save"), DiagnosticsJsonContext.Default.FindParams, ct);
+        await Task.Delay(300, ct);
+        find.IsCompleted.ShouldBeFalse();
+
+        using var subscription = renderer.Subscribe(focus);
+
+        var match = Result(await find, DiagnosticsJsonContext.Default.FindResult).Matches.ShouldHaveSingleItem();
+        match.FocusKey.ShouldBe("save");
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task Endpoint_FocusNext_WaitsForTheFocusManager_SoItMovesBetweenTargetsAndNotOverNone()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var state = new DiagnosticsState();
+        var focus = new FocusManager();
+        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        var service = await StartAsync(state, focus, renderer: renderer);
+        var client = await ConnectAsync(service, ct);
+        await HelloAsync(client, ct);
+
+        var next = CallAsync(client, DiagnosticsAppMethods.FocusNext, ct);
+        await Task.Delay(300, ct);
+        next.IsCompleted.ShouldBeFalse();
+
+        using var subscription = renderer.Subscribe(focus);
+
+        var result = Result(await next, DiagnosticsJsonContext.Default.FocusChangeResult);
+        result.Changed.ShouldBeTrue();
+        result.Current.ShouldBe("cancel");
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task Endpoint_AnswersAfterTheCatchUpTimeout_WhenTheFocusManagerNeverSeesTheFrame()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var state = new DiagnosticsState();
+        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        var service = await StartAsync(state, new FocusManager(), renderer: renderer);
+        var client = await ConnectAsync(service, ct);
+        await HelloAsync(client, ct);
+
+        var match = Result(
+            await CallAsync(client, DiagnosticsAppMethods.Find, new FindParams("key:save"), DiagnosticsJsonContext.Default.FindParams, ct),
+            DiagnosticsJsonContext.Default.FindResult).Matches.ShouldHaveSingleItem();
+
+        match.FocusKey.ShouldBeNull();
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
     public async Task Endpoint_WithoutARenderer_AdvertisesNoStateChangesAndRefusesThem()
     {
         var ct = TestContext.Current.CancellationToken;

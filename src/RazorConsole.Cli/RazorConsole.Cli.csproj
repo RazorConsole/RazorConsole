@@ -12,6 +12,8 @@
     <RollForward>Major</RollForward>
     <!-- The detached host launch on Windows calls CreateProcess with pointers. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Besides the tool package, the release and nightly builds publish a native razorconsole binary per platform. -->
+    <RazorConsolePublishNativeAot>true</RazorConsolePublishNativeAot>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,6 +23,14 @@
     <InternalsVisibleTo Include="RazorConsole.Tests" />
   </ItemGroup>
   <Import Project="$(RepoRoot)/nuget/nuget-package.props" />
+
+  <!-- After the import: nuget-package.props turns the package on for every build. -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true'">
+    <!-- Native AOT publish cannot run the package target at the same time. -->
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <!-- Known trim warning from Microsoft.AspNetCore.Components, which RazorConsole.Core builds on. -->
+    <NoWarn>$(NoWarn);IL2104</NoWarn>
+  </PropertyGroup>
 
   <!-- Pack this package's own README instead of the repository README. -->
   <ItemGroup>

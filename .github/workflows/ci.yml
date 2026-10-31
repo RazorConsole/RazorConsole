@@ -78,8 +78,7 @@ jobs:
       # it (doctor starts a real session host and a pseudoterminal session).
       - name: Verify and smoke-test the RazorConsole.Cli tool package
         if: matrix.os == 'ubuntu-latest'
-        shell: pwsh
-        run: ./scripts/verify-cli-package.ps1 -PackageDirectory artifacts/package/release -Install
+        run: dotnet run scripts/verify-cli-package.cs -- --package-directory artifacts/package/release --install
 
       - name: Upload test diagnostics
         if: always()
@@ -199,6 +198,17 @@ jobs:
               echo "$description" | grep -Eiq 'x86-64|x86_64|x64'
             fi
           done < <(jq -r '.apps[] | [.commandName, .assemblyName] | @tsv' artifacts/native-aot-apps.json)
+
+      # The CLI starts its session host by running its own binary again, so run the native one: --version, then doctor,
+      # which starts the host and a pseudoterminal session.
+      - name: Smoke-test the native razorconsole binary
+        shell: bash
+        run: |
+          executable="$(echo artifacts/native-aot/razorconsole/razorconsole-*-${{ matrix.artifact }}/razorconsole)"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            executable="$executable.exe"
+          fi
+          dotnet run scripts/verify-cli-package.cs -- --native "$executable"
 
       - name: Upload Native AOT archives
         uses: actions/upload-artifact@v4
@@ -448,11 +458,6 @@ jobs:
             --no-build \
             --output artifacts/packages \
             -p:VersionSuffix=$VersionSuffix
-
-      # Before anything is pushed: a tool package that does not hold together must not reach NuGet.
-      - name: Verify and smoke-test the RazorConsole.Cli tool package
-        shell: pwsh
-        run: ./scripts/verify-cli-package.ps1 -PackageDirectory artifacts/packages -Install
 
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4

@@ -44,6 +44,25 @@ public sealed class DiagnosticsHooksTests
     }
 
     [Fact]
+    public async Task Renderer_StampsEachFrameWithTheSnapshotObserversMustSee_AndARefreshReusesTheLastNotifiedOne()
+    {
+        var state = new DiagnosticsState();
+        using var renderer = CreateRenderer(state);
+
+        var snapshot = await renderer.MountComponentAsync<HelloComponent>(ParameterView.Empty, TestContext.Current.CancellationToken);
+
+        // A render is handed to observers as a snapshot with this sequence, so the frame names it.
+        snapshot.Sequence.ShouldBeGreaterThan(0);
+        state.LatestFrame.ShouldNotBeNull().RenderSequence.ShouldBe(snapshot.Sequence);
+
+        // A refresh builds a frame for hit tests but tells no observer, so it points at the render they already have.
+        var refreshed = renderer.RefreshSnapshot();
+
+        refreshed.Sequence.ShouldBeGreaterThan(snapshot.Sequence);
+        state.LatestFrame.ShouldNotBeNull().RenderSequence.ShouldBe(snapshot.Sequence);
+    }
+
+    [Fact]
     public async Task Renderer_RecordsComponentErrors()
     {
         var state = new DiagnosticsState();

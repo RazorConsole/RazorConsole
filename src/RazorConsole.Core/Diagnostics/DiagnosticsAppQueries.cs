@@ -21,14 +21,14 @@ internal sealed class DiagnosticsAppQueries(
 {
     private const int MaxAmbiguousCandidates = 20;
 
-    public TreeResult Tree(TreeParams parameters)
+    public TreeResult Tree(TreeParams parameters, DiagnosticsFrame? frame = null)
     {
         if (parameters.Depth < 0)
         {
             throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, "depth must not be negative.");
         }
 
-        var index = CreateIndex();
+        var index = CreateIndex(frame ?? state.LatestFrame);
         var start = parameters.Selector is null
             ? index.Root is { } root ? index[root] : null
             : Single(index, DiagnosticsSelector.Parse(parameters.Selector), first: false);
@@ -39,17 +39,17 @@ internal sealed class DiagnosticsAppQueries(
         return new TreeResult(node, index.Frame);
     }
 
-    public FindResult Find(FindParams parameters)
+    public FindResult Find(FindParams parameters, DiagnosticsFrame? frame = null)
     {
         var selector = DiagnosticsSelector.Parse(parameters.Selector);
-        var index = CreateIndex();
+        var index = CreateIndex(frame ?? state.LatestFrame);
         return new FindResult(selector.Match(index).ConvertAll(index.ToMatch), index.Frame);
     }
 
-    public InspectResult Inspect(InspectParams parameters)
+    public InspectResult Inspect(InspectParams parameters, DiagnosticsFrame? frame = null)
     {
         var selector = DiagnosticsSelector.Parse(parameters.Selector);
-        var index = CreateIndex();
+        var index = CreateIndex(frame ?? state.LatestFrame);
         var entry = Single(index, selector, parameters.First ?? false);
         return new InspectResult(
             BuildNode(index, entry, depth: 1, includeText: true, includeLayout: true),
@@ -161,8 +161,6 @@ internal sealed class DiagnosticsAppQueries(
             options.RenderingPipeline.ToString(),
             state.LatestFrame?.Sequence ?? 0);
     }
-
-    private DiagnosticsTreeIndex CreateIndex() => CreateIndex(state.LatestFrame);
 
     private DiagnosticsTreeIndex CreateIndex(DiagnosticsFrame? frame) => new(frame, focusManager.GetFocusTargets());
 
