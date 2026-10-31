@@ -3,7 +3,9 @@
 using RazorConsole.Cli;
 using RazorConsole.Cli.Host;
 using RazorConsole.Cli.Operations;
+using RazorConsole.Cli.Output;
 
+using var console = CliConsole.Open();
 using var cancellation = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
 {
@@ -18,8 +20,8 @@ Console.CancelKeyPress += (_, e) =>
 return await CliApplication.RunAsync(
     args,
     new HostOperations(new HostConnector(HostFiles.Resolve(Environment.GetEnvironmentVariable), ProcessHostLauncher.Instance)),
-    Console.Out,
-    Console.Error,
+    console.Output,
+    console.Error,
     Environment.GetEnvironmentVariable,
     Environment.CurrentDirectory,
     cancellation.Token).ConfigureAwait(false);

@@ -117,7 +117,19 @@ public sealed class CliCommandLineTests
         dll.Arguments.ShouldBeEmpty();
         dll.Environment.ShouldBeEmpty();
 
-        Parse("start", "--project", ".").Request.ShouldBeOfType<StartRequest>().TargetKind.ShouldBe(StartTargetKind.Project);
+        var project = Parse("start", "--project", ".").Request.ShouldBeOfType<StartRequest>();
+        project.TargetKind.ShouldBe(StartTargetKind.Project);
+        project.Framework.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Start_Framework_IsForProjectsOnly()
+    {
+        Parse("start", "--project", ".", "--framework", "net9.0").Request.ShouldBeOfType<StartRequest>().Framework.ShouldBe("net9.0");
+
+        ShouldBeUsageError(Parse("start", "--dll", "app.dll", "--framework", "net9.0"), "--framework");
+        ShouldBeUsageError(Parse("start", "--exe", "app", "--framework", "net9.0"), "--framework");
+        ShouldBeUsageError(Parse("start", "--project", ".", "--framework", " "), "--framework");
     }
 
     [Theory]
