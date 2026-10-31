@@ -7,7 +7,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path $PSScriptRoot -Parent
-$galleryRoot = Join-Path $repositoryRoot "gallery"
+# The gallery apps and the CLI tool; a project opts in with RazorConsolePublishNativeAot.
+$projectRoots = @(
+    (Join-Path $repositoryRoot "gallery"),
+    (Join-Path $repositoryRoot "src/RazorConsole.Cli")
+)
 $properties = @(
     "RazorConsolePublishNativeAot",
     "PackageId",
@@ -20,7 +24,7 @@ $properties = @(
 ) -join ","
 
 $apps = @(
-    Get-ChildItem $galleryRoot -Filter *.csproj -Recurse | Sort-Object FullName | ForEach-Object {
+    $projectRoots | ForEach-Object { Get-ChildItem $_ -Filter *.csproj -Recurse } | Sort-Object FullName | ForEach-Object {
         $projectPath = $_.FullName
         $result = & dotnet msbuild $projectPath -nologo "-getProperty:$properties"
         if ($LASTEXITCODE -ne 0) {

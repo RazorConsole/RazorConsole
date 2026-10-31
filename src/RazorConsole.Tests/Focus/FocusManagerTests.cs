@@ -61,6 +61,32 @@ public sealed class FocusManagerTests
     }
 
     [Fact]
+    public async Task GetFocusTargets_ReturnsFocusOrderWithTheFocusedTargetMarked()
+    {
+        var manager = new FocusManager();
+        manager.GetFocusTargets().ShouldBeEmpty();
+
+        var keys = new[] { "first", "second", "third" };
+        var initial = CreateView(keys, focusedKey: null);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(
+            new TestCanvas(),
+            initial,
+            new VdomDiffService());
+        using var session = manager.BeginSession(context, initial, CancellationToken.None);
+        await session.InitializationTask;
+
+        PushInitialSnapshot(manager, initial);
+        await manager.FocusNextAsync(session.Token);
+
+        var targets = manager.GetFocusTargets();
+
+        targets.Select(t => t.Key).ShouldBe(keys);
+        targets.Select(t => t.IsFocused).ShouldBe([false, true, false]);
+        targets.ShouldAllBe(t => !string.IsNullOrEmpty(t.VNodeId));
+    }
+
+    [Fact]
     public async Task BeginSession_SelectsElementWithInteractiveEventsWhenNoFocusableAttribute()
     {
         var manager = new FocusManager();
@@ -294,6 +320,38 @@ public sealed class FocusManagerTests
         // Focus should be cleared
         manager.HasFocusables.ShouldBeFalse();
         manager.CurrentFocusKey.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task WaitForSnapshotAsync_CompletesOnceASnapshotWithThatSequenceIsProcessed()
+    {
+        var manager = new FocusManager();
+        var view = CreateView(["first"], focusedKey: null);
+        var observer = (IObserver<ConsoleRenderer.RenderSnapshot>)manager;
+        var snapshot = new ConsoleRenderer.RenderSnapshot(view.VdomRoot!, view.Renderable, view.AnimatedRenderables);
+        var token = TestContext.Current.CancellationToken;
+
+        manager.SnapshotSequence.ShouldBe(0);
+        (await manager.WaitForSnapshotAsync(0, TimeSpan.Zero, token)).ShouldBeTrue();
+
+        var waiting = manager.WaitForSnapshotAsync(3, TimeSpan.FromSeconds(30), token);
+        observer.OnNext(snapshot with { Sequence = 2 });
+        waiting.IsCompleted.ShouldBeFalse();
+
+        observer.OnNext(snapshot with { Sequence = 3 });
+        (await waiting).ShouldBeTrue();
+
+        // An older snapshot never lowers it, so a replay cannot make a caught-up manager wait again.
+        observer.OnNext(snapshot with { Sequence = 1 });
+        manager.SnapshotSequence.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task WaitForSnapshotAsync_ReturnsFalseWhenTheSnapshotDoesNotComeInTime()
+    {
+        var manager = new FocusManager();
+
+        (await manager.WaitForSnapshotAsync(5, TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken)).ShouldBeFalse();
     }
 
     [Fact]

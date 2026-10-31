@@ -55,6 +55,8 @@ public sealed class PtyTerminal : IAsyncDisposable
     private readonly string _commandDescription;
     private readonly TimeProvider _timeProvider;
     private readonly ITimer _synchronizedUpdateTimer;
+    private readonly PtyRawOutputObserver? _rawOutputObserver;
+    private readonly int _rawOutputCapacity;
 
     private volatile PtyTerminalFrame _currentFrame;
     private volatile PtyTerminalFrame[] _frames;
@@ -70,9 +72,19 @@ public sealed class PtyTerminal : IAsyncDisposable
     private long _heldUpdate;
     private long _heldUpdateStart;
 
+    // Guarded by _sync: every character read, including those trimmed from _rawOutput.
+    private long _rawOutputCount;
+
     private PtyTerminal(PtyConnection connection, PtyTerminalOptions options, string commandDescription, TimeProvider timeProvider)
     {
+        if (options.RawOutputCapacity is { } capacity)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(capacity, nameof(options));
+        }
+
         _connection = connection;
+        _rawOutputObserver = options.RawOutputObserver;
+        _rawOutputCapacity = options.RawOutputCapacity ?? int.MaxValue;
         _defaultTimeout = options.DefaultTimeout;
         _commandDescription = commandDescription;
         _timeProvider = timeProvider;
@@ -494,10 +506,11 @@ public sealed class PtyTerminal : IAsyncDisposable
         var frames = _frames;
         var exited = _connection.Exited;
         string rawTail;
-        int rawLength;
+        long rawCount;
         lock (_sync)
         {
-            rawLength = _rawOutput.Length;
+            rawCount = _rawOutputCount;
+            var rawLength = _rawOutput.Length;
             var start = Math.Max(0, rawLength - 2000);
             rawTail = _rawOutput.ToString(start, rawLength - start);
         }
@@ -508,7 +521,7 @@ public sealed class PtyTerminal : IAsyncDisposable
             exited.IsCompletedSuccessfully ? $"exited with code {exited.Result}"
             : exited.IsFaulted ? $"exited, exit code unknown ({exited.Exception?.InnerException?.Message})"
             : "running");
-        builder.Append("Output: ").Append(rawLength).Append(" chars, ")
+        builder.Append("Output: ").Append(rawCount).Append(" chars, ")
             .Append(_readerCompleted.Task.IsCompleted ? "ended" : "open")
             .Append(", last output ").Append((int)Stopwatch.GetElapsedTime(Interlocked.Read(ref _lastOutputTimestamp)).TotalMilliseconds)
             .AppendLine(" ms ago");
@@ -718,7 +731,7 @@ public sealed class PtyTerminal : IAsyncDisposable
                     var bytes = buffer.AsSpan(0, count);
                     _emulator.Feed(bytes);
                     var charCount = _rawDecoder.GetChars(bytes, chars, flush: false);
-                    _rawOutput.Append(chars, 0, charCount);
+                    AppendRawOutputLocked(chars.AsSpan(0, charCount));
                     CaptureAfterOutputLocked();
                     if (_pendingResponses.Count > 0)
                     {
@@ -743,8 +756,15 @@ public sealed class PtyTerminal : IAsyncDisposable
         {
             lock (_sync)
             {
-                var charCount = _rawDecoder.GetChars([], chars, flush: true);
-                _rawOutput.Append(chars, 0, charCount);
+                try
+                {
+                    var charCount = _rawDecoder.GetChars([], chars, flush: true);
+                    AppendRawOutputLocked(chars.AsSpan(0, charCount));
+                }
+                catch (Exception exception)
+                {
+                    _readerError ??= exception;
+                }
 
                 // The output has ended: capture what is on screen even inside an unfinished synchronized update.
                 _heldUpdate = 0;
@@ -754,6 +774,38 @@ public sealed class PtyTerminal : IAsyncDisposable
 
             _readerCompleted.TrySetResult();
         }
+    }
+
+    private void AppendRawOutputLocked(ReadOnlySpan<char> output)
+    {
+        if (output.IsEmpty)
+        {
+            return;
+        }
+
+        _rawOutputCount += output.Length;
+        var kept = output.Length > _rawOutputCapacity ? output[^_rawOutputCapacity..] : output;
+        var trimmed = kept.Length < output.Length;
+        if (trimmed)
+        {
+            _rawOutput.Clear();
+        }
+
+        _rawOutput.Append(kept);
+        var excess = _rawOutput.Length - _rawOutputCapacity;
+        if (excess > 0)
+        {
+            _rawOutput.Remove(0, excess);
+            trimmed = true;
+        }
+
+        // Never start the kept output with the second half of a surrogate pair.
+        if (trimmed && _rawOutput.Length > 0 && char.IsLowSurrogate(_rawOutput[0]))
+        {
+            _rawOutput.Remove(0, 1);
+        }
+
+        _rawOutputObserver?.Invoke(output);
     }
 
     private void CaptureAfterOutputLocked()
