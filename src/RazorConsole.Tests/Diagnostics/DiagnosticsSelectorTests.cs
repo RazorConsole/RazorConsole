@@ -50,6 +50,25 @@ public sealed class DiagnosticsSelectorTests
     }
 
     [Fact]
+    public void TextSelectors_MatchTheRenderedContentOfAMarkupElement()
+    {
+        // <Markup Content="[bold]Text [[Button]][/]"/> renders <span data-text="true" data-content="…"/>: no text node.
+        var markup = VNode.CreateElement("span");
+        markup.SetAttribute("data-text", "true");
+        markup.SetAttribute("data-content", "[bold]Text [[Button]][/]");
+        var plain = VNode.CreateElement("span");
+        plain.SetAttribute("data-content", "Hidden Button");
+        _root.AddChild(markup);
+        _root.AddChild(plain);
+
+        Match("text:Text [Button]").ShouldBe([markup]);
+        Match("text~:^Text").ShouldBe([markup]);
+        Match("text:bold").ShouldBeEmpty();
+        Match("text:Hidden").ShouldBeEmpty();
+        DiagnosticsTreeIndex.TextOf(_root)!.ShouldContain("Text [Button]");
+    }
+
+    [Fact]
     public void TagSelector_MatchesTheNameIgnoringCaseAndEveryAttributeFilter()
     {
         Match("tag:button").ShouldBe([_save, _cancel]);

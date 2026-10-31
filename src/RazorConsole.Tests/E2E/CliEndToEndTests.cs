@@ -430,14 +430,16 @@ public sealed class CliEndToEndTests
         var project = Path.Combine(FindRepositoryRoot(), "src", "RazorConsole.Tests.PtyApp");
 
         // The PtyApp targets net8.0 to net11.0, so a plain 'dotnet run' would ask which one in the pseudoterminal.
-        // The test run builds Release, so the host builds Release too (MSBuild reads the variable): an incremental build.
-        var environment = new Dictionary<string, string> { ["Configuration"] = "Release" };
-        var start = Ok(await cli.RunAsync(environment, "--json", "start", "--project", project, "--", "diag"));
+        // The test run builds Release, so the project is started with --configuration Release: an incremental build.
+        // (An environment variable would not do; the build runs in the session host, which may already be running.)
+        var start = Ok(await cli.RunAsync("--json", "start", "--project", project, "--configuration", "Release", "--", "diag"));
 
         var framework = start.GetProperty("framework").GetString();
         framework.ShouldNotBeNullOrEmpty();
         framework.ShouldStartWith("net");
+        start.GetProperty("configuration").GetString().ShouldBe("Release");
         start.GetProperty("command").GetString()!.ShouldContain("--framework " + framework);
+        start.GetProperty("command").GetString()!.ShouldContain("--configuration Release");
 
         // The app layer is up on the framework that was chosen, and the screen shows the app, not a prompt.
         Ok(await cli.RunAsync("--json", "wait", "--text", "App layer view"));

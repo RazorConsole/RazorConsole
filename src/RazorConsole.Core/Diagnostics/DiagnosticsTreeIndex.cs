@@ -130,6 +130,32 @@ internal sealed class DiagnosticsTreeIndex
         return text.Length <= MaxMatchTextLength ? text : string.Concat(text.AsSpan(0, MaxMatchTextLength - 1), "…");
     }
 
+    /// <summary>
+    /// The text a <c>Markup</c>-style element renders from its <c>data-content</c> attribute (an element with
+    /// <c>data-text</c> set), with the markup removed as on screen. <see langword="null"/> for any other node.
+    /// </summary>
+    public static string? RenderedText(VNode node)
+    {
+        if (node.Kind != VNodeKind.Element
+            || !node.Attributes.TryGetValue("data-text", out var flag)
+            || !string.Equals(flag, "true", StringComparison.OrdinalIgnoreCase)
+            || !node.Attributes.TryGetValue("data-content", out var content)
+            || content is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return string.IsNullOrWhiteSpace(content) ? content : Spectre.Console.Markup.Remove(content);
+        }
+        catch (InvalidOperationException)
+        {
+            // Malformed markup is shown as written.
+            return content;
+        }
+    }
+
     private static void AppendText(VNode node, StringBuilder builder)
     {
         if (builder.Length > MaxMatchTextLength)
@@ -137,20 +163,15 @@ internal sealed class DiagnosticsTreeIndex
             return;
         }
 
+        if (RenderedText(node) is { } rendered)
+        {
+            AppendCollapsed(rendered, builder);
+            return;
+        }
+
         if (node.Kind == VNodeKind.Text)
         {
-            foreach (var c in node.Text)
-            {
-                if (!char.IsWhiteSpace(c))
-                {
-                    builder.Append(c);
-                }
-                else if (builder.Length > 0 && builder[^1] != ' ')
-                {
-                    builder.Append(' ');
-                }
-            }
-
+            AppendCollapsed(node.Text, builder);
             return;
         }
 
@@ -163,6 +184,21 @@ internal sealed class DiagnosticsTreeIndex
             }
 
             AppendText(child, builder);
+        }
+    }
+
+    private static void AppendCollapsed(string text, StringBuilder builder)
+    {
+        foreach (var c in text)
+        {
+            if (!char.IsWhiteSpace(c))
+            {
+                builder.Append(c);
+            }
+            else if (builder.Length > 0 && builder[^1] != ' ')
+            {
+                builder.Append(' ');
+            }
         }
     }
 

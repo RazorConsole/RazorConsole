@@ -76,10 +76,25 @@ internal sealed class DiagnosticsSelector
     private static DiagnosticsSelector Element(Func<DiagnosticsTreeIndex, DiagnosticsTreeEntry, bool> predicate)
         => new((index, entry) => entry.Node.Kind == VNodeKind.Element && predicate(index, entry) ? entry : null);
 
+    // A text node selects the element above it; a Markup-style element holds its text in an attribute and selects itself.
     private static DiagnosticsSelector Text(Func<string, bool> matches)
-        => new((_, entry) => entry.Node.Kind == VNodeKind.Text && matches(entry.Node.Text)
-            ? DiagnosticsTreeIndex.NearestElement(entry.Parent)
-            : null);
+        => new((_, entry) =>
+        {
+            if (entry.Node.Kind == VNodeKind.Text)
+            {
+                return matches(entry.Node.Text) ? DiagnosticsTreeIndex.NearestElement(entry.Parent) : null;
+            }
+
+            return DiagnosticsTreeIndex.RenderedText(entry.Node) is { } rendered && matches(rendered) ? entry : null;
+        })
+        {
+            IsText = true,
+        };
+
+    /// <summary>
+    /// Whether this is a <c>text:</c> or <c>text~:</c> selector.
+    /// </summary>
+    public bool IsText { get; private init; }
 
     private static Regex CreateRegex(string selector, string pattern)
     {
