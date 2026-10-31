@@ -136,7 +136,7 @@ The first command that needs one starts a background **session host**: the same 
 
 Text selectors match the text in the component tree, which includes the content of `<Markup>` elements, with the markup removed. They do not see text that a component draws itself; `click --text` and `wait --text` match the screen.
 
-In the text output of `tree`, text is shown in quotes on one line with `\n`, `\r`, `\t` and quotes escaped, and whitespace-only text nodes are left out. `--json` keeps them.
+In the tree, a `<Markup>` element has a `text` field (`--json`) with its rendered content, the markup removed, like a text node has; its `data-content` attribute stays as it is. In the text output of `tree`, text is shown in quotes on one line with `\n`, `\r`, `\t` and quotes escaped, and whitespace-only text nodes are left out. `--json` keeps them.
 
 ## Output and exit codes
 

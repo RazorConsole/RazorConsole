@@ -37,11 +37,25 @@ public sealed class AppTextTests
     }
 
     [Fact]
+    public void Tree_PrintsTheTextOfAMarkupElementQuotedAndEscaped()
+    {
+        var tree = new TreeResult(
+            Node("div", Markup("Razor\"Console\"\r\n"), Markup("│")),
+            Frame: 1);
+
+        AppText.Tree(tree).Split(Environment.NewLine)
+            .ShouldBe(["div", "  span \"Razor\\\"Console\\\"\\r\\n\"", "  span \"│\""]);
+    }
+
+    [Fact]
     public void Find_WithoutMatches_IsAnEmptyList()
         => AppText.Find(new FindResult([], Frame: 1)).ShouldBe("no matches");
 
     private static DiagnosticsNode Node(string tag, params DiagnosticsNode[] children)
         => new() { Path = "/", Kind = "element", Tag = tag, Children = children };
+
+    private static DiagnosticsNode Markup(string text)
+        => new() { Path = "/", Kind = "element", Tag = "span", Text = text };
 
     private static DiagnosticsNode Node(string kind, string text)
         => new() { Path = "/", Kind = kind, Text = text };
