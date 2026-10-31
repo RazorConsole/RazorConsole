@@ -56,6 +56,8 @@ internal sealed class ConsoleRenderer(
     private bool _legacyPipelineWarningLogged;
     private RenderSnapshot _lastSnapshot = RenderSnapshot.Empty;
     private long _snapshotSequence;
+    private long _lastNotifiedSequence;
+    private long _frameRenderSequence;
     private bool _disposed;
 
     public override Dispatcher Dispatcher => _dispatcher;
@@ -75,7 +77,7 @@ internal sealed class ConsoleRenderer(
 
         var snapshot = Dispatcher.CheckAccess()
             ? CreateSnapshot()
-            : Dispatcher.InvokeAsync(CreateSnapshot).GetAwaiter().GetResult();
+            : Dispatcher.InvokeAsync(() => CreateSnapshot()).GetAwaiter().GetResult();
         _lastSnapshot = snapshot;
         return snapshot;
     }
@@ -191,7 +193,7 @@ internal sealed class ConsoleRenderer(
                 _componentRoots.Remove(componentId);
             }
 
-            var snapshot = CreateSnapshot();
+            var snapshot = CreateSnapshot(notifiesObservers: true);
             _lastSnapshot = snapshot;
             _pendingRender?.TrySetResult(snapshot);
             _pendingRender = null;
@@ -492,8 +494,20 @@ internal sealed class ConsoleRenderer(
         return slot;
     }
 
-    private RenderSnapshot CreateSnapshot()
-        => CreateTimedSnapshot() with { Sequence = Interlocked.Increment(ref _snapshotSequence) };
+    // The sequence is taken before the snapshot is built so the diagnostics frame can carry the notification that makes
+    // observers (FocusManager) match it: its own when it will be delivered, the last delivered one when it will not.
+    private RenderSnapshot CreateSnapshot(bool notifiesObservers = false)
+    {
+        var sequence = Interlocked.Increment(ref _snapshotSequence);
+        _frameRenderSequence = notifiesObservers ? sequence : Volatile.Read(ref _lastNotifiedSequence);
+        var snapshot = CreateTimedSnapshot() with { Sequence = sequence };
+        if (notifiesObservers)
+        {
+            Volatile.Write(ref _lastNotifiedSequence, sequence);
+        }
+
+        return snapshot;
+    }
 
     private RenderSnapshot CreateTimedSnapshot()
     {
@@ -597,7 +611,7 @@ internal sealed class ConsoleRenderer(
     {
         _vnodeIdAccessor?.UpdateSnapshot(rootNode);
         _vnodeLayoutAccessor?.UpdateSnapshot(rootNode, layouts, layoutParents);
-        return _diagnostics?.PublishFrame(rootNode, layouts, layoutParents);
+        return _diagnostics?.PublishFrame(rootNode, layouts, layoutParents, _frameRenderSequence);
     }
 
     private VNode? CreateRenderableRoot(VNode node)

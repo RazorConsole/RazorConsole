@@ -352,8 +352,6 @@ public sealed class CliEndToEndTests
         Ok(await cli.RunAsync("--json", "keys", "Enter", "--element", "hook:fail"));
         await Task.Delay(TimeSpan.FromSeconds(2.5), Token);
 
-        // Right after the exception the app can be between two renders with no focus targets for a moment.
-        await WaitForFocusTargetAsync(cli, "quit");
         Ok(await cli.RunAsync("--json", "keys", "Enter", "--element", "hook:quit"));
         Ok(await cli.RunAsync("--json", "wait", "--exit")).GetProperty("exitCode").GetInt32().ShouldBe(3);
 
@@ -426,22 +424,6 @@ public sealed class CliEndToEndTests
     }
 
     // The errors of the app so far, once there are at least this many (the app records them as it renders).
-    private static async Task WaitForFocusTargetAsync(CliE2E cli, string key)
-    {
-        var deadline = DateTimeOffset.UtcNow + Patience;
-        while (true)
-        {
-            var run = await cli.RunAsync("--json", "focus");
-            if (run.ExitCode == 0 && run.Json.GetProperty("targets").EnumerateArray().Any(target => target.GetProperty("key").GetString() == key))
-            {
-                return;
-            }
-
-            DateTimeOffset.UtcNow.ShouldBeLessThan(deadline, $"The focus target '{key}' did not appear. Last run: {run.Describe()}");
-            await Task.Delay(100, Token);
-        }
-    }
-
     private static async Task<IReadOnlyList<JsonElement>> ErrorsAsync(CliE2E cli, int count)
     {
         var deadline = DateTimeOffset.UtcNow + Patience;

@@ -486,10 +486,35 @@ internal sealed partial class Doctor(HostConnector connector, DoctorProbes probe
                 return Pass("host.socket", $"pipe {endpoint} opened as {identity.Name} with CurrentUserOnly (its ACL cannot be read from a client)");
             }
 
-            return others.Count == 0
-                ? Pass("host.socket", $"pipe {endpoint} allows only {identity.Name}")
-                : Fail("host.socket", $"pipe {endpoint} also allows {string.Join(", ", others)}");
+            var elevated = new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
+            return ClassifyPipeAccess(endpoint, identity.Name, others, elevated);
         }
+    }
+
+    private const string AdministratorsSid = "S-1-5-32-544";
+    private const string SystemSid = "S-1-5-18";
+
+    /// <summary>
+    /// Decides whether the principals other than the user that a host pipe allows are acceptable. A process that runs
+    /// elevated creates objects with BUILTIN\Administrators in their ACL, and SYSTEM is often there too. Both already
+    /// have full access to the whole machine, so they are no weaker than the user-only open; any other principal fails.
+    /// </summary>
+    internal static DoctorCheck ClassifyPipeAccess(string endpoint, string userName, IReadOnlyCollection<string> otherSids, bool elevated)
+    {
+        var unexpected = otherSids.Where(static sid => sid is not (AdministratorsSid or SystemSid)).ToList();
+        if (unexpected.Count > 0)
+        {
+            return Fail("host.socket", $"pipe {endpoint} also allows {string.Join(", ", unexpected)}");
+        }
+
+        if (otherSids.Count == 0)
+        {
+            return Pass("host.socket", $"pipe {endpoint} allows only {userName}");
+        }
+
+        var names = string.Join(" and ", otherSids.Select(static sid => sid == AdministratorsSid ? "Administrators" : "SYSTEM").Order(StringComparer.Ordinal));
+        var reason = elevated && otherSids.Contains(AdministratorsSid) ? " (the process is elevated)" : string.Empty;
+        return Pass("host.socket", $"pipe {endpoint} allows {userName}; it also allows {names}{reason}, which already have full access to this machine");
     }
 
     // A real session through the host: the same path as 'start', with a program that prints and exits.

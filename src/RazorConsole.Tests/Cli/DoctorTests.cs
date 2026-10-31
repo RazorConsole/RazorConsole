@@ -312,6 +312,51 @@ public sealed class DoctorTests : IAsyncDisposable
         }
     }
 
+    private const string Pipe = "razorconsole-host-test";
+    private const string User = @"DOMAIN\user";
+    private const string Administrators = "S-1-5-32-544";
+    private const string LocalSystem = "S-1-5-18";
+
+    [Fact]
+    public void PipeAccess_OfTheUserAlone_Passes()
+    {
+        var check = Doctor.ClassifyPipeAccess(Pipe, User, [], elevated: false);
+
+        check.Status.ShouldBe("pass");
+        check.Detail.ShouldBe($"pipe {Pipe} allows only {User}");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void PipeAccess_AlsoAllowingAdministratorsAndSystem_Passes_WhetherOrNotTheProcessIsElevated(bool elevated)
+    {
+        var check = Doctor.ClassifyPipeAccess(Pipe, User, [Administrators, LocalSystem], elevated);
+
+        check.Status.ShouldBe("pass");
+        check.Detail.ShouldContain("Administrators and SYSTEM");
+        check.Detail.ShouldContain("full access");
+        (check.Detail.Contains("the process is elevated", StringComparison.Ordinal)).ShouldBe(elevated);
+    }
+
+    [Fact]
+    public void PipeAccess_AlsoAllowingSystemOnly_Passes()
+    {
+        var check = Doctor.ClassifyPipeAccess(Pipe, User, [LocalSystem], elevated: false);
+
+        check.Status.ShouldBe("pass");
+        check.Detail.ShouldContain("also allows SYSTEM");
+    }
+
+    [Fact]
+    public void PipeAccess_AlsoAllowingAnotherPrincipal_Fails_NamingOnlyThatPrincipal()
+    {
+        var check = Doctor.ClassifyPipeAccess(Pipe, User, [Administrators, "S-1-5-21-1-2-3-1001", LocalSystem], elevated: true);
+
+        check.Status.ShouldBe("fail");
+        check.Detail.ShouldBe($"pipe {Pipe} also allows S-1-5-21-1-2-3-1001");
+    }
+
     private static IReadOnlyList<DoctorCheck> Checks(JsonElement data)
         => [.. data.GetProperty("checks").EnumerateArray().Select(static check => new DoctorCheck(
             check.GetProperty("name").GetString()!,

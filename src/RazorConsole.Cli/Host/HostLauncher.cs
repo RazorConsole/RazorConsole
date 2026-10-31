@@ -61,12 +61,20 @@ internal sealed class ProcessHostLauncher : IHostLauncher
     /// How to run this tool again: the apphost or <c>dotnet RazorConsole.Cli.dll</c>.
     /// </summary>
     internal static (string FileName, IReadOnlyList<string> Arguments) HostCommand()
+        => HostCommand(
+            Environment.ProcessPath ?? throw new InvalidOperationException("The tool's own path is unknown."),
+            AppContext.BaseDirectory);
+
+    /// <summary>
+    /// A native binary (the NativeAOT build) and the tool's apphost are themselves the program, so they run again with
+    /// the host verb; <c>dotnet RazorConsole.Cli.dll</c> (the framework-dependent form) needs the assembly too.
+    /// </summary>
+    internal static (string FileName, IReadOnlyList<string> Arguments) HostCommand(string processPath, string baseDirectory)
     {
-        var processPath = Environment.ProcessPath ?? throw new InvalidOperationException("The tool's own path is unknown.");
         var name = Path.GetFileNameWithoutExtension(processPath);
         if (string.Equals(name, "dotnet", StringComparison.OrdinalIgnoreCase))
         {
-            var assembly = Path.Combine(AppContext.BaseDirectory, typeof(ProcessHostLauncher).Assembly.GetName().Name + ".dll");
+            var assembly = Path.Combine(baseDirectory, typeof(ProcessHostLauncher).Assembly.GetName().Name + ".dll");
             return (processPath, [assembly, HostVerb]);
         }
 

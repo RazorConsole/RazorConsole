@@ -625,7 +625,14 @@ internal sealed class SessionHost
 
                 var session = Find(parameters.Session);
                 var timeout = parameters.TimeoutMs > 0 ? TimeSpan.FromMilliseconds(parameters.TimeoutMs) : DefaultAppTimeout;
-                var result = await session.App.CallAsync(parameters.Method, parameters.Params, timeout, cancellationToken).ConfigureAwait(false);
+
+                // A key that is not a focus target yet may become one in the next frames; the other verbs answer as they are.
+                var result = parameters.Method == DiagnosticsAppMethods.FocusSet
+                    ? await HostSession.WaitForElementAsync(
+                        callTimeout => session.App.CallAsync(parameters.Method, parameters.Params, callTimeout, cancellationToken),
+                        timeout,
+                        cancellationToken).ConfigureAwait(false)
+                    : await session.App.CallAsync(parameters.Method, parameters.Params, timeout, cancellationToken).ConfigureAwait(false);
                 return Success(id, session.AdjustAppResult(parameters.Method, result), json.JsonElement);
             }
 

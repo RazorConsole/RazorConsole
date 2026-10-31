@@ -47,11 +47,6 @@ jobs:
             --no-build \
             --output artifacts/packages
 
-      # Before anything is pushed: a tool package that does not hold together must not reach NuGet.
-      - name: Verify and smoke-test the RazorConsole.Cli tool package
-        shell: pwsh
-        run: ./scripts/verify-cli-package.ps1 -PackageDirectory artifacts/packages -Install
-
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4
         with:

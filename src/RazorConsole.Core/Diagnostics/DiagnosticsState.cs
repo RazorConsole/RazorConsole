@@ -54,9 +54,10 @@ internal sealed class DiagnosticsState
     public DiagnosticsFrame PublishFrame(
         VNode? root,
         IReadOnlyCollection<VNodeLayoutInfo>? layouts,
-        IReadOnlyDictionary<string, string?>? layoutParents)
+        IReadOnlyDictionary<string, string?>? layoutParents,
+        long renderSequence = 0)
     {
-        var frame = new DiagnosticsFrame(Interlocked.Increment(ref _frameSequence), root, layouts, layoutParents);
+        var frame = new DiagnosticsFrame(Interlocked.Increment(ref _frameSequence), root, layouts, layoutParents, renderSequence);
         Volatile.Write(ref _latestFrame, frame);
         return frame;
     }
@@ -95,11 +96,16 @@ internal sealed class DiagnosticsState
 /// <param name="Root">The rendered tree, or <see langword="null"/> when nothing is mounted.</param>
 /// <param name="Layouts">Layout per node, or <see langword="null"/> on the legacy pipeline.</param>
 /// <param name="LayoutParents">Layout parent per node ID, when the pipeline provides it.</param>
+/// <param name="RenderSequence">
+/// The render snapshot sequence observers must have processed to match this frame, or 0 when there is nothing to wait for.
+/// Observers get snapshots asynchronously, so a frame can be published before the focus manager has seen it.
+/// </param>
 internal sealed record DiagnosticsFrame(
     long Sequence,
     VNode? Root,
     IReadOnlyCollection<VNodeLayoutInfo>? Layouts,
-    IReadOnlyDictionary<string, string?>? LayoutParents);
+    IReadOnlyDictionary<string, string?>? LayoutParents,
+    long RenderSequence = 0);
 
 /// <summary>
 /// The renderer's canvas as last painted, with the frame whose tree and layout it shows.

@@ -57,6 +57,7 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
     private const int MaxClickCount = 3;
     private static readonly TimeSpan RejectTimeout = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan DefaultInputTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan FocusCatchUpTimeout = TimeSpan.FromSeconds(2);
 
     private readonly DiagnosticsState? _state;
     private readonly ConsoleAppOptions _options;
@@ -315,7 +316,7 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
                 DiagnosticsAppMethods.FocusSet or DiagnosticsAppMethods.FocusNext or DiagnosticsAppMethods.FocusPrevious
                     or DiagnosticsAppMethods.Navigate when _renderer is not null
                     => await ChangeAsync(message, id, cancellationToken).ConfigureAwait(false),
-                _ => Dispatch(message, id),
+                _ => await DispatchAsync(message, id, cancellationToken).ConfigureAwait(false),
             };
             await WriteResponseAsync(connection, id, result, cancellationToken).ConfigureAwait(false);
         }
@@ -357,7 +358,33 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         return (DiagnosticsMessage.Success(id, result, DiagnosticsJsonContext.Default.HelloResult), true);
     }
 
-    private DiagnosticsMessage Dispatch(DiagnosticsMessage message, long id)
+    // The renderer publishes a frame before it hands the render to the focus manager, which then updates its targets on
+    // another thread. Answers that mix the two wait (bounded) until the focus manager has seen the frame they read, and
+    // read exactly that frame, so a node never shows up without the focus key it already has.
+    private async Task<DiagnosticsMessage> DispatchAsync(DiagnosticsMessage message, long id, CancellationToken cancellationToken)
+    {
+        DiagnosticsFrame? frame = null;
+        if (message.Method is DiagnosticsAppMethods.Tree or DiagnosticsAppMethods.Find or DiagnosticsAppMethods.Inspect
+            or DiagnosticsAppMethods.InspectAt or DiagnosticsAppMethods.Focus)
+        {
+            frame = await WaitForFocusToCatchUpAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return Dispatch(message, id, frame);
+    }
+
+    private async Task<DiagnosticsFrame?> WaitForFocusToCatchUpAsync(CancellationToken cancellationToken)
+    {
+        var frame = _state!.LatestFrame;
+        if (frame is { RenderSequence: > 0 })
+        {
+            await _focusManager.WaitForSnapshotAsync(frame.RenderSequence, FocusCatchUpTimeout, cancellationToken).ConfigureAwait(false);
+        }
+
+        return frame;
+    }
+
+    private DiagnosticsMessage Dispatch(DiagnosticsMessage message, long id, DiagnosticsFrame? frame)
     {
         var queries = _queries!;
         var context = DiagnosticsJsonContext.Default;
@@ -365,9 +392,9 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         {
             return message.Method switch
             {
-                DiagnosticsAppMethods.Tree => Success(id, queries.Tree(message.GetParams(context.TreeParams) ?? new TreeParams()), context.TreeResult),
-                DiagnosticsAppMethods.Find => Success(id, queries.Find(Required(message, context.FindParams)), context.FindResult),
-                DiagnosticsAppMethods.Inspect => Success(id, queries.Inspect(Required(message, context.InspectParams)), context.InspectResult),
+                DiagnosticsAppMethods.Tree => Success(id, queries.Tree(message.GetParams(context.TreeParams) ?? new TreeParams(), frame), context.TreeResult),
+                DiagnosticsAppMethods.Find => Success(id, queries.Find(Required(message, context.FindParams), frame), context.FindResult),
+                DiagnosticsAppMethods.Inspect => Success(id, queries.Inspect(Required(message, context.InspectParams), frame), context.InspectResult),
                 DiagnosticsAppMethods.InspectAt => Success(id, queries.InspectAt(Required(message, context.InspectAtParams)), context.InspectAtResult),
                 DiagnosticsAppMethods.Focus => Success(id, queries.Focus(), context.FocusResult),
                 DiagnosticsAppMethods.Route => Success(id, queries.Route(), context.RouteResult),
@@ -406,6 +433,11 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
             timeout.CancelAfter(DefaultInputTimeout);
             try
             {
+                if (message.Method != DiagnosticsAppMethods.Navigate)
+                {
+                    await WaitForFocusToCatchUpAsync(timeout.Token).ConfigureAwait(false);
+                }
+
                 switch (message.Method)
                 {
                     case DiagnosticsAppMethods.FocusSet:
