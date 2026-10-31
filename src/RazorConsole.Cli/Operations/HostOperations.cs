@@ -129,6 +129,7 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
         var name = request.Name ?? ResolveSession(options);
         var result = await OnHostAsync(
             name,
+            options.Timeout,
             client => client.RequestAsync(
                 HostMethods.Stop,
                 new StopParams(name, Milliseconds(request.Timeout)),
@@ -148,6 +149,7 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
         var name = request.Name ?? ResolveSession(options);
         var info = await OnHostAsync(
             name,
+            options.Timeout,
             client => client.RequestAsync(
                 HostMethods.Restart,
                 new RestartParams(name, Milliseconds(options.Timeout)),
@@ -300,6 +302,7 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
         var deadline = Deadline(options.Timeout);
         var (data, text) = await OnHostAsync(
             name,
+            options.Timeout,
             async client =>
             {
                 switch (request)
@@ -458,6 +461,7 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
         var name = request.Name ?? ResolveSession(options);
         var result = await OnHostAsync(
             name,
+            options.Timeout,
             client => client.RequestAsync(
                 HostMethods.Detach,
                 new SessionParams(name),
@@ -482,6 +486,7 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
         // The host sends progress while it waits; the answer is what the CLI reports, so it is only drained here.
         var result = await OnHostAsync(
             name,
+            options.Timeout,
             client => client.RequestAsync(
                 HostMethods.Wait,
                 new WaitParams(name, spec, Milliseconds(options.Timeout)),
@@ -502,6 +507,7 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
         var json = HostJsonContext.Default;
         var result = await OnHostAsync(
             name,
+            options.Timeout,
             client => client.RequestAsync(
                 HostMethods.Assert,
                 new AssertParams(name, spec, request.Not, Milliseconds(options.Timeout)),
@@ -534,7 +540,7 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
             _ => Call(DiagnosticsAppMethods.Stats),
         };
 
-        var raw = await OnHostAsync(name, client => AppRequestAsync(client, name, method, parameters, options.Timeout, cancellationToken), cancellationToken).ConfigureAwait(false);
+        var raw = await OnHostAsync(name, options.Timeout, client => AppRequestAsync(client, name, method, parameters, options.Timeout, cancellationToken), cancellationToken).ConfigureAwait(false);
         switch (request)
         {
             case TreeRequest:
@@ -605,7 +611,7 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
 
         if (!follow || stream is null)
         {
-            var raw = await OnHostAsync(name, client => AppRequestAsync(client, name, method, Parameters(since), options.Timeout, cancellationToken), cancellationToken).ConfigureAwait(false);
+            var raw = await OnHostAsync(name, options.Timeout, client => AppRequestAsync(client, name, method, Parameters(since), options.Timeout, cancellationToken), cancellationToken).ConfigureAwait(false);
             var lines = raw.GetProperty(items).EnumerateArray().Select(Line).ToList();
             return CliResult.Success(name, raw, lines.Count == 0 ? (logs is null ? "no errors" : "no log entries") : string.Join('\n', lines));
         }
@@ -619,6 +625,7 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
 
         return await OnHostAsync(
             name,
+            options.Timeout,
             async client =>
             {
                 try
@@ -648,9 +655,10 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
         => options.Session ?? Files.TryReadCurrent() ?? throw NoSession(null);
 
     // Runs one call against a running host; without one, the session cannot exist.
-    private async Task<T> OnHostAsync<T>(string session, Func<HostClient, Task<T>> call, CancellationToken cancellationToken)
+    // A host that holds its lock is waited for up to the command's timeout; only a missing host means no session.
+    private async Task<T> OnHostAsync<T>(string session, TimeSpan timeout, Func<HostClient, Task<T>> call, CancellationToken cancellationToken)
     {
-        var client = await connector.ConnectExistingAsync(cancellationToken).ConfigureAwait(false) ?? throw NoSession(session);
+        var client = await connector.ConnectExistingAsync(timeout, cancellationToken).ConfigureAwait(false) ?? throw NoSession(session);
         await using (client.ConfigureAwait(false))
         {
             return await call(client).ConfigureAwait(false);

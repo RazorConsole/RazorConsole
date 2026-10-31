@@ -21,6 +21,13 @@ internal sealed class HostFiles(string stateDirectory)
 
     public string InfoFile => Path.Combine(StateDirectory, "host.json");
 
+    public string LogFile => Path.Combine(StateDirectory, "host.log");
+
+    public string RotatedLogFile => LogFile + ".1";
+
+    /// <summary>The size at which <see cref="LogFile"/> moves to <see cref="RotatedLogFile"/>; one rotated file is kept.</summary>
+    public const long MaxLogBytes = 1024 * 1024;
+
     public string CurrentFile => Path.Combine(StateDirectory, "current");
 
     public string SessionsDirectory => Path.Combine(StateDirectory, "sessions");
@@ -153,6 +160,32 @@ internal sealed class HostFiles(string stateDirectory)
             throw;
         }
     }
+
+    /// <summary>
+    /// Appends a line to the host's log, which holds what would otherwise vanish with the background process: an
+    /// unexpected failure that ended the host or one of its connections. Never throws.
+    /// </summary>
+    public void TryAppendLog(string message, Exception? exception = null)
+    {
+        try
+        {
+            var line = $"{DateTimeOffset.UtcNow:O} {message}{(exception is null ? string.Empty : Environment.NewLine + exception)}{Environment.NewLine}";
+            lock (LogSync)
+            {
+                if (File.Exists(LogFile) && new FileInfo(LogFile).Length >= MaxLogBytes)
+                {
+                    File.Move(LogFile, RotatedLogFile, overwrite: true);
+                }
+
+                File.AppendAllText(LogFile, line);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static readonly object LogSync = new();
 
     public static void TryDelete(string path)
     {

@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using RazorConsole.Core.Diagnostics.Protocol;
 
@@ -152,11 +153,14 @@ internal abstract class HostSession : IAsyncDisposable
     /// Runs <paramref name="attempt"/> until it stops failing with an element that is not there yet: not found, not
     /// focusable or not visible. An app draws and registers its focus targets a moment after it starts, so an element
     /// can be missing for a few frames. After <paramref name="timeout"/> the last such error is thrown as it is; any
-    /// other error (an ambiguous selector, an exited process) is thrown at once.
+    /// other error (an ambiguous selector, an exited process) is thrown at once. The last attempts get a short call
+    /// timeout, so one that runs out after the element was already missing ends the wait with that error: an element
+    /// that never matches is <c>element_not_found</c>, not <c>timeout</c>.
     /// </summary>
     internal static async Task<T> WaitForElementAsync<T>(Func<TimeSpan, Task<T>> attempt, TimeSpan timeout, CancellationToken cancellationToken)
     {
         var started = Stopwatch.GetTimestamp();
+        DiagnosticsProtocolException? lastNotReady = null;
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -167,7 +171,12 @@ internal abstract class HostSession : IAsyncDisposable
             }
             catch (DiagnosticsProtocolException ex) when (IsElementNotReady(ex.Code) && remaining > ElementPollInterval)
             {
+                lastNotReady = ex;
                 await Task.Delay(ElementPollInterval, cancellationToken).ConfigureAwait(false);
+            }
+            catch (DiagnosticsProtocolException ex) when (ex.Code == DiagnosticsErrorCodes.Timeout && lastNotReady is not null)
+            {
+                ExceptionDispatchInfo.Throw(lastNotReady);
             }
         }
     }

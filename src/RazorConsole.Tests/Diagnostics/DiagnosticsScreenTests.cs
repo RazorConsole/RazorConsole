@@ -142,21 +142,27 @@ public sealed class DiagnosticsScreenTests
     }
 
     [Fact]
-    public async Task Frame_PaintsOnceWhenRequestsAskForItConcurrently()
+    public void Frame_PaintsOnceWhenRequestsAskForItConcurrently()
     {
         const int Requests = 16;
         var state = new DiagnosticsState();
         var widget = new DrawWidget(4, 1, _ => Thread.Sleep(20));
         var frame = widget.Publish(state);
-        using var start = new Barrier(Requests);
+        var canvases = new TerminalCanvas?[Requests];
 
-        var canvases = await Task.WhenAll(Enumerable.Range(0, Requests).Select(_ => Task.Run(
-            () =>
-            {
-                start.SignalAndWait();
-                return frame.PaintCanvas();
-            },
-            TestContext.Current.CancellationToken)));
+        // Dedicated threads: blocking this many thread-pool threads on a barrier starves every other test in the
+        // process for seconds (the pool adds about two threads a second beyond its minimum).
+        using var start = new Barrier(Requests);
+        var threads = Enumerable.Range(0, Requests).Select(i => new Thread(() =>
+        {
+            start.SignalAndWait();
+            canvases[i] = frame.PaintCanvas();
+        })
+        {
+            IsBackground = true,
+        }).ToList();
+        threads.ForEach(thread => thread.Start());
+        threads.ForEach(thread => thread.Join());
 
         widget.Paints.ShouldBe(1);
         canvases[0].ShouldNotBeNull();

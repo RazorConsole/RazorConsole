@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RazorConsole.Core.Rendering;
 
 namespace RazorConsole.Core.Diagnostics;
@@ -25,14 +26,17 @@ namespace RazorConsole.Core.Diagnostics;
 /// when they differ builds a new snapshot and publishes that as a frame.
 /// </para>
 /// </remarks>
-internal sealed class DiagnosticsSnapshotObserver(
+internal sealed partial class DiagnosticsSnapshotObserver(
     DiagnosticsState? state,
     ConsoleRenderer renderer,
-    ITerminalViewport? viewport = null) : IObserver<ConsoleRenderer.RenderSnapshot>, IHostedService, IDisposable
+    ITerminalViewport? viewport = null,
+    ILogger<DiagnosticsSnapshotObserver>? logger = null) : IObserver<ConsoleRenderer.RenderSnapshot>, IHostedService, IDisposable
 {
     private readonly Lock _sync = new();
     private IDisposable? _subscription;
+    private bool _replaying;
     private long _lastDeliveredSequence;
+    private long _latestSnapshotSequence;
 
     /// <summary>
     /// Subscribes to the renderer. The renderer replays its last snapshot right away.
@@ -46,7 +50,20 @@ internal sealed class DiagnosticsSnapshotObserver(
 
         lock (_sync)
         {
-            _subscription ??= renderer.Subscribe(this);
+            if (_subscription is not null)
+            {
+                return;
+            }
+
+            _replaying = true;
+            try
+            {
+                _subscription = renderer.Subscribe(this);
+            }
+            finally
+            {
+                _replaying = false;
+            }
         }
     }
 
@@ -72,9 +89,23 @@ internal sealed class DiagnosticsSnapshotObserver(
 
         lock (_sync)
         {
-            _lastDeliveredSequence = Math.Max(_lastDeliveredSequence, snapshot.Sequence);
-            state!.RecordDeliveredFrame();
-            Publish(snapshot, snapshot.Sequence, viewport?.Width ?? 0, viewport?.Height ?? 0);
+            // The replay on subscribing is the renderer's last snapshot, which can be one built for a hit test or a
+            // resize that no observer is ever told about. The focus manager never reaches its sequence, so the frame
+            // names none to wait for. A snapshot that is delivered later replaces it with its own.
+            var replayed = _replaying;
+            if (!replayed)
+            {
+                _lastDeliveredSequence = Math.Max(_lastDeliveredSequence, snapshot.Sequence);
+                state!.RecordDeliveredFrame();
+            }
+
+            // Snapshots can arrive out of order (a replay racing a delivery, or a refresh built meanwhile); the
+            // frame never goes back to an older one.
+            if (snapshot.Sequence >= _latestSnapshotSequence)
+            {
+                _latestSnapshotSequence = snapshot.Sequence;
+                Publish(snapshot, replayed ? 0 : snapshot.Sequence, viewport?.Width ?? 0, viewport?.Height ?? 0);
+            }
         }
     }
 
@@ -90,7 +121,8 @@ internal sealed class DiagnosticsSnapshotObserver(
     /// </summary>
     /// <remarks>
     /// The new snapshot is not delivered to the other observers, so the frame keeps waiting for the last delivered
-    /// sequence: focus keys do not change with the size.
+    /// sequence: focus keys do not change with the size. A failure here is logged, and the request is answered from
+    /// the latest frame: diagnostics never take the request, or the app, down.
     /// </remarks>
     public void EnsureCurrent()
     {
@@ -100,23 +132,31 @@ internal sealed class DiagnosticsSnapshotObserver(
             return;
         }
 
-        lock (_sync)
+        // Read before refreshing: a resize during the refresh leaves the frame stale, and the next request fixes it.
+        var width = viewport.Width;
+        var height = viewport.Height;
+        try
         {
-            // Read before refreshing: a resize during the refresh leaves the frame stale, and the next request fixes it.
-            var width = viewport.Width;
-            var height = viewport.Height;
-            if (state.LatestFrame is not { } current || (current.ViewportWidth == width && current.ViewportHeight == height))
+            // Not under the lock: building the snapshot waits for the renderer's dispatcher.
+            var snapshot = renderer.RefreshSnapshot();
+            lock (_sync)
             {
-                return;
+                if (snapshot.Sequence >= _latestSnapshotSequence)
+                {
+                    _latestSnapshotSequence = snapshot.Sequence;
+                    Publish(snapshot, _lastDeliveredSequence, width, height);
+                }
             }
-
-            try
+        }
+        catch (ObjectDisposedException)
+        {
+            // The app is shutting down; the latest frame is all there is.
+        }
+        catch (Exception ex)
+        {
+            if (logger is not null)
             {
-                Publish(renderer.RefreshSnapshot(), _lastDeliveredSequence, width, height);
-            }
-            catch (ObjectDisposedException)
-            {
-                // The app is shutting down; the latest frame is all there is.
+                LogRefreshFailed(logger, ex);
             }
         }
     }
@@ -139,4 +179,7 @@ internal sealed class DiagnosticsSnapshotObserver(
             renderSequence,
             width,
             height);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Diagnostics could not rebuild the frame after a resize; answering from the previous one.")]
+    private static partial void LogRefreshFailed(ILogger logger, Exception exception);
 }

@@ -110,6 +110,48 @@ public sealed class DiagnosticsHooksTests
     }
 
     [Fact]
+    public async Task Observer_StartedAfterARefresh_PublishesTheReplayWithNothingToWaitFor()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var state = new DiagnosticsState();
+        using var renderer = CreateRenderer();
+        var focus = new RazorConsole.Core.Focus.FocusManager();
+        using var focusSubscription = renderer.Subscribe(focus);
+        var mounted = await renderer.MountComponentAsync<HelloComponent>(ParameterView.Empty, ct);
+        (await focus.WaitForSnapshotAsync(mounted.Sequence, TimeSpan.FromSeconds(30), ct)).ShouldBeTrue();
+
+        // A resize or a hit test builds a snapshot that no observer is ever told about; Subscribe replays it.
+        var refreshed = renderer.RefreshSnapshot();
+        refreshed.Sequence.ShouldBeGreaterThan(focus.SnapshotSequence);
+        using var observer = new DiagnosticsSnapshotObserver(state, renderer);
+        observer.Start();
+
+        // The focus manager can never reach the replayed sequence, so a frame carrying it would make every request
+        // wait out its catch-up timeout.
+        var frame = state.LatestFrame.ShouldNotBeNull();
+        frame.Root.ShouldBeSameAs(refreshed.Root);
+        frame.RenderSequence.ShouldBeLessThanOrEqualTo(focus.SnapshotSequence);
+    }
+
+    [Fact]
+    public void Observer_NeverReplacesANewerFrameWithAnOlderSnapshot()
+    {
+        var state = new DiagnosticsState();
+        using var renderer = CreateRenderer();
+        using var observer = new DiagnosticsSnapshotObserver(state, renderer);
+        var newer = new ConsoleRenderer.RenderSnapshot(VNode.CreateElement("div"), null, []) { Sequence = 5 };
+        var older = new ConsoleRenderer.RenderSnapshot(VNode.CreateElement("span"), null, []) { Sequence = 3 };
+
+        observer.OnNext(newer);
+        var frame = state.LatestFrame.ShouldNotBeNull();
+        observer.OnNext(older);
+
+        state.LatestFrame.ShouldBeSameAs(frame);
+        frame.RenderSequence.ShouldBe(5);
+        state.Frames.ShouldBe(2);
+    }
+
+    [Fact]
     public void Observer_WithoutState_SubscribesToNothing()
     {
         using var renderer = CreateRenderer();

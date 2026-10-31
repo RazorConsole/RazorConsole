@@ -91,7 +91,13 @@ internal sealed class SessionHost
             WriteInfo(listener.Endpoint);
             var accepting = AcceptAsync(listener, stop.Token);
             var idle = WatchIdleAsync(stop.Token);
-            await Task.WhenAny(accepting, idle, Task.Delay(Timeout.Infinite, stop.Token)).ConfigureAwait(false);
+            var finished = await Task.WhenAny(accepting, idle, Task.Delay(Timeout.Infinite, stop.Token)).ConfigureAwait(false);
+            if (finished.IsFaulted)
+            {
+                // Nobody waits on the host: without this, a crash here would only show as "the host is not running".
+                _files.TryAppendLog("The session host stopped because its accept or idle loop failed.", finished.Exception!.GetBaseException());
+            }
+
             await stop.CancelAsync().ConfigureAwait(false);
             await QuietlyAsync(accepting).ConfigureAwait(false);
             await QuietlyAsync(idle).ConfigureAwait(false);
@@ -294,7 +300,6 @@ internal sealed class SessionHost
                 continue;
             }
 
-            Interlocked.Increment(ref _clients);
             var connection = ServeAsync(stream, cancellationToken);
             lock (_connections)
             {
@@ -304,8 +309,10 @@ internal sealed class SessionHost
         }
     }
 
-    private async Task ServeAsync(Stream stream, CancellationToken cancellationToken)
+    // Counted from the first statement, which runs before the caller continues, so the idle watch never sees a gap.
+    internal async Task ServeAsync(Stream stream, CancellationToken cancellationToken)
     {
+        Interlocked.Increment(ref _clients);
         using var closed = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var requests = new ConcurrentDictionary<long, (CancellationTokenSource Cancellation, Task Task)>();
         try
@@ -317,9 +324,14 @@ internal sealed class SessionHost
             await closed.CancelAsync().ConfigureAwait(false);
             await QuietlyAsync(Task.WhenAll(requests.Values.Select(static request => request.Task))).ConfigureAwait(false);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Ends this connection only; requests see the cancellation.
+            if (ex is not (IOException or OperationCanceledException or ObjectDisposedException))
+            {
+                _files.TryAppendLog("A client connection to the session host failed and was closed.", ex);
+            }
+
             await closed.CancelAsync().ConfigureAwait(false);
         }
         finally

@@ -387,7 +387,17 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         var frame = _state!.LatestFrame;
         if (frame is { RenderSequence: > 0 })
         {
-            await _focusManager.WaitForSnapshotAsync(frame.RenderSequence, FocusCatchUpTimeout, cancellationToken).ConfigureAwait(false);
+            if (!await _focusManager.WaitForSnapshotAsync(frame.RenderSequence, FocusCatchUpTimeout, cancellationToken).ConfigureAwait(false))
+            {
+                // Answered all the same, but not silently: the focus keys in this answer may be missing or stale.
+                LogFocusCatchUpTimedOut(_logger, frame.RenderSequence, _focusManager.SnapshotSequence);
+            }
+
+            // A newer frame that the focus manager has also reached describes the app better than the one waited for.
+            if (_state.LatestFrame is { } latest && latest.RenderSequence <= _focusManager.SnapshotSequence)
+            {
+                frame = latest;
+            }
         }
 
         return frame;
@@ -812,6 +822,9 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Diagnostics request {Method} failed.")]
     private static partial void LogRequestFailed(ILogger logger, string? method, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The focus manager did not reach render snapshot {Wanted} within the catch-up time (it is at {Reached}); focus keys in the answer may be missing.")]
+    private static partial void LogFocusCatchUpTimedOut(ILogger logger, long wanted, long reached);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Diagnostics discovery file {Path} could not be deleted.")]
     private static partial void LogDiscoveryFileNotDeleted(ILogger logger, string path, Exception exception);

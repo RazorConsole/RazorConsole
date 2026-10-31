@@ -44,6 +44,34 @@ public sealed class HostElementWaitTests
         error.Message.ShouldBe($"attempt {attempts}");
     }
 
+    [Fact]
+    public async Task AnAttemptThatTimesOutWhileTheElementIsStillMissing_FailsWithTheMissingElement_NotTimeout()
+    {
+        // The last attempt gets a short call timeout; a slow app answer must not turn "not found" into "timeout".
+        var attempts = 0;
+
+        var error = await Should.ThrowAsync<DiagnosticsProtocolException>(() => HostSession.WaitForElementAsync<string>(
+            _ => ++attempts == 1
+                ? throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.ElementNotFound, "No node matches the selector.")
+                : throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.Timeout, "The app did not answer inspect within 1s."),
+            TimeSpan.FromSeconds(30),
+            Token));
+
+        error.Code.ShouldBe(DiagnosticsErrorCodes.ElementNotFound);
+        attempts.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task AnAttemptThatTimesOutBeforeAnyElementError_StaysATimeout()
+    {
+        var error = await Should.ThrowAsync<DiagnosticsProtocolException>(() => HostSession.WaitForElementAsync<string>(
+            _ => throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.Timeout, "The app did not answer inspect within 1s."),
+            TimeSpan.FromSeconds(30),
+            Token));
+
+        error.Code.ShouldBe(DiagnosticsErrorCodes.Timeout);
+    }
+
     [Theory]
     [InlineData(DiagnosticsErrorCodes.AmbiguousSelector)]
     [InlineData(DiagnosticsErrorCodes.InvalidParams)]

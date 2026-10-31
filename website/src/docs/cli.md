@@ -88,7 +88,7 @@ The first command that needs one starts a background **session host**: the same 
 
 | | |
 | --- | --- |
-| `RAZORCONSOLE_CLI_HOME` | The directory for the host's files (lock, socket, discovery files). Default: `%LOCALAPPDATA%\RazorConsole\cli` on Windows, `$TMPDIR/razorconsole` on macOS, `$XDG_RUNTIME_DIR/razorconsole` or `~/.cache/razorconsole/run` on Linux. Use a private one per CI job. |
+| `RAZORCONSOLE_CLI_HOME` | The directory for the host's files (lock, socket, discovery files, and `host.log`, where the host records an unexpected failure that ended it or a client connection; it is capped at 1 MiB and the previous one is kept as `host.log.1`). Default: `%LOCALAPPDATA%\RazorConsole\cli` on Windows, `$TMPDIR/razorconsole` on macOS, `$XDG_RUNTIME_DIR/razorconsole` or `~/.cache/razorconsole/run` on Linux. Use a private one per CI job. |
 | `RAZORCONSOLE_SESSION` | The session to use when `-s` is not given. |
 
 `list` shows the sessions, `use <name>` changes the current one, `restart` stops a session and starts it again with the same options, and `resize <cols> <rows>` resizes its terminal.

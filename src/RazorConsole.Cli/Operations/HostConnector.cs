@@ -1,5 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using RazorConsole.Cli.Host;
@@ -21,6 +22,7 @@ internal sealed class HostConnector(HostFiles files, IHostLauncher launcher, str
 
     private static readonly TimeSpan Probe = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan MaxBackoff = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan RelaunchAfter = TimeSpan.FromSeconds(1.5);
     private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(10);
 
@@ -42,6 +44,38 @@ internal sealed class HostConnector(HostFiles files, IHostLauncher launcher, str
         }
 
         return await HostClient.TryConnectAsync(Files.Endpoint, ClientVersion, Probe, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Connects to a running host like <see cref="ConnectExistingAsync(CancellationToken)"/>, but a host that holds its
+    /// lock without answering is alive, only slow (busy, or still starting): the connection is retried with a short
+    /// backoff for up to <paramref name="patience"/>.
+    /// </summary>
+    /// <returns><see langword="null"/> when no host holds the lock.</returns>
+    /// <exception cref="DiagnosticsProtocolException"><c>host_unavailable</c> when the host holds the lock but never answered.</exception>
+    public async Task<HostClient?> ConnectExistingAsync(TimeSpan patience, CancellationToken cancellationToken)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var backoff = PollInterval;
+        while (true)
+        {
+            var client = await ConnectExistingAsync(cancellationToken).ConfigureAwait(false);
+            if (client is not null || !Files.IsLocked())
+            {
+                return client;
+            }
+
+            var remaining = patience - Stopwatch.GetElapsedTime(started);
+            if (remaining <= TimeSpan.Zero)
+            {
+                throw new DiagnosticsProtocolException(
+                    DiagnosticsErrorCodes.HostUnavailable,
+                    $"The session host is running but did not answer within {patience.TotalSeconds:0.###}s. Try again, or stop it with 'razorconsole host stop'.");
+            }
+
+            await Task.Delay(remaining < backoff ? remaining : backoff, cancellationToken).ConfigureAwait(false);
+            backoff = TimeSpan.FromTicks(Math.Min(backoff.Ticks * 2, MaxBackoff.Ticks));
+        }
     }
 
     /// <summary>
