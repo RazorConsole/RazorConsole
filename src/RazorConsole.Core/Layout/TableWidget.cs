@@ -131,6 +131,17 @@ public sealed class TableWidget : Widget
         {
             cell.Child.Paint(context);
         }
+
+        foreach (var row in BodyRows)
+        {
+            if (row.Background is { } background)
+            {
+                var inset = HasBorder ? 1 : 0;
+                context.Canvas.ApplyBackground(
+                    new LayoutRect(row.Bounds.X + inset, row.Bounds.Y, Math.Max(0, row.Bounds.Width - 2 * inset), row.Bounds.Height),
+                    background);
+            }
+        }
     }
 
     public override LayoutBox CreateLayoutBox()
@@ -180,12 +191,19 @@ public sealed class TableWidget : Widget
         var preferred = widths.Sum();
         if (available >= preferred)
         {
+            // Like Spectre's TableColumn.Width: a column with a fixed width does not grow.
+            var growable = Enumerable.Range(0, widths.Length).Where(column => !IsFixedWidth(column)).ToArray();
+            if (growable.Length == 0)
+            {
+                growable = Enumerable.Range(0, widths.Length).ToArray();
+            }
+
             var remaining = available - preferred;
-            var column = 0;
+            var next = 0;
             while (remaining > 0)
             {
-                widths[column % widths.Length]++;
-                column++;
+                widths[growable[next % growable.Length]]++;
+                next++;
                 remaining--;
             }
 
@@ -208,6 +226,9 @@ public sealed class TableWidget : Widget
 
         return widths;
     }
+
+    private bool IsFixedWidth(int column) =>
+        HeaderRows.Concat(BodyRows).Any(row => column < row.Cells.Count && row.Cells[column].Width is not null);
 
     private int[] CalculateRowHeights(IReadOnlyList<TableWidgetRow> rows, int[] columnWidths)
     {
@@ -366,12 +387,15 @@ public sealed class TableWidget : Widget
 
 public sealed class TableWidgetRow
 {
-    public TableWidgetRow(IReadOnlyList<TableWidgetCell> cells)
+    public TableWidgetRow(IReadOnlyList<TableWidgetCell> cells, Color? background = null)
     {
         Cells = cells ?? throw new ArgumentNullException(nameof(cells));
+        Background = background;
     }
 
     public IReadOnlyList<TableWidgetCell> Cells { get; }
+
+    public Color? Background { get; }
 
     public LayoutRect Bounds { get; internal set; }
 }

@@ -1,0 +1,14 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+
+@* A click on the inner element must not reach the outer one. *@
+<div class="outer" @onclick="@(() => Clicks.Add("outer"))">
+    <div class="inner" @onclick="@(() => Clicks.Add("inner"))" @onclick:stopPropagation="true">
+        <Markup Content="inner" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<string> Clicks { get; set; } = [];
+}

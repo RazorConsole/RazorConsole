@@ -339,8 +339,12 @@ public sealed class WidgetTranslationContext
         return TranslateContainer(node);
     }
 
+    // data-opaque hides what is painted beneath the container, e.g. for a dropdown overlay.
     private Widget TranslateContainer(VNode node)
-        => new StackWidget(node.ID, TranslateChildren(node), attributes: node.Attributes, zIndex: TryGetIntAttribute(node, "z-index", 0));
+        => new StackWidget(node.ID, TranslateChildren(node), attributes: node.Attributes, zIndex: TryGetIntAttribute(node, "z-index", 0))
+        {
+            Opaque = IsTruthy(GetAttribute(node, "data-opaque")),
+        };
 
     private Widget? TryCreateSpectreFallbackWidget(VNode node, int zIndex)
     {
@@ -815,7 +819,10 @@ public sealed class WidgetTranslationContext
             .Select(cell => CreateTableWidgetCell(cell, isHeader || string.Equals(cell.TagName, "th", StringComparison.OrdinalIgnoreCase)))
             .ToArray();
 
-        return new TableWidgetRow(cells);
+        var background = Color.TryFromHex(GetAttribute(row, "data-selected-bg") ?? string.Empty, out var color)
+            ? color
+            : (Color?)null;
+        return new TableWidgetRow(cells, background);
     }
 
     private TableWidgetCell CreateTableWidgetCell(VNode cell, bool isHeader)

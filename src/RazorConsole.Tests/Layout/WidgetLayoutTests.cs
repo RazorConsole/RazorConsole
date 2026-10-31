@@ -185,6 +185,25 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void TableWidget_PaintsSelectedRowBackgroundInsideBorders()
+    {
+        var table = CreateSimpleTableNode();
+        var bodyRow = table.Children[1].Children[0];
+        bodyRow.SetAttribute("data-selected-bg", Color.Blue.ToHex());
+
+        var widget = new WidgetTranslationContext().Translate(table);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 10));
+        var canvas = new TerminalCanvas(result.Size.Width, result.Size.Height);
+        result.Root.Paint(new PaintContext(canvas));
+
+        canvas[1, 3].Style?.Background.ShouldBe(Color.Blue);
+        canvas[2, 3].Text.ShouldBe("R");
+        canvas[2, 3].Style?.Background.ShouldBe(Color.Blue);
+        (canvas[0, 3].Style?.Background ?? Color.Default).ShouldNotBe(Color.Blue);
+        (canvas[1, 1].Style?.Background ?? Color.Default).ShouldNotBe(Color.Blue);
+    }
+
+    [Fact]
     public void LayoutResult_Renderable_RepaintsSpectreWidgetOnEveryRender()
     {
         var widget = new SpectreWidget("animated", new CountingRenderable());
@@ -445,6 +464,27 @@ public sealed class WidgetLayoutTests
             "├───────────┼──────┤\n" +
             "│ README.md │ File │\n" +
             "╰───────────┴──────╯");
+    }
+
+    [Fact]
+    public void TableWidget_Expand_DoesNotGrowFixedWidthColumns()
+    {
+        var widget = new TableWidget(
+            "table-1",
+            [
+                new TableWidgetRow(
+                [
+                    new TableWidgetCell("th-1", new TextWidget("text-1", "x"), width: 3),
+                    new TableWidgetCell("th-2", new TextWidget("text-2", "Name")),
+                ]),
+            ],
+            [],
+            expand: true);
+
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 10));
+
+        // 20 wide: 3 borders, the fixed column keeps 3, the other column takes the remaining 14.
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).Split('\n')[1].ShouldBe("│ x │ Name         │");
     }
 
     [Fact]
