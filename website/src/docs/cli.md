@@ -27,7 +27,9 @@ razorconsole stop                                  # Ctrl+C, then kill
 
 Start the app with `--project <dir>` (builds it first), `--dll <path>` (runs it with `dotnet`) or `--exe <path>`. Everything after `--` goes to the app. The terminal is 120x40 unless you pass `--width` and `--height`, and `--env NAME=value` sets an environment variable for the app.
 
-A project that targets several frameworks (net8.0 to net11.0, like the Gallery) needs one to run. `--framework <tfm>` picks it, for example `--project ./MyApp --framework net9.0`; it is passed to both `dotnet build` and `dotnet run`, and it is a usage error with `--dll` or `--exe`. Without it the tool takes the highest target framework that has an installed .NET runtime, and says which one: `start` prints it (`started demo (pid 26444, 120x40, running, net10.0, …)`) and `--json` has it as `framework`. If none of the project's frameworks can run, `start` fails with exit code 2 and lists the project's frameworks and the installed runtimes. `dotnet run` would otherwise show an interactive "select the target framework" prompt inside the terminal, so the tool always passes the framework explicitly.
+A project that targets several frameworks (net8.0 to net11.0, like the Gallery) needs one to run. `--framework <tfm>` picks it, for example `--project ./MyApp --framework net9.0`; it is passed to both `dotnet build` and `dotnet run`, and it is a usage error with `--dll` or `--exe`. Without it the tool takes the highest target framework that has an installed .NET runtime, and says which one: `start` prints it (`started demo (pid 26444, 120x40, running, net10.0, …)`) and `--json` has it as `framework`. If none of the project's frameworks can run, `start` fails with exit code 2 and lists the project's frameworks and the installed runtimes. `dotnet run` would otherwise show an interactive "select the target framework" prompt inside the terminal, so the tool always passes the framework explicitly. Only the selected framework is built.
+
+`--configuration <name>` picks the build configuration (Debug when omitted), for example `--project ./MyApp --configuration Release` to reuse an existing Release build. It is passed to both `dotnet build` and `dotnet run`, and it is a usage error with `--dll` or `--exe`. `start` reports it next to the framework (`…, running, net10.0, Release, …`) and `--json` has it as `configuration`. The build runs in the session host, so set build-related environment variables where the host starts, not on the `start` command.
 
 Text output is UTF-8, whatever the console's code page is, so the box corners, `●` and arrows of `screen` come through when you pipe the output to another program. `--json` output is ASCII-escaped and does not depend on it.
 
@@ -126,11 +128,15 @@ The first command that needs one starts a background **session host**: the same 
 | `hook:<name>` | The element with `data-vnode-hook="<name>"`. The most stable choice: add the attribute to what you want to drive. |
 | `focus:<key>` | The element with this focus key. |
 | `key:<key>`, `id:<id>` | The element with this `@key`, or this generated id. |
-| `text:<substring>`, `text~:<regex>` | The element that holds this text. |
+| `text:<substring>`, `text~:<regex>` | The element that holds this text, including a `<Markup>` element with this content. |
 | `tag:<name>[attr=value]` | An element by tag and attributes. |
 | `path:/0/2/1` | A node by position, text nodes included. |
 
-A selector that matches nothing is exit 3 (`element_not_found`). Commands that act on one element (`click --element`, `keys --element`, `inspect`) also exit 3 with `ambiguous_selector` and list the candidates when it matches several; `find` returns them all, or the first with `--first`.
+`find` returns every match, or the first with `--first`. A `find` that matches nothing is not an error: it prints `no matches` (`"matches":[]` with `--json`) and exits 0. Commands that need exactly one element (`inspect`, `tree <selector>`, `click --element`, `keys --element`, `focus --set`) exit 3 with `element_not_found` when nothing matches, and with `ambiguous_selector` (listing the candidates) when several do.
+
+Text selectors match the text in the component tree, which includes the content of `<Markup>` elements, with the markup removed. They do not see text that a component draws itself; `click --text` and `wait --text` match the screen.
+
+In the text output of `tree`, text is shown in quotes on one line with `\n`, `\r`, `\t` and quotes escaped, and whitespace-only text nodes are left out. `--json` keeps them.
 
 ## Output and exit codes
 
@@ -155,6 +161,7 @@ Each error code maps to one exit code, so scripts can branch without parsing:
 | 7 | No pseudoterminal on this OS | `pty_unsupported` |
 | 8 | The session host could not start, or is another version | `host_unavailable`, `host_version_mismatch` |
 | 10 | Internal error | `internal` |
+| 130 | Cancelled by the user (Ctrl+C) | `cancelled` |
 
 A failed `assert` and a timed-out `wait` carry the screen: in text after a `--- screen ---` line, in JSON as `error.data.screen`.
 

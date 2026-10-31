@@ -1,5 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using System.Diagnostics;
 using RazorConsole.Cli.Host;
 
 namespace RazorConsole.Tests.Cli;
@@ -61,6 +62,27 @@ public sealed class ProjectFrameworkTests
             """;
 
         ProjectFramework.ParseRuntimes(output).ShouldBe(["8.0.21", "11.0.0-rc.1.26425.128"]);
+    }
+
+    [Fact]
+    public void BuildArguments_BuildOnlyTheSelectedFrameworkAndConfiguration_AndLeaveNoBuildServersBehind()
+        => PtySession.BuildArguments("app.csproj", "net9.0", "Release")
+            .ShouldBe(["build", "app.csproj", "-nologo", "--framework", "net9.0", "--configuration", "Release", "-nodeReuse:false", "-p:UseSharedCompilation=false"]);
+
+    [Fact]
+    public async Task RunCaptured_ReturnsWhenTheProcessExits_NotWhenAnInheritorOfItsOutputPipesDoes()
+    {
+        // The shell starts a background process that inherits stdout and stderr, then exits: like a build server.
+        var shell = OperatingSystem.IsWindows()
+            ? new ProcessStartInfo("cmd.exe") { ArgumentList = { "/c", "start /b ping -n 25 127.0.0.1 & echo built" } }
+            : new ProcessStartInfo("/bin/sh") { ArgumentList = { "-c", "sleep 25 & echo built" } };
+        var watch = Stopwatch.StartNew();
+
+        var (exitCode, tail) = await PtySession.RunCapturedAsync(shell, TimeSpan.FromMinutes(1), "shell", CancellationToken.None);
+
+        exitCode.ShouldBe(0);
+        tail.ShouldContain("built");
+        watch.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(15));
     }
 
     [Theory]

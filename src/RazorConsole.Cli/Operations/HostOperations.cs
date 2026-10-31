@@ -86,7 +86,8 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
             var layer => ", app layer " + (layer.Reason ?? "unavailable"),
         };
         var framework = info.Framework is { } tfm ? $", {tfm}" : string.Empty;
-        return $"{info.Name} (pid {info.Pid.ToString(CultureInfo.InvariantCulture)}, {info.Width.ToString(CultureInfo.InvariantCulture)}x{info.Height.ToString(CultureInfo.InvariantCulture)}, {state}{framework}{app}) {info.Command}";
+        var configuration = info.Configuration is { } name ? $", {name}" : string.Empty;
+        return $"{info.Name} (pid {info.Pid.ToString(CultureInfo.InvariantCulture)}, {info.Width.ToString(CultureInfo.InvariantCulture)}x{info.Height.ToString(CultureInfo.InvariantCulture)}, {state}{framework}{configuration}{app}) {info.Command}";
     }
 
     private static DiagnosticsProtocolException NoSession(string? name)
@@ -110,7 +111,8 @@ internal sealed class HostOperations(HostConnector connector) : ICliOperations
             request.TerminalType,
             request.NoWait,
             Milliseconds(options.Timeout),
-            request.Framework);
+            request.Framework,
+            request.Configuration);
 
         var deadline = Deadline(options.Timeout) + (request.TargetKind == StartTargetKind.Project ? BuildAllowance : TimeSpan.Zero);
         var client = await connector.ConnectOrStartAsync(cancellationToken).ConfigureAwait(false);

@@ -169,7 +169,11 @@ internal sealed class DiagnosticsAppQueries(
         var matches = selector.Match(index);
         if (matches.Count == 0)
         {
-            throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.ElementNotFound, "No node matches the selector.");
+            throw new DiagnosticsProtocolException(
+                DiagnosticsErrorCodes.ElementNotFound,
+                selector.IsText
+                    ? "No node matches the selector. Text selectors match the text in the component tree; click --text and wait --text match the screen."
+                    : "No node matches the selector.");
         }
 
         if (matches.Count > 1 && !first)

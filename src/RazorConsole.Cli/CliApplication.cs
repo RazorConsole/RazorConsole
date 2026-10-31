@@ -53,7 +53,7 @@ internal static class CliApplication
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                result = CliResult.Failure(DiagnosticsErrorCodes.Internal, "The command was cancelled.", session: outcome.Options.Session);
+                result = CliResult.Failure(DiagnosticsErrorCodes.Cancelled, "The command was cancelled.", session: outcome.Options.Session);
             }
             catch (Exception exception)
             {

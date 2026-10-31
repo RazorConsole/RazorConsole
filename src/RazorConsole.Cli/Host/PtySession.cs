@@ -26,6 +26,8 @@ internal sealed class PtySession : HostSession
 
     private const int TerminalRawOutputCapacity = 64 * 1024;
     private const int OutputTailLines = 40;
+    private const string DefaultConfiguration = "Debug";
+    private static readonly TimeSpan OutputGracePeriod = TimeSpan.FromSeconds(2);
     private const string CliHomeVariable = "RAZORCONSOLE_CLI_HOME";
     private static readonly TimeSpan BuildTimeout = TimeSpan.FromMinutes(10);
 
@@ -87,7 +89,8 @@ internal sealed class PtySession : HostSession
         _terminal.HasExited,
         _terminal.ExitCode,
         _app.Describe(),
-        Spec.Framework);
+        Spec.Framework,
+        Spec.Configuration);
 
     public override PtySession RequirePty(string verb) => this;
 
@@ -113,10 +116,15 @@ internal sealed class PtySession : HostSession
     /// </summary>
     public static async Task<PtySession> StartAsync(string name, StartParams spec, string ledgerFile, string stateDirectory, CancellationToken cancellationToken)
     {
-        // Pinned in the spec, so restart runs the same framework without evaluating the project again.
+        // Pinned in the spec, so restart runs the same framework and configuration without evaluating the project again.
         if (spec.TargetKind == StartTargetKind.Project)
         {
-            spec = spec with { Framework = await ProjectFramework.ResolveAsync(spec.TargetPath, spec.Framework, cancellationToken).ConfigureAwait(false) };
+            var configuration = string.IsNullOrWhiteSpace(spec.Configuration) ? DefaultConfiguration : spec.Configuration;
+            spec = spec with
+            {
+                Configuration = configuration,
+                Framework = await ProjectFramework.ResolveAsync(spec.TargetPath, spec.Framework, configuration, cancellationToken).ConfigureAwait(false),
+            };
         }
 
         var token = AppPairing.NewToken();
@@ -531,7 +539,8 @@ internal sealed class PtySession : HostSession
                     throw InvalidParams($"The project '{spec.TargetPath}' does not exist.");
                 }
 
-                await BuildProjectAsync(spec.TargetPath, spec.Framework, cancellationToken).ConfigureAwait(false);
+                var configuration = string.IsNullOrWhiteSpace(spec.Configuration) ? DefaultConfiguration : spec.Configuration;
+                await BuildProjectAsync(spec.TargetPath, spec.Framework, configuration, cancellationToken).ConfigureAwait(false);
                 options.FileName = PtyTerminal.ResolveDotnetHost();
                 options.Arguments.Add("run");
                 options.Arguments.Add("--no-build");
@@ -539,13 +548,15 @@ internal sealed class PtySession : HostSession
                 options.Arguments.Add(spec.TargetPath);
 
                 // Without --framework a multi-targeting project makes dotnet run ask which one to run, a prompt nobody
-                // answers inside the pseudoterminal.
+                // answers inside the pseudoterminal. The configuration must match the build, or --no-build finds no output.
                 if (spec.Framework is { } framework)
                 {
                     options.Arguments.Add("--framework");
                     options.Arguments.Add(framework);
                 }
 
+                options.Arguments.Add("--configuration");
+                options.Arguments.Add(configuration);
                 options.Arguments.Add("--");
                 break;
         }
@@ -571,8 +582,31 @@ internal sealed class PtySession : HostSession
         }
     }
 
+    /// <summary>
+    /// The arguments of the <c>dotnet build</c> that precedes <c>dotnet run --no-build</c>: only the selected target
+    /// framework and configuration are built.
+    /// </summary>
+    internal static IReadOnlyList<string> BuildArguments(string project, string? framework, string configuration)
+    {
+        var arguments = new List<string> { "build", project, "-nologo" };
+        if (framework is not null)
+        {
+            arguments.Add("--framework");
+            arguments.Add(framework);
+        }
+
+        arguments.Add("--configuration");
+        arguments.Add(configuration);
+
+        // No build servers are left behind: MSBuild worker nodes and the Roslyn compiler server would outlive the build
+        // holding its output pipes (and a minute or more of the host's memory).
+        arguments.Add("-nodeReuse:false");
+        arguments.Add("-p:UseSharedCompilation=false");
+        return arguments;
+    }
+
     // Builds outside the terminal, so build output never shows up as the app's screen.
-    private static async Task BuildProjectAsync(string project, string? framework, CancellationToken cancellationToken)
+    private static async Task BuildProjectAsync(string project, string? framework, string configuration, CancellationToken cancellationToken)
     {
         var startInfo = new ProcessStartInfo(PtyTerminal.ResolveDotnetHost())
         {
@@ -582,42 +616,62 @@ internal sealed class PtySession : HostSession
             UseShellExecute = false,
             CreateNoWindow = true,
         };
-        startInfo.ArgumentList.Add("build");
-        startInfo.ArgumentList.Add(project);
-        startInfo.ArgumentList.Add("-nologo");
-        if (framework is not null)
+        foreach (var argument in BuildArguments(project, framework, configuration))
         {
-            startInfo.ArgumentList.Add("--framework");
-            startInfo.ArgumentList.Add(framework);
+            startInfo.ArgumentList.Add(argument);
         }
 
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("dotnet build did not start.");
-        process.StandardInput.Close();
-        var tail = new Queue<string>();
-        void Keep(object sender, DataReceivedEventArgs e)
+        var (exitCode, output) = await RunCapturedAsync(startInfo, BuildTimeout, "dotnet build", cancellationToken).ConfigureAwait(false);
+        if (exitCode != 0)
         {
-            if (e.Data is null)
-            {
-                return;
-            }
+            throw new DiagnosticsProtocolException(
+                DiagnosticsErrorCodes.Internal,
+                $"dotnet build failed with exit code {exitCode}.{Environment.NewLine}{output}");
+        }
+    }
 
-            lock (tail)
+    /// <summary>
+    /// Runs a process with its output captured and returns when the <em>process</em> has exited, with the last lines of
+    /// its output. Build servers (MSBuild worker nodes, the Roslyn compiler server) inherit the output pipes and outlive
+    /// the build, so waiting for the end of the output would block until they exit. The readers get a short grace period
+    /// after the exit to collect what the process itself wrote.
+    /// </summary>
+    internal static async Task<(int ExitCode, string Tail)> RunCapturedAsync(ProcessStartInfo startInfo, TimeSpan limit, string description, CancellationToken cancellationToken)
+    {
+        startInfo.RedirectStandardOutput = true;
+        startInfo.RedirectStandardError = true;
+        startInfo.RedirectStandardInput = true;
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException($"{description} did not start.");
+        process.StandardInput.Close();
+
+        var tail = new Queue<string>();
+        async Task KeepAsync(StreamReader reader)
+        {
+            try
             {
-                tail.Enqueue(e.Data);
-                if (tail.Count > OutputTailLines)
+                while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
                 {
-                    tail.Dequeue();
+                    lock (tail)
+                    {
+                        tail.Enqueue(line);
+                        if (tail.Count > OutputTailLines)
+                        {
+                            tail.Dequeue();
+                        }
+                    }
                 }
             }
+            catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+            {
+                // The pipe was closed under the reader.
+            }
         }
 
-        process.OutputDataReceived += Keep;
-        process.ErrorDataReceived += Keep;
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+        // Reading the streams ourselves keeps WaitForExitAsync from waiting for their end (BeginOutputReadLine would).
+        var readers = Task.WhenAll(KeepAsync(process.StandardOutput), KeepAsync(process.StandardError));
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(BuildTimeout);
+        timeout.CancelAfter(limit);
         try
         {
             await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
@@ -630,20 +684,13 @@ internal sealed class PtySession : HostSession
                 throw;
             }
 
-            throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.Timeout, $"dotnet build did not finish within {BuildTimeout.TotalMinutes} minutes.");
+            throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.Timeout, $"{description} did not finish within {limit.TotalMinutes} minutes.");
         }
 
-        if (process.ExitCode != 0)
+        await Task.WhenAny(readers, Task.Delay(OutputGracePeriod, CancellationToken.None)).ConfigureAwait(false);
+        lock (tail)
         {
-            string output;
-            lock (tail)
-            {
-                output = string.Join(Environment.NewLine, tail);
-            }
-
-            throw new DiagnosticsProtocolException(
-                DiagnosticsErrorCodes.Internal,
-                $"dotnet build failed with exit code {process.ExitCode}.{Environment.NewLine}{output}");
+            return (process.ExitCode, string.Join(Environment.NewLine, tail));
         }
     }
 

@@ -132,6 +132,17 @@ public sealed class CliCommandLineTests
         ShouldBeUsageError(Parse("start", "--project", ".", "--framework", " "), "--framework");
     }
 
+    [Fact]
+    public void Start_Configuration_IsForProjectsOnly()
+    {
+        Parse("start", "--project", ".", "--configuration", "Release").Request.ShouldBeOfType<StartRequest>().Configuration.ShouldBe("Release");
+        Parse("start", "--project", ".").Request.ShouldBeOfType<StartRequest>().Configuration.ShouldBeNull();
+
+        ShouldBeUsageError(Parse("start", "--dll", "app.dll", "--configuration", "Release"), "--configuration");
+        ShouldBeUsageError(Parse("start", "--exe", "app", "--configuration", "Release"), "--configuration");
+        ShouldBeUsageError(Parse("start", "--project", ".", "--configuration", " "), "--configuration");
+    }
+
     [Theory]
     [InlineData("start")]
     [InlineData("start", "--exe", "a", "--dll", "b")]

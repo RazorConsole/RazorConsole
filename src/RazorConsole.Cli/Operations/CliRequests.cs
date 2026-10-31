@@ -41,6 +41,7 @@ internal enum StartTargetKind
 /// <param name="TerminalType">The <c>TERM</c> value on Linux and macOS.</param>
 /// <param name="NoWait">Whether to return without waiting for the first frame.</param>
 /// <param name="Framework">For a project, the target framework to build and run with, or <see langword="null"/> to pick one.</param>
+/// <param name="Configuration">For a project, the build configuration to build and run with, or <see langword="null"/> for Debug.</param>
 internal sealed record StartRequest(
     string? Name,
     StartTargetKind TargetKind,
@@ -52,7 +53,8 @@ internal sealed record StartRequest(
     string? WorkingDirectory,
     string TerminalType,
     bool NoWait,
-    string? Framework = null) : CliRequest
+    string? Framework = null,
+    string? Configuration = null) : CliRequest
 {
     public const int DefaultWidth = 120;
     public const int DefaultHeight = 40;

@@ -20,6 +20,11 @@ internal static class CliExitCodes
     public const int HostUnavailable = 8;
     public const int Internal = 10;
 
+    /// <summary>
+    /// The shell convention for a process ended by SIGINT (128 + 2): Ctrl+C.
+    /// </summary>
+    public const int Cancelled = 130;
+
     public static int For(string errorCode) => errorCode switch
     {
         DiagnosticsErrorCodes.AssertionFailed or DiagnosticsErrorCodes.ChecksFailed => AssertionFailed,
@@ -37,6 +42,7 @@ internal static class CliExitCodes
         DiagnosticsErrorCodes.ProcessExited => ProcessExited,
         DiagnosticsErrorCodes.PtyUnsupported => PlatformUnsupported,
         DiagnosticsErrorCodes.HostUnavailable or DiagnosticsErrorCodes.HostVersionMismatch => HostUnavailable,
+        DiagnosticsErrorCodes.Cancelled => Cancelled,
         _ => Internal,
     };
 }

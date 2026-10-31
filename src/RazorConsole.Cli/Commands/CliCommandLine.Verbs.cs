@@ -55,9 +55,14 @@ internal sealed partial class CliCommandLine
             Description = "With --project, the target framework to build and run, such as net9.0. Defaults to the highest one with an installed runtime.",
             HelpName = "tfm",
         };
+        var configuration = new Option<string?>("--configuration")
+        {
+            Description = "With --project, the build configuration to build and run, such as Release. Defaults to Debug.",
+            HelpName = "name",
+        };
         var start = new Command("start", "Start an app in a new PTY session. Pass the app's arguments after --.")
         {
-            startName, exe, dll, project, framework, width, height, environment, cwd, term, noWait,
+            startName, exe, dll, project, framework, configuration, width, height, environment, cwd, term, noWait,
         };
         Add(_root, start, context =>
         {
@@ -85,6 +90,19 @@ internal sealed partial class CliCommandLine
                 }
             }
 
+            if (context.Get(configuration) is { } requestedConfiguration)
+            {
+                if (targets[0].Kind != StartTargetKind.Project)
+                {
+                    throw new CliUsageException("--configuration can only be used with --project.");
+                }
+
+                if (string.IsNullOrWhiteSpace(requestedConfiguration))
+                {
+                    throw new CliUsageException("--configuration needs a build configuration, such as Release.");
+                }
+            }
+
             var variables = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var (name, value) in context.Get(environment) ?? [])
             {
@@ -102,7 +120,8 @@ internal sealed partial class CliCommandLine
                 context.Get(cwd) is { } directory ? FullPath(directory) : null,
                 context.Get(term)!,
                 context.Get(noWait),
-                context.Get(framework));
+                context.Get(framework),
+                context.Get(configuration));
         });
 
         var stopName = SessionNameArgument("The session to stop. Defaults to the current session.");

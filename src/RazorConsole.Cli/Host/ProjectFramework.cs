@@ -89,7 +89,7 @@ internal static class ProjectFramework
     /// Returns the framework to build and run <paramref name="project"/> with: <paramref name="requested"/> when given,
     /// the project's only framework, or the highest runnable one of several.
     /// </summary>
-    public static async Task<string> ResolveAsync(string project, string? requested, CancellationToken cancellationToken)
+    public static async Task<string> ResolveAsync(string project, string? requested, string configuration, CancellationToken cancellationToken)
     {
         if (!string.IsNullOrWhiteSpace(requested))
         {
@@ -97,7 +97,7 @@ internal static class ProjectFramework
         }
 
         var dotnet = PtyTerminal.ResolveDotnetHost();
-        var evaluation = await RunAsync(dotnet, ["msbuild", project, "-nologo", "-getProperty:TargetFramework,TargetFrameworks"], cancellationToken).ConfigureAwait(false);
+        var evaluation = await RunAsync(dotnet, ["msbuild", project, "-nologo", "-nodeReuse:false", $"-p:Configuration={configuration}", "-getProperty:TargetFramework,TargetFrameworks"], cancellationToken).ConfigureAwait(false);
         if (evaluation.ExitCode != 0)
         {
             throw new DiagnosticsProtocolException(
@@ -179,41 +179,18 @@ internal static class ProjectFramework
     {
         var startInfo = new ProcessStartInfo(fileName)
         {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            RedirectStandardInput = true,
             UseShellExecute = false,
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
         };
         foreach (var argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
         }
 
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException($"'{fileName}' did not start.");
-        process.StandardInput.Close();
-        var output = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var error = process.StandardError.ReadToEndAsync(cancellationToken);
-
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(EvaluationTimeout);
-        try
-        {
-            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            process.Kill(entireProcessTree: true);
-            if (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-
-            throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.Timeout, $"'{fileName} {string.Join(' ', arguments)}' did not finish within {EvaluationTimeout.TotalMinutes} minutes.");
-        }
-
-        var text = await output.ConfigureAwait(false);
-        return (process.ExitCode, process.ExitCode == 0 ? text : text + await error.ConfigureAwait(false));
+        // Returns when the process has exited, not when its output ends: a build server it started would hold the pipes.
+        var (exitCode, output) = await PtySession.RunCapturedAsync(startInfo, EvaluationTimeout, $"'{fileName} {string.Join(' ', arguments)}'", cancellationToken).ConfigureAwait(false);
+        return (exitCode, output);
     }
 }

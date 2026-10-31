@@ -13,7 +13,7 @@ namespace RazorConsole.Cli.Operations;
 internal static class AppText
 {
     public static string Tree(TreeResult result)
-        => result.Root is null ? "(nothing rendered yet)" : new StringBuilder().Also(builder => AppendNode(builder, result.Root, 0)).ToString().TrimEnd('\n');
+        => result.Root is null ? "(nothing rendered yet)" : new StringBuilder().Also(builder => AppendNode(builder, result.Root, 0)).ToString().TrimEnd('\r', '\n');
 
     public static string Find(FindResult result)
     {
@@ -45,7 +45,7 @@ internal static class AppText
             text.Append("in ").AppendLine(Describe(ancestor.Tag ?? ancestor.Kind, ancestor.Id, null, null, ancestor.FocusKey, null, null, ancestor.Rect));
         }
 
-        return text.ToString().TrimEnd('\n');
+        return text.ToString().TrimEnd('\r', '\n');
     }
 
     public static string InspectAt(InspectAtResult result)
@@ -142,6 +142,12 @@ internal static class AppText
         {
             foreach (var child in children)
             {
+                // Razor's whitespace between elements is a text node of its own; --json keeps it.
+                if (IsBlankText(child))
+                {
+                    continue;
+                }
+
                 AppendNode(text, child, depth + 1);
             }
         }
@@ -149,6 +155,52 @@ internal static class AppText
         {
             text.Append(' ', (depth + 1) * 2).AppendLine(string.Create(CultureInfo.InvariantCulture, $"… {node.ChildCount} child(ren)"));
         }
+    }
+
+    private static bool IsBlankText(DiagnosticsNode node)
+        => string.Equals(node.Kind, "text", StringComparison.Ordinal) && string.IsNullOrWhiteSpace(node.Text);
+
+    /// <summary>
+    /// The text in quotes on one line. A bare carriage return would move the terminal's cursor and overwrite the start
+    /// of the line, so every control character is escaped.
+    /// </summary>
+    internal static string Quote(string text)
+    {
+        var quoted = new StringBuilder(text.Length + 2).Append('"');
+        foreach (var c in text)
+        {
+            switch (c)
+            {
+                case '\\':
+                    quoted.Append("\\\\");
+                    break;
+                case '"':
+                    quoted.Append("\\\"");
+                    break;
+                case '\n':
+                    quoted.Append("\\n");
+                    break;
+                case '\r':
+                    quoted.Append("\\r");
+                    break;
+                case '\t':
+                    quoted.Append("\\t");
+                    break;
+                default:
+                    if (char.IsControl(c))
+                    {
+                        quoted.Append(CultureInfo.InvariantCulture, $"\\u{(int)c:x4}");
+                    }
+                    else
+                    {
+                        quoted.Append(c);
+                    }
+
+                    break;
+            }
+        }
+
+        return quoted.Append('"').ToString();
     }
 
     private static string Describe(string label, string? id, string? key, string? hook, string? focusKey, bool? focused, string? text, DiagnosticsRect? rect)
@@ -180,7 +232,7 @@ internal static class AppText
 
         if (!string.IsNullOrEmpty(text))
         {
-            line.Append(" \"").Append(text.Replace("\n", "\\n", StringComparison.Ordinal)).Append('"');
+            line.Append(' ').Append(Quote(text));
         }
 
         if (rect is not null)

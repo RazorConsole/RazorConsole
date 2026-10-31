@@ -146,6 +146,18 @@ public sealed class DiagnosticsAppQueriesTests
     }
 
     [Fact]
+    public void Inspect_OfAMissingText_HintsThatTextSelectorsMatchTheComponentTree()
+    {
+        var text = Should.Throw<DiagnosticsProtocolException>(() => _queries.Inspect(new InspectParams("text:Nothing like this")));
+        text.Code.ShouldBe(DiagnosticsErrorCodes.ElementNotFound);
+        text.Message.ShouldContain("click --text");
+        text.Message.ShouldContain("wait --text");
+
+        Should.Throw<DiagnosticsProtocolException>(() => _queries.Inspect(new InspectParams("key:missing")))
+            .Message.ShouldNotContain("--text");
+    }
+
+    [Fact]
     public void InspectAt_ReturnsTheTopmostDeepestElementThenItsAncestors()
     {
         var dialog = VNode.CreateElement("div", "dialog");

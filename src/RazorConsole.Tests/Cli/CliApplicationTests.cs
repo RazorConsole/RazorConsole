@@ -167,8 +167,9 @@ public sealed class CliApplicationTests
             }),
             cancellation.Token,
             "list");
-        cancelled.ExitCode.ShouldBe(CliExitCodes.Internal);
-        cancelled.Error.ShouldContain("cancelled");
+        cancelled.ExitCode.ShouldBe(CliExitCodes.Cancelled);
+        cancelled.ExitCode.ShouldBe(130);
+        cancelled.Error.ShouldContain("The command was cancelled. [cancelled]");
     }
 
     [Theory]
@@ -189,6 +190,7 @@ public sealed class CliApplicationTests
     [InlineData("host_unavailable", 8)]
     [InlineData("host_version_mismatch", 8)]
     [InlineData("internal", 10)]
+    [InlineData("cancelled", 130)]
     [InlineData("method_not_found", 10)]
     [InlineData("protocol_mismatch", 10)]
     [InlineData("too_many_connections", 10)]

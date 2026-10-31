@@ -68,4 +68,5 @@ internal static class DiagnosticsErrorCodes
     public const string ProcessExited = "process_exited";
     public const string PtyUnsupported = "pty_unsupported";
     public const string Internal = "internal";
+    public const string Cancelled = "cancelled";
 }
