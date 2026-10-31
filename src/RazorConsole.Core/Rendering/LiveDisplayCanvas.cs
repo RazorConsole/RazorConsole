@@ -1,6 +1,5 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
-using RazorConsole.Core.Diagnostics;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering;
 using Spectre.Console;
@@ -19,8 +18,6 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
 
     public event Action? Refreshed;
 
-    internal DiagnosticsState? Diagnostics { get; init; }
-
     public void UpdateTarget(IRenderable? renderable)
     {
         if (_current is null && renderable is null)
@@ -35,7 +32,6 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
 
         if (!_semaphore.Wait(100))
         {
-            Diagnostics?.Counters.RecordDroppedFrame();
             return;
         }
         try

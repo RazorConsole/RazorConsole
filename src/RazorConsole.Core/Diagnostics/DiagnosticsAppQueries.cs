@@ -61,13 +61,13 @@ internal sealed class DiagnosticsAppQueries(
     /// Hit-tests the layout: the element with the highest z-index, then the deepest, whose rectangle holds the cell.
     /// </summary>
     /// <remarks>
-    /// Reads the frame on screen, so the stack and the painted cell match what the user sees. Before the first paint
-    /// (and on the legacy pipeline) it reads the latest frame and returns no cell.
+    /// Reads one frame, so the stack and the painted cell belong together. Without a canvas (nothing mounted, or the
+    /// legacy pipeline) it returns no cell.
     /// </remarks>
-    public InspectAtResult InspectAt(InspectAtParams parameters)
+    public InspectAtResult InspectAt(InspectAtParams parameters, DiagnosticsFrame? frame = null)
     {
-        var screen = state.LatestScreen;
-        var index = CreateIndex(screen?.Frame ?? state.LatestFrame);
+        frame ??= state.LatestFrame;
+        var index = CreateIndex(frame);
         DiagnosticsTreeEntry? hit = null;
         DiagnosticsRect? hitRect = null;
         foreach (var entry in index.Nodes)
@@ -87,7 +87,8 @@ internal sealed class DiagnosticsAppQueries(
         }
 
         var stack = hit is null ? [] : index.ElementAncestors(hit).Prepend(hit).Select(index.ToMatch).ToArray();
-        var cell = screen is null ? null : DiagnosticsScreenReader.CellAt(screen.Canvas, parameters.X, parameters.Y);
+        var canvas = frame?.PaintCanvas();
+        var cell = canvas is null ? null : DiagnosticsScreenReader.CellAt(canvas, parameters.X, parameters.Y);
         return new InspectAtResult(parameters.X, parameters.Y, cell, stack, index.Frame);
     }
 
@@ -152,11 +153,8 @@ internal sealed class DiagnosticsAppQueries(
 
     public StatsResult Stats()
     {
-        var counters = state.Counters.Read();
         return new StatsResult(
-            counters.Frames,
-            new RenderTimeResult(counters.LastRenderMs, counters.AverageRenderMs, counters.MaxRenderMs),
-            counters.DroppedFrames,
+            state.Frames,
             (long)state.Uptime.TotalMilliseconds,
             options.RenderingPipeline.ToString(),
             state.LatestFrame?.Sequence ?? 0);

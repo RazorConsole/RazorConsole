@@ -99,7 +99,7 @@ internal static class AppText
     public static string Stats(StatsResult result)
         => string.Create(
             CultureInfo.InvariantCulture,
-            $"pipeline {result.Pipeline}, frame {result.Frame}, {result.Frames} frame(s) rendered, {result.DroppedFrames} dropped, render {result.RenderMs.Last:0.##} ms (avg {result.RenderMs.Avg:0.##}, max {result.RenderMs.Max:0.##}), up {result.UptimeMs / 1000.0:0.#} s");
+            $"pipeline {result.Pipeline}, frame {result.Frame}, {result.Frames} frame(s) delivered, up {result.UptimeMs / 1000.0:0.#} s");
 
     /// <summary>
     /// One error of an <c>errors</c> result, from its JSON.

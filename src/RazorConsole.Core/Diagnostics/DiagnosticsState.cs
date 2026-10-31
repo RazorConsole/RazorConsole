@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using RazorConsole.Core.Layout;
 using RazorConsole.Core.Vdom;
+using Spectre.Console.Rendering;
 
 namespace RazorConsole.Core.Diagnostics;
 
@@ -12,7 +13,8 @@ namespace RazorConsole.Core.Diagnostics;
 /// </summary>
 /// <remarks>
 /// It exists only when diagnostics are enabled (see <see cref="DiagnosticsActivation"/>). Otherwise it is never
-/// registered or created, and every hook in the renderer is a null check.
+/// registered or created. The renderer knows nothing about it: <see cref="DiagnosticsSnapshotObserver"/> fills it from
+/// the renderer's snapshots.
 /// </remarks>
 internal sealed class DiagnosticsState
 {
@@ -22,10 +24,16 @@ internal sealed class DiagnosticsState
     private readonly long _startedTimestamp = Stopwatch.GetTimestamp();
     private readonly ConditionalWeakTable<Exception, object?> _recordedErrors = [];
     private DiagnosticsFrame? _latestFrame;
-    private DiagnosticsScreen? _latestScreen;
     private long _frameSequence;
+    private long _deliveredFrames;
 
-    public DiagnosticsCounters Counters { get; } = new();
+    /// <summary>
+    /// Gets the number of render snapshots delivered to the observer. Snapshots replaced before delivery and the ones
+    /// built for a resize are not counted.
+    /// </summary>
+    public long Frames => Interlocked.Read(ref _deliveredFrames);
+
+    public void RecordDeliveredFrame() => Interlocked.Increment(ref _deliveredFrames);
 
     public DiagnosticsRing<DiagnosticsErrorEntry> Errors { get; } = new(ErrorCapacity);
 
@@ -39,35 +47,23 @@ internal sealed class DiagnosticsState
     public DiagnosticsFrame? LatestFrame => Volatile.Read(ref _latestFrame);
 
     /// <summary>
-    /// Gets the canvas painted last, with the frame it shows, or <see langword="null"/> before the first paint and
-    /// always on the legacy pipeline.
-    /// </summary>
-    /// <remarks>
-    /// It can trail <see cref="LatestFrame"/>: frames built for hit tests or dropped by the display are never painted.
-    /// </remarks>
-    public DiagnosticsScreen? LatestScreen => Volatile.Read(ref _latestScreen);
-
-    /// <summary>
     /// Publishes the tree and layout of one frame with a single reference swap, so readers never mix two frames.
     /// </summary>
-    /// <remarks>The renderer passes a fresh tree and fresh layout collections per frame and never changes them later.</remarks>
+    /// <remarks>A snapshot's tree and layout collections are fresh per snapshot and never changed later.</remarks>
     public DiagnosticsFrame PublishFrame(
         VNode? root,
         IReadOnlyCollection<VNodeLayoutInfo>? layouts,
         IReadOnlyDictionary<string, string?>? layoutParents,
-        long renderSequence = 0)
+        IRenderable? renderable = null,
+        long renderSequence = 0,
+        int viewportWidth = 0,
+        int viewportHeight = 0)
     {
-        var frame = new DiagnosticsFrame(Interlocked.Increment(ref _frameSequence), root, layouts, layoutParents, renderSequence);
+        var frame = new DiagnosticsFrame(
+            Interlocked.Increment(ref _frameSequence), root, layouts, layoutParents, renderSequence, renderable, viewportWidth, viewportHeight);
         Volatile.Write(ref _latestFrame, frame);
         return frame;
     }
-
-    /// <summary>
-    /// Publishes a painted canvas with the frame it was painted from, with a single reference swap.
-    /// </summary>
-    /// <remarks>Called on the display thread after painting; the canvas is never written again.</remarks>
-    public void PublishScreen(DiagnosticsFrame frame, TerminalCanvas canvas)
-        => Volatile.Write(ref _latestScreen, new DiagnosticsScreen(frame, canvas));
 
     /// <summary>
     /// Records an error once. The renderer rethrows from its exception handler, so the same exception can reach it
@@ -100,17 +96,34 @@ internal sealed class DiagnosticsState
 /// The render snapshot sequence observers must have processed to match this frame, or 0 when there is nothing to wait for.
 /// Observers get snapshots asynchronously, so a frame can be published before the focus manager has seen it.
 /// </param>
+/// <param name="Renderable">What the display paints for this frame, or <see langword="null"/> when nothing is mounted.</param>
+/// <param name="ViewportWidth">The terminal width when the frame was published, to tell whether a resize made it stale.</param>
+/// <param name="ViewportHeight">The terminal height when the frame was published.</param>
 internal sealed record DiagnosticsFrame(
     long Sequence,
     VNode? Root,
     IReadOnlyCollection<VNodeLayoutInfo>? Layouts,
     IReadOnlyDictionary<string, string?>? LayoutParents,
-    long RenderSequence = 0);
+    long RenderSequence = 0,
+    IRenderable? Renderable = null,
+    int ViewportWidth = 0,
+    int ViewportHeight = 0)
+{
+    private readonly Lazy<TerminalCanvas?> _canvas = new(
+        () => Renderable is WidgetCanvasRenderable widgets ? widgets.PaintToCanvas() : null,
+        LazyThreadSafetyMode.ExecutionAndPublication);
 
-/// <summary>
-/// The renderer's canvas as last painted, with the frame whose tree and layout it shows.
-/// </summary>
-internal sealed record DiagnosticsScreen(DiagnosticsFrame Frame, TerminalCanvas Canvas);
+    /// <summary>
+    /// Paints the frame on first use and returns the same canvas afterwards, whichever thread asks. It is
+    /// <see langword="null"/> on the legacy pipeline and when nothing is mounted.
+    /// </summary>
+    /// <remarks>
+    /// This is a second paint of the frame's widgets, on the caller's thread: the display paints the same tree on its
+    /// own, and widgets only read their state while painting. A frame that the display dropped can still be the one
+    /// reported here; the PTY screen stays the source of truth for what the terminal shows.
+    /// </remarks>
+    public TerminalCanvas? PaintCanvas() => _canvas.Value;
+}
 
 /// <summary>
 /// One caught error.

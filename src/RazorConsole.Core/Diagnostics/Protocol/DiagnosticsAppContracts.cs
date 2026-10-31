@@ -308,9 +308,11 @@ internal sealed record LogResult(long Seq, DateTimeOffset Time, string Level, st
 
 internal sealed record LogsResult(IReadOnlyList<LogResult> Entries, long Next);
 
-internal sealed record RenderTimeResult(double Last, double Avg, double Max);
-
-internal sealed record StatsResult(long Frames, RenderTimeResult RenderMs, long DroppedFrames, long UptimeMs, string Pipeline, long Frame);
+/// <param name="Frames">Frames delivered to the renderer's observers; the ones replaced before delivery are not counted.</param>
+/// <param name="UptimeMs">Milliseconds since the app's diagnostics started.</param>
+/// <param name="Pipeline">The rendering pipeline in use.</param>
+/// <param name="Frame">The sequence of the latest published frame.</param>
+internal sealed record StatsResult(long Frames, long UptimeMs, string Pipeline, long Frame);
 
 /// <summary>
 /// The <c>data</c> of an <see cref="DiagnosticsErrorCodes.AmbiguousSelector"/> error.

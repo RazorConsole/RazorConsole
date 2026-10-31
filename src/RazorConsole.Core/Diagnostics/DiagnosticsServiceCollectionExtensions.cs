@@ -30,6 +30,9 @@ internal static class DiagnosticsServiceCollectionExtensions
                 ? null!
                 : new DiagnosticsState());
 
+        // Before the endpoint, which reads what the observer publishes.
+        services.TryAddSingleton<DiagnosticsSnapshotObserver>();
+        services.AddHostedService(sp => sp.GetRequiredService<DiagnosticsSnapshotObserver>());
         services.AddHostedService<DiagnosticsEndpointService>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, DiagnosticsLoggerProvider>());
         services.Configure<LoggerFilterOptions>(options =>

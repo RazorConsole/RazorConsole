@@ -1,6 +1,5 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
-using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using RazorConsole.Core.Diagnostics;
@@ -61,23 +60,14 @@ public sealed class DiagnosticsStateTests
     }
 
     [Fact]
-    public void Counters_TrackFramesRenderTimeAndDroppedFrames()
+    public void Frames_CountDeliveredFramesWithoutLocks()
     {
-        var counters = new DiagnosticsCounters();
-        counters.Read().ShouldBe(new DiagnosticsCountersSnapshot(0, 0, 0, 0, 0));
+        var state = new DiagnosticsState();
+        state.Frames.ShouldBe(0);
 
-        var ms = Stopwatch.Frequency / 1000;
-        counters.RecordFrame(4 * ms);
-        counters.RecordFrame(10 * ms);
-        counters.RecordFrame(1 * ms);
-        counters.RecordDroppedFrame();
+        Parallel.For(0, 1000, _ => state.RecordDeliveredFrame());
 
-        var snapshot = counters.Read();
-        snapshot.Frames.ShouldBe(3);
-        snapshot.DroppedFrames.ShouldBe(1);
-        snapshot.LastRenderMs.ShouldBe(1, tolerance: 0.01);
-        snapshot.AverageRenderMs.ShouldBe(5, tolerance: 0.01);
-        snapshot.MaxRenderMs.ShouldBe(10, tolerance: 0.01);
+        state.Frames.ShouldBe(1000);
     }
 
     [Fact]

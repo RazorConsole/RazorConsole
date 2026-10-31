@@ -8,7 +8,6 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.Extensions.Logging;
-using RazorConsole.Core.Diagnostics;
 using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Layout;
 using RazorConsole.Core.Renderables;
@@ -27,8 +26,7 @@ internal sealed class ConsoleRenderer(
     LayoutEngine? layoutEngine = null,
     VNodeIdAccessor? vnodeIdAccessor = null,
     VNodeLayoutAccessor? vnodeLayoutAccessor = null,
-    TerminalMonitor? terminalMonitor = null,
-    DiagnosticsState? diagnostics = null)
+    TerminalMonitor? terminalMonitor = null)
     : Renderer(services, loggerFactory),
     IObservable<ConsoleRenderer.RenderSnapshot>
 {
@@ -44,7 +42,6 @@ internal sealed class ConsoleRenderer(
     private readonly VNodeIdAccessor? _vnodeIdAccessor = vnodeIdAccessor;
     private readonly VNodeLayoutAccessor? _vnodeLayoutAccessor = vnodeLayoutAccessor;
     private readonly TerminalMonitor? _terminalMonitor = terminalMonitor;
-    private readonly DiagnosticsState? _diagnostics = diagnostics;
     private readonly Lock _observersSync = new();
     private readonly List<IObserver<RenderSnapshot>> _observers = [];
     private readonly Lock _observerNotificationSync = new();
@@ -56,8 +53,6 @@ internal sealed class ConsoleRenderer(
     private bool _legacyPipelineWarningLogged;
     private RenderSnapshot _lastSnapshot = RenderSnapshot.Empty;
     private long _snapshotSequence;
-    private long _lastNotifiedSequence;
-    private long _frameRenderSequence;
     private bool _disposed;
 
     public override Dispatcher Dispatcher => _dispatcher;
@@ -69,15 +64,13 @@ internal sealed class ConsoleRenderer(
 
     internal Translation.Contexts.TranslationContext GetTranslationContext() => _translationContext;
 
-    internal DiagnosticsState? Diagnostics => _diagnostics;
-
     internal RenderSnapshot RefreshSnapshot()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var snapshot = Dispatcher.CheckAccess()
             ? CreateSnapshot()
-            : Dispatcher.InvokeAsync(() => CreateSnapshot()).GetAwaiter().GetResult();
+            : Dispatcher.InvokeAsync(CreateSnapshot).GetAwaiter().GetResult();
         _lastSnapshot = snapshot;
         return snapshot;
     }
@@ -193,7 +186,7 @@ internal sealed class ConsoleRenderer(
                 _componentRoots.Remove(componentId);
             }
 
-            var snapshot = CreateSnapshot(notifiesObservers: true);
+            var snapshot = CreateSnapshot();
             _lastSnapshot = snapshot;
             _pendingRender?.TrySetResult(snapshot);
             _pendingRender = null;
@@ -214,7 +207,6 @@ internal sealed class ConsoleRenderer(
     protected override void HandleException(Exception exception)
     {
         _logger.LogErrorDuringRendering(exception);
-        _diagnostics?.RecordError(exception, "render");
         NotifyError(exception);
         System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(exception).Throw();
     }
@@ -494,33 +486,8 @@ internal sealed class ConsoleRenderer(
         return slot;
     }
 
-    // The sequence is taken before the snapshot is built so the diagnostics frame can carry the notification that makes
-    // observers (FocusManager) match it: its own when it will be delivered, the last delivered one when it will not.
-    private RenderSnapshot CreateSnapshot(bool notifiesObservers = false)
-    {
-        var sequence = Interlocked.Increment(ref _snapshotSequence);
-        _frameRenderSequence = notifiesObservers ? sequence : Volatile.Read(ref _lastNotifiedSequence);
-        var snapshot = CreateTimedSnapshot() with { Sequence = sequence };
-        if (notifiesObservers)
-        {
-            Volatile.Write(ref _lastNotifiedSequence, sequence);
-        }
-
-        return snapshot;
-    }
-
-    private RenderSnapshot CreateTimedSnapshot()
-    {
-        if (_diagnostics is null)
-        {
-            return CreateSnapshotCore();
-        }
-
-        var started = Stopwatch.GetTimestamp();
-        var snapshot = CreateSnapshotCore();
-        _diagnostics.Counters.RecordFrame(Stopwatch.GetTimestamp() - started);
-        return snapshot;
-    }
+    private RenderSnapshot CreateSnapshot()
+        => CreateSnapshotCore() with { Sequence = Interlocked.Increment(ref _snapshotSequence) };
 
     private RenderSnapshot CreateSnapshotCore()
     {
@@ -566,7 +533,6 @@ internal sealed class ConsoleRenderer(
         catch (Exception ex)
         {
             _logger.LogErrorCreatingRenderSnapshot(ex);
-            _diagnostics?.RecordError(ex, "snapshot");
             return RenderSnapshot.Empty;
         }
     }
@@ -578,20 +544,17 @@ internal sealed class ConsoleRenderer(
 
         var widgetRoot = _widgetTranslationContext.Translate(rootNode);
         var layoutResult = _layoutEngine.Layout(widgetRoot, CreateViewportConstraints());
+        var renderable = layoutResult.PaintToRenderable();
         var layouts = layoutResult.EnumerateLayoutInfos();
         var layoutParents = layoutResult.EnumerateLayoutParentIds();
 
-        var frame = UpdateSnapshotAccessors(rootNode, layouts, layoutParents);
-        var renderable = frame is null ? layoutResult.PaintToRenderable() : PaintToRenderableWithDiagnostics(layoutResult, frame);
+        UpdateSnapshotAccessors(rootNode, layouts, layoutParents);
 
-        return new RenderSnapshot(rootNode, renderable, _widgetTranslationContext.AnimatedRenderables.ToArray());
-    }
-
-    // A separate method so the callback's closure is allocated only when diagnostics are enabled.
-    private IRenderable PaintToRenderableWithDiagnostics(LayoutResult layoutResult, DiagnosticsFrame frame)
-    {
-        var diagnostics = _diagnostics!;
-        return layoutResult.PaintToRenderable(canvas => diagnostics.PublishScreen(frame, canvas));
+        return new RenderSnapshot(rootNode, renderable, _widgetTranslationContext.AnimatedRenderables.ToArray())
+        {
+            Layouts = layouts,
+            LayoutParents = layoutParents,
+        };
     }
 
     private BoxConstraints CreateViewportConstraints()
@@ -603,15 +566,13 @@ internal sealed class ConsoleRenderer(
         return new BoxConstraints(0, width, 0, height);
     }
 
-    // Returns the published diagnostics frame, or null when diagnostics are disabled.
-    private DiagnosticsFrame? UpdateSnapshotAccessors(
+    private void UpdateSnapshotAccessors(
         VNode? rootNode,
         IReadOnlyCollection<VNodeLayoutInfo>? layouts,
         IReadOnlyDictionary<string, string?>? layoutParents = null)
     {
         _vnodeIdAccessor?.UpdateSnapshot(rootNode);
         _vnodeLayoutAccessor?.UpdateSnapshot(rootNode, layouts, layoutParents);
-        return _diagnostics?.PublishFrame(rootNode, layouts, layoutParents, _frameRenderSequence);
     }
 
     private VNode? CreateRenderableRoot(VNode node)
@@ -821,6 +782,11 @@ internal sealed class ConsoleRenderer(
 
         /// <summary>Creation order: a snapshot with a higher value reflects a later render.</summary>
         internal long Sequence { get; init; }
+
+        /// <summary>The widget layout of this snapshot; null on the legacy pipeline.</summary>
+        internal IReadOnlyCollection<VNodeLayoutInfo>? Layouts { get; init; }
+
+        internal IReadOnlyDictionary<string, string?>? LayoutParents { get; init; }
     }
 
     private void NotifyObservers(RenderSnapshot snapshot)

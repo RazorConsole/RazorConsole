@@ -113,7 +113,7 @@ The first command that needs one starts a background **session host**: the same 
 | `screen`, `frames`, `diff`, `output` | Read the terminal: `--format text\|ansi\|json`, `--region x,y,w,h`; recent frames and what changed; the raw output with byte offsets for `--since`. |
 | `tree`, `find`, `inspect`, `inspect-at` | Read the component tree, find elements, inspect one, or see what is at a screen cell. |
 | `focus`, `route` | Show or change focus and the current route. `focus --set\|--next\|--prev` and `route --go` change the app's state directly; to press the key, use `keys Tab`. |
-| `errors`, `logs`, `stats` | The errors the app caught, its log entries (`--level`, `--category`), and render statistics. `--follow` streams new entries. |
+| `errors`, `logs`, `stats` | The errors the app caught, its log entries (`--level`, `--category`), and the app's statistics: the pipeline, the number of frames delivered to observers (frames the renderer built but replaced before delivery are not counted), the latest frame and the uptime. `--follow` streams new entries. |
 | `wait`, `assert` | Wait for a condition up to `--timeout` (default 10s), or check it now and exit 1 if it does not hold. `assert --not` inverts it. |
 | `doctor`, `host` | Check the setup; manage the background host. |
 
@@ -172,10 +172,11 @@ A failed `assert` and a timed-out `wait` carry the screen: in text after a `--- 
 **It shows** the exceptions that reached the renderer:
 
 - an event handler that throws (a click or key handler),
-- a component that throws while it is created or rendered,
-- a render snapshot that could not be built.
+- a component that throws while it is created or rendered.
 
-Each entry has a sequence number, a time, a `source` (`render` or `snapshot`), the exception type, its message and the full stack trace. The app keeps the last 50. The same exceptions are also in `logs --level Error`, and `logs` (the last 1000 entries, Debug and up, whatever other logging providers the app uses) shows more than `errors` does: failures that are only logged, such as the input loop failing on a key, a focus target that could not be updated, or a component that could not be mounted.
+A frame that could not be built is not in `errors`: it is reported in `logs --level Error`.
+
+Each entry has a sequence number, a time, a `source` (`render`), the exception type, its message and the full stack trace. The app keeps the last 50. The same exceptions are also in `logs --level Error`, and `logs` (the last 1000 entries, Debug and up, whatever other logging providers the app uses) shows more than `errors` does: failures that are only logged, such as the input loop failing on a key, a focus target that could not be updated, or a component that could not be mounted.
 
 **It does not show:**
 

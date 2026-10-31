@@ -30,12 +30,13 @@ internal static class DiagnosticsScreenReader
     ];
 
     /// <summary>
-    /// Reads the latest painted canvas.
+    /// Reads the canvas of the latest frame, painting it on first use.
     /// </summary>
     /// <exception cref="DiagnosticsProtocolException">Nothing is painted, or the region is invalid.</exception>
     public static ScreenResult Read(DiagnosticsState state, ConsoleAppOptions options, ScreenParams parameters)
     {
-        if (state.LatestScreen is not { } screen)
+        var frame = state.LatestFrame;
+        if (frame?.PaintCanvas() is not { } canvas)
         {
             var reason = options.RenderingPipeline == RazorConsoleRenderingPipeline.WidgetLayout
                 ? DiagnosticsUnavailableReasons.NotPainted
@@ -50,7 +51,6 @@ internal static class DiagnosticsScreenReader
                     DiagnosticsJsonContext.Default.DiagnosticsUnavailableData));
         }
 
-        var canvas = screen.Canvas;
         var region = Clip(parameters.Region, canvas.Width, canvas.Height);
         var lines = new string[region.Height];
         var cells = parameters.IncludeCells == true ? new IReadOnlyList<ScreenCell>[region.Height] : null;
@@ -81,7 +81,7 @@ internal static class DiagnosticsScreenReader
             region.Width,
             region.Height,
             lines,
-            screen.Frame.Sequence,
+            frame.Sequence,
             parameters.Region is null ? null : region,
             cells);
     }

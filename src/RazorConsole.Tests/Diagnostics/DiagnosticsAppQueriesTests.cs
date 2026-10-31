@@ -1,6 +1,5 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
-using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core;
@@ -267,16 +266,15 @@ public sealed class DiagnosticsAppQueriesTests
     }
 
     [Fact]
-    public void Stats_ReportCountersPipelineAndFrame()
+    public void Stats_ReportDeliveredFramesPipelineAndFrame()
     {
-        _state.Counters.RecordFrame(2 * Stopwatch.Frequency / 1000);
-        _state.Counters.RecordDroppedFrame();
+        _state.RecordDeliveredFrame();
+        _state.RecordDeliveredFrame();
+        Publish(VNode.CreateElement("div"));
 
         var stats = _queries.Stats();
 
-        stats.Frames.ShouldBe(1);
-        stats.DroppedFrames.ShouldBe(1);
-        stats.RenderMs.Last.ShouldBe(2, tolerance: 0.01);
+        stats.Frames.ShouldBe(2);
         stats.Pipeline.ShouldBe(new ConsoleAppOptions().RenderingPipeline.ToString());
         stats.Frame.ShouldBe(_state.LatestFrame!.Sequence);
         stats.UptimeMs.ShouldBeGreaterThanOrEqualTo(0);

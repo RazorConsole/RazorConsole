@@ -66,6 +66,7 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
     private readonly FocusManager _focusManager;
     private readonly NavigationManager _navigationManager;
     private readonly ConsoleRenderer? _renderer;
+    private readonly DiagnosticsSnapshotObserver? _observer;
     private readonly ILogger<DiagnosticsEndpointService> _logger;
     private readonly DiagnosticsEndpointSettings _settings;
     private readonly CancellationTokenSource _stopping = new();
@@ -84,13 +85,15 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         ILogger<DiagnosticsEndpointService> logger,
         DiagnosticsEndpointSettings? settings = null,
         KeyboardEventManager? keyboard = null,
-        ConsoleRenderer? renderer = null)
+        ConsoleRenderer? renderer = null,
+        DiagnosticsSnapshotObserver? observer = null)
     {
         _state = state;
         _options = options;
         _focusManager = focusManager;
         _navigationManager = navigationManager;
         _renderer = renderer;
+        _observer = observer;
         _queries = state is null ? null : new DiagnosticsAppQueries(state, focusManager, navigationManager, options);
         _logger = logger;
         _settings = settings ?? new DiagnosticsEndpointSettings();
@@ -358,9 +361,9 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         return (DiagnosticsMessage.Success(id, result, DiagnosticsJsonContext.Default.HelloResult), true);
     }
 
-    // The renderer publishes a frame before it hands the render to the focus manager, which then updates its targets on
-    // another thread. Answers that mix the two wait (bounded) until the focus manager has seen the frame they read, and
-    // read exactly that frame, so a node never shows up without the focus key it already has.
+    // A frame is published when the renderer delivers its snapshot, and the focus manager gets the same snapshot on its
+    // own, so it can lag behind. Answers that mix the two wait (bounded) until the focus manager has seen the frame they
+    // read, and read exactly that frame, so a node never shows up without the focus key it already has.
     private async Task<DiagnosticsMessage> DispatchAsync(DiagnosticsMessage message, long id, CancellationToken cancellationToken)
     {
         DiagnosticsFrame? frame = null;
@@ -369,12 +372,18 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         {
             frame = await WaitForFocusToCatchUpAsync(cancellationToken).ConfigureAwait(false);
         }
+        else if (message.Method == DiagnosticsAppMethods.Screen)
+        {
+            _observer?.EnsureCurrent();
+        }
 
         return Dispatch(message, id, frame);
     }
 
     private async Task<DiagnosticsFrame?> WaitForFocusToCatchUpAsync(CancellationToken cancellationToken)
     {
+        // After a resize the latest frame still has the old layout and canvas.
+        _observer?.EnsureCurrent();
         var frame = _state!.LatestFrame;
         if (frame is { RenderSequence: > 0 })
         {

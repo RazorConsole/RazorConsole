@@ -53,9 +53,9 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
         var focus = new FocusManager();
-        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        using var renderer = DiagnosticsHooksTests.CreateObservedRenderer(state);
         using var subscription = renderer.Subscribe(focus);
-        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        await DiagnosticsHooksTests.MountAsync<FormComponent>(renderer, state, ct);
         var service = await StartAsync(state, focus);
 
         var client = await ConnectAsync(service, ct);
@@ -355,9 +355,9 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
         var focus = new FocusManager();
-        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        using var renderer = DiagnosticsHooksTests.CreateObservedRenderer(state);
         using var subscription = renderer.Subscribe(focus);
-        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        await DiagnosticsHooksTests.MountAsync<FormComponent>(renderer, state, ct);
         var dispatcher = new RecordingDispatcher();
         var keyboard = new KeyboardEventManager(focus, dispatcher, IdleConsole());
         var service = await StartAsync(state, focus, keyboard: keyboard);
@@ -398,9 +398,9 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
         var focus = new FocusManager();
-        using var renderer = DiagnosticsHooksTests.CreateRenderer(state, out var provider);
+        using var renderer = DiagnosticsHooksTests.CreateObservedRenderer(state, out var provider);
         using var subscription = renderer.Subscribe(focus);
-        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        await DiagnosticsHooksTests.MountAsync<FormComponent>(renderer, state, ct);
         var options = new ConsoleAppOptions();
         options.ConsoleLiveDisplayOptions.EnableMouseEvents = true;
         var dispatcher = new RecordingDispatcher();
@@ -425,9 +425,9 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
         var focus = new FocusManager();
-        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        using var renderer = DiagnosticsHooksTests.CreateObservedRenderer(state);
         using var subscription = renderer.Subscribe(focus);
-        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        await DiagnosticsHooksTests.MountAsync<FormComponent>(renderer, state, ct);
         var dispatcher = new RecordingDispatcher { Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously) };
         var keyboard = new KeyboardEventManager(focus, dispatcher, IdleConsole());
         var service = await StartAsync(state, focus, keyboard: keyboard);
@@ -469,9 +469,9 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
         var focus = new FocusManager();
-        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        using var renderer = DiagnosticsHooksTests.CreateObservedRenderer(state);
         using var subscription = renderer.Subscribe(focus);
-        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        await DiagnosticsHooksTests.MountAsync<FormComponent>(renderer, state, ct);
         var service = await StartAsync(state, focus, renderer: renderer);
         var client = await ConnectAsync(service, ct);
 
@@ -512,10 +512,10 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
         var focus = new FocusManager();
-        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        using var renderer = DiagnosticsHooksTests.CreateObservedRenderer(state);
 
         // The frame is published, the focus manager has not been told about it yet.
-        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        await DiagnosticsHooksTests.MountAsync<FormComponent>(renderer, state, ct);
         state.LatestFrame!.RenderSequence.ShouldBeGreaterThan(0);
         focus.SnapshotSequence.ShouldBe(0);
         var service = await StartAsync(state, focus, renderer: renderer);
@@ -538,8 +538,8 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
         var focus = new FocusManager();
-        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
-        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        using var renderer = DiagnosticsHooksTests.CreateObservedRenderer(state);
+        await DiagnosticsHooksTests.MountAsync<FormComponent>(renderer, state, ct);
         var service = await StartAsync(state, focus, renderer: renderer);
         var client = await ConnectAsync(service, ct);
         await HelloAsync(client, ct);
@@ -560,8 +560,8 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
     {
         var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
-        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
-        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        using var renderer = DiagnosticsHooksTests.CreateObservedRenderer(state);
+        await DiagnosticsHooksTests.MountAsync<FormComponent>(renderer, state, ct);
         var service = await StartAsync(state, new FocusManager(), renderer: renderer);
         var client = await ConnectAsync(service, ct);
         await HelloAsync(client, ct);
@@ -590,22 +590,18 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
         var focus = new FocusManager();
-        using var renderer = DiagnosticsHooksTests.CreateRenderer(state);
+        using var renderer = DiagnosticsHooksTests.CreateObservedRenderer(state);
         using var subscription = renderer.Subscribe(focus);
-        await renderer.MountComponentAsync<FormComponent>(ParameterView.Empty, ct);
+        await DiagnosticsHooksTests.MountAsync<FormComponent>(renderer, state, ct);
         var service = await StartAsync(state, focus);
         var client = await ConnectAsync(service, ct);
         await HelloAsync(client, ct);
 
-        var unpainted = Error(await CallAsync(client, DiagnosticsAppMethods.Screen, ct));
-        unpainted.Code.ShouldBe(DiagnosticsErrorCodes.ScreenUnavailable);
-
-        DiagnosticsScreenTests.Paint(renderer.RefreshSnapshot().Renderable!);
         var screen = Result(
             await CallAsync(client, DiagnosticsAppMethods.Screen, new ScreenParams(IncludeCells: true), DiagnosticsJsonContext.Default.ScreenParams, ct),
             DiagnosticsJsonContext.Default.ScreenResult);
         screen.Source.ShouldBe("renderer");
-        screen.Frame.ShouldBe(state.LatestScreen!.Frame.Sequence);
+        screen.Frame.ShouldBe(state.LatestFrame!.Sequence);
         screen.Cells.ShouldNotBeNull().Count.ShouldBe(screen.Height);
         var row = screen.Lines.ToList().FindIndex(line => line.Contains("Save", StringComparison.Ordinal));
         var column = screen.Lines[row].IndexOf("Save", StringComparison.Ordinal);

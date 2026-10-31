@@ -13,7 +13,6 @@ using RazorConsole.Core.Layout;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Vdom;
-using Spectre.Console;
 
 namespace RazorConsole.Tests.Diagnostics;
 
@@ -23,50 +22,49 @@ namespace RazorConsole.Tests.Diagnostics;
 public sealed class DiagnosticsHooksTests
 {
     [Fact]
-    public async Task Renderer_PublishesEachFrameWithItsOwnTreeAndLayout()
+    public async Task Observer_PublishesEachDeliveredSnapshotWithItsOwnTreeLayoutAndSequence()
     {
+        var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
-        using var renderer = CreateRenderer(state);
+        using var renderer = CreateObservedRenderer(state);
 
-        var snapshot = await renderer.MountComponentAsync<HelloComponent>(ParameterView.Empty, TestContext.Current.CancellationToken);
+        var snapshot = await renderer.MountComponentAsync<HelloComponent>(ParameterView.Empty, ct);
+        var frame = await WaitForFrameAsync(state, snapshot.Sequence, ct);
 
-        var frame = state.LatestFrame.ShouldNotBeNull();
+        // The frame names the snapshot observers must have seen, which is what the focus manager waits for.
+        snapshot.Sequence.ShouldBeGreaterThan(0);
+        frame.RenderSequence.ShouldBe(snapshot.Sequence);
         frame.Root.ShouldBeSameAs(snapshot.Root);
+        frame.Layouts.ShouldBeSameAs(snapshot.Layouts);
         frame.Layouts.ShouldNotBeNull().ShouldContain(layout => layout.VNodeId == frame.Root!.ID);
-        state.Counters.Read().Frames.ShouldBeGreaterThanOrEqualTo(1);
-
-        var next = renderer.RefreshSnapshot();
-
-        var nextFrame = state.LatestFrame.ShouldNotBeNull();
-        nextFrame.Sequence.ShouldBe(frame.Sequence + 1);
-        nextFrame.Root.ShouldBeSameAs(next.Root);
-        nextFrame.Root.ShouldNotBeSameAs(frame.Root);
+        frame.LayoutParents.ShouldBeSameAs(snapshot.LayoutParents);
+        frame.Renderable.ShouldBeSameAs(snapshot.Renderable);
+        state.Frames.ShouldBe(1);
     }
 
     [Fact]
-    public async Task Renderer_StampsEachFrameWithTheSnapshotObserversMustSee_AndARefreshReusesTheLastNotifiedOne()
+    public async Task Observer_IgnoresASnapshotThatNoObserverIsTold()
     {
+        var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
-        using var renderer = CreateRenderer(state);
+        using var renderer = CreateObservedRenderer(state);
+        var snapshot = await renderer.MountComponentAsync<HelloComponent>(ParameterView.Empty, ct);
+        var frame = await WaitForFrameAsync(state, snapshot.Sequence, ct);
 
-        var snapshot = await renderer.MountComponentAsync<HelloComponent>(ParameterView.Empty, TestContext.Current.CancellationToken);
-
-        // A render is handed to observers as a snapshot with this sequence, so the frame names it.
-        snapshot.Sequence.ShouldBeGreaterThan(0);
-        state.LatestFrame.ShouldNotBeNull().RenderSequence.ShouldBe(snapshot.Sequence);
-
-        // A refresh builds a frame for hit tests but tells no observer, so it points at the render they already have.
+        // A refresh builds a snapshot for hit tests but delivers it to nobody.
         var refreshed = renderer.RefreshSnapshot();
+        await Task.Delay(100, ct);
 
         refreshed.Sequence.ShouldBeGreaterThan(snapshot.Sequence);
-        state.LatestFrame.ShouldNotBeNull().RenderSequence.ShouldBe(snapshot.Sequence);
+        state.LatestFrame.ShouldBeSameAs(frame);
+        state.Frames.ShouldBe(1);
     }
 
     [Fact]
-    public async Task Renderer_RecordsComponentErrors()
+    public async Task Observer_RecordsComponentErrorsFromTheRenderersOnError()
     {
         var state = new DiagnosticsState();
-        using var renderer = CreateRenderer(state);
+        using var renderer = CreateObservedRenderer(state);
 
         await Should.ThrowAsync<InvalidOperationException>(
             () => renderer.MountComponentAsync<ThrowingComponent>(ParameterView.Empty, TestContext.Current.CancellationToken));
@@ -77,26 +75,50 @@ public sealed class DiagnosticsHooksTests
     }
 
     [Fact]
-    public async Task Canvas_CountsFramesDroppedWhileTheOutputIsBusy()
+    public async Task EnsureCurrent_PublishesAFrameForTheNewSizeOnlyAfterAResize()
     {
+        var ct = TestContext.Current.CancellationToken;
         var state = new DiagnosticsState();
-        using var writer = new BlockingWriter();
-        var console = AnsiConsole.Create(new AnsiConsoleSettings
-        {
-            Ansi = AnsiSupport.No,
-            ColorSystem = ColorSystemSupport.NoColors,
-            Out = new AnsiConsoleOutput(writer),
-        });
-        using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions(), console) { Diagnostics = state };
+        var monitor = new TerminalMonitor(80, 24);
+        using var renderer = CreateObservedRenderer(state, out var observer, monitor);
+        var snapshot = await renderer.MountComponentAsync<HelloComponent>(ParameterView.Empty, ct);
+        var delivered = await WaitForFrameAsync(state, snapshot.Sequence, ct);
+        delivered.ViewportWidth.ShouldBe(80);
+        delivered.ViewportHeight.ShouldBe(24);
 
-        var busy = Task.Run(() => canvas.UpdateTarget(new Text("first")), TestContext.Current.CancellationToken);
-        writer.Blocked.Wait(TestContext.Current.CancellationToken);
+        // Same size: nothing to rebuild.
+        observer.EnsureCurrent();
+        state.LatestFrame.ShouldBeSameAs(delivered);
 
-        canvas.UpdateTarget(new Text("second"));
-        writer.Release.Set();
-        await busy;
+        monitor.Resize(100, 30);
+        state.LatestFrame.ShouldBeSameAs(delivered);
+        observer.EnsureCurrent();
 
-        state.Counters.Read().DroppedFrames.ShouldBe(1);
+        var resized = state.LatestFrame.ShouldNotBeNull();
+        resized.ShouldNotBeSameAs(delivered);
+        resized.Sequence.ShouldBe(delivered.Sequence + 1);
+        resized.ViewportWidth.ShouldBe(100);
+        resized.ViewportHeight.ShouldBe(30);
+        resized.Root.ShouldNotBeSameAs(delivered.Root);
+
+        // The focus manager never sees this snapshot, so the frame waits for the last one it did.
+        resized.RenderSequence.ShouldBe(delivered.RenderSequence);
+        state.Frames.ShouldBe(1);
+
+        observer.EnsureCurrent();
+        state.LatestFrame.ShouldBeSameAs(resized);
+    }
+
+    [Fact]
+    public void Observer_WithoutState_SubscribesToNothing()
+    {
+        using var renderer = CreateRenderer();
+        var observer = new DiagnosticsSnapshotObserver(null, renderer);
+
+        observer.Start();
+        observer.EnsureCurrent();
+        observer.OnError(new InvalidOperationException("ignored"));
+        observer.Dispose();
     }
 
     [Fact]
@@ -111,7 +133,7 @@ public sealed class DiagnosticsHooksTests
         using var host = builder.Build();
 
         var state = host.Services.GetService<DiagnosticsState>().ShouldNotBeNull();
-        host.Services.GetRequiredService<ConsoleRenderer>().Diagnostics.ShouldBeSameAs(state);
+        host.Services.GetServices<IHostedService>().OfType<DiagnosticsSnapshotObserver>().ShouldHaveSingleItem();
 
         // The host's default minimum is Information; the provider keeps Debug through its own filter rule.
         host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Test").LogDebug("captured");
@@ -128,7 +150,6 @@ public sealed class DiagnosticsHooksTests
         using var host = builder.Build();
 
         host.Services.GetService<DiagnosticsState>().ShouldBeNull();
-        host.Services.GetRequiredService<ConsoleRenderer>().Diagnostics.ShouldBeNull();
         host.Services.GetServices<ILoggerProvider>().OfType<DiagnosticsLoggerProvider>().ShouldHaveSingleItem()
             .CreateLogger("Test").ShouldBeSameAs(NullLogger.Instance);
     }
@@ -174,7 +195,7 @@ public sealed class DiagnosticsHooksTests
 
         using var host = builder.Build();
         host.Services.GetService<DiagnosticsState>().ShouldBeNull();
-        host.Services.GetRequiredService<ConsoleRenderer>().Diagnostics.ShouldBeNull();
+        host.Services.GetServices<IHostedService>().OfType<DiagnosticsSnapshotObserver>().ShouldBeEmpty();
         host.Services.GetServices<ILoggerProvider>().OfType<DiagnosticsLoggerProvider>().ShouldBeEmpty();
         host.Services.GetRequiredService<IOptions<LoggerFilterOptions>>().Value.Rules
             .ShouldNotContain(rule => rule.ProviderName == typeof(DiagnosticsLoggerProvider).FullName);
@@ -191,60 +212,9 @@ public sealed class DiagnosticsHooksTests
         services.Count.ShouldBe(before);
     }
 
-    [Fact]
-    public async Task DisabledRenderer_FrameAllocationsDifferFromEnabledOnlyByTheFrameRecordAndPaintCallback()
-    {
-        // Every hook is a null check when disabled, so a disabled frame allocates exactly what an enabled frame
-        // allocates minus the frame record that PublishFrame creates and the paint callback that publishes the
-        // canvas. Anything else on the enabled path would show up here as a difference, and anything diagnostics
-        // adds outside that path would be paid by both.
-        using var disabled = CreateRenderer(diagnostics: null);
-        var state = new DiagnosticsState();
-        using var enabled = CreateRenderer(state);
+    internal static ConsoleRenderer CreateRenderer() => CreateRenderer(out _);
 
-        await disabled.MountComponentAsync<HelloComponent>(ParameterView.Empty, TestContext.Current.CancellationToken);
-        await enabled.MountComponentAsync<HelloComponent>(ParameterView.Empty, TestContext.Current.CancellationToken);
-
-        disabled.Diagnostics.ShouldBeNull();
-        var disabledBytes = MeasureFrameAllocations(disabled);
-        var enabledBytes = MeasureFrameAllocations(enabled);
-        var frameRecordBytes = MeasureMinimum(() => state.PublishFrame(null, null, null));
-        var frame = state.PublishFrame(null, null, null);
-        var paintCallbackBytes = MeasureMinimum(() => GC.KeepAlive(PaintCallback(state, frame)));
-
-        frameRecordBytes.ShouldBeGreaterThan(0);
-        paintCallbackBytes.ShouldBeGreaterThan(0);
-        (enabledBytes - disabledBytes).ShouldBe(frameRecordBytes + paintCallbackBytes);
-    }
-
-    // The renderer's callback has this shape: a closure over the state and the frame, and its delegate.
-    private static Action<TerminalCanvas> PaintCallback(DiagnosticsState state, DiagnosticsFrame frame)
-        => canvas => state.PublishScreen(frame, canvas);
-
-    private static long MeasureFrameAllocations(ConsoleRenderer renderer) => MeasureMinimum(() => renderer.RefreshSnapshot());
-
-    // The minimum over several warmed-up runs ignores one-off allocations such as JIT or first-use caches.
-    private static long MeasureMinimum(Action action)
-    {
-        for (var i = 0; i < 5; i++)
-        {
-            action();
-        }
-
-        var minimum = long.MaxValue;
-        for (var i = 0; i < 20; i++)
-        {
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            action();
-            minimum = Math.Min(minimum, GC.GetAllocatedBytesForCurrentThread() - before);
-        }
-
-        return minimum;
-    }
-
-    internal static ConsoleRenderer CreateRenderer(DiagnosticsState? diagnostics) => CreateRenderer(diagnostics, out _);
-
-    internal static ConsoleRenderer CreateRenderer(DiagnosticsState? diagnostics, out IServiceProvider provider)
+    internal static ConsoleRenderer CreateRenderer(out IServiceProvider provider, TerminalMonitor? monitor = null)
     {
         var services = new ServiceCollection();
         services.AddRazorConsoleServices();
@@ -259,8 +229,47 @@ public sealed class DiagnosticsHooksTests
             serviceProvider.GetService<LayoutEngine>(),
             serviceProvider.GetService<VNodeIdAccessor>(),
             serviceProvider.GetService<VNodeLayoutAccessor>(),
-            serviceProvider.GetService<TerminalMonitor>(),
-            diagnostics);
+            monitor ?? serviceProvider.GetService<TerminalMonitor>());
+    }
+
+    /// <summary>A renderer whose delivered snapshots fill <paramref name="state"/>, as the hosted observer does in an app.</summary>
+    internal static ConsoleRenderer CreateObservedRenderer(DiagnosticsState state)
+        => CreateObservedRenderer(state, out _, out _);
+
+    internal static ConsoleRenderer CreateObservedRenderer(DiagnosticsState state, out IServiceProvider provider)
+        => CreateObservedRenderer(state, out _, out provider);
+
+    internal static ConsoleRenderer CreateObservedRenderer(DiagnosticsState state, out DiagnosticsSnapshotObserver observer, TerminalMonitor monitor)
+        => CreateObservedRenderer(state, out observer, out _, monitor);
+
+    private static ConsoleRenderer CreateObservedRenderer(DiagnosticsState state, out DiagnosticsSnapshotObserver observer, out IServiceProvider provider, TerminalMonitor? monitor = null)
+    {
+        var renderer = CreateRenderer(out provider, monitor);
+        observer = new DiagnosticsSnapshotObserver(state, renderer, monitor ?? provider.GetService<TerminalMonitor>());
+        observer.Start();
+        return renderer;
+    }
+
+    /// <summary>Renders <typeparamref name="TComponent"/> and waits until its snapshot has reached the diagnostics state.</summary>
+    internal static async Task<ConsoleRenderer.RenderSnapshot> MountAsync<TComponent>(ConsoleRenderer renderer, DiagnosticsState state, CancellationToken cancellationToken)
+        where TComponent : IComponent
+    {
+        var snapshot = await renderer.MountComponentAsync<TComponent>(ParameterView.Empty, cancellationToken);
+        await WaitForFrameAsync(state, snapshot.Sequence, cancellationToken);
+        return snapshot;
+    }
+
+    // Observers are told on another thread, a moment after the render returns.
+    internal static async Task<DiagnosticsFrame> WaitForFrameAsync(DiagnosticsState state, long renderSequence, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        while (state.LatestFrame is not { } frame || frame.RenderSequence < renderSequence)
+        {
+            await Task.Delay(10, timeout.Token);
+        }
+
+        return state.LatestFrame;
     }
 
     private sealed class HelloComponent : ComponentBase
@@ -303,49 +312,6 @@ public sealed class DiagnosticsHooksTests
                     messages.Add(formatter(state, exception));
                 }
             }
-        }
-    }
-
-    // Blocks the first write until released, so the canvas stays busy inside its output lock.
-    private sealed class BlockingWriter : StringWriter
-    {
-        public ManualResetEventSlim Blocked { get; } = new();
-
-        public ManualResetEventSlim Release { get; } = new();
-
-        public override void Write(char value)
-        {
-            Block();
-            base.Write(value);
-        }
-
-        public override void Write(string? value)
-        {
-            Block();
-            base.Write(value);
-        }
-
-        public override void Write(char[] buffer, int index, int count)
-        {
-            Block();
-            base.Write(buffer, index, count);
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                Blocked.Dispose();
-                Release.Dispose();
-            }
-
-            base.Dispose(disposing);
-        }
-
-        private void Block()
-        {
-            Blocked.Set();
-            Release.Wait();
         }
     }
 }
