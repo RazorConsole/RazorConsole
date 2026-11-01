@@ -65,7 +65,7 @@ internal sealed record DoctorResult(IReadOnlyList<DoctorCheck> Checks)
 /// </summary>
 internal sealed record DoctorProbes(Func<bool> PtySupported, Func<string> DotnetHost)
 {
-    public static DoctorProbes Default { get; } = new(() => PtyTerminal.IsSupported, PtyTerminal.ResolveDotnetHost);
+    public static DoctorProbes Default { get; } = new(() => PtyTerminal.IsSupported, DotnetLocator.Resolve);
 }
 
 /// <summary>
@@ -230,6 +230,8 @@ internal sealed partial class Doctor(HostConnector connector, DoctorProbes probe
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8,
             UseShellExecute = false,
             CreateNoWindow = true,
         };

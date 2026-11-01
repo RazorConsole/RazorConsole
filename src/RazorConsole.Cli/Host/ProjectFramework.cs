@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using RazorConsole.Core.Diagnostics.Protocol;
-using RazorConsole.Testing;
 
 namespace RazorConsole.Cli.Host;
 
@@ -96,8 +95,9 @@ internal static class ProjectFramework
             return requested;
         }
 
-        var dotnet = PtyTerminal.ResolveDotnetHost();
-        var evaluation = await RunAsync(dotnet, ["msbuild", project, "-nologo", "-nodeReuse:false", $"-p:Configuration={configuration}", "-getProperty:TargetFramework,TargetFrameworks"], cancellationToken).ConfigureAwait(false);
+        var dotnet = DotnetLocator.Resolve();
+        var directory = ProjectDirectory(project);
+        var evaluation = await RunAsync(dotnet, directory, ["msbuild", project, "-nologo", "-nodeReuse:false", $"-p:Configuration={configuration}", "-getProperty:TargetFramework,TargetFrameworks"], cancellationToken).ConfigureAwait(false);
         if (evaluation.ExitCode != 0)
         {
             throw new DiagnosticsProtocolException(
@@ -116,7 +116,7 @@ internal static class ProjectFramework
             return frameworks[0];
         }
 
-        var listing = await RunAsync(dotnet, ["--list-runtimes"], cancellationToken).ConfigureAwait(false);
+        var listing = await RunAsync(dotnet, directory, ["--list-runtimes"], cancellationToken).ConfigureAwait(false);
         if (!TryChoose(frameworks, ParseRuntimes(listing.Output), out var framework, out var error))
         {
             throw new DiagnosticsProtocolException(DiagnosticsErrorCodes.InvalidParams, error);
@@ -175,10 +175,18 @@ internal static class ProjectFramework
         return true;
     }
 
-    private static async Task<(int ExitCode, string Output)> RunAsync(string fileName, IReadOnlyList<string> arguments, CancellationToken cancellationToken)
+    /// <summary>
+    /// The directory <c>dotnet</c> runs in for a project: its own, so <c>global.json</c> and a version manager pick the SDK
+    /// the project's tree asks for, as they do in a shell opened there.
+    /// </summary>
+    internal static string ProjectDirectory(string project)
+        => Directory.Exists(project) ? Path.GetFullPath(project) : Path.GetDirectoryName(Path.GetFullPath(project)) ?? Directory.GetCurrentDirectory();
+
+    private static async Task<(int ExitCode, string Output)> RunAsync(string fileName, string workingDirectory, IReadOnlyList<string> arguments, CancellationToken cancellationToken)
     {
         var startInfo = new ProcessStartInfo(fileName)
         {
+            WorkingDirectory = workingDirectory,
             UseShellExecute = false,
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,

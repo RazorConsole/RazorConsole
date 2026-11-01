@@ -530,7 +530,7 @@ internal sealed class PtySession : HostSession
 
             case StartTargetKind.Dll:
                 RequireFile(spec.TargetPath);
-                options.FileName = PtyTerminal.ResolveDotnetHost();
+                options.FileName = DotnetLocator.Resolve();
                 options.Arguments.Add(spec.TargetPath);
                 options.WorkingDirectory ??= Path.GetDirectoryName(spec.TargetPath);
                 break;
@@ -543,7 +543,11 @@ internal sealed class PtySession : HostSession
 
                 var configuration = string.IsNullOrWhiteSpace(spec.Configuration) ? DefaultConfiguration : spec.Configuration;
                 await BuildProjectAsync(spec.TargetPath, spec.Framework, configuration, cancellationToken).ConfigureAwait(false);
-                options.FileName = PtyTerminal.ResolveDotnetHost();
+                options.FileName = DotnetLocator.Resolve();
+
+                // The directory picks the SDK (global.json, a version manager's shim), so the run uses the project's
+                // like the build did; the host's own directory is the state directory, which would pick another one.
+                options.WorkingDirectory ??= ProjectFramework.ProjectDirectory(spec.TargetPath);
                 options.Arguments.Add("run");
                 options.Arguments.Add("--no-build");
                 options.Arguments.Add("--project");
@@ -610,8 +614,9 @@ internal sealed class PtySession : HostSession
     // Builds outside the terminal, so build output never shows up as the app's screen.
     private static async Task BuildProjectAsync(string project, string? framework, string configuration, CancellationToken cancellationToken)
     {
-        var startInfo = new ProcessStartInfo(PtyTerminal.ResolveDotnetHost())
+        var startInfo = new ProcessStartInfo(DotnetLocator.Resolve())
         {
+            WorkingDirectory = ProjectFramework.ProjectDirectory(project),
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             RedirectStandardInput = true,
@@ -643,6 +648,10 @@ internal sealed class PtySession : HostSession
         startInfo.RedirectStandardOutput = true;
         startInfo.RedirectStandardError = true;
         startInfo.RedirectStandardInput = true;
+
+        // dotnet writes UTF-8 to a pipe; the default would be the console's code page.
+        startInfo.StandardOutputEncoding = Encoding.UTF8;
+        startInfo.StandardErrorEncoding = Encoding.UTF8;
         using var process = Process.Start(startInfo) ?? throw new InvalidOperationException($"{description} did not start.");
         process.StandardInput.Close();
 

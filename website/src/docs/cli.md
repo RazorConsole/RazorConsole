@@ -47,6 +47,8 @@ A project that targets several frameworks (net8.0 to net11.0, like the Gallery) 
 
 `--configuration <name>` picks the build configuration (Debug when omitted), for example `--project ./MyApp --configuration Release` to reuse an existing Release build. It is passed to both `dotnet build` and `dotnet run`, and it is a usage error with `--dll` or `--exe`. `start` reports it next to the framework (`…, running, net10.0, Release, …`) and `--json` has it as `configuration`. The build runs in the session host, so set build-related environment variables where the host starts, not on the `start` command.
 
+`dotnet` is the first one on the `PATH` of the session host (`PATHEXT` on Windows), invoked as it is, so a version manager's shim (mise, asdf) stays in charge of the SDK; only without one does the host try `DOTNET_HOST_PATH`, `DOTNET_ROOT` and the default install location. The build, the framework query and `dotnet run` run in the project's directory, so `global.json` and a directory-based version manager pick the same SDK as `dotnet build` there. That directory is also the app's working directory unless you pass `--cwd`. Output of `dotnet` is read as UTF-8.
+
 Text output is UTF-8, whatever the console's code page is, so the box corners, `●` and arrows of `screen` come through when you pipe the output to another program. `--json` output is ASCII-escaped and does not depend on it.
 
 ```text
