@@ -23,8 +23,10 @@
 // With --native the same run happens against a NativeAOT binary: --version must succeed and doctor must pass, which
 // starts the session host from the native binary itself.
 //
-// Both runs also start "razorconsole mcp", send initialize and tools/list over its standard input, and check that stdout
-// holds only protocol messages, that the tools are listed, and that the process ends when its input closes.
+// Both runs also start "razorconsole mcp" twice, once per handshake (initialize with protocol 2025-06-18, and
+// server/discover with the per-request metadata of protocol 2026-07-28), send tools/list over its standard input, and
+// check that stdout holds only protocol messages, that the tools are listed, and that the process ends when its input
+// closes.
 
 using System.Diagnostics;
 using System.IO.Compression;
@@ -334,7 +336,8 @@ internal static class Tool
                 Console.WriteLine($"  ok    razorconsole doctor ({checks.Count} checks)");
             }
 
-            await VerifyMcpAsync(tool, work, stateHome);
+            await VerifyMcpAsync(tool, work, stateHome, perRequestMetadata: false);
+            await VerifyMcpAsync(tool, work, stateHome, perRequestMetadata: true);
         }
         finally
         {
@@ -343,9 +346,11 @@ internal static class Tool
         }
     }
 
-    // "razorconsole mcp" speaks MCP on stdio: initialize, then tools/list, line by line. Every line on stdout must be JSON
-    // (nothing but the protocol), the tools of the server must be there, and the process must end when its input closes.
-    private static async Task VerifyMcpAsync(string tool, string workingDirectory, string? stateHome)
+    // "razorconsole mcp" speaks MCP on stdio, line by line, in either protocol era: initialize, then tools/list (2025-06-18),
+    // or server/discover, then tools/list with the metadata in every request (2026-07-28). Every line on stdout must be
+    // JSON (nothing but the protocol), the tools of the server must be there, and the process must end when its input
+    // closes.
+    private static async Task VerifyMcpAsync(string tool, string workingDirectory, string? stateHome, bool perRequestMetadata)
     {
         var startInfo = new ProcessStartInfo(tool)
         {
@@ -394,21 +399,37 @@ internal static class Tool
                 }
             }
 
-            await process.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"verify-cli-package","version":"1"}}}""");
+            const string PerRequestMeta = """{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"verify-cli-package","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}}""";
+            var handshake = perRequestMetadata ? "server/discover" : "initialize";
+            await process.StandardInput.WriteLineAsync(perRequestMetadata
+                ? $$$"""{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{{{PerRequestMeta}}}}"""
+                : """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"verify-cli-package","version":"1"}}}""");
             await process.StandardInput.FlushAsync();
-            using (var initialize = await ReadAsync("initialize"))
+            using (var opening = await ReadAsync(handshake))
             {
-                var server = initialize.RootElement.TryGetProperty("result", out var result) && result.TryGetProperty("serverInfo", out var info)
-                    ? info.GetProperty("name").GetString()
-                    : null;
-                if (server != "razorconsole")
+                // initialize answers with serverInfo; server/discover carries it in the result's _meta.
+                var server = opening.RootElement.TryGetProperty("result", out var result)
+                    ? (perRequestMetadata
+                        ? result.TryGetProperty("_meta", out var meta) && meta.TryGetProperty("io.modelcontextprotocol/serverInfo", out var discovered) ? discovered : default
+                        : result.TryGetProperty("serverInfo", out var info) ? info : default)
+                    : default;
+                var name = server.ValueKind == JsonValueKind.Object && server.TryGetProperty("name", out var serverName) ? serverName.GetString() : null;
+                if (name != "razorconsole")
                 {
-                    throw new VerificationException($"razorconsole mcp answered initialize with {initialize.RootElement.GetRawText()}, expected serverInfo.name 'razorconsole'.");
+                    throw new VerificationException($"razorconsole mcp answered {handshake} with {opening.RootElement.GetRawText()}, expected the server name 'razorconsole'.");
                 }
             }
 
-            await process.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","method":"notifications/initialized"}""");
-            await process.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
+            if (perRequestMetadata)
+            {
+                await process.StandardInput.WriteLineAsync($$$"""{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{{{PerRequestMeta}}}}""");
+            }
+            else
+            {
+                await process.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","method":"notifications/initialized"}""");
+                await process.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
+            }
+
             await process.StandardInput.FlushAsync();
             using (var list = await ReadAsync("tools/list"))
             {
@@ -421,7 +442,7 @@ internal static class Tool
                     throw new VerificationException($"razorconsole mcp tools/list has {names.Count} tools and lacks {string.Join(", ", missing)}.");
                 }
 
-                Console.WriteLine($"  ok    razorconsole mcp (initialize, tools/list: {names.Count} tools)");
+                Console.WriteLine($"  ok    razorconsole mcp ({handshake}, tools/list: {names.Count} tools)");
             }
 
             // A client that quits closes the input; the server must end, and its stdout must reach end of file.
