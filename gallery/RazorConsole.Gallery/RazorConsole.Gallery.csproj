@@ -25,6 +25,8 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <!-- Known trim warning from Microsoft.AspNetCore.Components; Gallery routes are rooted below. -->
     <NoWarn>$(NoWarn);IL2104</NoWarn>
+    <!-- Blazor 10's Router.NotFoundPage setter is annotated for trimming; Router parameters are set by reflection (dotnet/aspnetcore#63951). -->
+    <NoWarn>$(NoWarn);IL2110;IL2111</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

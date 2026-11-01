@@ -2,15 +2,21 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
+  <!-- Each target gets its own ASP.NET Core and Microsoft.Extensions release; net11.0 uses 10.0 until 11.0 ships. -->
+  <PropertyGroup>
+    <DotNetPackagesVersion>8.0.0</DotNetPackagesVersion>
+    <DotNetPackagesVersion Condition="'$(TargetFramework)' == 'net9.0'">9.0.22</DotNetPackagesVersion>
+    <DotNetPackagesVersion Condition="'$(TargetFramework)' == 'net10.0' or '$(TargetFramework)' == 'net11.0'">10.0.14</DotNetPackagesVersion>
+  </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Microsoft.AspNetCore.Components" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="$(DotNetPackagesVersion)" />
     <PackageVersion Include="NuGet.Versioning" Version="6.7.0" />
     <PackageVersion Include="Spectre.Console" Version="0.54.0" />
     <PackageVersion Include="Microsoft.Agents.AI" Version="1.22.0" />
