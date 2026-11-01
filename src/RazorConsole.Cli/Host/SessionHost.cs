@@ -42,6 +42,7 @@ internal sealed class SessionHost
     private readonly HostFiles _files;
     private readonly TimeSpan _idleTimeout;
     private readonly string _version;
+    private readonly TimeProvider _time;
     private readonly Dictionary<string, HostSession> _sessions = new(StringComparer.Ordinal);
     private readonly HashSet<string> _starting = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _shutdown = new();
@@ -50,8 +51,10 @@ internal sealed class SessionHost
     private int _clients;
     private long _idleSince = Stopwatch.GetTimestamp();
 
-    public SessionHost(HostFiles files, TimeSpan idleTimeout, string? version = null)
+    // time: the clock of the app layer's grace period; tests replace it.
+    public SessionHost(HostFiles files, TimeSpan idleTimeout, string? version = null, TimeProvider? time = null)
     {
+        _time = time ?? TimeProvider.System;
         _files = files;
         _idleTimeout = idleTimeout;
         _version = version ?? HostFiles.ToolVersion;
@@ -725,7 +728,7 @@ internal sealed class SessionHost
         try
         {
             DiagnosticsPaths.EnsureUserOnlyDirectory(_files.SessionsDirectory);
-            session = await PtySession.StartAsync(name, parameters, _files.LedgerFile(name), _files.StateDirectory, cancellationToken).ConfigureAwait(false);
+            session = await PtySession.StartAsync(name, parameters, _files.LedgerFile(name), _files.StateDirectory, _time, cancellationToken).ConfigureAwait(false);
             return session.Info;
         }
         finally

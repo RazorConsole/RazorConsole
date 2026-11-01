@@ -84,6 +84,62 @@ public sealed class AppLayerFirstFrameTests : IAsyncDisposable
     }
 
     [Fact(Timeout = TestTimeoutMs)]
+    public async Task ARetryThatIsStillInFlightAtTheDeadline_FailsWithNotRenderedYet_NotWithATimeout()
+    {
+        // The app says "not rendered yet" once and then never answers: the retry is in flight when the deadline passes.
+        using var stop = new CancellationTokenSource();
+        var server = StartScriptedApp(stop.Token);
+        try
+        {
+            var error = await Should.ThrowAsync<DiagnosticsProtocolException>(
+                () => _layer!.CallAsync(DiagnosticsAppMethods.Tree, DiagnosticsJsonContext.Default.TreeResult, TimeSpan.FromSeconds(1), Token));
+
+            error.Code.ShouldBe(DiagnosticsErrorCodes.AppLayerUnavailable);
+            error.ErrorData.ShouldNotBeNull().Deserialize(HostJsonContext.Default.LayerUnavailableData)!.Reason.ShouldBe(DiagnosticsUnavailableReasons.NotRenderedYet);
+        }
+        finally
+        {
+            await stop.CancelAsync();
+            await server;
+        }
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task TheFailureTree_IsFetchedThroughALayerThatNeverConnectedBefore()
+    {
+        await StartAsync();
+        var root = VNode.CreateElement("div");
+        _state.PublishFrame(root, null, null);
+
+        // Nothing has called the layer yet, so it is not connected: the tree is fetched all the same.
+        _layer!.Describe().Connected.ShouldBeFalse();
+        var (tree, reason) = await HostWait.ShortTreeAsync(_layer, Token);
+
+        reason.ShouldBeNull();
+        tree.ShouldNotBeNull().GetProperty("root").GetProperty("id").GetString().ShouldBe(root.ID);
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task TheFailureTree_WhenTheAppNeverRenders_IsNullWithTheReason()
+    {
+        // The scripted app says "not rendered yet" and then goes quiet, so the small budget of the tree runs out.
+        using var stop = new CancellationTokenSource();
+        var server = StartScriptedApp(stop.Token);
+        try
+        {
+            var (tree, reason) = await HostWait.ShortTreeAsync(_layer!, Token);
+
+            tree.ShouldBeNull();
+            reason.ShouldBe(DiagnosticsUnavailableReasons.NotRenderedYet);
+        }
+        finally
+        {
+            await stop.CancelAsync();
+            await server;
+        }
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
     public async Task AnAppThatRendersNothingAfterItsFirstFrame_StillAnswersWithAnEmptyTree()
     {
         await StartAsync();
@@ -94,6 +150,51 @@ public sealed class AppLayerFirstFrameTests : IAsyncDisposable
 
         tree.Root.ShouldBeNull();
         watch.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(10));
+    }
+
+    // An endpoint that answers hello, errors on everything but tree, and answers the first tree with not_rendered_yet
+    // and none after that.
+    private Task StartScriptedApp(CancellationToken cancellationToken)
+    {
+        DiagnosticsPaths.EnsureUserOnlyDirectory(_directory);
+        var endpoint = DiagnosticsPaths.HostEndpoint(_directory);
+        var listener = DiagnosticsTransport.Listen(endpoint);
+        var info = new DiagnosticsDiscoveryInfo(Environment.ProcessId, DateTimeOffset.UtcNow, DiagnosticsProtocol.Version, endpoint, "TestApp", "1.0.0");
+        _layer = new AppLayer(() => info, () => true, () => null);
+        return Task.Run(async () =>
+        {
+            await using var _ = listener;
+            try
+            {
+                await using var connection = new DiagnosticsConnection(await listener.AcceptAsync(cancellationToken));
+                var trees = 0;
+                while (await connection.ReadAsync(cancellationToken) is { } request)
+                {
+                    var id = request.Id!.Value;
+                    if (request.Method == DiagnosticsProtocol.HelloMethod)
+                    {
+                        var hello = new HelloResult(DiagnosticsProtocol.Version, "scripted", Environment.ProcessId);
+                        await connection.WriteAsync(DiagnosticsMessage.Success(id, hello, DiagnosticsJsonContext.Default.HelloResult), cancellationToken);
+                    }
+                    else if (request.Method == DiagnosticsAppMethods.Tree)
+                    {
+                        if (trees++ > 0)
+                        {
+                            await Task.Delay(Timeout.Infinite, cancellationToken);
+                        }
+
+                        await connection.WriteAsync(DiagnosticsMessage.Failure(id, DiagnosticsEndpointService.NotRenderedYet().ToError()), cancellationToken);
+                    }
+                    else
+                    {
+                        await connection.WriteAsync(DiagnosticsMessage.Failure(id, new DiagnosticsError(DiagnosticsErrorCodes.Internal, "scripted", null)), cancellationToken);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }, CancellationToken.None);
     }
 
     private async Task StartAsync()

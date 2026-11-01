@@ -157,7 +157,8 @@ internal static class HostWait
 
         var screen = await state.TextAsync(session, cancellationToken).ConfigureAwait(false);
         var description = Describe(condition);
-        var data = new AssertionData(description, not, screen, await ShortTreeAsync(session, cancellationToken).ConfigureAwait(false));
+        var (tree, treeReason) = await ShortTreeAsync(session.App, cancellationToken).ConfigureAwait(false);
+        var data = new AssertionData(description, not, screen, tree, treeReason);
         throw new DiagnosticsProtocolException(
             DiagnosticsErrorCodes.AssertionFailed,
             not ? $"Expected {description} not to hold, but it does." : $"Expected {description}, but it does not hold.",
@@ -227,28 +228,25 @@ internal static class HostWait
         }
     }
 
-    // The top of the app's tree, when the app layer is already connected; never worth waiting for on a failure.
-    private static async Task<JsonElement?> ShortTreeAsync(HostSession session, CancellationToken cancellationToken)
+    // The top of the app's tree, fetched with a small budget of its own, whatever is left of the assertion's time. The
+    // layer connects (or reconnects) for it: Describe cannot say whether that works, since it only reads the grace clock.
+    // A tree that cannot be had is reported with the reason, never left out.
+    internal static async Task<(JsonElement? Tree, string? Reason)> ShortTreeAsync(AppLayer app, CancellationToken cancellationToken)
     {
-        if (!session.App.Describe().Connected)
-        {
-            return null;
-        }
-
         try
         {
-            var tree = await session.App.CallAsync(
+            var tree = await app.CallAsync(
                 DiagnosticsAppMethods.Tree,
                 new TreeParams(Depth: FailureTreeDepth, IncludeText: true),
                 DiagnosticsJsonContext.Default.TreeParams,
                 DiagnosticsJsonContext.Default.TreeResult,
                 FailureDetailTimeout,
                 cancellationToken).ConfigureAwait(false);
-            return JsonSerializer.SerializeToElement(tree, DiagnosticsJsonContext.Default.TreeResult);
+            return (JsonSerializer.SerializeToElement(tree, DiagnosticsJsonContext.Default.TreeResult), null);
         }
-        catch (DiagnosticsProtocolException)
+        catch (DiagnosticsProtocolException ex)
         {
-            return null;
+            return (null, ex.Code == DiagnosticsErrorCodes.AppLayerUnavailable ? ex.ErrorData?.Deserialize(HostJsonContext.Default.LayerUnavailableData)?.Reason ?? ex.Code : ex.Code);
         }
     }
 

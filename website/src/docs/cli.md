@@ -182,6 +182,8 @@ Each error code maps to one exit code, so scripts can branch without parsing:
 
 A failed `assert` and a timed-out `wait` carry the screen: in text after a `--- screen ---` line, in JSON as `error.data.screen`.
 
+A failed `assert` also carries a short tree of the app (depth 3) as `error.data.tree`, fetched with a budget of its own (about 2s) no matter how much of `--timeout` is left. The key is always there: when the tree cannot be fetched it is `null` and `error.data.treeReason` says why, either an app layer reason (`disabled`, `not_connected_yet`, `not_rendered_yet`, `incompatible_protocol`) or an error code such as `timeout`.
+
 ## What `errors` can and cannot show
 
 `errors` is the app's own record of exceptions its renderer caught. It is not a crash log.

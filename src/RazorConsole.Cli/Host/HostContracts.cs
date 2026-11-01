@@ -398,8 +398,16 @@ internal sealed record WaitTimeoutData(string Screen);
 /// <param name="Condition">The condition that was checked, as text.</param>
 /// <param name="Not">Whether the assertion was negated.</param>
 /// <param name="Screen">The screen when it failed.</param>
-/// <param name="Tree">A short tree of the app (depth 3), when the app layer is connected.</param>
-internal sealed record AssertionData(string Condition, bool Not, string Screen, JsonElement? Tree = null);
+/// <param name="Tree">A short tree of the app (depth 3). Always present: <see langword="null"/> when the tree could not be
+/// fetched, and then <paramref name="TreeReason"/> says why.</param>
+/// <param name="TreeReason">Why there is no tree: an app layer reason (<c>disabled</c>, <c>not_connected_yet</c>,
+/// <c>not_rendered_yet</c>, <c>incompatible_protocol</c>) or an error code such as <c>timeout</c>; absent when there is a tree.</param>
+internal sealed record AssertionData(
+    string Condition,
+    bool Not,
+    string Screen,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] JsonElement? Tree = null,
+    string? TreeReason = null);
 
 /// <summary>
 /// The <c>data</c> of an <see cref="DiagnosticsErrorCodes.AppLayerUnavailable"/> or

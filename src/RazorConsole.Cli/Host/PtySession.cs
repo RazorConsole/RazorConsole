@@ -39,12 +39,14 @@ internal sealed class PtySession : HostSession
     private OutputRing _output;
     private DateTimeOffset _startedAt;
     private string _token;
+    private readonly TimeProvider _time;
     private long _firstFrameAt;
     private int _disposed;
 
-    private PtySession(string name, StartParams spec, string ledgerFile, string stateDirectory, string token, PtyTerminal terminal, OutputRing output, string command)
+    private PtySession(string name, StartParams spec, string ledgerFile, string stateDirectory, string token, PtyTerminal terminal, OutputRing output, string command, TimeProvider time)
         : base(name)
     {
+        _time = time;
         Spec = spec;
         Command = command;
         _ledgerFile = ledgerFile;
@@ -114,7 +116,7 @@ internal sealed class PtySession : HostSession
     /// <see cref="StartParams.NoWait"/>, waits for its first frame. The app is told the session's token and the
     /// host's state directory, so its diagnostics endpoint can be paired with the session.
     /// </summary>
-    public static async Task<PtySession> StartAsync(string name, StartParams spec, string ledgerFile, string stateDirectory, CancellationToken cancellationToken)
+    public static async Task<PtySession> StartAsync(string name, StartParams spec, string ledgerFile, string stateDirectory, TimeProvider time, CancellationToken cancellationToken)
     {
         // Pinned in the spec, so restart runs the same framework and configuration without evaluating the project again.
         if (spec.TargetKind == StartTargetKind.Project)
@@ -134,7 +136,7 @@ internal sealed class PtySession : HostSession
         options.RawOutputCapacity = TerminalRawOutputCapacity;
 
         var terminal = await StartTerminalAsync(options, cancellationToken).ConfigureAwait(false);
-        var session = new PtySession(name, spec, ledgerFile, stateDirectory, token, terminal, output, command);
+        var session = new PtySession(name, spec, ledgerFile, stateDirectory, token, terminal, output, command, time);
         try
         {
             session.WriteLedger();
@@ -766,14 +768,14 @@ internal sealed class PtySession : HostSession
     {
         NoteFirstFrame(_terminal.CurrentFrame);
         var at = Interlocked.Read(ref _firstFrameAt);
-        return at != 0 && Stopwatch.GetElapsedTime(at) >= AppLayer.Grace;
+        return at != 0 && _time.GetElapsedTime(at) >= AppLayer.Grace;
     }
 
     private void NoteFirstFrame(TerminalFrame frame)
     {
         if (frame.FrameNumber > 0 && Interlocked.Read(ref _firstFrameAt) == 0)
         {
-            Interlocked.CompareExchange(ref _firstFrameAt, Stopwatch.GetTimestamp(), 0);
+            Interlocked.CompareExchange(ref _firstFrameAt, _time.GetTimestamp(), 0);
         }
     }
 

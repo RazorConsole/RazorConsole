@@ -240,7 +240,9 @@ public sealed class AppLayerTests : IAsyncDisposable
     public async Task AppWithoutAnEndpoint_IsNotConnectedYet_ThenDisabled()
     {
         Assert.SkipUnless(PtyTerminal.IsSupported, "PTY is not supported on this OS.");
-        var operations = Operations();
+        // The grace period runs on this clock, so both states are reached without waiting on the wall clock.
+        var clock = new ManualTimeProvider();
+        var operations = Operations(clock);
         var options = Options();
         try
         {
@@ -253,7 +255,7 @@ public sealed class AppLayerTests : IAsyncDisposable
             CliExitCodes.For(early.Error.Code).ShouldBe(CliExitCodes.AppLayerUnavailable);
 
             // Once the app has had its first frame and the grace period, the reason changes.
-            await Task.Delay(AppLayer.Grace + TimeSpan.FromMilliseconds(700), Token);
+            clock.Advance(AppLayer.Grace);
             var late = await operations.ExecuteAsync(new TreeRequest(null, null, false, false), options, Token);
             late.Error.ShouldNotBeNull().Code.ShouldBe(DiagnosticsErrorCodes.AppLayerUnavailable);
             late.Error.Data!.Value.GetProperty("reason").GetString().ShouldBe("disabled");
@@ -262,6 +264,35 @@ public sealed class AppLayerTests : IAsyncDisposable
 
             var list = await operations.ExecuteAsync(new ListRequest(), options, Token);
             list.Data!.Value.GetProperty("sessions")[0].GetProperty("appLayer").GetProperty("reason").GetString().ShouldBe("disabled");
+
+            Succeeded(await operations.ExecuteAsync(new StopRequest(null, TimeSpan.FromSeconds(10)), options, Token));
+        }
+        finally
+        {
+            await StopHostAsync(operations, options);
+        }
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task AFailedAssertion_WithoutAnAppLayer_StillHasTheTreeKey_NullWithTheReason()
+    {
+        Assert.SkipUnless(PtyTerminal.IsSupported, "PTY is not supported on this OS.");
+        var clock = new ManualTimeProvider();
+        var operations = Operations(clock);
+        var options = Options();
+        try
+        {
+            // PtyApp's echo mode is not a RazorConsole app, so there is no tree to show.
+            Succeeded(await StartAsync(operations, options, "echo", "e"));
+            clock.Advance(AppLayer.Grace);
+
+            var failed = await operations.ExecuteAsync(new AssertRequest(new WaitCondition(WaitConditionKind.Text, "never on screen"), Not: false), options, Token);
+
+            failed.Error.ShouldNotBeNull().Code.ShouldBe(DiagnosticsErrorCodes.AssertionFailed);
+            var data = failed.Error.Data!.Value;
+            data.GetProperty("screen").GetString().ShouldNotBeNull();
+            data.GetProperty("tree").ValueKind.ShouldBe(JsonValueKind.Null);
+            data.GetProperty("treeReason").GetString().ShouldBe("disabled");
 
             Succeeded(await operations.ExecuteAsync(new StopRequest(null, TimeSpan.FromSeconds(10)), options, Token));
         }
@@ -450,9 +481,9 @@ public sealed class AppLayerTests : IAsyncDisposable
     private static async Task StopHostAsync(HostOperations operations, CliGlobalOptions options)
         => Succeeded(await operations.ExecuteAsync(new HostStopRequest(), options, CancellationToken.None));
 
-    private HostOperations Operations()
+    private HostOperations Operations(TimeProvider? time = null)
     {
-        var launcher = new InProcessLauncher(TimeSpan.FromMinutes(10), "1.0.0");
+        var launcher = new InProcessLauncher(TimeSpan.FromMinutes(10), "1.0.0", time);
         _launchers.Add(launcher);
         return new HostOperations(new HostConnector(Files, launcher, "1.0.0"));
     }

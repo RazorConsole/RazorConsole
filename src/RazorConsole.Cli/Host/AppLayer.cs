@@ -195,38 +195,55 @@ internal sealed class AppLayer : IAsyncDisposable
     public async Task<JsonElement> CallAsync(string method, JsonElement? parameters, TimeSpan timeout, CancellationToken cancellationToken)
     {
         var started = Stopwatch.GetTimestamp();
+        var notRendered = false;
         while (true)
         {
             try
             {
-                return await CallOnceAsync(method, parameters, timeout, started, cancellationToken).ConfigureAwait(false);
+                return await CallOnceAsync(method, parameters, timeout, started, notRendered, cancellationToken).ConfigureAwait(false);
             }
             catch (DiagnosticsProtocolException ex) when (IsNotRenderedYet(ex))
             {
                 // The app answers before its first frame exists; like the connection above, that is waited out.
+                notRendered = true;
                 if (Stopwatch.GetElapsedTime(started) + RetryInterval >= timeout)
                 {
-                    throw AppLink.Unavailable(
-                        DiagnosticsUnavailableReasons.NotRenderedYet,
-                        $"The app has not rendered its first frame within {timeout.TotalSeconds:0.###}s. It may still be starting; try a longer --timeout.");
+                    throw NotRenderedYet(timeout);
                 }
 
                 await Task.Delay(RetryInterval, cancellationToken).ConfigureAwait(false);
             }
+            catch (DiagnosticsProtocolException ex) when (notRendered && (ex.Code == DiagnosticsErrorCodes.Timeout || IsUnavailable(ex, DiagnosticsUnavailableReasons.NotConnectedYet)))
+            {
+                // The deadline ran out inside a retry or a reconnect: the last thing known about the app is that it had
+                // not rendered, which says more than the retry's own timeout.
+                throw NotRenderedYet(timeout);
+            }
         }
     }
 
-    private static bool IsNotRenderedYet(DiagnosticsProtocolException ex)
-        => ex.Code == DiagnosticsErrorCodes.AppLayerUnavailable
-            && ex.ErrorData?.Deserialize(HostJsonContext.Default.LayerUnavailableData)?.Reason == DiagnosticsUnavailableReasons.NotRenderedYet;
+    private static DiagnosticsProtocolException NotRenderedYet(TimeSpan timeout)
+        => AppLink.Unavailable(
+            DiagnosticsUnavailableReasons.NotRenderedYet,
+            $"The app has not rendered its first frame within {timeout.TotalSeconds:0.###}s. It may still be starting; try a longer --timeout.");
 
-    private async Task<JsonElement> CallOnceAsync(string method, JsonElement? parameters, TimeSpan timeout, long started, CancellationToken cancellationToken)
+    private static bool IsNotRenderedYet(DiagnosticsProtocolException ex) => IsUnavailable(ex, DiagnosticsUnavailableReasons.NotRenderedYet);
+
+    private static bool IsUnavailable(DiagnosticsProtocolException ex, string reason)
+        => ex.Code == DiagnosticsErrorCodes.AppLayerUnavailable
+            && ex.ErrorData?.Deserialize(HostJsonContext.Default.LayerUnavailableData)?.Reason == reason;
+
+    private async Task<JsonElement> CallOnceAsync(string method, JsonElement? parameters, TimeSpan timeout, long started, bool retrying, CancellationToken cancellationToken)
     {
         var link = await GetLinkAsync(timeout, cancellationToken).ConfigureAwait(false);
         var remaining = timeout - Stopwatch.GetElapsedTime(started);
+
+        // The first call gets at least MinimumCall even when connecting took the whole budget; a retry stays within the
+        // deadline, so the answer to the caller arrives when it was promised.
+        var callTimeout = retrying ? TimeSpan.FromTicks(Math.Max(remaining.Ticks, TimeSpan.TicksPerMillisecond)) : remaining < MinimumCall ? MinimumCall : remaining;
         try
         {
-            var result = await link.CallAsync(method, parameters, remaining < MinimumCall ? MinimumCall : remaining, cancellationToken).ConfigureAwait(false);
+            var result = await link.CallAsync(method, parameters, callTimeout, cancellationToken).ConfigureAwait(false);
             if (method == DiagnosticsAppMethods.Errors)
             {
                 RecordErrors(result);
