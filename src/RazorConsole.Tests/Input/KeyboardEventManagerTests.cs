@@ -617,6 +617,21 @@ public class KeyboardEventManagerTests
     }
 
     [Fact]
+    public async Task Enter_DoesNotActivate_TheElementFocusMovedTo()
+    {
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec("first", events: new Dictionary<string, ulong> { ["onkeydown"] = 31 }),
+            new FocusElementSpec("second", events: new Dictionary<string, ulong> { ["onclick"] = 32 }));
+        // Like a list whose Enter navigates to a page where a button takes focus.
+        harness.Dispatcher.OnDispatch = id => id == 31 ? harness.FocusManager.FocusAsync("second") : Task.CompletedTask;
+
+        await harness.Manager.HandleKeyAsync(new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false), CancellationToken.None);
+
+        harness.FocusManager.CurrentFocusKey.ShouldBe("second");
+        harness.Dispatcher.Events.ShouldNotContain(e => e.HandlerId == 32UL);
+    }
+
+    [Fact]
     public async Task ConsumedTab_DoesNotTraverse_WhenSnapshotDoesNotManageTab()
     {
         await using var harness = await KeyboardHarness.CreateAsync(
@@ -667,6 +682,8 @@ public class KeyboardEventManagerTests
         public IReadOnlyList<DispatchedEvent> Events => _events;
         public bool ConsumeKey { get; set; }
 
+        public Func<ulong, Task>? OnDispatch { get; set; }
+
         /// <summary>Handler ids of a replaced render: dispatching one fails as the renderer does.</summary>
         public HashSet<ulong> StaleIds { get; } = [];
 
@@ -692,7 +709,7 @@ public class KeyboardEventManagerTests
                 key.Handled = true;
             }
 
-            return Task.CompletedTask;
+            return OnDispatch?.Invoke(handlerId) ?? Task.CompletedTask;
         }
     }
 

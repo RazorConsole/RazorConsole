@@ -171,7 +171,7 @@ internal sealed class KeyboardEventManager
                 await HandleTabAsync(keyInfo, token).ConfigureAwait(false);
                 break;
             case ConsoleKey.Enter:
-                await TriggerActivationAsync(token).ConfigureAwait(false);
+                await TriggerActivationAsync(initialTarget, token).ConfigureAwait(false);
                 break;
             default:
                 if (ShouldRaiseKeyPress(keyInfo))
@@ -270,9 +270,11 @@ internal sealed class KeyboardEventManager
         }
     }
 
-    private async Task TriggerActivationAsync(CancellationToken token)
+    private async Task TriggerActivationAsync(FocusManager.FocusTarget keyTarget, CancellationToken token)
     {
-        if (!_focusManager.TryGetFocusedTarget(out var target) || target is null)
+        // Activate only the element that received the key. When its keydown handler moved focus (for
+        // example by navigating), the newly focused element must not be clicked by the same Enter.
+        if (!_focusManager.TryGetFocusedTarget(out var target) || target is null || target.Key != keyTarget.Key)
         {
             return;
         }
