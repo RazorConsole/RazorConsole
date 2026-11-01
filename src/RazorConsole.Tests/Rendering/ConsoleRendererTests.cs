@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using RazorConsole.Core;
+using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Input;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Vdom;
@@ -350,6 +351,35 @@ public sealed class ConsoleRendererTests
     }
 
     [Fact]
+    public void OrderedObserver_SnapshotNoNewerThanOneDelivered_IsDropped()
+    {
+        var delivered = new List<long>();
+        var observer = new ConsoleRenderer.OrderedObserver(new RecordingObserver(snapshot => delivered.Add(snapshot.Sequence)));
+
+        // Subscribe replays the latest render while a notification for an earlier one can still be in flight.
+        foreach (var sequence in new long[] { 2, 1, 2, 3 })
+        {
+            observer.OnNext(ConsoleRenderer.RenderSnapshot.Empty with { Sequence = sequence });
+        }
+
+        delivered.ShouldBe([2, 3]);
+    }
+
+    [Fact]
+    public async Task MountComponentAsync_RenderAfterTheFirst_ReturnsAndReplaysTheNewest()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+
+        var mounted = await renderer.MountComponentAsync(new RenderTwiceWhileMountingComponent(), ParameterView.Empty, TestContext.Current.CancellationToken);
+        var delivered = new List<ConsoleRenderer.RenderSnapshot>();
+        using var subscription = renderer.Subscribe(new RecordingObserver(delivered.Add));
+
+        ConsoleViewResult.FromSnapshot(mounted).Html.ShouldContain("loaded");
+        // The queued notification of the same render may follow the replay; it is not delivered again.
+        delivered.Select(snapshot => snapshot.Sequence).ShouldBe([mounted.Sequence]);
+    }
+
+    [Fact]
     public async Task EventDispatchedFromOnAfterRender_DoesNotReapplyTheRenderBatch()
     {
         using var renderer = TestHelpers.CreateTestRenderer();
@@ -688,5 +718,39 @@ public sealed class ConsoleRendererTests
             builder.CloseElement();
         }
     }
+
+    private sealed class RecordingObserver(Action<ConsoleRenderer.RenderSnapshot> onNext) : IObserver<ConsoleRenderer.RenderSnapshot>
+    {
+        public void OnNext(ConsoleRenderer.RenderSnapshot value) => onNext(value);
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnCompleted()
+        {
+        }
+    }
+
+    // Renders again from its first OnAfterRender, in the same dispatcher turn as the mount's first render.
+    private sealed class RenderTwiceWhileMountingComponent : ComponentBase
+    {
+        private bool _loaded;
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "span");
+            builder.AddContent(1, _loaded ? "loaded" : "loading");
+            builder.CloseElement();
+        }
+
+        protected override void OnAfterRender(bool firstRender)
+        {
+            if (firstRender)
+            {
+                _loaded = true;
+                StateHasChanged();
+            }
+        }
+    }
 }
-#pragma warning restore BL0006

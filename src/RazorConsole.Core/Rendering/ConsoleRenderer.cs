@@ -95,7 +95,9 @@ internal sealed class ConsoleRenderer(
             {
                 await RenderRootComponentAsync(componentId, parameters).ConfigureAwait(false);
             }).ConfigureAwait(false);
-            _lastSnapshot = await tcs.Task.ConfigureAwait(false);
+            await tcs.Task.ConfigureAwait(false);
+
+            // Renders after the first may already have run; start callers from the newest.
             return _lastSnapshot;
         }
         catch (OperationCanceledException)
@@ -130,9 +132,11 @@ internal sealed class ConsoleRenderer(
             }
             else
             {
-                _observers.Add(observer);
+                var ordered = new OrderedObserver(observer);
+                _observers.Add(ordered);
                 snapshot = _lastSnapshot;
-                subscription = new Subscription(this, observer);
+                subscription = new Subscription(this, ordered);
+                observer = ordered;
             }
         }
 
@@ -949,6 +953,34 @@ internal sealed class ConsoleRenderer(
                 owner.Unsubscribe(observer);
             }
         }
+    }
+
+    /// <summary>
+    /// Passes each snapshot on once, in render order: the replay in <see cref="Subscribe"/> can race a queued
+    /// notification, so a snapshot no newer than one already delivered is dropped.
+    /// </summary>
+    internal sealed class OrderedObserver(IObserver<RenderSnapshot> inner) : IObserver<RenderSnapshot>
+    {
+        private readonly Lock _sync = new();
+        private long _sequence = -1;
+
+        public void OnNext(RenderSnapshot value)
+        {
+            lock (_sync)
+            {
+                if (value.Sequence <= _sequence)
+                {
+                    return;
+                }
+
+                _sequence = value.Sequence;
+                inner.OnNext(value);
+            }
+        }
+
+        public void OnError(Exception error) => inner.OnError(error);
+
+        public void OnCompleted() => inner.OnCompleted();
     }
 
     private sealed class NoopDisposable : IDisposable

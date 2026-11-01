@@ -125,8 +125,10 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
         }
 
         using var liveContext = new ConsoleLiveDisplayContext(new LiveDisplayCanvas(options.ConsoleLiveDisplayOptions, AnsiConsole.Console), consoleRenderer, terminalMonitor, null);
-        using var _ = consoleRenderer.Subscribe(focusManager);
         using var focusSession = focusManager.BeginSession(liveContext, initialView, token);
+
+        // After the session begins: the replayed latest render brings its targets up to date.
+        using var _ = consoleRenderer.Subscribe(focusManager);
         await focusSession.InitializationTask.ConfigureAwait(false);
         var keyListenerTask = keyboardEventManager.RunAsync(token);
         if (options.EnableTerminalResizing)
