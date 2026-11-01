@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 permissions:
@@ -102,7 +104,7 @@ jobs:
 
   native-aot-version:
     name: Compute Native AOT version
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     outputs:
       value: ${{ steps.version.outputs.value }}
@@ -114,6 +116,8 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             head_sha="${{ github.event.pull_request.head.sha }}"
             version="pr-${{ github.event.pull_request.number }}-${head_sha:0:7}"
+          elif [[ "${{ github.event_name }}" == "merge_group" ]]; then
+            version="mq-${GITHUB_SHA:0:7}"
           else
             version="nightly-$(date -u +'%Y%m%d-%H%M%S')-${GITHUB_SHA:0:7}"
           fi
@@ -314,7 +318,7 @@ jobs:
           path: website/build/client
 
       - name: Verify custom-domain production metadata
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         working-directory: website
         env:
           VITE_SITE_URL: https://razorconsole.com
@@ -327,7 +331,7 @@ jobs:
           python tests/tutorial_navigation.py
 
       - name: Verify legacy project-base compatibility
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         working-directory: website
         env:
           VITE_SITE_URL: https://razorconsole.com
