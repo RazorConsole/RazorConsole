@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory)]
-    [ValidateSet("Gallery", "Htop", "Snake", "TankBattle")]
+    [ValidateSet("Cli", "Gallery", "Htop", "Snake", "TankBattle")]
     [string] $App,
 
     [ValidateSet("Stable", "Nightly")]
@@ -10,6 +10,13 @@ param(
 $ErrorActionPreference = "Stop"
 
 $appConfiguration = switch ($App) {
+    "Cli" {
+        @{
+            CommandName = "razorconsole"
+            InstallDirectory = "Cli"
+            InstallDirectoryVariable = "RAZORCONSOLE_CLI_INSTALL_DIR"
+        }
+    }
     "Gallery" {
         @{
             Name = "gallery"
@@ -71,7 +78,7 @@ $architecture = switch ($processorArchitecture) {
     default { throw "Unsupported architecture: $processorArchitecture" }
 }
 
-$commandName = "razorconsole-$($appConfiguration.Name)"
+$commandName = if ($appConfiguration.CommandName) { $appConfiguration.CommandName } else { "razorconsole-$($appConfiguration.Name)" }
 $archive = "$commandName-$version-windows-$architecture.zip"
 $asset = $release.assets | Where-Object name -eq $archive
 $checksumsAsset = $release.assets | Where-Object name -eq "checksums-sha256.txt"

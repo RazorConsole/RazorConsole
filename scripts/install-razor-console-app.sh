@@ -6,14 +6,14 @@ app=""
 channel="stable"
 
 usage() {
-  echo "Usage: install-razor-console-app.sh --app <Gallery|Htop|Snake|TankBattle> [--channel <stable|nightly>]" >&2
+  echo "Usage: install-razor-console-app.sh --app <Cli|Gallery|Htop|Snake|TankBattle> [--channel <stable|nightly>]" >&2
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --app)
       if [ "$#" -lt 2 ]; then
-        echo "--app requires Gallery, Htop, Snake, or TankBattle." >&2
+        echo "--app requires Cli, Gallery, Htop, Snake, or TankBattle." >&2
         exit 1
       fi
       app="$2"
@@ -40,6 +40,12 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$app" in
+  Cli|cli|razorconsole)
+    display_name="RazorConsole CLI"
+    command_name="razorconsole"
+    install_root="${RAZORCONSOLE_CLI_INSTALL_DIR:-${HOME}/.local/share/razorconsole}"
+    bin_dir="${RAZORCONSOLE_CLI_BIN_DIR:-${RAZORCONSOLE_BIN_DIR:-${HOME}/.local/bin}}"
+    ;;
   Gallery|gallery)
     display_name="Component Gallery"
     command_name="razorconsole-gallery"

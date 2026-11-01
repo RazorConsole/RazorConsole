@@ -9,7 +9,23 @@ razorconsole doctor
 
 The tool needs .NET 8 or newer. Sessions run in a real pseudoterminal: ConPTY on Windows 10 version 1809 or later, a POSIX PTY on Linux and macOS. `doctor` checks that all of this works on your machine.
 
-Each [GitHub release](https://github.com/RazorConsole/RazorConsole/releases) also has a Native AOT build of the tool as `razorconsole-<version>-<platform>.zip` (Windows) or `.tar.gz` (Linux and macOS), for x64 and arm64. Unpack it anywhere and run `razorconsole`; it starts without a .NET runtime of its own, though the apps it runs (`--project`, `--dll`) still need .NET.
+### Native AOT
+
+The Native AOT build starts without a .NET runtime of its own (the apps it runs with `--project` or `--dll` still need .NET). One command installs it from the latest [GitHub release](https://github.com/RazorConsole/RazorConsole/releases), after checking its SHA-256 checksum. It picks x64 or arm64 for your machine.
+
+macOS and Linux (installs to `~/.local/share/razorconsole` and links `~/.local/bin/razorconsole`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.sh | sh -s -- --app Cli
+```
+
+Windows PowerShell (installs to `%LOCALAPPDATA%\RazorConsole\Cli` and adds it to your user `PATH`):
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/RazorConsole/RazorConsole/main/scripts/install-razor-console-app.ps1))) -App Cli
+```
+
+Open a new terminal and run `razorconsole doctor`. Add `--channel nightly` (`-Channel Nightly` on Windows) for the latest nightly build. You can also download `razorconsole-<version>-<platform>-<arch>.zip` (Windows) or `.tar.gz` (Linux and macOS) from the release and unpack it anywhere.
 
 ## The loop
 
