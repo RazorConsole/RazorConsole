@@ -163,6 +163,27 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
     }
 
     [Fact(Timeout = TestTimeoutMs)]
+    public async Task Stop_AbandonsAConnectionThatNeverEnds_InsteadOfBlockingShutdown()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var stuck = new StuckStream();
+        var logger = new RecordingLogger();
+        var service = await StartAsync(new DiagnosticsState(), new FocusManager(), logger: logger, listen: _ => new SingleStreamListener(stuck));
+        service.ShutdownLimit = TimeSpan.FromMilliseconds(300);
+        await stuck.Reading.WaitAsync(TimeSpan.FromSeconds(8), ct);
+        var watch = Stopwatch.StartNew();
+
+        await service.StopAsync(ct).WaitAsync(TimeSpan.FromSeconds(8), ct);
+
+        // It waited for the limit, then let go; it did not wait for the connection.
+        watch.Elapsed.ShouldBeGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(250));
+        watch.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(6));
+        stuck.Disposed.ShouldBeTrue();
+        logger.Messages.ShouldContain(message => message.Contains("1 connection(s)", StringComparison.Ordinal));
+        stuck.Release();
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
     public async Task Endpoint_ServesAtMostFourConnectionsAndAcceptsAgainWhenOneCloses()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -774,9 +795,89 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
     private static DiagnosticsError Error(DiagnosticsMessage response)
         => response.Error.ShouldNotBeNull();
 
+    // Accepts one connection, then waits for the next forever.
+    private sealed class SingleStreamListener(Stream stream) : DiagnosticsListener
+    {
+        private bool _accepted;
+
+        public override string Endpoint => "stuck-endpoint";
+
+        public override async Task<Stream> AcceptAsync(CancellationToken cancellationToken)
+        {
+            if (!_accepted)
+            {
+                _accepted = true;
+                return stream;
+            }
+
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return stream;
+        }
+
+        public override ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    // A read that ignores cancellation and disposal, like a transport that is stuck in the operating system.
+    private sealed class StuckStream : Stream
+    {
+        private readonly TaskCompletionSource _reading = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Reading => _reading.Task;
+
+        public bool Disposed { get; private set; }
+
+        public void Release() => _release.TrySetResult();
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => true;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            _reading.TrySetResult();
+            await _release.Task;
+            return 0;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing) => Disposed = true;
+
+        public override ValueTask DisposeAsync()
+        {
+            Disposed = true;
+            return ValueTask.CompletedTask;
+        }
+    }
+
     private sealed class RecordingLogger : ILogger<DiagnosticsEndpointService>
     {
         public ConcurrentQueue<(LogLevel Level, Exception? Exception)> Entries { get; } = new();
+
+        public ConcurrentQueue<string> Messages { get; } = new();
 
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull
@@ -785,7 +886,10 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         public bool IsEnabled(LogLevel logLevel) => true;
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-            => Entries.Enqueue((logLevel, exception));
+        {
+            Entries.Enqueue((logLevel, exception));
+            Messages.Enqueue(formatter(state, exception));
+        }
 
         public void ShouldHaveWarning<TException>()
             where TException : Exception

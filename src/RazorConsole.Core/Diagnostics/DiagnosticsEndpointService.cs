@@ -59,6 +59,11 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
     private static readonly TimeSpan DefaultInputTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan FocusCatchUpTimeout = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    /// How long stopping waits for connections to end before it closes their streams and abandons them.
+    /// </summary>
+    public static readonly TimeSpan DefaultShutdownLimit = TimeSpan.FromSeconds(2);
+
     private readonly DiagnosticsState? _state;
     private readonly ConsoleAppOptions _options;
     private readonly DiagnosticsAppQueries? _queries;
@@ -71,6 +76,8 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
     private readonly DiagnosticsEndpointSettings _settings;
     private readonly CancellationTokenSource _stopping = new();
     private readonly List<Task> _connections = [];
+    private readonly HashSet<Stream> _streams = [];
+    private TimeSpan _shutdownLimit = DefaultShutdownLimit;
     private DiagnosticsListener? _listener;
     private Task? _acceptLoop;
     private string? _discoveryFile;
@@ -115,6 +122,15 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
     /// The discovery file while listening; otherwise <see langword="null"/>.
     /// </summary>
     public string? DiscoveryFile => _discoveryFile;
+
+    /// <summary>
+    /// How long <see cref="StopAsync"/> waits for connections to end. Tests shorten it.
+    /// </summary>
+    internal TimeSpan ShutdownLimit
+    {
+        get => _shutdownLimit;
+        set => _shutdownLimit = value;
+    }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -168,8 +184,16 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
                 connections = [.. _connections];
             }
 
-            // Each connection ends when the stopping token cancels its read.
-            await Task.WhenAll(connections).WaitAsync(cancellationToken).ConfigureAwait(false);
+            // Each connection ends when the stopping token cancels its read. One that does not must not hold up the
+            // app's shutdown: close what is left and let go of it.
+            try
+            {
+                await Task.WhenAll(connections).WaitAsync(_shutdownLimit, cancellationToken).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                await AbandonConnectionsAsync(connections).ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -179,6 +203,30 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         {
             DeleteDiscoveryFile();
         }
+    }
+
+    private async Task AbandonConnectionsAsync(Task[] connections)
+    {
+        var abandoned = connections.Count(static task => !task.IsCompleted);
+        Stream[] streams;
+        lock (_streams)
+        {
+            streams = [.. _streams];
+        }
+
+        foreach (var stream in streams)
+        {
+            try
+            {
+                // Bounded too: closing a stuck stream may block as well.
+                await stream.DisposeAsync().AsTask().WaitAsync(_shutdownLimit).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or ObjectDisposedException or TimeoutException)
+            {
+            }
+        }
+
+        LogConnectionsAbandoned(_logger, abandoned);
     }
 
     public async ValueTask DisposeAsync()
@@ -242,6 +290,11 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
 
     private async Task ServeAsync(Stream stream, CancellationToken cancellationToken)
     {
+        lock (_streams)
+        {
+            _streams.Add(stream);
+        }
+
         try
         {
             await using var connection = new DiagnosticsConnection(stream);
@@ -261,6 +314,11 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         }
         finally
         {
+            lock (_streams)
+            {
+                _streams.Remove(stream);
+            }
+
             // After the connection and its read queue are gone, so the limit bounds what the app holds.
             Interlocked.Decrement(ref _activeConnections);
         }
@@ -816,6 +874,9 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Diagnostics connection failed and was closed.")]
     private static partial void LogConnectionFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Diagnostics endpoint stopped with {Count} connection(s) that did not end in time; they were closed and abandoned.")]
+    private static partial void LogConnectionsAbandoned(ILogger logger, int count);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Diagnostics connection closed.")]
     private static partial void LogConnectionClosed(ILogger logger, Exception exception);
