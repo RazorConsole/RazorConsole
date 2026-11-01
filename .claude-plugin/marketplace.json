@@ -1,0 +1,12 @@
+{
+  "name": "razorconsole",
+  "owner": { "name": "RazorConsole" },
+  "metadata": { "description": "Official RazorConsole plugins for coding agents." },
+  "plugins": [
+    {
+      "name": "razorconsole",
+      "source": "./plugins/razorconsole",
+      "description": "Skills and an MCP server for building, running and verifying RazorConsole terminal apps."
+    }
+  ]
+}

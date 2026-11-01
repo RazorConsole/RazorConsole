@@ -1,0 +1,12 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "razorconsole",
+  "displayName": "RazorConsole",
+  "version": "0.1.0",
+  "description": "Skills and an MCP server for building, running and verifying RazorConsole terminal apps.",
+  "author": { "name": "RazorConsole" },
+  "homepage": "https://razorconsole.com/",
+  "repository": "https://github.com/RazorConsole/RazorConsole",
+  "license": "MIT",
+  "keywords": ["razorconsole", "dotnet", "razor", "terminal", "tui", "mcp"]
+}
