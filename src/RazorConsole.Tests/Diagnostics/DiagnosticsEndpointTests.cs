@@ -27,6 +27,9 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
 {
     private const int TestTimeoutMs = 30_000;
 
+    // A request that the endpoint does not answer fails with its name long before the test timeout does.
+    private static readonly TimeSpan CallTimeout = TimeSpan.FromSeconds(8);
+
     private readonly string _stateDirectory = Path.Combine(Path.GetTempPath(), "rc-diag-" + Guid.NewGuid().ToString("N")[..8]);
     private readonly List<IAsyncDisposable> _disposables = [];
     private long _nextId;
@@ -35,7 +38,15 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
     {
         foreach (var disposable in Enumerable.Reverse(_disposables))
         {
-            await disposable.DisposeAsync();
+            // A disposal that never completes names itself instead of running into the test timeout.
+            try
+            {
+                await disposable.DisposeAsync().AsTask().WaitAsync(CallTimeout);
+            }
+            catch (TimeoutException)
+            {
+                throw new TimeoutException($"Disposing {disposable.GetType().Name} did not finish within {CallTimeout.TotalSeconds:0} s.");
+            }
         }
 
         try
@@ -120,7 +131,7 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         // A wrong type is invalid_params, and the connection still answers afterwards.
         var wrongType = new DiagnosticsMessage { Id = ++_nextId, Method = DiagnosticsAppMethods.InspectAt, Params = JsonDocument.Parse("""{"x":"left","y":1}""").RootElement };
         await client.WriteAsync(wrongType, ct);
-        Error((await client.ReadAsync(ct))!).Code.ShouldBe(DiagnosticsErrorCodes.InvalidParams);
+        Error((await ReadAsync(client, "inspectAt with a wrong parameter type", ct))!).Code.ShouldBe(DiagnosticsErrorCodes.InvalidParams);
 
         Result(await CallAsync(client, DiagnosticsAppMethods.Stats, ct), DiagnosticsJsonContext.Default.StatsResult).Frame.ShouldBe(1);
     }
@@ -148,7 +159,7 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         var response = await CallAsync(client, DiagnosticsProtocol.HelloMethod, new HelloParams(DiagnosticsProtocol.Version + 1, "future"), DiagnosticsJsonContext.Default.HelloParams, ct);
 
         Error(response).Code.ShouldBe(DiagnosticsErrorCodes.ProtocolMismatch);
-        (await client.ReadAsync(ct)).ShouldBeNull();
+        (await ReadAsync(client, "the close of the connection", ct)).ShouldBeNull();
     }
 
     [Fact(Timeout = TestTimeoutMs)]
@@ -168,8 +179,8 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         // Over the limit: told why and closed, without the endpoint reading anything from it.
         await using (var rejected = new DiagnosticsConnection(await DiagnosticsTransport.ConnectAsync(service.Endpoint!, TimeSpan.FromSeconds(5), ct)))
         {
-            Error((await rejected.ReadAsync(ct))!).Code.ShouldBe(DiagnosticsErrorCodes.TooManyConnections);
-            (await rejected.ReadAsync(ct)).ShouldBeNull();
+            Error((await ReadAsync(rejected, "the rejection", ct))!).Code.ShouldBe(DiagnosticsErrorCodes.TooManyConnections);
+            (await ReadAsync(rejected, "the close after the rejection", ct)).ShouldBeNull();
         }
 
         // The served connections are unaffected.
@@ -214,7 +225,7 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
 
         File.Exists(path).ShouldBeFalse();
         Directory.GetFiles(DiagnosticsPaths.AppsDirectory(_stateDirectory), "*.json*").ShouldBeEmpty();
-        (await client.ReadAsync(ct)).ShouldBeNull();
+        (await ReadAsync(client, "the close of the connection", ct)).ShouldBeNull();
     }
 
     [Theory(Timeout = TestTimeoutMs)]
@@ -717,19 +728,32 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
     {
         var id = ++_nextId;
         await client.WriteAsync(new DiagnosticsMessage { Id = id, Method = method }, ct);
-        return await ReadResponseAsync(client, id, ct);
+        return await ReadResponseAsync(client, id, method, ct);
     }
 
     private async Task<DiagnosticsMessage> CallAsync<T>(DiagnosticsConnection client, string method, T parameters, JsonTypeInfo<T> typeInfo, CancellationToken ct)
     {
         var id = ++_nextId;
         await client.WriteAsync(DiagnosticsMessage.Request(id, method, parameters, typeInfo), ct);
-        return await ReadResponseAsync(client, id, ct);
+        return await ReadResponseAsync(client, id, method, ct);
     }
 
-    private static async Task<DiagnosticsMessage> ReadResponseAsync(DiagnosticsConnection client, long id, CancellationToken ct)
+    // Reads the next message, or fails naming what the test was waiting for.
+    private static async Task<DiagnosticsMessage?> ReadAsync(DiagnosticsConnection client, string waitingFor, CancellationToken ct)
     {
-        var response = (await client.ReadAsync(ct)).ShouldNotBeNull();
+        try
+        {
+            return await client.ReadAsync(ct).AsTask().WaitAsync(CallTimeout, ct);
+        }
+        catch (TimeoutException)
+        {
+            throw new TimeoutException($"The endpoint did not answer within {CallTimeout.TotalSeconds:0} s: {waitingFor}.");
+        }
+    }
+
+    private static async Task<DiagnosticsMessage> ReadResponseAsync(DiagnosticsConnection client, long id, string method, CancellationToken ct)
+    {
+        var response = (await ReadAsync(client, $"'{method}' (request {id})", ct)).ShouldNotBeNull();
 
         // A rejection is not an answer to any request, so it has no id.
         if (response.Error?.Code != DiagnosticsErrorCodes.TooManyConnections)
