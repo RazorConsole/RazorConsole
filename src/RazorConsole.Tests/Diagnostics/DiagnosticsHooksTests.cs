@@ -134,6 +134,28 @@ public sealed class DiagnosticsHooksTests
     }
 
     [Fact]
+    public void Observer_NothingMountedYet_PublishesNoFrame_UntilATreeArrives()
+    {
+        var state = new DiagnosticsState();
+        using var renderer = CreateRenderer();
+        using var observer = new DiagnosticsSnapshotObserver(state, renderer);
+        observer.Start();
+
+        // A snapshot without a tree before the first one with a tree is "not rendered yet", not a frame.
+        observer.OnNext(new ConsoleRenderer.RenderSnapshot(null, null, []) { Sequence = 1 });
+        state.LatestFrame.ShouldBeNull();
+
+        observer.OnNext(new ConsoleRenderer.RenderSnapshot(VNode.CreateElement("div"), null, []) { Sequence = 2 });
+        state.LatestFrame.ShouldNotBeNull().Root.ShouldNotBeNull();
+
+        // After that, an empty tree is what the app renders.
+        observer.OnNext(new ConsoleRenderer.RenderSnapshot(null, null, []) { Sequence = 3 });
+        var frame = state.LatestFrame.ShouldNotBeNull();
+        frame.Root.ShouldBeNull();
+        frame.RenderSequence.ShouldBe(3);
+    }
+
+    [Fact]
     public void Observer_NeverReplacesANewerFrameWithAnOlderSnapshot()
     {
         var state = new DiagnosticsState();

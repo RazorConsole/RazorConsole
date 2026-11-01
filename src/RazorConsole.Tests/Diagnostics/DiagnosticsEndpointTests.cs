@@ -137,6 +137,36 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
     }
 
     [Fact(Timeout = TestTimeoutMs)]
+    public async Task Endpoint_BeforeTheFirstFrame_AnswersTreeQueriesNotRenderedYet_InsteadOfAnEmptyTree()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var state = new DiagnosticsState();
+        var service = await StartAsync(state, new FocusManager());
+        var client = await ConnectAsync(service, ct);
+        await HelloAsync(client, ct);
+
+        foreach (var response in new[]
+        {
+            await CallAsync(client, DiagnosticsAppMethods.Tree, ct),
+            await CallAsync(client, DiagnosticsAppMethods.Focus, ct),
+            await CallAsync(client, DiagnosticsAppMethods.Find, new FindParams("tag:button"), DiagnosticsJsonContext.Default.FindParams, ct),
+            await CallAsync(client, DiagnosticsAppMethods.Inspect, new InspectParams("tag:button"), DiagnosticsJsonContext.Default.InspectParams, ct),
+            await CallAsync(client, DiagnosticsAppMethods.InspectAt, new InspectAtParams(0, 0), DiagnosticsJsonContext.Default.InspectAtParams, ct),
+        })
+        {
+            var error = Error(response);
+            error.Code.ShouldBe(DiagnosticsErrorCodes.AppLayerUnavailable);
+            error.Data.ShouldNotBeNull().Deserialize(DiagnosticsJsonContext.Default.DiagnosticsUnavailableData)!.Reason.ShouldBe(DiagnosticsUnavailableReasons.NotRenderedYet);
+        }
+
+        // What needs no tree still answers.
+        Result(await CallAsync(client, DiagnosticsAppMethods.Stats, ct), DiagnosticsJsonContext.Default.StatsResult).Frames.ShouldBe(0);
+
+        state.PublishFrame(VNode.CreateElement("div"), null, null);
+        Result(await CallAsync(client, DiagnosticsAppMethods.Tree, ct), DiagnosticsJsonContext.Default.TreeResult).Root.ShouldNotBeNull();
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
     public async Task Endpoint_RequiresHelloFirst()
     {
         var ct = TestContext.Current.CancellationToken;

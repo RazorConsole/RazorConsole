@@ -76,6 +76,7 @@ If the app layer is not there, an app command fails with exit 4 and `app_layer_u
 | `reason` | Meaning |
 | --- | --- |
 | `not_connected_yet` | The app has not registered its endpoint yet. Commands wait for it within `--timeout` until the app has drawn its first frame and two more seconds have passed. |
+| `not_rendered_yet` | The app registered its endpoint but has not rendered its first frame. `tree`, `find`, `inspect`, `inspect-at`, `focus` and the element commands wait for it within `--timeout`, and fail with this reason instead of answering with an empty tree. An app that renders nothing after its first frame still gets an empty tree. |
 | `disabled` | The app drew a frame and registered nothing. It is not a RazorConsole app, it is a Release or Production build, or diagnostics are turned off. |
 | `incompatible_protocol` | The app speaks another version of the diagnostics protocol than this tool. |
 | `attached` | A terminal command on an attached session, which has no terminal to use (see [Attaching](#attaching-to-a-running-app)). |

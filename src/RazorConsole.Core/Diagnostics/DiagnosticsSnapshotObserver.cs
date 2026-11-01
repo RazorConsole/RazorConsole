@@ -37,6 +37,7 @@ internal sealed partial class DiagnosticsSnapshotObserver(
     private bool _replaying;
     private long _lastDeliveredSequence;
     private long _latestSnapshotSequence;
+    private bool _hasRenderedFrame;
 
     /// <summary>
     /// Subscribes to the renderer. The renderer replays its last snapshot right away.
@@ -89,6 +90,20 @@ internal sealed partial class DiagnosticsSnapshotObserver(
 
         lock (_sync)
         {
+            // Nothing is mounted yet (the replay of a fresh renderer, or a snapshot built before the root rendered):
+            // that is "no frame yet", not an app that renders nothing, so no frame is published and requests keep
+            // waiting. Once a frame with a tree exists, a later empty snapshot is a real state and is published.
+            if (snapshot.Root is null && !_hasRenderedFrame)
+            {
+                if (!_replaying)
+                {
+                    _lastDeliveredSequence = Math.Max(_lastDeliveredSequence, snapshot.Sequence);
+                    state!.RecordDeliveredFrame();
+                }
+
+                return;
+            }
+
             // The replay on subscribing is the renderer's last snapshot, which can be one built for a hit test or a
             // resize that no observer is ever told about. The focus manager never reaches its sequence, so the frame
             // names none to wait for. A snapshot that is delivered later replaces it with its own.
@@ -141,7 +156,7 @@ internal sealed partial class DiagnosticsSnapshotObserver(
             var snapshot = renderer.RefreshSnapshot();
             lock (_sync)
             {
-                if (snapshot.Sequence >= _latestSnapshotSequence)
+                if (snapshot.Sequence >= _latestSnapshotSequence && (snapshot.Root is not null || _hasRenderedFrame))
                 {
                     _latestSnapshotSequence = snapshot.Sequence;
                     Publish(snapshot, _lastDeliveredSequence, width, height);
@@ -171,7 +186,9 @@ internal sealed partial class DiagnosticsSnapshotObserver(
     }
 
     private void Publish(ConsoleRenderer.RenderSnapshot snapshot, long renderSequence, int width, int height)
-        => state!.PublishFrame(
+    {
+        _hasRenderedFrame |= snapshot.Root is not null;
+        state!.PublishFrame(
             snapshot.Root,
             snapshot.Layouts,
             snapshot.LayoutParents,
@@ -179,6 +196,7 @@ internal sealed partial class DiagnosticsSnapshotObserver(
             renderSequence,
             width,
             height);
+    }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Diagnostics could not rebuild the frame after a resize; answering from the previous one.")]
     private static partial void LogRefreshFailed(ILogger logger, Exception exception);

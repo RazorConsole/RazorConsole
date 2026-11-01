@@ -426,6 +426,14 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
     {
         DiagnosticsFrame? frame = null;
         if (message.Method is DiagnosticsAppMethods.Tree or DiagnosticsAppMethods.Find or DiagnosticsAppMethods.Inspect
+                or DiagnosticsAppMethods.InspectAt or DiagnosticsAppMethods.Focus
+            && _state!.LatestFrame is null)
+        {
+            // An empty tree here would read as "the app renders nothing"; the client waits and asks again.
+            return DiagnosticsMessage.Failure(id, NotRenderedYet().ToError());
+        }
+
+        if (message.Method is DiagnosticsAppMethods.Tree or DiagnosticsAppMethods.Find or DiagnosticsAppMethods.Inspect
             or DiagnosticsAppMethods.InspectAt or DiagnosticsAppMethods.Focus)
         {
             frame = await WaitForFocusToCatchUpAsync(cancellationToken).ConfigureAwait(false);
@@ -437,6 +445,14 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
 
         return Dispatch(message, id, frame);
     }
+
+    internal static DiagnosticsProtocolException NotRenderedYet()
+        => new(
+            DiagnosticsErrorCodes.AppLayerUnavailable,
+            "The app has not rendered its first frame yet.",
+            errorData: JsonSerializer.SerializeToElement(
+                new DiagnosticsUnavailableData(DiagnosticsUnavailableReasons.NotRenderedYet),
+                DiagnosticsJsonContext.Default.DiagnosticsUnavailableData));
 
     private async Task<DiagnosticsFrame?> WaitForFocusToCatchUpAsync(CancellationToken cancellationToken)
     {
@@ -512,6 +528,11 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
             {
                 if (message.Method != DiagnosticsAppMethods.Navigate)
                 {
+                    if (_state!.LatestFrame is null)
+                    {
+                        throw NotRenderedYet();
+                    }
+
                     await WaitForFocusToCatchUpAsync(timeout.Token).ConfigureAwait(false);
                 }
 

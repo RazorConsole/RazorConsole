@@ -71,6 +71,9 @@ internal static class DiagnosticsUnavailableReasons
     /// <summary>No endpoint is registered for the process, and the CLI cannot tell why (see the CLI's message).</summary>
     public const string Disabled = "disabled";
 
+    /// <summary>The app has registered its endpoint, but has not rendered its first frame yet.</summary>
+    public const string NotRenderedYet = "not_rendered_yet";
+
     /// <summary>The app has not registered its endpoint yet.</summary>
     public const string NotConnectedYet = "not_connected_yet";
 

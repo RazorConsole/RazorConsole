@@ -195,6 +195,33 @@ internal sealed class AppLayer : IAsyncDisposable
     public async Task<JsonElement> CallAsync(string method, JsonElement? parameters, TimeSpan timeout, CancellationToken cancellationToken)
     {
         var started = Stopwatch.GetTimestamp();
+        while (true)
+        {
+            try
+            {
+                return await CallOnceAsync(method, parameters, timeout, started, cancellationToken).ConfigureAwait(false);
+            }
+            catch (DiagnosticsProtocolException ex) when (IsNotRenderedYet(ex))
+            {
+                // The app answers before its first frame exists; like the connection above, that is waited out.
+                if (Stopwatch.GetElapsedTime(started) + RetryInterval >= timeout)
+                {
+                    throw AppLink.Unavailable(
+                        DiagnosticsUnavailableReasons.NotRenderedYet,
+                        $"The app has not rendered its first frame within {timeout.TotalSeconds:0.###}s. It may still be starting; try a longer --timeout.");
+                }
+
+                await Task.Delay(RetryInterval, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static bool IsNotRenderedYet(DiagnosticsProtocolException ex)
+        => ex.Code == DiagnosticsErrorCodes.AppLayerUnavailable
+            && ex.ErrorData?.Deserialize(HostJsonContext.Default.LayerUnavailableData)?.Reason == DiagnosticsUnavailableReasons.NotRenderedYet;
+
+    private async Task<JsonElement> CallOnceAsync(string method, JsonElement? parameters, TimeSpan timeout, long started, CancellationToken cancellationToken)
+    {
         var link = await GetLinkAsync(timeout, cancellationToken).ConfigureAwait(false);
         var remaining = timeout - Stopwatch.GetElapsedTime(started);
         try
