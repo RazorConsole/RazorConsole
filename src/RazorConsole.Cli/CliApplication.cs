@@ -22,6 +22,8 @@ internal static class CliApplication
     /// <param name="getEnvironmentVariable">Reads environment variables.</param>
     /// <param name="currentDirectory">The directory relative paths are resolved against.</param>
     /// <param name="cancellationToken">Cancelled by Ctrl+C.</param>
+    /// <param name="runMcp">Runs the <c>mcp</c> verb with the global options as the tools' defaults and returns the exit
+    /// code. It owns standard input and output, so nothing here writes to <paramref name="output"/> for it.</param>
     /// <returns>The process exit code.</returns>
     public static async Task<int> RunAsync(
         IReadOnlyList<string> args,
@@ -30,7 +32,8 @@ internal static class CliApplication
         TextWriter error,
         Func<string, string?> getEnvironmentVariable,
         string currentDirectory,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<CliGlobalOptions, CancellationToken, Task<int>>? runMcp = null)
     {
         var outcome = new CliCommandLine(getEnvironmentVariable, currentDirectory).Parse(args);
         if (outcome.BuiltIn is { } builtIn)
@@ -44,6 +47,30 @@ internal static class CliApplication
             var data = JsonSerializer.SerializeToElement(new UsageErrorData(outcome.Errors), CliJsonContext.Default.UsageErrorData);
             var message = outcome.Errors.Count == 1 ? outcome.Errors[0] : string.Join(Environment.NewLine, outcome.Errors);
             result = CliResult.Failure(DiagnosticsErrorCodes.Usage, message, data);
+        }
+        else if (outcome.Request is McpRequest)
+        {
+            if (runMcp is null)
+            {
+                result = CliResult.Failure(DiagnosticsErrorCodes.Internal, "The MCP server is not available here.");
+            }
+            else
+            {
+                try
+                {
+                    return await runMcp(outcome.Options, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return CliExitCodes.For(DiagnosticsErrorCodes.Cancelled);
+                }
+                catch (Exception exception)
+                {
+                    // stdout belongs to the protocol, so the failure goes to stderr as text, whatever --json says.
+                    error.WriteLine($"razorconsole: {exception.Message} [{DiagnosticsErrorCodes.Internal}]");
+                    return CliExitCodes.For(DiagnosticsErrorCodes.Internal);
+                }
+            }
         }
         else
         {

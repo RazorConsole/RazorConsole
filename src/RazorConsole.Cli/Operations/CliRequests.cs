@@ -189,6 +189,11 @@ internal sealed record HostStatusRequest : CliRequest;
 internal sealed record HostStopRequest : CliRequest;
 
 /// <summary>
+/// Serves the operations as an MCP server over stdio (the <c>mcp</c> verb). It runs in this process, not in the host.
+/// </summary>
+internal sealed record McpRequest : CliRequest;
+
+/// <summary>
 /// Runs the session host in this process (the hidden <c>__host</c> verb).
 /// </summary>
 /// <param name="IdleTimeout">How long the host stays up with no sessions and no clients.</param>

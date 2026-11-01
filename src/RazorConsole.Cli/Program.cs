@@ -2,6 +2,7 @@
 
 using RazorConsole.Cli;
 using RazorConsole.Cli.Host;
+using RazorConsole.Cli.Mcp;
 using RazorConsole.Cli.Operations;
 using RazorConsole.Cli.Output;
 
@@ -17,11 +18,20 @@ Console.CancelKeyPress += (_, e) =>
     }
 };
 
+var operations = new HostOperations(new HostConnector(HostFiles.Resolve(Environment.GetEnvironmentVariable), ProcessHostLauncher.Instance));
 return await CliApplication.RunAsync(
     args,
-    new HostOperations(new HostConnector(HostFiles.Resolve(Environment.GetEnvironmentVariable), ProcessHostLauncher.Instance)),
+    operations,
     console.Output,
     console.Error,
     Environment.GetEnvironmentVariable,
     Environment.CurrentDirectory,
-    cancellation.Token).ConfigureAwait(false);
+    cancellation.Token,
+    // The mcp verb speaks the protocol on the raw standard streams; stdout carries nothing else, logs go to stderr.
+    (options, token) => McpServerHost.RunAsync(
+        operations,
+        options,
+        Console.OpenStandardInput(),
+        Console.OpenStandardOutput(),
+        console.Error,
+        token)).ConfigureAwait(false);

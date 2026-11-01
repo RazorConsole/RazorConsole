@@ -22,6 +22,9 @@
 //
 // With --native the same run happens against a NativeAOT binary: --version must succeed and doctor must pass, which
 // starts the session host from the native binary itself.
+//
+// Both runs also start "razorconsole mcp", send initialize and tools/list over its standard input, and check that stdout
+// holds only protocol messages, that the tools are listed, and that the process ends when its input closes.
 
 using System.Diagnostics;
 using System.IO.Compression;
@@ -330,11 +333,120 @@ internal static class Tool
 
                 Console.WriteLine($"  ok    razorconsole doctor ({checks.Count} checks)");
             }
+
+            await VerifyMcpAsync(tool, work, stateHome);
         }
         finally
         {
             await RunAsync(tool, ["host", "stop"], work, stateHome);
             TryDelete(work);
+        }
+    }
+
+    // "razorconsole mcp" speaks MCP on stdio: initialize, then tools/list, line by line. Every line on stdout must be JSON
+    // (nothing but the protocol), the tools of the server must be there, and the process must end when its input closes.
+    private static async Task VerifyMcpAsync(string tool, string workingDirectory, string? stateHome)
+    {
+        var startInfo = new ProcessStartInfo(tool)
+        {
+            WorkingDirectory = workingDirectory,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardInputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+            UseShellExecute = false,
+        };
+        startInfo.ArgumentList.Add("mcp");
+        if (stateHome is not null)
+        {
+            startInfo.Environment["RAZORCONSOLE_CLI_HOME"] = stateHome;
+        }
+
+        using var process = Process.Start(startInfo) ?? throw new VerificationException($"{tool} mcp did not start.");
+        var error = process.StandardError.ReadToEndAsync();
+        try
+        {
+            async Task<JsonDocument> ReadAsync(string what)
+            {
+                using var limit = new CancellationTokenSource(CommandTimeout);
+                string? line;
+                try
+                {
+                    line = await process.StandardOutput.ReadLineAsync(limit.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw new VerificationException($"razorconsole mcp did not answer {what} in {CommandTimeout.TotalMinutes:0} minutes.");
+                }
+
+                if (line is null)
+                {
+                    throw new VerificationException($"razorconsole mcp ended without answering {what}:\n{await error}");
+                }
+
+                try
+                {
+                    return JsonDocument.Parse(line);
+                }
+                catch (JsonException)
+                {
+                    throw new VerificationException($"razorconsole mcp wrote something that is not a protocol message to stdout ({what}): {line}");
+                }
+            }
+
+            await process.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"verify-cli-package","version":"1"}}}""");
+            await process.StandardInput.FlushAsync();
+            using (var initialize = await ReadAsync("initialize"))
+            {
+                var server = initialize.RootElement.TryGetProperty("result", out var result) && result.TryGetProperty("serverInfo", out var info)
+                    ? info.GetProperty("name").GetString()
+                    : null;
+                if (server != "razorconsole")
+                {
+                    throw new VerificationException($"razorconsole mcp answered initialize with {initialize.RootElement.GetRawText()}, expected serverInfo.name 'razorconsole'.");
+                }
+            }
+
+            await process.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","method":"notifications/initialized"}""");
+            await process.StandardInput.WriteLineAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
+            await process.StandardInput.FlushAsync();
+            using (var list = await ReadAsync("tools/list"))
+            {
+                var names = list.RootElement.TryGetProperty("result", out var result) && result.TryGetProperty("tools", out var tools)
+                    ? tools.EnumerateArray().Select(static item => item.GetProperty("name").GetString()).ToList()
+                    : [];
+                var missing = new[] { "start_session", "screenshot", "wait_for", "get_tree", "click", "doctor" }.Where(name => !names.Contains(name)).ToList();
+                if (missing.Count > 0)
+                {
+                    throw new VerificationException($"razorconsole mcp tools/list has {names.Count} tools and lacks {string.Join(", ", missing)}.");
+                }
+
+                Console.WriteLine($"  ok    razorconsole mcp (initialize, tools/list: {names.Count} tools)");
+            }
+
+            // A client that quits closes the input; the server must end, and its stdout must reach end of file.
+            process.StandardInput.Close();
+            using var exit = new CancellationTokenSource(CommandTimeout);
+            try
+            {
+                await process.WaitForExitAsync(exit.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new VerificationException("razorconsole mcp did not end after its input closed.");
+            }
+
+            if (process.ExitCode != 0)
+            {
+                throw new VerificationException($"razorconsole mcp ended with exit code {process.ExitCode}:\n{await error}");
+            }
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
         }
     }
 

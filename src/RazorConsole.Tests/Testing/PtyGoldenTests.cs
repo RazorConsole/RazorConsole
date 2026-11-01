@@ -26,6 +26,7 @@ public sealed class PtyGoldenTests
 
         var options = PtyTerminal.CreateDotnetOptions(
             Path.Combine(AppContext.BaseDirectory, "RazorConsole.Tests.PtyApp.dll"), width, height, ["golden"]);
+        ColorEnvironment.Clear(options);
         options.Environment["COLORTERM"] = "truecolor";
         await using var pty = await PtyTerminal.StartAsync(options, TestContext.Current.CancellationToken);
 
