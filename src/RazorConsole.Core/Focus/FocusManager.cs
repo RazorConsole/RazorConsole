@@ -19,6 +19,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
     private long _snapshotSequence;
     private string? _pendingFocusKey;
     private bool _hasPendingFocusRetry;
+    private ConsoleRenderer.RenderSnapshot? _latestSnapshot;
     private ConsoleLiveDisplayContext? _context;
     private TaskCompletionSource _snapshotSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private static readonly TimeSpan StaleHandlerRetryTimeout = TimeSpan.FromMilliseconds(100);
@@ -171,13 +172,17 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             _context = context;
             _sessionCts = linkedCts;
 
-            if (initialView.VdomRoot is not null)
-            {
-                var snapshot = new ConsoleRenderer.RenderSnapshot(
-                    initialView.VdomRoot,
-                    initialView.Renderable,
-                    initialView.AnimatedRenderables);
+            // Renders after the initial view may already have been observed (Subscribe replays the latest one).
+            var snapshot = _latestSnapshot is { } latest && latest.Sequence > initialView.Sequence
+                ? latest
+                : new ConsoleRenderer.RenderSnapshot(initialView.VdomRoot, initialView.Renderable, initialView.AnimatedRenderables)
+                {
+                    Sequence = initialView.Sequence,
+                };
+            _latestSnapshot = snapshot;
 
+            if (snapshot.Root is not null)
+            {
                 initialFocus = UpdateFocusTargets(snapshot);
             }
 
@@ -476,7 +481,10 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
         if (targets.Count == 0)
         {
-            ResetState_NoLock();
+            // Keeps the session and a pending request: its target can still render.
+            _focusTargets = targets;
+            _currentIndex = -1;
+            CurrentFocusKey = null;
 
             return null;
         }
@@ -613,6 +621,13 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
         lock (_sync)
         {
+            // A notification for an earlier render can arrive after a later one, e.g. one Subscribe replayed.
+            if (_latestSnapshot is { } latest && value.Sequence < latest.Sequence)
+            {
+                return;
+            }
+
+            _latestSnapshot = value;
             previousFocusTarget = _currentIndex >= 0 ? _focusTargets[_currentIndex] : null;
             sessionToken = _sessionCts?.Token ?? CancellationToken.None;
 
