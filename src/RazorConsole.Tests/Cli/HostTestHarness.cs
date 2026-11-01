@@ -9,6 +9,17 @@ internal sealed class InProcessLauncher(TimeSpan idleTimeout, string version, Ti
 {
     private readonly List<(SessionHost Host, Task<bool> Run)> _hosts = [];
 
+    public IReadOnlyList<SessionHost> Hosts
+    {
+        get
+        {
+            lock (_hosts)
+            {
+                return [.. _hosts.Select(entry => entry.Host)];
+            }
+        }
+    }
+
     public IReadOnlyList<Task<bool>> Runs
     {
         get

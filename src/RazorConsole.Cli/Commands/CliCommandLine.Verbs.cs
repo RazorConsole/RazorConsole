@@ -393,7 +393,7 @@ internal sealed partial class CliCommandLine
         Add(host, new Command("status", "Show whether the host runs, its version and its sessions."), static _ => new HostStatusRequest());
         Add(host, new Command("stop", "Stop the host and every session in it."), static _ => new HostStopRequest());
 
-        var idleTimeout = OptionalDurationOption("--idle-timeout", "Exit after this long with no sessions and no clients. Defaults to 10m.");
+        var idleTimeout = OptionalDurationOption("--idle-timeout", "Exit after this long with no sessions and no clients (at least 10s before the first client connects). Defaults to 10m.");
         var hostRun = new Command("__host", "Run the session host in this process.") { idleTimeout };
         hostRun.Hidden = true;
         Add(_root, hostRun, context => new HostRunRequest(context.Get(idleTimeout) ?? HostRunRequest.DefaultIdleTimeout));

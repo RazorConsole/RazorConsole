@@ -19,6 +19,9 @@ public sealed class SessionHostTests : IAsyncDisposable
 
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(15);
 
+    // The watch checks about ten times per timeout, so a second of real time is plenty of checks.
+    private static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(2);
+
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "rc-host-" + Guid.NewGuid().ToString("N")[..8]);
     private readonly List<InProcessLauncher> _launchers = [];
 
@@ -101,14 +104,45 @@ public sealed class SessionHostTests : IAsyncDisposable
     [Fact(Timeout = TestTimeoutMs)]
     public async Task IdleHost_Exits_AndRemovesHostJson()
     {
-        var launcher = Launcher(TimeSpan.FromMilliseconds(300));
+        // The idle countdown runs on this clock, so how long a runner takes to connect cannot decide the outcome.
+        var clock = new ManualTimeProvider();
+        var launcher = Launcher(IdleTimeout, time: clock);
         var connector = new HostConnector(Files, launcher, "1.0.0");
         await (await connector.ConnectOrStartAsync(Token)).DisposeAsync();
+        var host = launcher.Hosts.Single();
+        await UntilAsync(() => host.ClientCount == 0);
 
+        // The countdown starts when the last client leaves: just short of the timeout the host is still there.
+        clock.Advance(IdleTimeout - TimeSpan.FromMilliseconds(1));
+        await Task.Delay(IdleTimeout, Token);
+        launcher.Runs.Single().IsCompleted.ShouldBeFalse();
+
+        clock.Advance(TimeSpan.FromMilliseconds(1));
         (await launcher.Runs.Single().WaitAsync(Patience, Token)).ShouldBeTrue();
+        launcher.Runs.Count.ShouldBe(1);
         File.Exists(Files.InfoFile).ShouldBeFalse();
         Files.IsLocked().ShouldBeFalse();
         (await connector.ConnectExistingAsync(Token)).ShouldBeNull();
+    }
+
+    [Fact(Timeout = TestTimeoutMs)]
+    public async Task AHostNoClientHasConnectedTo_IsNotStoppedByTheIdleTimeoutBeforeItsStartupWindow()
+    {
+        // A client that launched the host needs time to connect (a cold process start, a busy machine): the idle
+        // timeout, which can be short, must not take the host away from it.
+        var clock = new ManualTimeProvider();
+        var launcher = Launcher(IdleTimeout, time: clock);
+        launcher.Launch(Files);
+        await UntilAsync(() => Files.TryReadInfo() is not null);
+
+        clock.Advance(SessionHost.StartupWindow - TimeSpan.FromMilliseconds(1));
+        await Task.Delay(IdleTimeout, Token);
+        launcher.Runs.Single().IsCompleted.ShouldBeFalse();
+
+        // Nobody came: after the window the host goes like any idle host.
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        (await launcher.Runs.Single().WaitAsync(Patience, Token)).ShouldBeTrue();
+        File.Exists(Files.InfoFile).ShouldBeFalse();
     }
 
     [Fact(Timeout = TestTimeoutMs)]
@@ -355,9 +389,23 @@ public sealed class SessionHostTests : IAsyncDisposable
         }
     }
 
-    private InProcessLauncher Launcher(TimeSpan? idleTimeout = null, string version = "1.0.0")
+    private static async Task UntilAsync(Func<bool> condition)
     {
-        var launcher = new InProcessLauncher(idleTimeout ?? TimeSpan.FromMinutes(10), version);
+        var deadline = DateTimeOffset.UtcNow + Patience;
+        while (!condition())
+        {
+            if (DateTimeOffset.UtcNow >= deadline)
+            {
+                throw new TimeoutException("Timed out waiting for a condition.");
+            }
+
+            await Task.Delay(20, Token);
+        }
+    }
+
+    private InProcessLauncher Launcher(TimeSpan? idleTimeout = null, string version = "1.0.0", TimeProvider? time = null)
+    {
+        var launcher = new InProcessLauncher(idleTimeout ?? TimeSpan.FromMinutes(10), version, time);
         _launchers.Add(launcher);
         return launcher;
     }

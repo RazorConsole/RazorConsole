@@ -33,6 +33,13 @@ internal sealed class SessionHost
 {
     public const string ServerPrefix = "razorconsole/";
 
+    /// <summary>
+    /// How long a host that no client has connected to yet stays up at least. The client that launched it still has to
+    /// find it (a cold process start, a busy machine), so a short idle timeout must not take the host away from it. It
+    /// outlasts the connector's own start timeout; a host nobody comes to still ends.
+    /// </summary>
+    public static readonly TimeSpan StartupWindow = TimeSpan.FromSeconds(10);
+
     private static readonly TimeSpan ShutdownLimit = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan ResponseLimit = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan StartTimeTolerance = TimeSpan.FromSeconds(1);
@@ -49,18 +56,25 @@ internal sealed class SessionHost
     private readonly List<Task> _connections = [];
     private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
     private int _clients;
-    private long _idleSince = Stopwatch.GetTimestamp();
+    private int _served;
+    private long _idleSince;
 
     // time: the clock of the app layer's grace period; tests replace it.
     public SessionHost(HostFiles files, TimeSpan idleTimeout, string? version = null, TimeProvider? time = null)
     {
         _time = time ?? TimeProvider.System;
+        _idleSince = _time.GetTimestamp();
         _files = files;
         _idleTimeout = idleTimeout;
         _version = version ?? HostFiles.ToolVersion;
     }
 
     public string ServerName => ServerPrefix + _version;
+
+    /// <summary>
+    /// How many clients are connected right now.
+    /// </summary>
+    internal int ClientCount => Volatile.Read(ref _clients);
 
     /// <summary>
     /// Runs the host until it is idle, shut down or <paramref name="cancellationToken"/> is cancelled.
@@ -92,6 +106,9 @@ internal sealed class SessionHost
         try
         {
             WriteInfo(listener.Endpoint);
+
+            // The countdown of a host nobody has used yet starts when it can be found, not when it was constructed.
+            Volatile.Write(ref _idleSince, _time.GetTimestamp());
             var accepting = AcceptAsync(listener, stop.Token);
             var idle = WatchIdleAsync(stop.Token);
             var finished = await Task.WhenAny(accepting, idle, Task.Delay(Timeout.Infinite, stop.Token)).ConfigureAwait(false);
@@ -262,9 +279,9 @@ internal sealed class SessionHost
         {
             if (IsBusy())
             {
-                Volatile.Write(ref _idleSince, Stopwatch.GetTimestamp());
+                Volatile.Write(ref _idleSince, _time.GetTimestamp());
             }
-            else if (Stopwatch.GetElapsedTime(Volatile.Read(ref _idleSince)) >= _idleTimeout)
+            else if (_time.GetElapsedTime(Volatile.Read(ref _idleSince)) >= (Volatile.Read(ref _served) == 0 ? TimeSpan.FromTicks(Math.Max(_idleTimeout.Ticks, StartupWindow.Ticks)) : _idleTimeout))
             {
                 return;
             }
@@ -316,6 +333,7 @@ internal sealed class SessionHost
     internal async Task ServeAsync(Stream stream, CancellationToken cancellationToken)
     {
         Interlocked.Increment(ref _clients);
+        Volatile.Write(ref _served, 1);
         using var closed = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var requests = new ConcurrentDictionary<long, (CancellationTokenSource Cancellation, Task Task)>();
         try
@@ -339,7 +357,7 @@ internal sealed class SessionHost
         }
         finally
         {
-            Volatile.Write(ref _idleSince, Stopwatch.GetTimestamp());
+            Volatile.Write(ref _idleSince, _time.GetTimestamp());
             Interlocked.Decrement(ref _clients);
         }
     }
