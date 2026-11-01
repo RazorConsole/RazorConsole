@@ -57,6 +57,11 @@ internal sealed class ConsoleRenderer(
 
     public override Dispatcher Dispatcher => _dispatcher;
 
+#if NET9_0_OR_GREATER
+    /// <summary>The console renderer is interactive: components handle events as soon as they render.</summary>
+    protected override RendererInfo RendererInfo { get; } = new("Console", isInteractive: true);
+#endif
+
     internal Translation.Contexts.TranslationContext GetTranslationContext() => _translationContext;
 
     internal RenderSnapshot RefreshSnapshot()

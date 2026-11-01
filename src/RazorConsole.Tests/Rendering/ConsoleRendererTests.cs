@@ -52,6 +52,19 @@ public sealed class ConsoleRendererTests
         snapshot.Renderable.ShouldNotBeNull();
     }
 
+#if NET9_0_OR_GREATER
+    [Fact]
+    public async Task RendererInfo_IsAnInteractiveConsoleRenderer()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+
+        var snapshot = await renderer.MountComponentAsync<RendererInfoComponent>(ParameterView.Empty, CancellationToken.None);
+
+        var root = snapshot.Root.ShouldBeOfType<VNode>();
+        root.Children.Single().Text.ShouldBe("Console interactive=True");
+    }
+#endif
+
     [Fact]
     public async Task WidgetLayoutPipeline_WithSimpleComponent_ReturnsCanvasRenderableOutput()
     {
@@ -500,6 +513,18 @@ public sealed class ConsoleRendererTests
             builder.CloseElement();
         }
     }
+
+#if NET9_0_OR_GREATER
+    private sealed class RendererInfoComponent : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddContent(1, $"{RendererInfo.Name} interactive={RendererInfo.IsInteractive}");
+            builder.CloseElement();
+        }
+    }
+#endif
 
     private sealed class BurstRenderComponent : ComponentBase
     {
