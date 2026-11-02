@@ -68,9 +68,10 @@ jobs:
 
       - name: Build
         run: dotnet build RazorConsole.slnx --configuration Release --no-restore
-
+        
+      # Run the four TFM test modules one after another: in parallel they overload the runner and process-spawning tests time out (#432).
       - name: Test
-        run: dotnet test --configuration Release --no-build -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --filter-not-trait "Category=E2E"
+        run: dotnet test --configuration Release --no-build -p:TestTfmsInParallel=false -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --filter-not-trait "Category=E2E"
 
       # Real-terminal tests: one framework, no coverage, so they do not compete with four instrumented test processes.
       - name: E2E tests
@@ -423,8 +424,9 @@ jobs:
       - name: Build
         run: dotnet build RazorConsole.slnx --configuration Release --no-restore -p:VersionSuffix=$VersionSuffix
 
+      # Run the four TFM test modules one after another: in parallel they overload the runner and process-spawning tests time out (#432).
       - name: Test
-        run: dotnet test --configuration Release --no-build -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --filter-not-trait "Category=E2E"
+        run: dotnet test --configuration Release --no-build -p:TestTfmsInParallel=false -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --filter-not-trait "Category=E2E"
 
       # Real-terminal tests: one framework, no coverage, so they do not compete with four instrumented test processes.
       - name: E2E tests
