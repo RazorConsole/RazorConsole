@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\RazorConsole.Cli\RazorConsole.Cli.csproj" />
     <ProjectReference Include="..\RazorConsole.Core\RazorConsole.Core.csproj" />
     <ProjectReference Include="..\RazorConsole.Testing\RazorConsole.Testing.csproj" />
     <ProjectReference Include="..\RazorConsole.Tests.PtyApp\RazorConsole.Tests.PtyApp.csproj" />

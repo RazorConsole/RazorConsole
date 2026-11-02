@@ -9,16 +9,18 @@ export async function initHighlighter() {
   if (!globalHighlighter) {
     globalHighlighter = await createHighlighter({
       themes: ["github-dark", "github-light"],
-      langs: ["csharp", "razor", "bash", "xml", "shell", "typescript", "javascript", "json"],
+      langs: ["csharp", "razor", "bash", "powershell", "xml", "shell", "typescript", "javascript", "json"],
     })
   }
 }
 
 function generateHtml(code: string, language: BundledLanguage) {
+  // A fence language that is not loaded would throw (and break the prerender); show it as plain text instead.
+  const lang = globalHighlighter?.getLoadedLanguages().includes(language) ? language : "text"
   return (
     globalHighlighter
       ?.codeToHtml(code.trim(), {
-        lang: language,
+        lang,
         themes: {
           light: "github-light",
           dark: "github-dark",

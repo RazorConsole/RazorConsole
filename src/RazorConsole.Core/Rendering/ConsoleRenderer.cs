@@ -550,7 +550,11 @@ internal sealed class ConsoleRenderer(
 
         UpdateSnapshotAccessors(rootNode, layouts, layoutParents);
 
-        return new RenderSnapshot(rootNode, renderable, _widgetTranslationContext.AnimatedRenderables.ToArray());
+        return new RenderSnapshot(rootNode, renderable, _widgetTranslationContext.AnimatedRenderables.ToArray())
+        {
+            Layouts = layouts,
+            LayoutParents = layoutParents,
+        };
     }
 
     private BoxConstraints CreateViewportConstraints()
@@ -778,6 +782,11 @@ internal sealed class ConsoleRenderer(
 
         /// <summary>Creation order: a snapshot with a higher value reflects a later render.</summary>
         internal long Sequence { get; init; }
+
+        /// <summary>The widget layout of this snapshot; null on the legacy pipeline.</summary>
+        internal IReadOnlyCollection<VNodeLayoutInfo>? Layouts { get; init; }
+
+        internal IReadOnlyDictionary<string, string?>? LayoutParents { get; init; }
     }
 
     private void NotifyObservers(RenderSnapshot snapshot)

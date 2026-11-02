@@ -1,0 +1,4 @@
+@* Throws while it is created, so rendering it is an exception in the render batch, not in an event handler. *@
+@code {
+    protected override void OnInitialized() => throw new InvalidOperationException("diag boom");
+}
