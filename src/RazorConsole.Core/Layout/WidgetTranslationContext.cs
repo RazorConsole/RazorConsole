@@ -821,10 +821,7 @@ public sealed class WidgetTranslationContext
             .Select(cell => CreateTableWidgetCell(cell, isHeader || string.Equals(cell.TagName, "th", StringComparison.OrdinalIgnoreCase)))
             .ToArray();
 
-        var background = Color.TryFromHex(GetAttribute(row, "data-selected-bg") ?? string.Empty, out var color)
-            ? color
-            : (Color?)null;
-        return new TableWidgetRow(cells, background);
+        return new TableWidgetRow(cells, ParseHexColor(GetAttribute(row, "data-selected-bg")), ParseHexColor(GetAttribute(row, "data-selected-fg")));
     }
 
     private TableWidgetCell CreateTableWidgetCell(VNode cell, bool isHeader)
@@ -870,6 +867,9 @@ public sealed class WidgetTranslationContext
 
     private static char ParseChar(string? value, char fallback)
         => char.TryParse(value, out var parsed) ? parsed : fallback;
+
+    private static Color? ParseHexColor(string? value)
+        => Color.TryFromHex(value ?? string.Empty, out var color) ? color : null;
 
     private static Style? TryParseHexStyle(string? value)
         => !string.IsNullOrWhiteSpace(value) && Color.TryFromHex(value, out var color)

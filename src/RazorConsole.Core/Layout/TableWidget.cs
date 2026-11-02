@@ -140,6 +140,14 @@ public sealed class TableWidget : Widget
                 context.Canvas.ApplyBackground(
                     new LayoutRect(row.Bounds.X + inset, row.Bounds.Y, Math.Max(0, row.Bounds.Width - 2 * inset), row.Bounds.Height),
                     background);
+                if (row.Foreground is { } foreground)
+                {
+                    // Cells only: the column separators keep the border color.
+                    foreach (var cell in row.Cells)
+                    {
+                        context.Canvas.ApplyBackground(cell.Bounds, background, foreground);
+                    }
+                }
             }
         }
     }
@@ -387,15 +395,19 @@ public sealed class TableWidget : Widget
 
 public sealed class TableWidgetRow
 {
-    public TableWidgetRow(IReadOnlyList<TableWidgetCell> cells, Color? background = null)
+    public TableWidgetRow(IReadOnlyList<TableWidgetCell> cells, Color? background = null, Color? foreground = null)
     {
         Cells = cells ?? throw new ArgumentNullException(nameof(cells));
         Background = background;
+        Foreground = foreground;
     }
 
     public IReadOnlyList<TableWidgetCell> Cells { get; }
 
     public Color? Background { get; }
+
+    /// <summary>Text color over <see cref="Background"/>, replacing the cells' own; only with a background.</summary>
+    public Color? Foreground { get; }
 
     public LayoutRect Bounds { get; internal set; }
 }

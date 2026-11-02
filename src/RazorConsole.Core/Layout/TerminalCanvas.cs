@@ -68,7 +68,8 @@ public sealed class TerminalCanvas
         }
     }
 
-    public void ApplyBackground(LayoutRect rect, Color background)
+    /// <summary>Sets the background of <paramref name="rect"/>, and with <paramref name="foreground"/> its text color too.</summary>
+    public void ApplyBackground(LayoutRect rect, Color background, Color? foreground = null)
     {
         var clipped = rect.Intersect(ClipBounds).Intersect(new LayoutRect(0, 0, Width, Height));
         for (var y = clipped.Y; y < clipped.Bottom; y++)
@@ -78,7 +79,7 @@ public sealed class TerminalCanvas
                 var cell = _cells[y, x];
                 _cells[y, x] = cell with
                 {
-                    Style = new Style(cell.Style?.Foreground, background, cell.Style?.Decoration, cell.Style?.Link),
+                    Style = new Style(foreground ?? cell.Style?.Foreground, background, cell.Style?.Decoration, cell.Style?.Link),
                 };
             }
         }
