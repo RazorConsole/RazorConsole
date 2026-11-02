@@ -6,6 +6,7 @@ using RazorConsole.Components;
 using RazorConsole.Core.Abstractions.Rendering;
 
 using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Utilities;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -100,7 +101,7 @@ public sealed class BreakdownChartTranslator : ITranslationMiddleware
         }
 
         var valueColorAttribute = VdomSpectreTranslator.GetAttribute(node, "data-value-color");
-        if (!string.IsNullOrEmpty(valueColorAttribute) && Color.TryFromHex(valueColorAttribute, out var valueColor))
+        if (!string.IsNullOrEmpty(valueColorAttribute) && ColorAttribute.TryParse(valueColorAttribute, out var valueColor))
         {
             breakdownChart.ValueColor = valueColor;
         }
@@ -149,7 +150,7 @@ public sealed class BreakdownChartTranslator : ITranslationMiddleware
                 !string.IsNullOrWhiteSpace(cProp.GetString()))
             {
                 var hex = cProp.GetString();
-                if (hex != null && Color.TryFromHex(hex, out var parsed))
+                if (hex != null && ColorAttribute.TryParse(hex, out var parsed))
                 {
                     color = parsed;
                 }

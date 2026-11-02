@@ -4,6 +4,7 @@ using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Rendering.Renderables;
 using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Utilities;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -72,14 +73,14 @@ public class ScrollableTranslator(ScrollableLayoutCoordinator scrollableLayoutCo
 
         if (!scrollbarNode.Attributes.TryGetValue("data-track-color", out var trackColorStr) ||
             string.IsNullOrEmpty(trackColorStr) ||
-            !Color.TryFromHex(trackColorStr, out var trackColor))
+            !ColorAttribute.TryParse(trackColorStr, out var trackColor))
         {
             return next(node);
         }
 
         if (!scrollbarNode.Attributes.TryGetValue("data-thumb-color", out var thumbColorStr) ||
             string.IsNullOrEmpty(thumbColorStr) ||
-            !Color.TryFromHex(thumbColorStr, out var thumbColor))
+            !ColorAttribute.TryParse(thumbColorStr, out var thumbColor))
         {
             return next(node);
         }

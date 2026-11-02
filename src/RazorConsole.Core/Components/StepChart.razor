@@ -1,5 +1,6 @@
 @using Spectre.Console
 @namespace RazorConsole.Components
+@using RazorConsole.Core.Utilities
 @*
     /// <summary>
     /// Renders an ASCII step chart directly in the terminal
@@ -21,7 +22,7 @@
            data-title-color="@TitleColorAttribute">
     @foreach (var series in Series)
     {
-        <chartseries data-color="@series.Color.ToHex()" data-points="@SerializePoints(series.Points)"/>
+        <chartseries data-color="@ColorAttribute.Format(series.Color)" data-points="@SerializePoints(series.Points)"/>
     }
 </stepchart>
 
@@ -83,13 +84,13 @@
 
     private string ShowAxesAttribute => ShowAxes ? "true" : "false";
 
-    private string AxesColorAttribute => AxesColor.ToHex();
+    private string AxesColorAttribute => ColorAttribute.Format(AxesColor);
 
-    private string LabelsColorAttribute => LabelsColor.ToHex();
+    private string LabelsColorAttribute => ColorAttribute.Format(LabelsColor);
 
     private string TitleAttribute => Title ?? string.Empty;
 
-    private string TitleColorAttribute => TitleColor.ToHex();
+    private string TitleColorAttribute => ColorAttribute.Format(TitleColor);
 
 
     public record ChartSeries(Color Color, List<(double X, double Y)> Points);

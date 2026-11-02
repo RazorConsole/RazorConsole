@@ -1,4 +1,5 @@
 ﻿@namespace RazorConsole.Components
+@using RazorConsole.Core.Utilities
 @using RazorConsole.Core.Rendering
 @using Spectre.Console
 
@@ -135,9 +136,9 @@
 
     private bool _isFocused;
 
-    private string? ScrollbarTrackColorAttribute => !_isFocused ? Scrollbar?.TrackColor.ToHex() : Scrollbar?.TrackFocusedColor.ToHex();
+    private string? ScrollbarTrackColorAttribute => Scrollbar is { } bar ? ColorAttribute.Format(_isFocused ? bar.TrackFocusedColor : bar.TrackColor) : null;
 
-    private string? ScrollbarThumbColorAttribute => !_isFocused ? Scrollbar?.ThumbColor.ToHex() : Scrollbar?.ThumbFocusedColor.ToHex();
+    private string? ScrollbarThumbColorAttribute => Scrollbar is { } bar ? ColorAttribute.Format(_isFocused ? bar.ThumbFocusedColor : bar.ThumbColor) : null;
 
     private void OnFocusIn(FocusEventArgs eventArgs)
     {
