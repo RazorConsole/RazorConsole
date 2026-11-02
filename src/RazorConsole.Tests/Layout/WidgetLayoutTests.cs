@@ -204,6 +204,25 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void TableWidget_PaintsSelectedRowForegroundInsideBorders()
+    {
+        var table = CreateSimpleTableNode();
+        var bodyRow = table.Children[1].Children[0];
+        bodyRow.SetAttribute("data-selected-bg", "000080");
+        bodyRow.SetAttribute("data-selected-fg", "ffffff");
+
+        var widget = new WidgetTranslationContext().Translate(table);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 10));
+        var canvas = new TerminalCanvas(result.Size.Width, result.Size.Height);
+        result.Root.Paint(new PaintContext(canvas));
+
+        canvas[2, 3].Text.ShouldBe("R");
+        (canvas[2, 3].Style?.Foreground ?? Color.Default).ShouldBe(new Color(255, 255, 255));
+        (canvas[2, 3].Style?.Background ?? Color.Default).ShouldBe(new Color(0, 0, 128));
+        (canvas[0, 3].Style?.Foreground ?? Color.Default).ShouldNotBe(new Color(255, 255, 255));
+    }
+
+    [Fact]
     public void LayoutResult_Renderable_RepaintsSpectreWidgetOnEveryRender()
     {
         var widget = new SpectreWidget("animated", new CountingRenderable());
