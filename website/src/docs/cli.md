@@ -241,6 +241,8 @@ agy plugin install ./RazorConsole/plugins/razorconsole
 
 In VS Code, run **Chat: Install Plugin from Source** with `https://github.com/RazorConsole/RazorConsole`. Ollama has no plugin format: run Claude Code or Codex through `ollama launch` with a model that supports tool calling, and install the plugin there. The plugin's README has the details for each client and the `dnx` alternative.
 
+For a walkthrough of the loop with an agent, see [Develop with an AI agent](/blog/develop-with-an-agent/).
+
 ### Tools
 
 Each tool runs the operation of the command with the same name and returns what `--json` prints. Tools that read are marked read-only; tools that send input, navigate, stop or restart are marked destructive, so a client can ask before it runs them. Every tool takes an optional `timeout`, and every duration (`timeout`, and `idle` of `wait_for` and `assert`) is either a string with a unit (`500ms`, `10s`, `2m`) or a number of seconds (`30`, `2.5`). A number is seconds, never milliseconds: `60000` is read as 60,000 seconds and refused as over the limit, and the error says to use `60` or `"60s"`, or a string such as `"500ms"` for milliseconds. `wait_for` and `assert` allow a timeout of at most 5 minutes, the others 10.
