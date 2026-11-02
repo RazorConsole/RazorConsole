@@ -114,12 +114,10 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
     private VNode? Hit(VNode node, int x, int y)
     {
         var bounds = layouts.GetLayoutByVNodeIdOrDefault(node.ID);
-        if (bounds is { Left: int left, Top: int top, Width: int width, Height: int height }
-            && (x < left || y < top || x >= left + width || y >= top + height))
-        {
-            return null;
-        }
+        var inside = bounds is not { Left: int left, Top: int top, Width: int width, Height: int height }
+            || (x >= left && y >= top && x < left + width && y < top + height);
 
+        // Children are searched even outside the node: an absolutely positioned one (a dropdown) can lie beyond it.
         foreach (var child in node.Children.OrderBy(c => layouts.GetLayoutByVNodeIdOrDefault(c.ID)?.ZIndex ?? 0).Reverse())
         {
             var found = Hit(child, x, y);
@@ -128,7 +126,7 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
                 return found;
             }
         }
-        return bounds is not null && node.Kind == VNodeKind.Element ? node : null;
+        return inside && bounds is not null && node.Kind == VNodeKind.Element ? node : null;
     }
 
     private static VNode? Find(VNode node, string id)
