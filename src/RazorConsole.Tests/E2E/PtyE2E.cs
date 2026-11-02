@@ -21,6 +21,7 @@ internal static class PtyE2E
     {
         Assert.SkipUnless(PtyTerminal.IsSupported, "Pseudoterminals are not supported here.");
         var options = PtyTerminal.CreateDotnetOptions(Path.Combine(AppContext.BaseDirectory, assembly), width, height, arguments);
+        ColorEnvironment.Clear(options);
         options.RespondToTerminalQueries = respondToTerminalQueries;
         options.DefaultTimeout = TimeSpan.FromSeconds(20);
         return await PtyTerminal.StartAsync(options, TestContext.Current.CancellationToken);

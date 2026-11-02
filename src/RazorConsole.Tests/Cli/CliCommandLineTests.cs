@@ -34,6 +34,16 @@ public sealed class CliCommandLineTests
     }
 
     [Fact]
+    public void Mcp_ParsesToItsRequest_AndTakesTheGlobalOptionsAsDefaults()
+    {
+        var outcome = Parse("-s", "app", "--timeout", "20s", "mcp");
+
+        outcome.Request.ShouldBe(new McpRequest());
+        outcome.Options.ShouldBe(new CliGlobalOptions(false, "app", TimeSpan.FromSeconds(20)));
+        ShouldBeUsageError(Parse("mcp", "extra"));
+    }
+
+    [Fact]
     public void Session_FallsBackToTheEnvironmentVariable_AndTheOptionWins()
     {
         Parse(new Dictionary<string, string> { [CliCommandLine.SessionEnvironmentVariable] = "from-env" }, "list")

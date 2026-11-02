@@ -20,6 +20,8 @@
     <ProjectReference Include="..\RazorConsole.Core\RazorConsole.Core.csproj" />
     <ProjectReference Include="..\RazorConsole.Testing\RazorConsole.Testing.csproj" />
     <PackageReference Include="System.CommandLine" />
+    <!-- The MCP server of the mcp verb: low-level handlers only, which are trim and AOT safe. -->
+    <PackageReference Include="ModelContextProtocol.Core" />
     <InternalsVisibleTo Include="RazorConsole.Tests" />
   </ItemGroup>
   <Import Project="$(RepoRoot)/nuget/nuget-package.props" />

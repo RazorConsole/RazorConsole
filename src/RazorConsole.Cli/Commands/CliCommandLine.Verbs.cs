@@ -393,6 +393,8 @@ internal sealed partial class CliCommandLine
         Add(host, new Command("status", "Show whether the host runs, its version and its sessions."), static _ => new HostStatusRequest());
         Add(host, new Command("stop", "Stop the host and every session in it."), static _ => new HostStopRequest());
 
+        Add(_root, new Command("mcp", "Serve these commands to an AI agent as an MCP server over stdio. -s and --timeout set the defaults of its tools."), static _ => new McpRequest());
+
         var idleTimeout = OptionalDurationOption("--idle-timeout", "Exit after this long with no sessions and no clients (at least 10s before the first client connects). Defaults to 10m.");
         var hostRun = new Command("__host", "Run the session host in this process.") { idleTimeout };
         hostRun.Hidden = true;
@@ -424,7 +426,7 @@ internal sealed partial class CliCommandLine
         },
     };
 
-    private static bool TryParseLogLevel(string text, out LogLevel level)
+    internal static bool TryParseLogLevel(string text, out LogLevel level)
         => Enum.TryParse(text, ignoreCase: true, out level)
             && Enum.IsDefined(level)
             && level != LogLevel.None

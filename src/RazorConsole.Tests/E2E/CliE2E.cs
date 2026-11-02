@@ -109,6 +109,69 @@ internal sealed class CliProcess : IAsyncDisposable
 }
 
 /// <summary>
+/// A running <c>razorconsole mcp</c> process. The MCP client talks over <see cref="Input"/> and <see cref="Output"/>.
+/// </summary>
+internal sealed class McpProcess : IAsyncDisposable
+{
+    private readonly Process _process;
+    private readonly Task<string> _error;
+
+    public McpProcess(Process process)
+    {
+        _process = process;
+        _error = process.StandardError.ReadToEndAsync();
+    }
+
+    /// <summary>What the client writes: the server's standard input.</summary>
+    public Stream Input => _process.StandardInput.BaseStream;
+
+    /// <summary>What the client reads: the server's standard output.</summary>
+    public Stream Output => _process.StandardOutput.BaseStream;
+
+    public int ProcessId => _process.Id;
+
+    /// <summary>Everything the server wrote to standard error; complete once the process has exited.</summary>
+    public Task<string> Error => _error;
+
+    /// <summary>
+    /// Closes standard input, the way a client that quits does, and waits for the process to end.
+    /// </summary>
+    public async Task<int> CloseAndWaitForExitAsync(TimeSpan timeout)
+    {
+        _process.StandardInput.Close();
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        limit.CancelAfter(timeout);
+        try
+        {
+            await _process.WaitForExitAsync(limit.Token);
+        }
+        catch (OperationCanceledException) when (!TestContext.Current.CancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"'razorconsole mcp' did not end within {timeout.TotalSeconds:0}s of its input closing.");
+        }
+
+        return _process.ExitCode;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (!_process.HasExited)
+            {
+                _process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        _process.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}
+
+/// <summary>
 /// Runs the real tool for one end-to-end test: <c>dotnet RazorConsole.Cli.dll …</c> as its own process, against its own
 /// state directory, so the host it starts is a real background process too.
 /// </summary>
@@ -177,6 +240,12 @@ internal sealed class CliE2E : IAsyncDisposable
     /// </summary>
     public CliProcess Start(params string[] arguments) => new(StartProcess(arguments, null), arguments);
 
+    /// <summary>
+    /// Starts <c>razorconsole mcp</c> with standard input left open: the caller speaks MCP over the process's streams and
+    /// closes the input to end it. Standard error is read in the background and returned by <see cref="McpProcess.Error"/>.
+    /// </summary>
+    public McpProcess StartMcp() => new(StartProcess(["mcp"], null, closeInput: false));
+
     public async ValueTask DisposeAsync()
     {
         try
@@ -215,7 +284,7 @@ internal sealed class CliE2E : IAsyncDisposable
         }
     }
 
-    private Process StartProcess(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? environment)
+    private Process StartProcess(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? environment, bool closeInput = true)
     {
         var startInfo = new ProcessStartInfo(PtyTerminal.ResolveDotnetHost())
         {
@@ -235,13 +304,18 @@ internal sealed class CliE2E : IAsyncDisposable
         startInfo.Environment["RAZORCONSOLE_CLI_HOME"] = Home;
         startInfo.Environment.Remove("RAZORCONSOLE_SESSION");
         startInfo.Environment.Remove("RAZORCONSOLE_DIAGNOSTICS");
+        ColorEnvironment.Clear(startInfo);
         foreach (var (name, value) in environment ?? new Dictionary<string, string>())
         {
             startInfo.Environment[name] = value;
         }
 
         var process = Process.Start(startInfo) ?? throw new InvalidOperationException("The tool did not start.");
-        process.StandardInput.Close();
+        if (closeInput)
+        {
+            process.StandardInput.Close();
+        }
+
         return process;
     }
 

@@ -135,6 +135,7 @@ The first command that needs one starts a background **session host**: the same 
 | `errors`, `logs`, `stats` | The errors the app caught, its log entries (`--level`, `--category`), and the app's statistics: the pipeline, the number of frames delivered to observers (frames the renderer built but replaced before delivery are not counted), the latest frame and the uptime. `--follow` streams new entries. |
 | `wait`, `assert` | Wait for a condition up to `--timeout` (default 10s), or check it now and exit 1 if it does not hold. `assert --not` inverts it. |
 | `doctor`, `host` | Check the setup; manage the background host. |
+| `mcp` | Serve these commands to an AI agent as an [MCP server](#mcp-server) over stdio. |
 
 `wait` and `assert` take one condition: `--text`, `--regex` (a .NET regex matched against each line), `--gone`, `--idle <duration>`, `--exit`, `--element <selector>`, `--focus <key>` or `--route <uri>`.
 
@@ -185,6 +186,92 @@ Each error code maps to one exit code, so scripts can branch without parsing:
 A failed `assert` and a timed-out `wait` carry the screen: in text after a `--- screen ---` line, in JSON as `error.data.screen`.
 
 A failed `assert` also carries a short tree of the app (depth 3) as `error.data.tree`, fetched with a budget of its own (about 2s) no matter how much of `--timeout` is left. The key is always there: when the tree cannot be fetched it is `null` and `error.data.treeReason` says why, either an app layer reason (`disabled`, `not_connected_yet`, `not_rendered_yet`, `incompatible_protocol`) or an error code such as `timeout`.
+
+## MCP server
+
+`razorconsole mcp` serves the same operations to an AI agent as a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio. It uses the same session host, state directory and `RAZORCONSOLE_CLI_HOME` as the other commands, so an agent and a developer see the same sessions: `razorconsole list` shows what the agent started. Standard output carries only protocol messages; logs go to standard error. There is no HTTP transport, no screenshots as images and no recording.
+
+**Claude Code**
+
+```bash
+claude mcp add razorconsole -- razorconsole mcp
+```
+
+or, for a project, `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "razorconsole": { "command": "razorconsole", "args": ["mcp"] }
+  }
+}
+```
+
+**VS Code** (`.vscode/mcp.json`):
+
+```json
+{
+  "servers": {
+    "razorconsole": { "type": "stdio", "command": "razorconsole", "args": ["mcp"] }
+  }
+}
+```
+
+`-s <name>` and `--timeout <duration>` before `mcp` set the default session and timeout of the tools. Without `-s`, an agent should pass `session` to every call: the current session is shared with the developer, and `start_session` returns the name to use.
+
+### Tools
+
+Each tool runs the operation of the command with the same name and returns what `--json` prints. Tools that read are marked read-only; tools that send input, navigate, stop or restart are marked destructive, so a client can ask before it runs them. Every tool takes an optional `timeout`, and every duration (`timeout`, and `idle` of `wait_for` and `assert`) is either a string with a unit (`500ms`, `10s`, `2m`) or a number of seconds (`30`, `2.5`). A number is seconds, never milliseconds: `60000` is read as 60,000 seconds and refused as over the limit, and the error says to use `60` or `"60s"`, or a string such as `"500ms"` for milliseconds. `wait_for` and `assert` allow a timeout of at most 5 minutes, the others 10.
+
+A selector is always called `selector`, on `send_keys` (focus that element first), `click`, `wait_for` and `assert` (the `selector` condition), `get_tree`, `find_elements` and `inspect_element`. The command-line flags keep their names (`--element`).
+
+| Group | Tools |
+| --- | --- |
+| Sessions | `start_session`, `list_sessions`, `session_info`, `stop_session`, `restart_session`, `resize_session`, `attach_app`, `detach_session` |
+| Input | `send_keys`, `type_text`, `paste_text`, `send_raw`, `click`, `mouse` (`move`, `down`, `up`, `wheel`) |
+| Screen | `screenshot` (`text`, `ansi`, or `json` with styled cells, cursor and modes; optional `region`), `get_frames`, `diff_frames`, `get_output` |
+| Wait and assert | `wait_for`, `assert` (one condition: `text`, `regex`, `gone`, `idle`, `exit`, `selector`, `focus` or `route`) |
+| App layer | `get_tree`, `find_elements`, `inspect_element`, `inspect_at`, `get_focus`, `set_focus`, `get_route`, `navigate`, `get_errors`, `get_logs`, `get_stats` |
+| Environment | `doctor` |
+
+`use`, `host status` and `host stop` have no tool: `use` would change the developer's current session, and stopping the host would end their sessions. `errors --follow` and `logs --follow` are replaced by cursors (below).
+
+### Resources and prompts
+
+| Resource | Content |
+| --- | --- |
+| `razorconsole://sessions` | The sessions, as `list_sessions` returns them. |
+| `razorconsole://session/{name}/screen` | The text on the session's screen now. |
+| `razorconsole://session/{name}/tree` | The component tree with layout, as `get_tree` returns it. |
+
+| Prompt | What it asks the agent to do |
+| --- | --- |
+| `check_keyboard_accessibility` | Walk the focus order with `get_focus` and `send_keys`, and report elements that cannot be reached, show no focus, trap focus or ignore Enter. |
+| `check_layout` | Read `get_tree` with layout and `screenshot` at the current size, at 80x24 and at 40x12, and report zero-sized, offscreen and overlapping elements and cut-off text. |
+
+Both take an optional `session`.
+
+### Results and errors
+
+A tool result is one text block with the JSON of the command's `--json` output, `{"ok":true,"session":"s1",…}`. A failed operation is a result with `isError: true` and the same body as the command prints: `{"ok":false,"error":{"code","message","data"}}`, with the codes of the [exit code table](#output-and-exit-codes), such as `element_not_found`, `ambiguous_selector` (with the candidates), `timeout` (with `data.screen`), `process_exited` (with `outputTail` and `lastErrors`) and `host_unavailable`. Arguments that are missing, of the wrong type or refused by the command (two click targets, `delta` on a move) are a `usage` error whose `data.errors` lists every problem. Only a malformed request, an unknown tool, prompt or resource is a JSON-RPC error.
+
+`assert` is the one difference: a condition that does not hold is an answer, not an error. The result is `{"ok":true,"passed":false,"failure":{"code":"assertion_failed","message","data":{"screen",…}}}`. A passing assert has `"passed":true`.
+
+When the client sends `notifications/cancelled`, the running operation is cancelled the way Ctrl+C cancels a command: a wait stops, and the host is told to stop working. The cancelled request gets no answer.
+
+### Size limits
+
+A result that can grow is cut, never silently: it gets a `truncated` array of `{"field","kept","total","hint"}`, and the hint says what to do. A result is at most 100,000 characters of JSON.
+
+| Tool | Limit |
+| --- | --- |
+| `screenshot` | Rows of `cells` (then `lines`, `ansi`) are cut from the bottom; read a smaller `region`. |
+| `get_frames` | At most 50 frames; the oldest are dropped first. |
+| `diff_frames` | Later changed lines are dropped. |
+| `get_output` | At most `maxBytes` (default 64 KiB, at most 1 MiB). When more may follow, call again with `since` set to `next`. |
+| `get_tree`, `razorconsole://session/{name}/tree` | Without `depth` the tree shows 3 levels and is cut to about 20,000 characters: the deepest levels go first, and the nodes that lost children show `childCount`. An explicit `depth` may return up to 100,000 characters. Start with a small `depth` or a `selector`, and use `find_elements` to locate things. |
+| `find_elements` | At most 100 matches. |
+| `get_logs`, `get_errors` | At most `limit` entries (default 100, at most 1000), oldest first. Pass `next` as `since` for the next page. A log `message` is cut at 2,000 characters, an `exception` or error `details` at 4,000, with `…[+N chars]`. |
 
 ## What `errors` can and cannot show
 
