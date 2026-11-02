@@ -1,0 +1,22 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+
+@* A one-line header holding a dropdown whose items hang below it. *@
+<Rows>
+    <div class="header">
+        <Markup Content="header" />
+        <div class="popup" position="absolute" left="0" top="1" z-index="100">
+            <Rows>
+                <div class="first" @onclick="@(() => Clicks.Add("first"))"><Markup Content="first" /></div>
+                <div class="second" @onclick="@(() => Clicks.Add("second"))"><Markup Content="second" /></div>
+                <div class="third" @onclick="@(() => Clicks.Add("third"))"><Markup Content="third" /></div>
+            </Rows>
+        </div>
+    </div>
+    <Markup Content="body" />
+</Rows>
+
+@code {
+    [Parameter] public List<string> Clicks { get; set; } = [];
+}
