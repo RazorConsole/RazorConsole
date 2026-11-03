@@ -58,6 +58,7 @@ A sitemap generator that reads the actual React Router v7 prerendered HTML.
 
 - **Technical Logic**:
   - **URL Discovery**: Reads `build/client/**/index.html`, including project-base output directories, and uses each indexable page's absolute canonical URL.
+  - **HTML Parsing**: Uses parse5 to extract metadata, headings, and links one page at a time without creating JSDOM browser windows. Only extracted page data is retained between files.
   - **Exclusions**: Skips meta-refresh/noindex pages and non-index HTML files such as the deployment's `404.html`. Missing or duplicate canonicals fail the command.
   - **Content Dates**: Omits `lastmod` rather than presenting build timestamps as content updates. It does not emit `priority` or `changefreq`.
 - **API / Usage**:
@@ -65,7 +66,8 @@ A sitemap generator that reads the actual React Router v7 prerendered HTML.
   npm run gen:sitemap
   ```
 
-  Run after `react-router build`. Use `npm run test:seo` for URL/text helpers and
+  Run after `react-router build`. Use `npm run test:seo` for URL/text helpers, HTML extraction
+  parity, and a sitemap regression that processes 200 large pages under a 96 MiB Node heap, and
   `npm run test:seo:static` after sitemap generation to inspect the produced HTML, metadata,
   internal links, headings, and sitemap. See the website README for production-base environment settings.
 

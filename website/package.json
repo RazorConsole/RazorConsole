@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test:terminal-input": "tsx --test scripts/terminalInput.test.ts",
-    "test:seo": "tsx --tsconfig tsconfig.app.json --test scripts/seo.test.ts scripts/seo-render.test.tsx",
+    "test:seo": "tsx --tsconfig tsconfig.app.json --test scripts/seo.test.ts scripts/seo-render.test.tsx scripts/static-pages.test.ts",
     "test:seo:static": "tsx --test scripts/seo-static.test.ts",
     "check:seo:deployed": "tsx scripts/check-deployed-seo.ts",
     "dev:terminal-input": "vite --config tests/vite.config.ts",
@@ -60,6 +60,7 @@
     "globals": "^16.4.0",
     "js-yaml": "^4.1.0",
     "jsdom": "^29.0.1",
+    "parse5": "^8.0.0",
     "prettier": "^3.3.3",
     "react-router-dom": "^7.13.1",
     "satori": "^0.26.0",
