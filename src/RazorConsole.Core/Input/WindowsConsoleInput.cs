@@ -67,11 +67,9 @@ internal sealed class WindowsConsoleInput : IConsoleInput, IDisposable
             {
                 throw new Win32Exception();
             }
-            if (record.Type == 1 && record.KeyDown != 0)
+            if (record.Type == 1 && WindowsKeyTranslator.TryTranslateKey(
+                record.KeyDown != 0, record.VirtualKey, (char)record.Character, record.KeyModifiers, out var key))
             {
-                var modifiers = Modifiers(record.KeyModifiers);
-                var key = new ConsoleKeyInfo((char)record.Character, (ConsoleKey)record.VirtualKey,
-                    modifiers.HasFlag(ConsoleModifiers.Shift), modifiers.HasFlag(ConsoleModifiers.Alt), modifiers.HasFlag(ConsoleModifiers.Control));
                 for (var repeat = 0; repeat < Math.Max(1, (int)record.Repeat); repeat++)
                 {
                     _pending.Enqueue((key, null));
@@ -100,15 +98,10 @@ internal sealed class WindowsConsoleInput : IConsoleInput, IDisposable
                     y -= info.WindowTop;
                 }
                 var delta = kind == TerminalMouseKind.Wheel ? ((short)(record.Buttons >> 16) > 0 ? -3 : 3) : 0;
-                _pending.Enqueue((null, new(kind, x, y, button, delta, Modifiers(record.MouseModifiers))));
+                _pending.Enqueue((null, new(kind, x, y, button, delta, WindowsKeyTranslator.Modifiers(record.MouseModifiers))));
             }
         }
     }
-
-    private static ConsoleModifiers Modifiers(uint flags)
-        => ((flags & 0x10) != 0 ? ConsoleModifiers.Shift : 0)
-            | ((flags & 0x0c) != 0 ? ConsoleModifiers.Control : 0)
-            | ((flags & 0x03) != 0 ? ConsoleModifiers.Alt : 0);
 
     public void Dispose()
     {
@@ -149,4 +142,48 @@ internal sealed class WindowsConsoleInput : IConsoleInput, IDisposable
     [DllImport("kernel32.dll", SetLastError = true)][return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetNumberOfConsoleInputEvents(nint handle, out uint count);
     [DllImport("kernel32.dll", SetLastError = true)][return: MarshalAs(UnmanagedType.Bool)] private static extern bool ReadConsoleInputW(nint handle, out InputRecord record, uint length, out uint read);
     [DllImport("kernel32.dll", SetLastError = true)][return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetConsoleScreenBufferInfo(nint handle, out ScreenBufferInfo info);
+}
+
+/// <summary>
+/// Turns Windows key records into keys with the rules of Console.ReadKey. A type of its own, without the Windows
+/// platform attribute, so that its tests run on every OS.
+/// </summary>
+internal static class WindowsKeyTranslator
+{
+    /// <summary>
+    /// Translates one KEY_EVENT_RECORD. Key-ups are dropped, except an Alt key-up that carries a character: conhost
+    /// delivers a character the keyboard layout cannot type (VkKeyScanW returns -1) as an Alt+Numpad sequence, and the
+    /// character arrives on the final Alt key-up. Modifier-only key-downs and the numpad keys pressed while Alt is held
+    /// are the sequence itself and produce no key.
+    /// </summary>
+    /// <returns><see langword="true"/> when the record produces a key.</returns>
+    public static bool TryTranslateKey(bool keyDown, ushort virtualKey, char character, uint controlState, out ConsoleKeyInfo key)
+    {
+        var modifiers = Modifiers(controlState);
+        key = new ConsoleKeyInfo(character, (ConsoleKey)virtualKey,
+            modifiers.HasFlag(ConsoleModifiers.Shift), modifiers.HasFlag(ConsoleModifiers.Alt), modifiers.HasFlag(ConsoleModifiers.Control));
+        if (!keyDown)
+        {
+            // VK_MENU: the character composed with Alt+Numpad.
+            return virtualKey == 0x12 && character != '\0';
+        }
+        if (character == '\0' && IsModifierKey(virtualKey))
+        {
+            return false;
+        }
+        return !modifiers.HasFlag(ConsoleModifiers.Alt) || !IsNumpadKey(virtualKey);
+    }
+
+    public static ConsoleModifiers Modifiers(uint controlState)
+        => ((controlState & 0x10) != 0 ? ConsoleModifiers.Shift : 0)
+            | ((controlState & 0x0c) != 0 ? ConsoleModifiers.Control : 0)
+            | ((controlState & 0x03) != 0 ? ConsoleModifiers.Alt : 0);
+
+    // VK_SHIFT, VK_CONTROL, VK_MENU, VK_CAPITAL, VK_NUMLOCK and VK_SCROLL.
+    private static bool IsModifierKey(ushort virtualKey)
+        => virtualKey is (>= 0x10 and <= 0x12) or 0x14 or 0x90 or 0x91;
+
+    // VK_NUMPAD0 to VK_NUMPAD9, and what the numpad sends without Num Lock: VK_CLEAR, VK_INSERT and VK_PRIOR to VK_DOWN.
+    private static bool IsNumpadKey(ushort virtualKey)
+        => virtualKey is (>= 0x60 and <= 0x69) or 0x0c or 0x2d or (>= 0x21 and <= 0x28);
 }
