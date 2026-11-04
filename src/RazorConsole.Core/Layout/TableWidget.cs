@@ -30,7 +30,8 @@ public sealed class TableWidget : Widget
         Style? borderStyle = null,
         string? key = null,
         IReadOnlyDictionary<string, string?>? attributes = null,
-        int zIndex = 0)
+        int zIndex = 0,
+        bool columnSeparators = true)
         : base(vnodeId, key, attributes, headerRows.Concat(bodyRows).SelectMany(row => row.Cells).Select(cell => cell.Child).ToArray(), zIndex)
     {
         if (width is <= 0)
@@ -45,6 +46,7 @@ public sealed class TableWidget : Widget
         ShowHeaders = showHeaders;
         Width = width;
         BorderStyle = borderStyle;
+        ColumnSeparators = columnSeparators;
         _allCells = HeaderRows.Concat(BodyRows).SelectMany(row => row.Cells).ToArray();
     }
 
@@ -61,6 +63,9 @@ public sealed class TableWidget : Widget
     public int? Width { get; }
 
     public Style? BorderStyle { get; }
+
+    /// <summary>Whether a bordered table draws lines between its columns; without them the gap stays blank.</summary>
+    public bool ColumnSeparators { get; }
 
     private int ColumnCount => Math.Max(
         HeaderRows.Select(row => row.Cells.Count).DefaultIfEmpty(0).Max(),
@@ -313,6 +318,11 @@ public sealed class TableWidget : Widget
             canvas.Write(Bounds.X, y, chars.Vertical.ToString(), BorderStyle);
             canvas.Write(right, y, chars.Vertical.ToString(), BorderStyle);
 
+            if (!ColumnSeparators)
+            {
+                continue;
+            }
+
             var x = Bounds.X;
             for (var column = 0; column < _columnWidths.Length - 1; column++)
             {
@@ -342,7 +352,7 @@ public sealed class TableWidget : Widget
         {
             canvas.Fill(new LayoutRect(x, y, _columnWidths[column], 1), horizontal, BorderStyle);
             x += _columnWidths[column];
-            canvas.Write(x, y, column == _columnWidths.Length - 1 ? right.ToString() : join.ToString(), BorderStyle);
+            canvas.Write(x, y, column == _columnWidths.Length - 1 ? right.ToString() : (ColumnSeparators ? join : horizontal).ToString(), BorderStyle);
             x++;
         }
     }

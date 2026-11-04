@@ -809,7 +809,8 @@ public sealed class WidgetTranslationContext
             TryParseHexStyle(GetAttribute(node, "data-border-color")),
             node.Key,
             node.Attributes,
-            zIndex);
+            zIndex,
+            !string.Equals(GetAttribute(node, "data-column-separators"), "false", StringComparison.OrdinalIgnoreCase));
     }
 
     private TableWidgetRow CreateTableWidgetRow(VNode row, bool isHeader)
