@@ -171,7 +171,7 @@ internal static class WindowsKeyTranslator
         {
             return false;
         }
-        return !modifiers.HasFlag(ConsoleModifiers.Alt) || !IsNumpadKey(virtualKey);
+        return !modifiers.HasFlag(ConsoleModifiers.Alt) || !IsNumpadKey(virtualKey, controlState);
     }
 
     public static ConsoleModifiers Modifiers(uint controlState)
@@ -184,6 +184,8 @@ internal static class WindowsKeyTranslator
         => virtualKey is (>= 0x10 and <= 0x12) or 0x14 or 0x90 or 0x91;
 
     // VK_NUMPAD0 to VK_NUMPAD9, and what the numpad sends without Num Lock: VK_CLEAR, VK_INSERT and VK_PRIOR to VK_DOWN.
-    private static bool IsNumpadKey(ushort virtualKey)
-        => virtualKey is (>= 0x60 and <= 0x69) or 0x0c or 0x2d or (>= 0x21 and <= 0x28);
+    // The dedicated Insert, Home, End, Page Up, Page Down and arrow keys send the same codes with ENHANCED_KEY (0x100) set.
+    private static bool IsNumpadKey(ushort virtualKey, uint controlState)
+        => (controlState & 0x100) == 0
+            && virtualKey is (>= 0x60 and <= 0x69) or 0x0c or 0x2d or (>= 0x21 and <= 0x28);
 }
