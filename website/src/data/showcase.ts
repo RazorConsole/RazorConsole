@@ -38,4 +38,16 @@ export const showcaseProjects: ShowcaseProject[] = [
       "https://raw.githubusercontent.com/DevMando/MandoCode/main/docs/images/music-player.png",
     ],
   },
+  {
+    name: "azure-servicebus-console",
+    description:
+      "Terminal UI for Azure Service Bus — browse namespaces, queues, topics and subscriptions, inspect and requeue dead-lettered messages, with keyboard and mouse navigation.",
+    github: "zidad/azure-servicebus-console",
+    imageUrls: [
+      "https://raw.githubusercontent.com/zidad/azure-servicebus-console/main/docs/screenshots/queues.png",
+      "https://raw.githubusercontent.com/zidad/azure-servicebus-console/main/docs/screenshots/message-detail.png",
+      "https://raw.githubusercontent.com/zidad/azure-servicebus-console/main/docs/screenshots/all-subscriptions.png",
+      "https://raw.githubusercontent.com/zidad/azure-servicebus-console/main/docs/screenshots/connection.png",
+    ],
+  },
 ]
