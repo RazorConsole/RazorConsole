@@ -424,7 +424,8 @@ jobs:
           echo "$CHANGED_FILES"
 
       - name: Compute version suffix
-        run: echo "VersionSuffix=$(date +'%Y%m%d')-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+        # Fixed-width UTC timestamp: NuGet compares the suffix as a string, so it must sort by build time (a SHA sorts randomly, #447).
+        run: echo "VersionSuffix=$(date -u +'%Y%m%d-%H%M%S')" >> "$GITHUB_ENV"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -439,7 +440,7 @@ jobs:
         run: dotnet restore RazorConsole.slnx
 
       - name: Build
-        run: dotnet build RazorConsole.slnx --configuration Release --no-restore -p:VersionSuffix=$VersionSuffix
+        run: dotnet build RazorConsole.slnx --configuration Release --no-restore -p:VersionSuffix=$VersionSuffix -p:SourceRevisionId=${GITHUB_SHA}
 
       # Run the four TFM test modules one after another: in parallel they overload the runner and process-spawning tests time out (#432).
       - name: Test
@@ -463,7 +464,8 @@ jobs:
             --configuration Release \
             --no-build \
             --output artifacts/packages \
-            -p:VersionSuffix=$VersionSuffix
+            -p:VersionSuffix=$VersionSuffix \
+            -p:SourceRevisionId=${GITHUB_SHA}
 
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4
