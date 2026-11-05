@@ -83,6 +83,18 @@ public sealed class McpErrorMappingTests
     }
 
     [Fact]
+    public async Task FailedAssert_CarriesTheSameDataAsTheCommandLine_ObservedAndTruncationIncluded()
+    {
+        // The host builds the failure once; the MCP result must show the very same data as `error.data` of --json.
+        var data = Json("""{"condition":"focus on a","not":false,"screen":"cut","tree":null,"treeReason":"too_large","observed":"b","screenTruncated":true}""");
+        await using var server = await McpTestServer.StartAsync(_ => CliResult.Failure(DiagnosticsErrorCodes.AssertionFailed, "Assertion failed.", data, "s1"));
+
+        var body = McpTestServer.Body(await server.CallAsync("assert", """{"session":"s1","focus":"a"}"""));
+
+        body.GetProperty("failure").GetProperty("data").GetRawText().ShouldBe(data.GetRawText());
+    }
+
+    [Fact]
     public async Task PassingAssert_ReportsPassedTrue_AndOtherAssertErrorsStayErrors()
     {
         await using var passing = await McpTestServer.StartAsync(_ => CliResult.Success("s1", Json("""{"passed":true}"""), "ok"));

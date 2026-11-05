@@ -70,6 +70,11 @@ export const docTopicIds = [
         filePath: "website/src/docs/cli.md",
     },
     {
+        id: "develop-with-an-agent",
+        title: "Develop with an AI agent",
+        filePath: "website/src/docs/develop-with-an-agent.md",
+    },
+    {
         id: "component-gallery",
         title: "Component Gallery",
         filePath: "website/src/docs/component-gallery.md",

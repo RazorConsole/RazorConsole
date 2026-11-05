@@ -37,6 +37,10 @@ jobs:
       - name: Restore
         run: dotnet restore RazorConsole.slnx
 
+      # The agent plugin has one manifest and MCP file per client; they must agree.
+      - name: Verify the agent plugin
+        run: dotnet run scripts/verify-agent-plugin.cs
+
       - name: Check formatting
         run: dotnet format RazorConsole.slnx --verify-no-changes
 

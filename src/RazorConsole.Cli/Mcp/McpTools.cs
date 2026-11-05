@@ -331,7 +331,7 @@ internal static class McpTools
         Define(
             "get_frames",
             "Read recent frames",
-            "Returns the last frames of a PTY session (up to 50), newest last, to see what changed over time. Long results drop the oldest frames and say so in `truncated`.",
+            "Returns the last frames of a PTY session (up to 50), newest last, to see what changed over time. Long results drop the oldest frames and say so in `truncated`. Large `last` values can exceed the result size cap: prefer a small `last` or diff_frames.",
             McpToolKind.ReadOnly,
             static schema => schema.Integer("last", "How many frames. Default 1.", minimum: 1, maximum: FramesRequest.MaxFrames),
             static arguments => new FramesRequest(arguments.Integer("last", 1, FramesRequest.MaxFrames) ?? 1),

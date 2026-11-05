@@ -105,6 +105,12 @@ The workflow can also be manually triggered via the Actions tab. For automatic l
 - Consider adding examples to the `examples/` directory for new features
 - Design notes can be added to `design-doc/` for architectural changes
 
+### Agent plugin
+
+`plugins/razorconsole/` is the agent plugin (skills plus the `razorconsole mcp` server config) for Claude Code, VS Code and Copilot, Codex and Antigravity. It is separate from `.agents/skills/` and `.claude/skills/`, which are this repository's own development skills.
+
+Any change to the plugin's skills or MCP config **must bump `version` in every manifest** (`plugin.json`, `.claude-plugin/plugin.json`, `.antigravity-plugin/plugin.json`): Claude Code and Codex reinstall a plugin only when its version changes. Run `dotnet run scripts/verify-agent-plugin.cs` before you push; CI runs it and fails when the manifests, MCP files, marketplaces or skills disagree.
+
 ## 🚀 Release Process
 
 Pushing a version tag (`v*.*.*` or `*.*.*`) triggers `.github/workflows/release.yml` to build, test, pack, publish NuGet packages, and create a GitHub release with platform bundles. The workflow can also be dispatched manually; manual runs publish NuGet packages but only tag runs create a GitHub release. Version numbers should follow semantic versioning.
