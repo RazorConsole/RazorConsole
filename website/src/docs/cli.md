@@ -137,7 +137,7 @@ The first command that needs one starts a background **session host**: the same 
 | `doctor`, `host` | Check the setup; manage the background host. |
 | `mcp` | Serve these commands to an AI agent as an [MCP server](#mcp-server) over stdio. |
 
-`wait` and `assert` take one condition: `--text`, `--regex` (a .NET regex matched against each line), `--gone`, `--idle <duration>`, `--exit`, `--element <selector>`, `--focus <key>` or `--route <uri>`.
+`wait` and `assert` take one condition: `--text`, `--regex` (a .NET regex matched against each line), `--gone`, `--idle <duration>`, `--exit`, `--element <selector>`, `--focus <key>` or `--route <uri>`. A route is given as the path (`textinput` or `/textinput`) or as the full URI that `route` prints (`app:///textinput`); all three name the same route. A value with a scheme is compared with the full URI, any other value with the base-relative path, and a query string and fragment must match too.
 
 ### Selectors
 
@@ -185,7 +185,9 @@ Each error code maps to one exit code, so scripts can branch without parsing:
 
 A failed `assert` and a timed-out `wait` carry the screen: in text after a `--- screen ---` line, in JSON as `error.data.screen`.
 
-A failed `assert` also carries a short tree of the app (depth 3) as `error.data.tree`, fetched with a budget of its own (about 2s) no matter how much of `--timeout` is left. The key is always there: when the tree cannot be fetched it is `null` and `error.data.treeReason` says why, either an app layer reason (`disabled`, `not_connected_yet`, `not_rendered_yet`, `incompatible_protocol`) or an error code such as `timeout`.
+A failed `assert` also carries `error.data.condition` and `error.data.not`, and for `--focus` and `--route` `error.data.observed`: what the app reported (the focused key, the route). The screen is cut at 8,000 characters, and then `error.data.screenTruncated` is `true`.
+
+It also carries a small tree excerpt of the app (the root and its direct children, without text) as `error.data.tree`, fetched with a budget of its own (about 2s) no matter how much of `--timeout` is left; use `tree --selector` for more. The key is always there: when the tree cannot be fetched it is `null` and `error.data.treeReason` says why, either an app layer reason (`disabled`, `not_connected_yet`, `not_rendered_yet`, `incompatible_protocol`), an error code such as `timeout`, or `too_large` when the excerpt would pass 4,000 characters.
 
 ## MCP server
 
