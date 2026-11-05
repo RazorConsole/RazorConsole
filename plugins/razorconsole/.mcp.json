@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "razorconsole": {
+      "command": "razorconsole",
+      "args": ["mcp"]
+    }
+  }
+}

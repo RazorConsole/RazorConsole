@@ -25,7 +25,9 @@ internal static class HostWait
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan AppCallLimit = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan FailureDetailTimeout = TimeSpan.FromSeconds(2);
-    private const int FailureTreeDepth = 3;
+    private const int FailureTreeDepth = 1;
+    internal const int MaxScreenChars = 8000;
+    internal const int MaxTreeChars = 4000;
 
     public static string Describe(WaitSpec condition)
     {
@@ -127,8 +129,8 @@ internal static class HostWait
     }
 
     /// <summary>
-    /// Checks the condition once. A failure carries what a person needs to see why: the screen, and a short tree when
-    /// the app layer is connected.
+    /// Checks the condition once. A failure carries what a person needs to see why: the screen, what a focus or route
+    /// condition observed, and a small tree excerpt when the app layer is connected.
     /// </summary>
     /// <exception cref="DiagnosticsProtocolException"><c>assertion_failed</c> when the condition does not hold (or holds,
     /// with <paramref name="not"/>).</exception>
@@ -158,11 +160,65 @@ internal static class HostWait
         var screen = await state.TextAsync(session, cancellationToken).ConfigureAwait(false);
         var description = Describe(condition);
         var (tree, treeReason) = await ShortTreeAsync(session.App, cancellationToken).ConfigureAwait(false);
-        var data = new AssertionData(description, not, screen, tree, treeReason);
+        var data = CreateAssertionData(description, not, screen, state.Observed, tree, treeReason);
         throw new DiagnosticsProtocolException(
             DiagnosticsErrorCodes.AssertionFailed,
             not ? $"Expected {description} not to hold, but it does." : $"Expected {description}, but it does not hold.",
             errorData: JsonSerializer.SerializeToElement(data, HostJsonContext.Default.AssertionData));
+    }
+
+    /// <summary>
+    /// Whether the app's current route is the one a condition names. A value with a scheme (<c>app:///textinput</c>, what
+    /// <c>route</c> and <c>get_route</c> print) is compared with the full URI; any other value is a path, compared with the
+    /// base-relative path with or without a leading slash. A query string and a fragment are part of both and must match.
+    /// </summary>
+    internal static bool RouteMatches(string uri, string relative, string value)
+        => HasScheme(value)
+            ? string.Equals(uri.TrimEnd('/'), value.TrimEnd('/'), StringComparison.Ordinal)
+            : string.Equals(relative.Trim('/'), value.Trim('/'), StringComparison.Ordinal);
+
+    // Only "scheme://" at the very start counts: a path may carry a URL in its query ("go?next=http://x").
+    private static bool HasScheme(string value)
+    {
+        var end = value.IndexOf("://", StringComparison.Ordinal);
+        if (end <= 0 || !char.IsAsciiLetter(value[0]))
+        {
+            return false;
+        }
+
+        for (var i = 1; i < end; i++)
+        {
+            if (!char.IsAsciiLetterOrDigit(value[i]) && value[i] is not ('+' or '-' or '.'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The data of a failed assertion. The screen is cut at <see cref="MaxScreenChars"/> (marked by <c>screenTruncated</c>)
+    /// and a tree excerpt over <see cref="MaxTreeChars"/> is replaced by the reason <c>too_large</c>: a failure is read in
+    /// a terminal or an agent's context, and <c>tree</c> / <c>get_tree</c> with a selector answer the rest.
+    /// </summary>
+    internal static AssertionData CreateAssertionData(string condition, bool not, string screen, string? observed, JsonElement? tree, string? treeReason)
+    {
+        var truncated = screen.Length > MaxScreenChars;
+        if (truncated)
+        {
+            // Do not end on half of a surrogate pair.
+            var length = char.IsHighSurrogate(screen[MaxScreenChars - 1]) ? MaxScreenChars - 1 : MaxScreenChars;
+            screen = screen[..length];
+        }
+
+        if (tree is { } excerpt && excerpt.GetRawText().Length > MaxTreeChars)
+        {
+            tree = null;
+            treeReason = "too_large";
+        }
+
+        return new AssertionData(condition, not, screen, tree, treeReason, observed, truncated ? true : null);
     }
 
     // Attached apps have no output counter; their frame number says whether they drew.
@@ -198,13 +254,15 @@ internal static class HostWait
             case WaitConditionKind.Focus:
             {
                 var focus = await session.App.CallAsync(DiagnosticsAppMethods.Focus, json.FocusResult, appTimeout, cancellationToken).ConfigureAwait(false);
+                state.Observed = focus.Current;
                 return string.Equals(focus.Current, value, StringComparison.Ordinal);
             }
 
             case WaitConditionKind.Route:
             {
                 var route = await session.App.CallAsync(DiagnosticsAppMethods.Route, json.RouteResult, appTimeout, cancellationToken).ConfigureAwait(false);
-                return string.Equals(route.Relative.Trim('/'), value.Trim('/'), StringComparison.Ordinal);
+                state.Observed = HasScheme(value) ? route.Uri : route.Relative;
+                return RouteMatches(route.Uri, route.Relative, value);
             }
 
             default:
@@ -237,7 +295,7 @@ internal static class HostWait
         {
             var tree = await app.CallAsync(
                 DiagnosticsAppMethods.Tree,
-                new TreeParams(Depth: FailureTreeDepth, IncludeText: true),
+                new TreeParams(Depth: FailureTreeDepth, IncludeText: false),
                 DiagnosticsJsonContext.Default.TreeParams,
                 DiagnosticsJsonContext.Default.TreeResult,
                 FailureDetailTimeout,
@@ -254,6 +312,9 @@ internal static class HostWait
     private sealed class ScreenState
     {
         private ScreenSnapshot? _last;
+
+        // What a focus or route condition read from the app, for the failure of an assertion.
+        public string? Observed { get; set; }
 
         public long Frame => _last?.Frame ?? 0;
 

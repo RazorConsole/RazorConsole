@@ -1,0 +1,12 @@
+{
+  "name": "razorconsole",
+  "interface": { "displayName": "RazorConsole" },
+  "plugins": [
+    {
+      "name": "razorconsole",
+      "source": { "source": "local", "path": "./plugins/razorconsole" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Developer Tools"
+    }
+  ]
+}
