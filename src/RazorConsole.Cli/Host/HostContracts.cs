@@ -398,16 +398,22 @@ internal sealed record WaitTimeoutData(string Screen);
 /// <param name="Condition">The condition that was checked, as text.</param>
 /// <param name="Not">Whether the assertion was negated.</param>
 /// <param name="Screen">The screen when it failed.</param>
-/// <param name="Tree">A short tree of the app (depth 3). Always present: <see langword="null"/> when the tree could not be
+/// <param name="Tree">A short tree excerpt of the app (depth 1, without text). Always present: <see langword="null"/> when the tree could not be
 /// fetched, and then <paramref name="TreeReason"/> says why.</param>
 /// <param name="TreeReason">Why there is no tree: an app layer reason (<c>disabled</c>, <c>not_connected_yet</c>,
-/// <c>not_rendered_yet</c>, <c>incompatible_protocol</c>) or an error code such as <c>timeout</c>; absent when there is a tree.</param>
+/// <c>not_rendered_yet</c>, <c>incompatible_protocol</c>), an error code such as <c>timeout</c>, or <c>too_large</c> when the excerpt
+/// would exceed the size cap (use <c>get_tree</c> with a selector); absent when there is a tree.</param>
+/// <param name="Observed">For focus and route conditions: what the app reported instead (the focused key, the relative route);
+/// absent for conditions that read the screen, where <paramref name="Screen"/> is the observation.</param>
+/// <param name="ScreenTruncated"><see langword="true"/> when <paramref name="Screen"/> was cut at the size cap; absent otherwise.</param>
 internal sealed record AssertionData(
     string Condition,
     bool Not,
     string Screen,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] JsonElement? Tree = null,
-    string? TreeReason = null);
+    string? TreeReason = null,
+    string? Observed = null,
+    bool? ScreenTruncated = null);
 
 /// <summary>
 /// The <c>data</c> of an <see cref="DiagnosticsErrorCodes.AppLayerUnavailable"/> or

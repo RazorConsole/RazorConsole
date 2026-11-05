@@ -133,7 +133,7 @@ Experience rapid development with built-in hot reload support. See your UI chang
 Test components headlessly or run your whole app in a real pseudoterminal with the `RazorConsole.Testing` package. See the [Testing guide](https://razorconsole.com/blog/testing/).
 
 ### 🖥️ **Command-Line Tool**
-Drive and inspect a running app from the command line: start it in a pseudoterminal, press keys and clicks, wait for the screen, and read the component tree, errors and logs of a Development or Debug build. Install `RazorConsole.Cli` as a dotnet tool and run `razorconsole`; results can be JSON with fixed exit codes for CI and AI agents. See the [Command-Line Tool guide](https://razorconsole.com/blog/cli/).
+Drive and inspect a running app from the command line: start it in a pseudoterminal, press keys and clicks, wait for the screen, and read the component tree, errors and logs of a Development or Debug build. Install `RazorConsole.Cli` as a dotnet tool and run `razorconsole`; results can be JSON with fixed exit codes for CI and AI agents. See the [Command-Line Tool guide](https://razorconsole.com/blog/cli/). An [agent plugin](plugins/razorconsole/README.md) adds RazorConsole skills and the MCP server to Claude Code, VS Code and Copilot, Codex and Antigravity in one install.
 
 ### 🎪 **Interactive Component Gallery**
 Explore all components hands-on with the included interactive gallery tool. Install globally and run `razorconsole-gallery` to see live examples of every component in action.

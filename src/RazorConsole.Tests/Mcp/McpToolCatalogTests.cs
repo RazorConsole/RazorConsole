@@ -178,6 +178,15 @@ public sealed class McpToolCatalogTests
     }
 
     [Fact]
+    public void GetFrames_WarnsThatALargeLastCanExceedTheResultCap()
+    {
+        var description = McpTools.Find("get_frames")!.Description;
+
+        description.ShouldContain("Large `last` values can exceed the result size cap");
+        description.ShouldContain("diff_frames");
+    }
+
+    [Fact]
     public async Task Server_SaysWhoItIs_AndTellsTheAgentToAlwaysPassSession()
     {
         await using var server = await McpTestServer.StartAsync(static _ => CliResult.Success(null, null, null));
