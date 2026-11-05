@@ -16,6 +16,11 @@
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
 
+  <!-- SDK 11 rc.3 Native AOT publish fails with MSB3030 looking for the XML doc file in the artifacts output dir. A native executable has no use for it. -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true'">
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+  </PropertyGroup>
+
   <!-- Set CompilerGeneratedFilesOutputPath after BaseIntermediateOutputPath is fully resolved -->
   <Target Name="SetCompilerGeneratedFilesPath" BeforeTargets="PrepareForBuild" Condition="'$(Configuration)' == 'Debug'">
     <PropertyGroup>
