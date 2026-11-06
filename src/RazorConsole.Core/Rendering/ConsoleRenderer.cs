@@ -103,8 +103,8 @@ internal sealed class ConsoleRenderer(
             {
                 await RenderRootComponentAsync(componentId, parameters).ConfigureAwait(false);
             }).ConfigureAwait(false);
-            _lastSnapshot = await tcs.Task.ConfigureAwait(false);
-            return _lastSnapshot;
+            // The first render; later renders before quiescence already updated _lastSnapshot, so keep it.
+            return await tcs.Task.ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

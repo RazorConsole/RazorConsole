@@ -44,6 +44,11 @@ public sealed class ConsoleViewResult
     /// </summary>
     internal VNode? VdomRoot { get; }
 
+    /// <summary>
+    /// Gets the <see cref="ConsoleRenderer.RenderSnapshot.Sequence"/> of the render this view came from.
+    /// </summary>
+    internal long Sequence { get; private init; }
+
     internal static ConsoleViewResult Create(
         string html,
         VNode? vdomRoot,
@@ -60,6 +65,6 @@ public sealed class ConsoleViewResult
         }
 
         var html = VdomHtmlSerializer.Serialize(snapshot.Root);
-        return Create(html, snapshot.Root, snapshot.Renderable, snapshot.AnimatedRenderables);
+        return new(html, snapshot.Renderable, snapshot.AnimatedRenderables, snapshot.Root) { Sequence = snapshot.Sequence };
     }
 }
