@@ -47,7 +47,17 @@ internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        return _renderer.DispatchEventAsync(handlerId, eventArgs);
+
+        // On the dispatcher (e.g. FocusAsync from OnAfterRenderAsync) a render batch may be in progress, and Blazor would apply its diffs again in a nested batch.
+        return _renderer.Dispatcher.CheckAccess()
+            ? DispatchAfterCurrentWorkAsync(handlerId, eventArgs)
+            : _renderer.DispatchEventAsync(handlerId, eventArgs);
+    }
+
+    private async Task DispatchAfterCurrentWorkAsync(ulong handlerId, EventArgs eventArgs)
+    {
+        await Task.Yield();
+        await _renderer.DispatchEventAsync(handlerId, eventArgs).ConfigureAwait(false);
     }
 }
 

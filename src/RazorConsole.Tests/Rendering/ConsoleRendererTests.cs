@@ -4,9 +4,11 @@
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core;
+using RazorConsole.Core.Input;
 using RazorConsole.Core.Layout;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Rendering.Translation.Contexts;
@@ -394,6 +396,24 @@ public sealed class ConsoleRendererTests
         ReadText(snapshot.Root).ShouldBe("100");
     }
 
+    [Fact]
+    public async Task EventDispatchedFromOnAfterRender_DoesNotReapplyTheRenderBatch()
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var component = new FocusAfterRenderComponent();
+        var mounted = await renderer.MountComponentAsync(component, ParameterView.Empty, CancellationToken.None);
+        var onFocus = mounted.Root.ShouldNotBeNull().Events.Single(e => e.Name == "onfocus").HandlerId;
+
+        // As FocusManager.FocusAsync does from OnAfterRenderAsync: the event is raised while the batch that inserted the span is still in progress.
+        var dispatcher = new RendererKeyboardEventDispatcher(renderer);
+        component.AfterShow = () => dispatcher.DispatchAsync(onFocus, new FocusEventArgs { Type = "focus" }, CancellationToken.None);
+        await component.ShowAsync();
+        await component.Dispatched;
+
+        var root = renderer.RefreshSnapshot().Root.ShouldNotBeNull();
+        root.Children.Select(c => c.TagName).ShouldBe(["div", "span"]);
+        root.Children[0].Children.Single().Text.ShouldBe("focused");
+    }
 
     private Core.Vdom.VNode? FindDiv(Core.Vdom.VNode? node)
     {
@@ -525,6 +545,48 @@ public sealed class ConsoleRendererTests
         }
     }
 #endif
+
+    private sealed class FocusAfterRenderComponent : ComponentBase
+    {
+        private bool _show;
+        private bool _focused;
+
+        public Func<Task>? AfterShow { get; set; }
+
+        public Task Dispatched { get; private set; } = Task.CompletedTask;
+
+        public Task ShowAsync()
+            => InvokeAsync(() =>
+            {
+                _show = true;
+                StateHasChanged();
+            });
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "onfocus", EventCallback.Factory.Create<FocusEventArgs>(this, OnFocus));
+            builder.AddContent(2, _focused ? "focused" : "blurred");
+            builder.CloseElement();
+            if (_show)
+            {
+                builder.OpenElement(3, "span");
+                builder.AddContent(4, "item");
+                builder.CloseElement();
+            }
+        }
+
+        protected override void OnAfterRender(bool firstRender)
+        {
+            if (_show && AfterShow is { } dispatch)
+            {
+                AfterShow = null;
+                Dispatched = dispatch();
+            }
+        }
+
+        private void OnFocus() => _focused = true;
+    }
 
     private sealed class BurstRenderComponent : ComponentBase
     {
