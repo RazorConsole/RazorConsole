@@ -2,6 +2,7 @@
 
 using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Utilities;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -83,7 +84,7 @@ public sealed class HtmlTableElementTranslator : ITranslationMiddleware
         table.Border = border;
 
         var borderColorAttr = VdomSpectreTranslator.GetAttribute(node, "data-border-color");
-        if (!string.IsNullOrWhiteSpace(borderColorAttr) && Color.TryFromHex(borderColorAttr, out var borderColor))
+        if (!string.IsNullOrWhiteSpace(borderColorAttr) && ColorAttribute.TryParse(borderColorAttr, out var borderColor))
         {
             table.BorderColor(borderColor);
         }

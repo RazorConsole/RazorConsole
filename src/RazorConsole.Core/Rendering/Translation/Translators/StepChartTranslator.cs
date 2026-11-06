@@ -23,10 +23,10 @@ public sealed class StepChartTranslator : ITranslationMiddleware
         var width = VdomSpectreTranslator.TryGetIntAttribute(node, "data-width", 60);
         var height = VdomSpectreTranslator.TryGetIntAttribute(node, "data-height", 20);
         var showAxes = VdomSpectreTranslator.TryGetBoolAttribute(node, "data-show-axes", out var axes) && axes;
-        var axesColor = VdomSpectreTranslator.GetAttribute(node, "data-axes-color") ?? Color.Gray.ToHex();
-        var labelsColor = VdomSpectreTranslator.GetAttribute(node, "data-labels-color") ?? Color.Gray.ToHex();
+        var axesColor = VdomSpectreTranslator.GetAttribute(node, "data-axes-color") ?? Color.Grey.ToMarkup();
+        var labelsColor = VdomSpectreTranslator.GetAttribute(node, "data-labels-color") ?? Color.Grey.ToMarkup();
         var title = VdomSpectreTranslator.GetAttribute(node, "data-title");
-        var titleColor = VdomSpectreTranslator.GetAttribute(node, "data-title-color") ?? Color.Gray.ToHex();
+        var titleColor = VdomSpectreTranslator.GetAttribute(node, "data-title-color") ?? Color.Grey.ToMarkup();
 
         var seriesList = new List<SeriesData>();
         foreach (var child in node.Children)
@@ -39,7 +39,7 @@ public sealed class StepChartTranslator : ITranslationMiddleware
             var color = VdomSpectreTranslator.GetAttribute(child, "data-color") ?? "white";
             var pointsStr = VdomSpectreTranslator.GetAttribute(child, "data-points") ?? "";
             var points = ParsePoints(pointsStr);
-            seriesList.Add(new SeriesData("#" + color, points));
+            seriesList.Add(new SeriesData(color, points));
         }
 
         if (seriesList.Count == 0)
@@ -181,13 +181,13 @@ public sealed class StepChartTranslator : ITranslationMiddleware
         var sb = new StringBuilder();
         if (!string.IsNullOrEmpty(title))
         {
-            sb.AppendLine($"[#{titleColor}]{title}[/]");
+            sb.AppendLine($"[{titleColor}]{title}[/]");
         }
 
         // Y-axis arrow at top
         if (showAxes)
         {
-            sb.AppendLine($"[#{axesColor}]   ▲[/]");
+            sb.AppendLine($"[{axesColor}]   ▲[/]");
         }
 
         // Calculate Y labels to avoid duplicates
@@ -204,11 +204,11 @@ public sealed class StepChartTranslator : ITranslationMiddleware
                 var closestLabel = yLabels.OrderBy(l => Math.Abs(l.Value - yVal)).First();
                 if (Math.Abs(closestLabel.Value - yVal) < (maxY - minY) / (chartHeight * 2))
                 {
-                    sb.Append($"[#{labelsColor}]{closestLabel.Value,2:0.#}[/][#{axesColor}]─┤[/]");
+                    sb.Append($"[{labelsColor}]{closestLabel.Value,2:0.#}[/][{axesColor}]─┤[/]");
                 }
                 else
                 {
-                    sb.Append($"[#{axesColor}]   │[/]");
+                    sb.Append($"[{axesColor}]   │[/]");
                 }
             }
 
@@ -232,7 +232,7 @@ public sealed class StepChartTranslator : ITranslationMiddleware
         // X-axis
         if (showAxes)
         {
-            sb.Append($"[#{axesColor}]   └");
+            sb.Append($"[{axesColor}]   └");
 
             // Calculate X labels
             var xLabels = CalculateNonOverlappingLabels(minX, maxX, chartWidth, 5);
@@ -257,7 +257,7 @@ public sealed class StepChartTranslator : ITranslationMiddleware
                 int centerPos = pos - labelStr.Length / 2;
                 int spaces = Math.Max(1, centerPos - prevEnd);
                 sb.Append(new string(' ', spaces));
-                sb.Append($"[#{labelsColor}]{labelStr}[/]");
+                sb.Append($"[{labelsColor}]{labelStr}[/]");
                 prevEnd = centerPos + labelStr.Length;
             }
 

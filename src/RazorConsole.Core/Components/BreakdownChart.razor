@@ -1,4 +1,5 @@
 @namespace RazorConsole.Components
+@using RazorConsole.Core.Utilities
 
 @using System.Globalization
 @using Spectre.Console
@@ -93,7 +94,7 @@
         BreakdownChartItems.Select(item => new ChartItemData(
             item.Label,
             item.Value,
-            item.Color.ToHex()
+            ColorAttribute.Format(item.Color)
         )).ToList(),
         ChartJsonContext.Default.ListChartItemData
     );
@@ -112,5 +113,5 @@
 
     private string ShowTagValuesPercentageAttribute => ShowTagValuesPercentage ? "true" : "false";
 
-    private string ValueColorAttribute => ValueColor?.ToHex() ?? string.Empty;
+    private string ValueColorAttribute => ValueColor is { } c ? ColorAttribute.Format(c) : string.Empty;
 }

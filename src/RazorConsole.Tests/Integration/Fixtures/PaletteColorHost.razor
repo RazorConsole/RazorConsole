@@ -1,0 +1,13 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using RazorConsole.Components
+@using Spectre.Console
+
+@* A palette color is the terminal theme's; it must not turn into fixed RGB on its way to the screen. *@
+<SpectreTable BorderColor="@Color.Blue" Border="TableBorder.Square">
+    <SpectreTHead>
+        <SpectreTR><SpectreTH>name</SpectreTH></SpectreTR>
+    </SpectreTHead>
+    <SpectreTBody>
+        <SpectreTR><SpectreTD>row</SpectreTD></SpectreTR>
+    </SpectreTBody>
+</SpectreTable>

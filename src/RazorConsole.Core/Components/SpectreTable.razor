@@ -1,4 +1,5 @@
 @namespace RazorConsole.Components
+@using RazorConsole.Core.Utilities
 
 @using System.Collections.Generic
 @using System.Globalization
@@ -89,7 +90,7 @@
 
 	private string? BorderAttribute => ToBorderAttribute(Border);
 
-    private string BorderColorAttribute => BorderColor.ToHex();
+    private string BorderColorAttribute => ColorAttribute.Format(BorderColor);
 
 	private static string? ToBorderAttribute(TableBorder? border)
 	{

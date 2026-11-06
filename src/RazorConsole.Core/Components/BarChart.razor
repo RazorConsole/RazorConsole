@@ -1,4 +1,5 @@
 @namespace RazorConsole.Components
+@using RazorConsole.Core.Utilities
 
 @using System.Globalization
 @using Spectre.Console
@@ -98,7 +99,7 @@
         BarChartItems.Select(item => new ChartItemData(
             item.Label,
             item.Value,
-            item.Color?.ToHex()
+            (item.Color is { } c ? ColorAttribute.Format(c) : null)
         )).ToList(),
         ChartJsonContext.Default.ListChartItemData
     );
