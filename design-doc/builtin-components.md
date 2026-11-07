@@ -265,13 +265,15 @@ Renders a step chart directly in the terminal, using Unicode box-drawing charact
 
 | Parameter       | Type                          | Default      | Description                                                 |
 |-----------------|-------------------------------|--------------|-------------------------------------------------------------|
-| `Width`         | `int`                         | `60`         | Chart width in terminal columns (excluding axes if shown)   |
+| `Width`         | `int?`                        | `null`       | Chart width in terminal columns; `null` fills the available width. Axes add two columns |
 | `Height`        | `int`                         | `20`         | Chart height in terminal rows (excluding title/axes)        |
 | `ShowAxes`      | `bool`                        | `true`       | Shows X/Y axes with tick marks and numeric labels           |
 | `AxesColor`     | `Color`                       | `Color.Grey` | Color of the axis lines and tick marks                      |
 | `LabelsColor`   | `Color`                       | `Color.Grey` | Color of the numeric value labels on the axes               |
 | `Title`         | `string?`                     | `null`       | Optional chart title displayed above the plot area          |
 | `TitleColor`    | `Color`                       | `Color.Grey` | Color of the title text                                     |
+| `XAxisFormat`   | `string`                      | `"0.#"`      | .NET numeric format of the X labels, e.g. `"0'h'"`          |
+| `YAxisFormat`   | `string`                      | `"0.#"`      | .NET numeric format of the Y labels, e.g. `"#,0"`           |
 | `Series`        | `List<ChartSeries>`           | —            | Collection of data series to render on the chart. Required. |
 
 ### `ChartSeries`

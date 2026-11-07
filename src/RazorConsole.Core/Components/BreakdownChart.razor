@@ -105,7 +105,7 @@
 
     private string ExpandAttribute => Expand ? "true" : "false";
 
-    private string WidthAttribute => Width?.ToString() ?? string.Empty;
+    private string WidthAttribute => Width?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
 
     private string ShowTagsAttribute => ShowTags ? "true" : "false";
 

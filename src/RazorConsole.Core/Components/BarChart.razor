@@ -104,13 +104,13 @@
         ChartJsonContext.Default.ListChartItemData
     );
 
-    private string WidthAttribute => Width?.ToString() ?? string.Empty;
+    private string WidthAttribute => Width?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
 
     private string LabelStyleAttributes => new Style(LabelForeground, LabelBackground, LabelDecoration).ToMarkup();
 
     private string LabelAlignmentAttribute => LabelAlignment?.ToString().ToLowerInvariant() ?? string.Empty;
 
-    private string MaxValueAttribute => MaxValue?.ToString() ?? string.Empty;
+    private string MaxValueAttribute => MaxValue?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
 
     private string ShowValuesAttribute => ShowValues ? "true" : "false";
 

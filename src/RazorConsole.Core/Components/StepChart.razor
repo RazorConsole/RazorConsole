@@ -1,3 +1,4 @@
+@using System.Globalization
 @using Spectre.Console
 @namespace RazorConsole.Components
 @using RazorConsole.Core.Utilities
@@ -19,7 +20,9 @@
            data-axes-color="@AxesColorAttribute"
            data-labels-color="@LabelsColorAttribute"
            data-title="@TitleAttribute"
-           data-title-color="@TitleColorAttribute">
+           data-title-color="@TitleColorAttribute"
+           data-x-axis-format="@XAxisFormat"
+           data-y-axis-format="@YAxisFormat">
     @foreach (var series in Series)
     {
         <chartseries data-color="@ColorAttribute.Format(series.Color)" data-points="@SerializePoints(series.Points)"/>
@@ -28,10 +31,11 @@
 
 @code {
     /// <summary>
-    /// Width of the chart in terminal columns (excluding title and axes if shown).
+    /// Width of the chart in terminal columns, or <c>null</c> (the default) to fill the available width.
+    /// With axes shown the chart takes two more columns; it never exceeds the available width.
     /// </summary>
     [Parameter]
-    public int Width { get; set; } = 60;
+    public int? Width { get; set; }
 
     /// <summary>
     /// Height of the chart in terminal rows (excluding title and axes if shown).
@@ -58,6 +62,20 @@
     public Color LabelsColor { get; set; } = Color.Grey;
 
     /// <summary>
+    /// .NET numeric format string for the X axis labels, such as <c>"0'h'"</c>. Default is <c>"0.#"</c>.
+    /// Labels are formatted with the current culture.
+    /// </summary>
+    [Parameter]
+    public string XAxisFormat { get; set; } = "0.#";
+
+    /// <summary>
+    /// .NET numeric format string for the Y axis labels, such as <c>"#,0"</c>. Default is <c>"0.#"</c>.
+    /// Labels are formatted with the current culture.
+    /// </summary>
+    [Parameter]
+    public string YAxisFormat { get; set; } = "0.#";
+
+    /// <summary>
     /// Optional chart title displayed above the plot area.
     /// </summary>
     [Parameter]
@@ -79,8 +97,8 @@
     public List<ChartSeries> Series { get; set; } = new();
 
 
-    private string SerializePoints(IEnumerable<(double X, double Y)> points)
-        => string.Join(";", points.Select(p => $"{p.X},{p.Y}"));
+    private static string SerializePoints(IEnumerable<(double X, double Y)> points)
+        => string.Join(";", points.Select(p => string.Create(CultureInfo.InvariantCulture, $"{p.X},{p.Y}")));
 
     private string ShowAxesAttribute => ShowAxes ? "true" : "false";
 
