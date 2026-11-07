@@ -1018,8 +1018,8 @@ internal sealed class VtEmulator
             if (!_styleValid)
             {
                 _style = _attributes.IsDefault
-                    ? null
-                    : new Style(_attributes.Foreground, _attributes.Background, _attributes.Decoration, _attributes.Link);
+                    ? (Style?)null
+                    : new Style(_attributes.Foreground, _attributes.Background, _attributes.Decoration);
                 _styleValid = true;
             }
 
@@ -1116,10 +1116,10 @@ internal sealed class VtEmulator
         var row = Screen[_y];
         DetachWideCharacters(row, _x, _x + width);
         var style = CurrentStyle;
-        row[_x] = new TerminalCell(grapheme, style);
+        row[_x] = new TerminalCell(grapheme, style, _attributes.Link);
         for (var i = 1; i < width; i++)
         {
-            row[_x + i] = new TerminalCell(string.Empty, style);
+            row[_x + i] = new TerminalCell(string.Empty, style, _attributes.Link);
         }
 
         _lastGrapheme = grapheme;
@@ -1197,12 +1197,12 @@ internal sealed class VtEmulator
     {
         if (from > 0 && from < row.Length && row[from].Text.Length == 0)
         {
-            row[from - 1] = new TerminalCell(" ", row[from - 1].Style);
+            row[from - 1] = row[from - 1] with { Text = " " };
         }
 
         if (to < row.Length && row[to].Text.Length == 0)
         {
-            row[to] = new TerminalCell(" ", row[to].Style);
+            row[to] = row[to] with { Text = " " };
         }
     }
 
@@ -1299,7 +1299,7 @@ internal sealed class VtEmulator
         if (lastKept >= _x && lastKept + 1 < Width && row[lastKept + 1].Text.Length == 0)
         {
             // The wide character that ends up in the last column loses its continuation.
-            row[lastKept] = new TerminalCell(" ", row[lastKept].Style);
+            row[lastKept] = row[lastKept] with { Text = " " };
         }
 
         Array.Copy(row, _x, row, _x + count, Width - _x - count);
@@ -1573,7 +1573,7 @@ internal sealed class VtEmulator
 
     private readonly record struct Attributes(Color? Foreground, Color? Background, Decoration Decoration, string? Link)
     {
-        public bool IsDefault => Foreground is null && Background is null && Decoration == Decoration.None && Link is null;
+        public bool IsDefault => Foreground is null && Background is null && Decoration == Decoration.None;
 
         public Attributes With(Decoration decoration) => this with { Decoration = Decoration | decoration };
 

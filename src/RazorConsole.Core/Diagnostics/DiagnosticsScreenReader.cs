@@ -108,7 +108,7 @@ internal static class DiagnosticsScreenReader
             }
         }
 
-        return new ScreenCell(cell.Text, ToHex(style.Foreground), ToHex(style.Background), decoration, style.Link);
+        return new ScreenCell(cell.Text, ToHex(style.Foreground), ToHex(style.Background), decoration, cell.Link);
     }
 
     private static string? ToHex(Color color)

@@ -20,12 +20,12 @@ public sealed class GalleryWorkbenchTests
         terminal.CurrentFrame[x, handleY].Text.ShouldBe("⋮");
         terminal.CurrentFrame[x, handleY - 1].Text.ShouldBe("│");
         terminal.CurrentFrame[x, handleY + 1].Text.ShouldBe("│");
-        terminal.CurrentFrame[x, handleY].Style!.Background.ShouldBe(Spectre.Console.Color.Grey70);
+        terminal.CurrentFrame[x, handleY].Style?.Background.ShouldBe(Spectre.Console.Color.Grey70);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Move, x, y), token);
-        terminal.CurrentFrame[x, y].Style!.Foreground.ShouldBe(Spectre.Console.Color.DeepSkyBlue1);
-        terminal.CurrentFrame[x, handleY].Style!.Background.ShouldBe(Spectre.Console.Color.DeepSkyBlue1);
+        terminal.CurrentFrame[x, y].Style?.Foreground.ShouldBe(Spectre.Console.Color.DeepSkyBlue1);
+        terminal.CurrentFrame[x, handleY].Style?.Background.ShouldBe(Spectre.Console.Color.DeepSkyBlue1);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Move, 99, 34), token);
-        terminal.CurrentFrame[x, handleY].Style!.Background.ShouldBe(Spectre.Console.Color.Grey70);
+        terminal.CurrentFrame[x, handleY].Style?.Background.ShouldBe(Spectre.Console.Color.Grey70);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, x, y), token);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Move, x + 8, y), token);
         terminal.GetLayout("gallery-sidebar").Width.ShouldBe(33);
@@ -61,7 +61,7 @@ public sealed class GalleryWorkbenchTests
         var button = terminal.GetLayout("align-code");
         int x = button.Left!.Value, y = button.Top!.Value;
         await terminal.SendMouseAsync(new(TerminalMouseKind.Move, x, y), TestContext.Current.CancellationToken);
-        terminal.CurrentFrame[x, y].Style!.Background.ShouldBe(Spectre.Console.Color.Grey70);
+        terminal.CurrentFrame[x, y].Style?.Background.ShouldBe(Spectre.Console.Color.Grey70);
         terminal.FocusKey.ShouldBe("align-preview");
         terminal.CurrentFrame.ContainsText("Hello, layout!").ShouldBeTrue();
         await terminal.SendMouseAsync(new(TerminalMouseKind.Move, 99, 34), TestContext.Current.CancellationToken);

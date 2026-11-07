@@ -58,7 +58,7 @@
     public int? MaxWidth { get; set; }
 
     /// <summary>
-    /// Width of each pixel when rendered. Default is 2 characters, creating more square-looking pixels.
+    /// Ignored since Spectre.Console 0.55, which sizes pixels itself (half blocks where Unicode is supported).
     /// </summary>
     [Parameter]
     public int PixelWidth { get; set; } = 2;

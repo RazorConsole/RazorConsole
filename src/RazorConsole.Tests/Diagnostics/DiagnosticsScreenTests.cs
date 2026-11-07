@@ -58,7 +58,7 @@ public sealed class DiagnosticsScreenTests
         var state = new DiagnosticsState();
         var frame = new DrawWidget(6, 2, canvas =>
         {
-            canvas.Write(0, 0, "ab", new Style(new Color(255, 0, 0), new Color(0, 0, 255), Decoration.Bold | Decoration.Underline, "https://example.test"));
+            canvas.Write(0, 0, "ab", new Style(new Color(255, 0, 0), new Color(0, 0, 255), Decoration.Bold | Decoration.Underline), "https://example.test");
             canvas.Write(0, 1, "cd");
         }).Publish(state);
         var queries = new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager(), new ConsoleAppOptions());

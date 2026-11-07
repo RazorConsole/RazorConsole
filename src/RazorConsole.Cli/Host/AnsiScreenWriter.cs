@@ -58,18 +58,18 @@ internal static class AnsiScreenWriter
     private static void AppendStyle(StringBuilder builder, Style? style)
     {
         builder.Append("\u001b[0");
-        if (style is not null)
+        if (style is { } value)
         {
             foreach (var (flag, code) in Decorations)
             {
-                if ((style.Decoration & flag) != 0)
+                if ((value.Decoration & flag) != 0)
                 {
                     builder.Append(';').Append(code.ToString(CultureInfo.InvariantCulture));
                 }
             }
 
-            AppendColor(builder, 38, style.Foreground);
-            AppendColor(builder, 48, style.Background);
+            AppendColor(builder, 38, value.Foreground);
+            AppendColor(builder, 48, value.Background);
         }
 
         builder.Append('m');

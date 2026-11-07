@@ -329,7 +329,7 @@ internal sealed class ScrollableRenderable : IRenderable
 
         if (targetSeg.Text.Length > 1)
         {
-            yield return new Segment(targetSeg.Text[..^1], targetSeg.Style);
+            yield return new Segment(targetSeg.Text[..^1], targetSeg.Style, targetSeg.Link);
         }
 
         if (scrollBarSeg != null)
@@ -338,7 +338,7 @@ internal sealed class ScrollableRenderable : IRenderable
         }
         else if (targetSeg.Text.Length > 0)
         {
-            yield return new Segment(targetSeg.Text[^1..], targetSeg.Style);
+            yield return new Segment(targetSeg.Text[^1..], targetSeg.Style, targetSeg.Link);
         }
         else
         {

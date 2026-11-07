@@ -28,4 +28,6 @@ public sealed class CountingConsole(IAnsiConsole inner, FrameCounter counter) : 
         counter.RecordWrite();
         inner.Write(renderable);
     }
+
+    public void WriteAnsi(Action<AnsiWriter> action) => inner.WriteAnsi(action);
 }

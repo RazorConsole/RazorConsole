@@ -23,7 +23,9 @@
     /// </para>
     /// </remarks>
 
-    private string StyleAttributes => new Style(Foreground, Background, Decoration, link).ToMarkup();
+    private string StyleAttributes => string.IsNullOrEmpty(link)
+        ? new Style(Foreground, Background, Decoration).ToMarkup()
+        : $"{new Style(Foreground, Background, Decoration).ToMarkup()} link={link}".TrimStart();
     private string _escapedContent = string.Empty;
 
     /// <summary>

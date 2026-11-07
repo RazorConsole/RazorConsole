@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 
@@ -48,7 +49,8 @@ internal sealed class TextElementTranslator : ITranslationMiddleware
         else
         {
             var style = Style.Parse(styleAttributes ?? string.Empty);
-            return new Markup(text, style);
+            var link = ComponentMarkupUtilities.ParseLink(styleAttributes);
+            return new Markup(link is null ? text : $"[link={Markup.Escape(link)}]{text}[/]", style);
         }
     }
 

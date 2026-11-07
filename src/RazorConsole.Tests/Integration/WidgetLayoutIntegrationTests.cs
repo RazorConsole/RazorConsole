@@ -30,6 +30,29 @@ public sealed class WidgetLayoutIntegrationTests
     }
 
     [Fact]
+    public async Task Markup_WithLink_KeepsTheLinkOnItsCells()
+    {
+        await using var terminal = await HeadlessTerminal.StartAsync<RazorConsole.Components.Markup>(
+            new HeadlessTerminalOptions
+            {
+                Width = 10,
+                Height = 1,
+                Parameters = new Dictionary<string, object?>
+                {
+                    [nameof(RazorConsole.Components.Markup.Content)] = "docs",
+                    [nameof(RazorConsole.Components.Markup.link)] = "https://e.x/a",
+                },
+            },
+            TestContext.Current.CancellationToken);
+
+        var frame = await terminal.WaitForTextAsync("docs", cancellationToken: TestContext.Current.CancellationToken);
+
+        frame[0, 0].Link.ShouldBe("https://e.x/a");
+        frame[3, 0].Link.ShouldBe("https://e.x/a");
+        frame[4, 0].Link.ShouldBeNull();
+    }
+
+    [Fact]
     public async Task Resize_ReflowsComponentAndCapturesBeforeAndAfterFrames()
     {
         await using var terminal = await HeadlessTerminal.StartAsync<WidgetLayoutIntegrationApp>(
