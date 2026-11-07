@@ -513,15 +513,17 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         });
 
         _focusTargets = targets;
-        var currentFocusTarget = matchIndex >= 0
-            ? _focusTargets[matchIndex]
-            : _focusTargets[0];
 
         if (matchIndex >= 0)
         {
             _currentIndex = matchIndex;
             CurrentFocusKey = _focusTargets[matchIndex].Key;
-            return previousFocusTarget == currentFocusTarget ? null : currentFocusTarget;
+
+            // Snapshots clone the tree, but an element updated in place keeps its ID: focus did not change.
+            // Dispatching focus to it again re-renders a component whose focus handler renders, forever.
+            // A new ID is a new element at the same key (e.g. a changed @key), which has to learn it has focus.
+            var matched = _focusTargets[matchIndex];
+            return matched.VNodeId == previousFocusTarget.VNodeId ? null : matched;
         }
 
         _currentIndex = 0;
