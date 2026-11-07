@@ -136,7 +136,7 @@ public sealed class SpectreWidget : Widget
                 }
             }
 
-            current.Add(new Segment(text, segment.Style));
+            current.Add(new Segment(text, segment.Style, segment.Link));
             currentWidth += width;
         }
     }

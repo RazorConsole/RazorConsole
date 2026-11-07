@@ -8,6 +8,7 @@ using Markdig.Syntax.Inlines;
 using RazorConsole.Core.Input;
 using Spectre.Console;
 using Table = Markdig.Extensions.Tables.Table;
+using TableCell = Markdig.Extensions.Tables.TableCell;
 using TableRow = Markdig.Extensions.Tables.TableRow;
 
 namespace RazorConsole.Core.Rendering.Markdown;

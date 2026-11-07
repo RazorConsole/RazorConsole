@@ -13,16 +13,20 @@ public sealed class TextWidget : Widget
         Style? style = null,
         string? key = null,
         IReadOnlyDictionary<string, string?>? attributes = null,
-        int zIndex = 0)
+        int zIndex = 0,
+        string? link = null)
         : base(vnodeId, key, attributes, zIndex: zIndex)
     {
         Text = text ?? string.Empty;
         Style = style;
+        Link = link;
     }
 
     public string Text { get; }
 
     public Style? Style { get; }
+
+    public string? Link { get; }
 
     protected override LayoutSize MeasureCore(LayoutContext context, BoxConstraints constraints)
     {
@@ -55,7 +59,7 @@ public sealed class TextWidget : Widget
         var maxLines = Math.Min(Bounds.Height, lines.Length);
         for (var i = 0; i < maxLines; i++)
         {
-            context.Canvas.Write(Bounds.X, Bounds.Y + i, lines[i], Bounds.Width, Style);
+            context.Canvas.Write(Bounds.X, Bounds.Y + i, lines[i], Bounds.Width, Style, Link);
         }
     }
 

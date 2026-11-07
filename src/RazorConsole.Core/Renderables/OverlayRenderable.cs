@@ -141,7 +141,7 @@ public sealed class OverlayRenderable(IRenderable background, IEnumerable<Overla
             var style = segment.Style;
             for (int i = 0; i < text.Length && cursor < maxWidth; i++)
             {
-                buffer[cursor++] = new Cell(text[i], style);
+                buffer[cursor++] = new Cell(text[i], style, segment.Link);
             }
         }
 
@@ -159,7 +159,7 @@ public sealed class OverlayRenderable(IRenderable background, IEnumerable<Overla
             {
                 if (cursor >= 0)
                 {
-                    buffer[cursor] = new Cell(text[i], style);
+                    buffer[cursor] = new Cell(text[i], style, segment.Link);
                 }
 
                 cursor++;
@@ -177,20 +177,20 @@ public sealed class OverlayRenderable(IRenderable background, IEnumerable<Overla
         }
 
         var result = new SegmentLine();
-        var currentStyle = buffer[0].Style;
+        var current = buffer[0];
         int start = 0;
 
         for (int i = 1; i < length; i++)
         {
-            if (!buffer[i].Style.Equals(currentStyle))
+            if (buffer[i].Style != current.Style || !Equals(buffer[i].Link, current.Link))
             {
-                result.Add(new Segment(CreateStringFromBuffer(buffer, start, i - start), currentStyle));
-                currentStyle = buffer[i].Style;
+                result.Add(new Segment(CreateStringFromBuffer(buffer, start, i - start), current.Style, current.Link));
+                current = buffer[i];
                 start = i;
             }
         }
 
-        result.Add(new Segment(CreateStringFromBuffer(buffer, start, length - start), currentStyle));
+        result.Add(new Segment(CreateStringFromBuffer(buffer, start, length - start), current.Style, current.Link));
         return result;
     }
 
@@ -205,7 +205,7 @@ public sealed class OverlayRenderable(IRenderable background, IEnumerable<Overla
         });
     }
 
-    private record struct Cell(char Char, Style Style);
+    private record struct Cell(char Char, Style Style, Link? Link = null);
 
     private record struct OverlayPosition(SegmentLine Line, int Left);
 }

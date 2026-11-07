@@ -69,17 +69,32 @@ public sealed class TerminalCanvasTests
         text.ShouldBe("hel");
     }
 
-    private static string RenderToText(IRenderable renderable, int maxWidth)
+    [Fact]
+    public void WriteSegments_KeepsLinks_InCellsAndRenderedSegments()
     {
-        var console = AnsiConsole.Create(new AnsiConsoleSettings
+        var canvas = new TerminalCanvas(5, 1);
+
+        canvas.WriteSegments(0, 0, [new Segment("ab", Style.Plain, new Link("https://e.x/a")), new Segment(" c")]);
+
+        canvas[0, 0].Link.ShouldBe("https://e.x/a");
+        canvas[1, 0].Link.ShouldBe("https://e.x/a");
+        canvas[2, 0].Link.ShouldBeNull();
+        var segments = canvas.ToRenderable().Render(CreateOptions(5), 5).ToArray();
+        (segments[0].Text, segments[0].Link?.Url).ShouldBe(("ab", "https://e.x/a"));
+        segments.Skip(1).ShouldAllBe(segment => segment.Link == null);
+    }
+
+    private static RenderOptions CreateOptions(int maxWidth)
+        => new(AnsiConsole.Create(new AnsiConsoleSettings
         {
             Ansi = AnsiSupport.No,
             ColorSystem = ColorSystemSupport.NoColors,
             Out = new AnsiConsoleOutput(TextWriter.Null),
-        });
+        }).Profile.Capabilities, new Spectre.Console.Size(maxWidth, 25));
 
-        var options = new RenderOptions(console.Profile.Capabilities, new Spectre.Console.Size(maxWidth, 25));
-        var segments = renderable.Render(options, maxWidth);
+    private static string RenderToText(IRenderable renderable, int maxWidth)
+    {
+        var segments = renderable.Render(CreateOptions(maxWidth), maxWidth);
         return string.Concat(segments.Select(segment => segment.IsLineBreak ? "\n" : segment.Text));
     }
 }

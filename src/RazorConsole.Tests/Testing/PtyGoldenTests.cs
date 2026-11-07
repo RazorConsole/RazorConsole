@@ -60,14 +60,14 @@ public sealed class PtyGoldenTests
             {
                 var want = expected[x, y];
                 var got = actual[x, y];
-                if (want.Text == got.Text && Visible(want).Equals(Visible(got)))
+                if (want.Text == got.Text && want.Link == got.Link && Visible(want).Equals(Visible(got)))
                 {
                     continue;
                 }
 
                 if (count++ < 20)
                 {
-                    differences.Append(CultureInfo.InvariantCulture, $"({x},{y}): headless '{want.Text}' {Describe(want.Style)}, PTY '{got.Text}' {Describe(got.Style)}").AppendLine();
+                    differences.Append(CultureInfo.InvariantCulture, $"({x},{y}): headless '{want.Text}' {Describe(want)}, PTY '{got.Text}' {Describe(got)}").AppendLine();
                 }
             }
         }
@@ -91,10 +91,10 @@ public sealed class PtyGoldenTests
             return style;
         }
 
-        return new Style(background: style.Background, link: style.Link);
+        return new Style(background: style.Background);
     }
 
-    private static string Describe(Style? style) => Normalize(style) is var s && s.Equals(Style.Plain)
+    private static string Describe(TerminalCell cell) => Normalize(cell.Style) is var s && s.Equals(Style.Plain) && cell.Link is null
         ? "[plain]"
-        : $"[fg {s.Foreground.ToMarkup()} bg {s.Background.ToMarkup()} {s.Decoration} link {s.Link ?? "-"}]";
+        : $"[fg {s.Foreground.ToMarkup()} bg {s.Background.ToMarkup()} {s.Decoration} link {cell.Link ?? "-"}]";
 }

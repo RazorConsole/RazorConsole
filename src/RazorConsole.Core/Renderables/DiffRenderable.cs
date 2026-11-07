@@ -125,7 +125,9 @@ internal class DiffRenderable
     private static bool SegmentsAreEqual(Segment segment1, Segment segment2)
     {
         return string.Equals(segment1.Text, segment2.Text, StringComparison.Ordinal)
-               && Equals(segment1.Style, segment2.Style);
+               && Equals(segment1.Style, segment2.Style)
+               // Each Link gets a random id, so the same link rendered again is a new instance.
+               && segment1.Link?.Url == segment2.Link?.Url;
     }
 
     internal static IEnumerable<Segment> RenderLineDiff(SegmentLine line, SegmentLine previousLine)
