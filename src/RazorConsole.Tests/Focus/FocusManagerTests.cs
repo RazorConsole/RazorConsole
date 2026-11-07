@@ -702,6 +702,49 @@ public sealed class FocusManagerTests
         dispatcher.Events.ShouldContain(("focus", 4UL));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OnNext_FocusedElementRerenderedInPlace_DoesNotDispatchFocusAgain(bool withFocusKey)
+    {
+        var dispatcher = new TestFocusEventDispatcher();
+        var manager = new FocusManager(dispatcher);
+        var view = CreateInputsView(firstIdBase: 1UL, withFocusKey, firstElementId: "first-element");
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), view, new VdomDiffService());
+        using var session = manager.BeginSession(context, view, CancellationToken.None);
+        await session.InitializationTask;
+        PushInitialSnapshot(manager, view);
+        manager.CurrentFocusKey.ShouldBe("first");
+        dispatcher.Events.Clear();
+
+        // A focus handler that re-renders its element would otherwise get focus again on every render, forever.
+        PushInitialSnapshot(manager, CreateInputsView(firstIdBase: 11UL, withFocusKey, firstElementId: "first-element"));
+
+        manager.CurrentFocusKey.ShouldBe("first");
+        dispatcher.Events.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task OnNext_FocusedElementReplacedAtTheSameKey_GetsFocusEvents()
+    {
+        var dispatcher = new TestFocusEventDispatcher();
+        var manager = new FocusManager(dispatcher);
+        var view = CreateInputsView(firstIdBase: 1UL, firstElementId: "first-element");
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), view, new VdomDiffService());
+        using var session = manager.BeginSession(context, view, CancellationToken.None);
+        await session.InitializationTask;
+        PushInitialSnapshot(manager, view);
+        dispatcher.Events.Clear();
+
+        // E.g. a component re-created by a changed @key: the new instance has to learn it has focus.
+        PushInitialSnapshot(manager, CreateInputsView(firstIdBase: 11UL, firstElementId: "replacement"));
+
+        manager.CurrentFocusKey.ShouldBe("first");
+        dispatcher.Events.ShouldBe(new[] { ("focusin", 12UL), ("focus", 11UL) });
+    }
+
     [Fact]
     public async Task FocusChange_LateRetryForSupersededFocus_IsDropped()
     {
@@ -738,10 +781,20 @@ public sealed class FocusManagerTests
         manager.CurrentFocusKey.ShouldBe("second");
     }
 
-    private static ConsoleViewResult CreateInputsView(ulong firstIdBase)
+    private static ConsoleViewResult CreateInputsView(ulong firstIdBase, bool withFocusKey = false, string? firstElementId = null)
     {
         var first = VNode.CreateElement("input");
+        if (firstElementId is not null)
+        {
+            first.ID = firstElementId;
+        }
+
         first.SetKey("first");
+        if (withFocusKey)
+        {
+            first.SetAttribute("data-focus-key", "first-instance");
+        }
+
         first.SetEvent("onfocus", firstIdBase);
         first.SetEvent("onfocusin", firstIdBase + 1);
         first.SetEvent("onfocusout", firstIdBase + 2);
