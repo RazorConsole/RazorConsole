@@ -486,6 +486,51 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void TableWidget_WithoutColumnSeparators_DrawsOnlyTheOuterBorderAndHeaderRule()
+    {
+        var widget = new TableWidget(
+            "table-1",
+            [
+                new TableWidgetRow(
+                [
+                    new TableWidgetCell("th-1", new TextWidget("text-1", "Name"), HorizontalAlignment.Center),
+                    new TableWidgetCell("th-2", new TextWidget("text-2", "Type"), HorizontalAlignment.Center),
+                ]),
+            ],
+            [
+                new TableWidgetRow(
+                [
+                    new TableWidgetCell("td-1", new TextWidget("text-3", "README.md")),
+                    new TableWidgetCell("td-2", new TextWidget("text-4", "File")),
+                ]),
+            ],
+            columnSeparators: false);
+
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 40, 0, 10));
+
+        result.Size.ShouldBe(new LayoutSize(20, 5));
+        RenderToText(result.PaintToRenderable(), maxWidth: 40).ShouldBe(
+            "╭──────────────────╮\n" +
+            "│   Name      Type │\n" +
+            "├──────────────────┤\n" +
+            "│ README.md   File │\n" +
+            "╰──────────────────╯");
+    }
+
+    [Fact]
+    public void Translate_TableWithColumnSeparatorsFalse_HidesTheColumnLines()
+    {
+        var services = new ServiceCollection();
+        services.AddRazorConsoleServices();
+        using var serviceProvider = services.BuildServiceProvider();
+        var context = serviceProvider.GetRequiredService<WidgetTranslationContext>();
+        var table = CreateSimpleTableNode();
+        table.SetAttribute("data-column-separators", "false");
+
+        context.Translate(table).ShouldBeOfType<TableWidget>().ColumnSeparators.ShouldBeFalse();
+    }
+
+    [Fact]
     public void TableWidget_Expand_DoesNotGrowFixedWidthColumns()
     {
         var widget = new TableWidget(
