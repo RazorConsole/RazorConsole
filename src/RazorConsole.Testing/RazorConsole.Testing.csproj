@@ -61,7 +61,7 @@
     <Error Condition="'@(_RazorConsoleTestingCoreDependency)' == ''"
            Text="RazorConsole.Testing: no RazorConsole.Core dependency was found in the generated nuspec." />
     <Error Condition="'@(_RazorConsoleTestingInexactCoreDependency)' != ''"
-           Text="RazorConsole.Testing: the RazorConsole.Core dependency must be an exact version range like [1.0.0], but the nuspec contains '@(_RazorConsoleTestingInexactCoreDependency->Distinct())'. Check the PinCoreDependencyVersion target." />
+           Text="RazorConsole.Testing: the RazorConsole.Core dependency must be an exact version range like [$(VersionPrefix)], but the nuspec contains '@(_RazorConsoleTestingInexactCoreDependency->Distinct())'. Check the PinCoreDependencyVersion target." />
   </Target>
 
 </Project>
