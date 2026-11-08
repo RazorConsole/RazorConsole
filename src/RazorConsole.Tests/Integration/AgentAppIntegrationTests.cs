@@ -19,7 +19,7 @@ public sealed class AgentAppIntegrationTests
         await using var terminal = await Start(session, 87, 40);
         var y = Enumerable.Range(0, 40).Single(row => terminal.CurrentFrame.GetLine(row).Contains("read"));
         var x = terminal.CurrentFrame.GetLine(y).IndexOf("read", StringComparison.Ordinal);
-        terminal.CurrentFrame[x, y].Style!.Foreground.ShouldBe(new Color(53, 132, 29));
+        terminal.CurrentFrame[x, y].Style?.Foreground.ShouldBe(new Color(53, 132, 29));
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, x, y), TestContext.Current.CancellationToken);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Move, x + 4, y), TestContext.Current.CancellationToken);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Up, x + 4, y), TestContext.Current.CancellationToken);
@@ -53,7 +53,7 @@ public sealed class AgentAppIntegrationTests
         (menu.Top + menu.Height).ShouldBe(terminal.GetLayout("composer-surface").Top);
         for (var x = 0; x < 87; x++)
         {
-            terminal.CurrentFrame[x, menu.Top!.Value].Style!.Background.ShouldBe(new Color(163, 204, 250));
+            terminal.CurrentFrame[x, menu.Top!.Value].Style?.Background.ShouldBe(new Color(163, 204, 250));
         }
         terminal.CurrentFrame.GetLine(menu.Top!.Value).ShouldStartWith("› /permissions   choose");
         await terminal.SendKeyAsync(ConsoleKey.DownArrow, cancellationToken: TestContext.Current.CancellationToken);
@@ -93,13 +93,13 @@ public sealed class AgentAppIntegrationTests
         var top = terminal.GetLayout("transcript").Top!.Value;
         for (var y = top; y < top + 3; y++)
         {
-            terminal.CurrentFrame[70, y].Style!.Background.ShouldBe(new Color(239, 239, 241));
+            terminal.CurrentFrame[70, y].Style?.Background.ShouldBe(new Color(239, 239, 241));
         }
         var bold = Enumerable.Range(0, 40).Single(y => terminal.CurrentFrame.GetLine(y).Contains("Bold and code"));
-        terminal.CurrentFrame[2, bold].Style!.Decoration.ShouldBe(Decoration.Bold);
-        terminal.CurrentFrame[11, bold].Style!.Foreground.ShouldBe(new Color(53, 132, 29));
+        terminal.CurrentFrame[2, bold].Style?.Decoration.ShouldBe(Decoration.Bold);
+        terminal.CurrentFrame[11, bold].Style?.Foreground.ShouldBe(new Color(53, 132, 29));
         var details = Enumerable.Range(0, 40).Single(y => terminal.CurrentFrame.GetLine(y).Contains("+ Show details"));
-        terminal.CurrentFrame[2, details].Style!.Foreground.ShouldBe(new Color(17, 96, 220));
+        terminal.CurrentFrame[2, details].Style?.Foreground.ShouldBe(new Color(17, 96, 220));
         terminal.CurrentFrame.ContainsText("four").ShouldBeFalse();
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, 3, details), TestContext.Current.CancellationToken);
 
@@ -113,7 +113,7 @@ public sealed class AgentAppIntegrationTests
         var errorX = errorLine.IndexOf("request failed", StringComparison.Ordinal);
 
         terminal.CurrentFrame[errorX, errorY].Style.ShouldNotBeNull();
-        terminal.CurrentFrame[errorX, errorY].Style!.Foreground.ShouldBe(Color.Red);
+        terminal.CurrentFrame[errorX, errorY].Style?.Foreground.ShouldBe(Color.Red);
 
         await terminal.WaitUntilAsync(_ => _view.Display is not null, cancellationToken: TestContext.Current.CancellationToken);
         _view.Display.Text.ShouldNotContain("**");
@@ -130,7 +130,7 @@ public sealed class AgentAppIntegrationTests
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
         await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", description: "permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
         var bounds = terminal.GetLayout("permission-0");
-        terminal.CurrentFrame[0, bounds.Top!.Value].Style!.Background.ShouldBe(new Color(163, 204, 250));
+        terminal.CurrentFrame[0, bounds.Top!.Value].Style?.Background.ShouldBe(new Color(163, 204, 250));
         terminal.CurrentFrame.ContainsText("(current)").ShouldBeTrue(terminal.DumpDiagnostics());
         terminal.Resize(width + 5, height + 2);
         terminal.CurrentFrame.ContainsText("Update Model Permissions").ShouldBeTrue(terminal.DumpDiagnostics());
@@ -210,16 +210,16 @@ public sealed class AgentAppIntegrationTests
         {
             screen.GetLine(row).TrimEnd().ShouldBe(expected[row], terminal.DumpDiagnostics());
         }
-        screen[5, 1].Style!.Decoration.ShouldBe(Decoration.Bold);
-        screen[2, 3].Style!.Foreground.ShouldBe(new Color(158, 158, 158));
-        screen[32, 3].Style!.Foreground.ShouldBe(new Color(17, 96, 220));
-        screen[2, 33].Style!.Foreground.ShouldBe(new Color(166, 105, 21));
-        screen[21, 33].Style!.Foreground.ShouldBe(new Color(53, 132, 29));
+        screen[5, 1].Style?.Decoration.ShouldBe(Decoration.Bold);
+        screen[2, 3].Style?.Foreground.ShouldBe(new Color(158, 158, 158));
+        screen[32, 3].Style?.Foreground.ShouldBe(new Color(17, 96, 220));
+        screen[2, 33].Style?.Foreground.ShouldBe(new Color(166, 105, 21));
+        screen[21, 33].Style?.Foreground.ShouldBe(new Color(53, 132, 29));
         for (var row = 30; row <= 32; row++)
         {
             for (var column = 0; column < screen.Width; column++)
             {
-                screen[column, row].Style!.Background.ShouldBe(new Color(239, 239, 241), $"Cell ({column},{row})");
+                screen[column, row].Style?.Background.ShouldBe(new Color(239, 239, 241), $"Cell ({column},{row})");
             }
         }
         terminal.GetLayout("composer").Left.ShouldBe(2);

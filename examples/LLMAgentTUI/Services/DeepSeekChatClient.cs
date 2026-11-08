@@ -18,39 +18,31 @@ public sealed class DeepSeekChatClient(IChatClient innerClient) : DelegatingChat
     private static IEnumerable<ChatMessage> WithReasoning(IEnumerable<ChatMessage> messages)
     {
         var history = messages.ToArray();
-        var approvalReasoning = new Dictionary<string, string>(StringComparer.Ordinal);
+        var responseReasoning = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var entry in history)
         {
             var reasoning = string.Concat(entry.Contents.OfType<TextReasoningContent>().Select(content => content.Text));
-            if (reasoning.Length == 0)
+            if (entry.Role == ChatRole.Assistant && entry.MessageId is { } id && reasoning.Length > 0)
             {
-                continue;
-            }
-            foreach (var approval in entry.Contents.OfType<ToolApprovalRequestContent>())
-            {
-                if (approval.ToolCall is FunctionCallContent call)
-                {
-                    approvalReasoning[call.CallId] = reasoning;
-                }
+                responseReasoning[id] = reasoning;
             }
         }
         foreach (var message in JoinAssistantMessages(history))
         {
             var reasoning = string.Concat(message.Contents.OfType<TextReasoningContent>().Select(content => content.Text));
-            if (reasoning.Length == 0 && message.Role == ChatRole.Assistant)
+            if (reasoning.Length == 0 && message.Role == ChatRole.Assistant && message.Contents.OfType<FunctionCallContent>().Any()
+                && message.MessageId is { } id && responseReasoning.TryGetValue(id, out var original))
             {
-                // Cancellation may place a real user turn between the original
-                // approval and its denied tool call. Recover only by exact call ID.
-                reasoning = string.Concat(message.Contents.OfType<FunctionCallContent>()
-                    .Where(call => approvalReasoning.ContainsKey(call.CallId))
-                    .Select(call => approvalReasoning[call.CallId]).Distinct(StringComparer.Ordinal));
+                // Cancellation may place a real user turn between a response's reasoning
+                // and its denied tool call. Recover only from that same response.
+                reasoning = original;
             }
             if (message.Role != ChatRole.Assistant || reasoning.Length == 0)
             {
                 yield return message;
                 continue;
             }
-            // MEAI 10.10 parses reasoning_content on receive, but does not serialize
+            // MEAI 10.11 parses reasoning_content on receive, but does not serialize
             // TextReasoningContent in Chat Completions requests. Keep its standard
             // mapping of text/tool calls, then add the provider-specific field.
             var copy = message.Clone();

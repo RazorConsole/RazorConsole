@@ -23,6 +23,12 @@ internal static class ComponentMarkupUtilities
         return string.Concat("[", style, "]", content, "[/]");
     }
 
+    // Style.Parse accepts "link=<url>" but drops it: Spectre.Console keeps links apart from Style.
+    public static string? ParseLink(string? style)
+        => style?.Split(' ').FirstOrDefault(part => part.StartsWith("link=", StringComparison.OrdinalIgnoreCase)) is { Length: > 5 } link
+            ? link[5..]
+            : null;
+
     public static Spinner ResolveSpinner(string? spinnerType)
     {
         if (string.IsNullOrWhiteSpace(spinnerType))

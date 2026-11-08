@@ -21,7 +21,7 @@ public sealed class AgentViewState
     private readonly HashSet<int> _expandedTools = [];
     private readonly List<(int Start, int End, int Entry)> _toolHeaders = [];
     private readonly List<(int Start, int End, Style Style)> _styles = [];
-    public Style StyleAt(int position) => _styles.FirstOrDefault(s => position >= s.Start && position < s.End).Style ?? Style.Plain;
+    public Style StyleAt(int position) => _styles.Where(s => position >= s.Start && position < s.End).Select(s => s.Style).FirstOrDefault(Style.Plain);
     public bool IsToolHeader(int position) => _toolHeaders.Any(h => position >= h.Start && position < h.End);
     public void ToggleTool(int position = -1)
     {

@@ -22,6 +22,7 @@ public sealed class VtEmulatorTests
         Cell(emulator, 2, 0).Style.ShouldBe(new Style(background: Color.FromInt32(10)));
         Cell(emulator, 3, 0).Style.ShouldBeNull();
         Cell(emulator, 4, 0).Style.ShouldBeNull();
+        Cell(emulator, 4, 0).Link.ShouldBeNull();
     }
 
     [Fact]
@@ -42,15 +43,15 @@ public sealed class VtEmulatorTests
             2,
             $"{Esc}[1;3;4;5;7;8;9mA{Esc}[22;23;24;25;27;28;29mB{Esc}[2mC{Esc}[22mD{Esc}[4mE{Esc}[4:0mF{Esc}[21mG");
 
-        Cell(emulator, 0, 0).Style!.Decoration.ShouldBe(
+        Cell(emulator, 0, 0).Style?.Decoration.ShouldBe(
             Decoration.Bold | Decoration.Italic | Decoration.Underline | Decoration.SlowBlink
             | Decoration.Invert | Decoration.Conceal | Decoration.Strikethrough);
         Cell(emulator, 1, 0).Style.ShouldBeNull();
-        Cell(emulator, 2, 0).Style!.Decoration.ShouldBe(Decoration.Dim);
+        Cell(emulator, 2, 0).Style?.Decoration.ShouldBe(Decoration.Dim);
         Cell(emulator, 3, 0).Style.ShouldBeNull();
-        Cell(emulator, 4, 0).Style!.Decoration.ShouldBe(Decoration.Underline);
+        Cell(emulator, 4, 0).Style?.Decoration.ShouldBe(Decoration.Underline);
         Cell(emulator, 5, 0).Style.ShouldBeNull();
-        Cell(emulator, 6, 0).Style!.Decoration.ShouldBe(Decoration.Underline);
+        Cell(emulator, 6, 0).Style?.Decoration.ShouldBe(Decoration.Underline);
     }
 
     [Fact]
@@ -324,12 +325,12 @@ public sealed class VtEmulatorTests
     }
 
     [Fact]
-    public void Hyperlinks_AreAttachedToTheStyle()
+    public void Hyperlinks_AreAttachedToTheCell()
     {
         var emulator = Feed(20, 1, $"{Esc}]8;id=1;https://example.com/a{Esc}\\link{Esc}]8;;{Esc}\\ plain");
 
-        Cell(emulator, 0, 0).Style!.Link.ShouldBe("https://example.com/a");
-        Cell(emulator, 3, 0).Style!.Link.ShouldBe("https://example.com/a");
+        Cell(emulator, 0, 0).Link.ShouldBe("https://example.com/a");
+        Cell(emulator, 3, 0).Link.ShouldBe("https://example.com/a");
         Cell(emulator, 4, 0).Style.ShouldBeNull();
         Line(emulator, 0).ShouldBe("link plain");
     }
@@ -477,14 +478,14 @@ public sealed class VtEmulatorTests
     }
 
     [Fact]
-    public void ConPty_HyperlinkWithGeneratedId_IsAttachedToTheStyle()
+    public void ConPty_HyperlinkWithGeneratedId_IsAttachedToTheCell()
     {
         // ConPTY replaces the application's link id with its own, such as "u-123%456".
         var emulator = Feed(10, 1, $"{Esc}[4mL{Esc}]8;id=u-12%34;https://e.x/a{Esc}\\K{Esc}]8;;{Esc}\\M");
 
-        Cell(emulator, 0, 0).Style.ShouldBe(new Style(decoration: Decoration.Underline));
-        Cell(emulator, 1, 0).Style.ShouldBe(new Style(decoration: Decoration.Underline, link: "https://e.x/a"));
-        Cell(emulator, 2, 0).Style.ShouldBe(new Style(decoration: Decoration.Underline));
+        Cell(emulator, 0, 0).ShouldBe(new TerminalCell("L", new Style(decoration: Decoration.Underline)));
+        Cell(emulator, 1, 0).ShouldBe(new TerminalCell("K", new Style(decoration: Decoration.Underline), "https://e.x/a"));
+        Cell(emulator, 2, 0).ShouldBe(new TerminalCell("M", new Style(decoration: Decoration.Underline)));
         Line(emulator, 0).ShouldBe("LKM");
     }
 

@@ -21,7 +21,6 @@ public sealed class CanvasElementTranslator : ITranslationMiddleware
 
         var width = GetIntAttribute(node, "data-width");
         var height = GetIntAttribute(node, "data-height");
-        var pixelWidth = GetIntAttribute(node, "data-pixelwidth", 2);
         var scale = GetBoolAttribute(node, "data-scale", false);
         var maxWidth = GetNullableIntAttribute(node, "data-maxwidth");
         var pixelsDataIdAttribute = VdomSpectreTranslator.GetAttribute(node, "data-canvas-data-id");
@@ -33,7 +32,6 @@ public sealed class CanvasElementTranslator : ITranslationMiddleware
             canvas.MaxWidth = maxWidth.Value;
         }
 
-        canvas.PixelWidth = pixelWidth;
         canvas.Scale = scale;
 
         if (!string.IsNullOrWhiteSpace(pixelsDataIdAttribute) &&

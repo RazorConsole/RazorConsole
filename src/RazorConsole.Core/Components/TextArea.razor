@@ -122,16 +122,16 @@
             {
                 var element = elements.GetTextElement();
                 var style = CharacterStyle(position);
-                if (previous is not null && !previous.Equals(style))
+                if (previous is { } runStyle && runStyle != style)
                 {
-                    yield return (run.ToString(), part.Selected, previous);
+                    yield return (run.ToString(), part.Selected, runStyle);
                     run.Clear();
                 }
                 run.Append(element);
                 previous = style;
                 position += element.Length;
             }
-            if (previous is not null) yield return (run.ToString(), part.Selected, previous);
+            if (previous is { } lastStyle) yield return (run.ToString(), part.Selected, lastStyle);
         }
     }
 

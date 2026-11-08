@@ -79,14 +79,14 @@ public sealed class TerminalCanvas
                 var cell = _cells[y, x];
                 _cells[y, x] = cell with
                 {
-                    Style = new Style(foreground ?? cell.Style?.Foreground, background, cell.Style?.Decoration, cell.Style?.Link),
+                    Style = new Style(foreground ?? cell.Style?.Foreground, background, cell.Style?.Decoration),
                 };
             }
         }
     }
 
-    public void Write(int x, int y, string? text, Style? style = null)
-        => Write(x, y, text, maxWidth: null, style);
+    public void Write(int x, int y, string? text, Style? style = null, string? link = null)
+        => Write(x, y, text, maxWidth: null, style, link);
 
     public void WriteSegments(int x, int y, IEnumerable<Segment> segments, int? maxWidth = null)
     {
@@ -115,14 +115,14 @@ public sealed class TerminalCanvas
                 continue;
             }
 
-            Write(cursor, y, segment.Text, maxWidth.HasValue ? Math.Max(0, maxWidth.Value - written) : null, segment.Style);
+            Write(cursor, y, segment.Text, maxWidth.HasValue ? Math.Max(0, maxWidth.Value - written) : null, segment.Style, segment.Link?.Url);
             var cells = Segment.CellCount([segment]);
             cursor += cells;
             written += cells;
         }
     }
 
-    public void Write(int x, int y, string? text, int? maxWidth, Style? style = null)
+    public void Write(int x, int y, string? text, int? maxWidth, Style? style = null, string? link = null)
     {
         var clip = ClipBounds;
         if (string.IsNullOrEmpty(text) || y < clip.Y || y >= clip.Bottom || y < 0 || y >= Height || maxWidth == 0)
@@ -158,10 +158,10 @@ public sealed class TerminalCanvas
 
             if (cursor >= Math.Max(0, clip.X))
             {
-                _cells[y, cursor] = new TerminalCell(element, style);
+                _cells[y, cursor] = new TerminalCell(element, style, link);
                 for (var continuation = 1; continuation < cells; continuation++)
                 {
-                    _cells[y, cursor + continuation] = new TerminalCell(string.Empty, style);
+                    _cells[y, cursor + continuation] = new TerminalCell(string.Empty, style, link);
                 }
             }
 
@@ -205,23 +205,16 @@ public sealed class TerminalCanvas
         }
 
         var builder = new StringBuilder();
-        Style? currentStyle = null;
+        var run = _cells[y, 0];
 
         for (var x = 0; x < width; x++)
         {
             var cell = _cells[y, x];
-            if (x == 0)
+            if (cell.Style != run.Style || cell.Link != run.Link)
             {
-                currentStyle = cell.Style;
-                builder.Append(cell.Text);
-                continue;
-            }
-
-            if (!Equals(currentStyle, cell.Style))
-            {
-                yield return CreateSegment(builder.ToString(), currentStyle);
+                yield return CreateSegment(builder.ToString(), run);
                 builder.Clear();
-                currentStyle = cell.Style;
+                run = cell;
             }
 
             builder.Append(cell.Text);
@@ -229,12 +222,12 @@ public sealed class TerminalCanvas
 
         if (builder.Length > 0)
         {
-            yield return CreateSegment(builder.ToString(), currentStyle);
+            yield return CreateSegment(builder.ToString(), run);
         }
     }
 
-    private static Segment CreateSegment(string text, Style? style)
-        => style is null ? new Segment(text) : new Segment(text, style);
+    private static Segment CreateSegment(string text, TerminalCell run)
+        => new(text, run.Style ?? Style.Plain, run.Link is null ? null : new Link(run.Link));
 
     private void ThrowIfOutOfRange(int x, int y)
     {

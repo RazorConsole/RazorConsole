@@ -83,7 +83,7 @@ public sealed class AlignWidget : Widget
             var line = lines[row];
             var lineWidth = Math.Min(Segment.CellCount([new Segment(line)]), textWidget.Bounds.Width);
             var x = textWidget.Bounds.X + ResolveHorizontalOffset(textWidget.Bounds.Width, lineWidth);
-            context.Canvas.Write(x, textWidget.Bounds.Y + row, line, Math.Max(0, textWidget.Bounds.Right - x), textWidget.Style);
+            context.Canvas.Write(x, textWidget.Bounds.Y + row, line, Math.Max(0, textWidget.Bounds.Right - x), textWidget.Style, textWidget.Link);
         }
     }
 

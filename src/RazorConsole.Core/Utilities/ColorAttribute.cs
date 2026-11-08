@@ -25,9 +25,9 @@ internal static class ColorAttribute
             return true;
         }
 
-        if (Style.TryParse(value, out var style) && style is { } parsed)
+        if (Style.TryParse(value, out var style))
         {
-            color = parsed.Foreground;
+            color = style.Foreground;
             return true;
         }
         return false;
