@@ -24,7 +24,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
     private bool _disposed;
     private ConsoleViewResult? _currentView;
     private readonly IDisposable? _snapshotSubscription;
-    private List<AnimationSubscription>? _animationSubscriptions;
+    private readonly AnimationTimer _animations;
     private readonly TerminalMonitor _terminalMonitor;
 
     internal ConsoleLiveDisplayContext(
@@ -35,6 +35,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         VdomDiffService? diffService = null)
     {
         _canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
+        _animations = new AnimationTimer(_canvas);
         _terminalMonitor = terminalMonitor;
         _terminalMonitor.OnResized += HandleTerminalResize;
         _renderer = renderer;
@@ -142,9 +143,12 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         {
             return;
         }
-        DisposeAnimations();
         _terminalMonitor.OnResized -= HandleTerminalResize;
         _snapshotSubscription?.Dispose();
+        lock (_sync)
+        {
+            _animations.Dispose();
+        }
         if (_canvas is IDisposable disposableCanvas)
         {
             disposableCanvas.Dispose();
@@ -234,37 +238,12 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
     }
 
     private void UpdateAnimations(IReadOnlyCollection<IAnimatedConsoleRenderable> animatedRenderables)
-    {
-        DisposeAnimations();
-
-        if (animatedRenderables is null || animatedRenderables.Count == 0)
-        {
-            return;
-        }
-
-        var subscriptions = new List<AnimationSubscription>(animatedRenderables.Count);
-        foreach (var animated in animatedRenderables)
-        {
-            subscriptions.Add(new AnimationSubscription(animated.RefreshInterval, _canvas));
-        }
-
-        _animationSubscriptions = subscriptions;
-    }
+        => _animations.Run(animatedRenderables.Count == 0
+            ? Timeout.InfiniteTimeSpan
+            : animatedRenderables.Min(a => a.RefreshInterval));
 
     private void DisposeAnimations()
-    {
-        if (_animationSubscriptions is null)
-        {
-            return;
-        }
-
-        foreach (var subscription in _animationSubscriptions)
-        {
-            subscription.Dispose();
-        }
-
-        _animationSubscriptions = null;
-    }
+        => _animations.Run(Timeout.InfiniteTimeSpan);
 
     //private static ConsoleRenderer CreateRenderer()
     //{
@@ -300,29 +279,61 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         event Action? Refreshed;
     }
 
-    private sealed class AnimationSubscription : IDisposable
+    /// <summary>
+    /// Repaints for every animated renderable at once: their frames follow the clock, so one tick at the
+    /// shortest interval serves them all. A tick is skipped while the previous repaint still runs.
+    /// </summary>
+    internal sealed class AnimationTimer : IDisposable
     {
+        private readonly ILiveDisplayCanvas _canvas;
         private readonly Timer _timer;
+        private TimeSpan _interval = Timeout.InfiniteTimeSpan;
+        private int _refreshing;
+        private bool _disposed;
 
-        public AnimationSubscription(TimeSpan interval, ILiveDisplayCanvas canvas)
+        public AnimationTimer(ILiveDisplayCanvas canvas)
         {
-            _timer = new Timer(_ => SafeRefresh(canvas), null, interval, interval);
+            _canvas = canvas;
+            _timer = new Timer(_ => Tick());
         }
 
-        private static void SafeRefresh(ILiveDisplayCanvas canvas)
+        public void Run(TimeSpan interval)
         {
+            if (_disposed || interval == _interval)
+            {
+                return;
+            }
+
+            _interval = interval;
+            _timer.Change(interval, interval);
+        }
+
+        private void Tick()
+        {
+            if (Interlocked.Exchange(ref _refreshing, 1) == 1)
+            {
+                return;
+            }
+
             try
             {
-                canvas.Refresh();
+                _canvas.Refresh();
             }
             catch
             {
                 // Ignore rendering exceptions from background updates.
             }
+            finally
+            {
+                Volatile.Write(ref _refreshing, 0);
+            }
         }
 
         public void Dispose()
-            => _timer.Dispose();
+        {
+            _disposed = true;
+            _timer.Dispose();
+        }
     }
 
     private sealed class LiveDisplayCanvasAdapter : ILiveDisplayCanvas
