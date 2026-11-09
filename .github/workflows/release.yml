@@ -37,8 +37,22 @@ jobs:
       - name: Build
         run: dotnet build RazorConsole.slnx --configuration Release --no-restore
 
+      # Keep the test scheduling aligned with ci.yml: parallel TFM modules overload process-spawning tests (#432).
       - name: Test
-        run: dotnet test RazorConsole.slnx --configuration Release --no-build --verbosity normal
+        run: dotnet test RazorConsole.slnx --configuration Release --no-build --verbosity normal -p:TestTfmsInParallel=false -- --filter-not-trait "Category=E2E"
+
+      # Run real-terminal tests once, after the other test modules finish.
+      - name: E2E tests
+        run: dotnet test src/RazorConsole.Tests/RazorConsole.Tests.csproj --configuration Release --no-build --framework net11.0 -- --filter-trait "Category=E2E"
+
+      - name: Upload test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-diagnostics-release
+          path: artifacts/bin/RazorConsole.Tests/**/TestResults/*.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Pack libraries
         run: |
