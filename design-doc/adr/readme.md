@@ -4,8 +4,8 @@ This directory contains the architectural decisions made for RazorConsole and th
 
 ## Create an ADR
 
-1. Copy [the template](ADR-0000-template.md) into a new `.md` file (for example, `0001-rendering-strategy.md`).
-2. Describe the problem, real options, supporting evidence, and decision. Use [the writing guide](ADR-guideline.md) for principles and review criteria.
+1. Copy [the template](template.md) into a new `.md` file (for example, `0001-rendering-strategy.md`).
+2. Describe the problem, real options, supporting evidence, and decision. Use [the writing guide](guideline.md) for principles and review criteria.
 3. Open a pull request to discuss the decision. Resolve any pending choice before merging.
 
 Merging the PR means the decision is accepted. No separate status or date is required.

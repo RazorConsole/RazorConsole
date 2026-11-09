@@ -1,6 +1,6 @@
 # ADR Writing Guide
 
-Use [the ADR template](ADR-0000-template.md) for the required sections and fields. This guide covers **how to make a sound decision record**, not how to fill in each placeholder.
+Use [the ADR template](template.md) for the required sections and fields. This guide covers **how to make a sound decision record**, not how to fill in each placeholder.
 
 ## When to write an ADR
 
