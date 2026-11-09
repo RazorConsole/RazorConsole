@@ -44,4 +44,4 @@ Before merging, ask:
 - [ ] **Comparable:** Were viable options assessed by the same standards?
 - [ ] **Concise:** Can anything be removed without losing an important reason or risk?
 - [ ] **Maintainable:** Could a future contributor understand when and why the choice should be reconsidered or replaced?
-- [ ] **Juniour frienly:** Can a developer that has no much explirience in project / coding understand ADR?
+- [ ] **Simple and non-verbose:** Pharases and words should be simple where it is possible and wordcount should be as small as it can be without loosing the context.
