@@ -1,6 +1,5 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
-using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Rendering;
 
 namespace RazorConsole.Core;
@@ -51,15 +50,4 @@ public sealed class ConsoleAppOptions
     /// The endpoint only accepts connections from the current user. Not supported in WASM environment.
     /// </remarks>
     public RazorConsoleDiagnostics Diagnostics { get; set; } = RazorConsoleDiagnostics.Auto;
-
-    /// <summary>
-    /// Callback invoked after a component has been rendered.
-    /// </summary>
-    public Func<ConsoleLiveDisplayContext, ConsoleViewResult, CancellationToken, Task>? AfterRenderAsync { get; set; } = DefaultAfterRenderAsync;
-
-    internal static Task DefaultAfterRenderAsync(ConsoleLiveDisplayContext context, ConsoleViewResult view, CancellationToken cancellationToken)
-    {
-        return Task.CompletedTask;
-    }
-
 }

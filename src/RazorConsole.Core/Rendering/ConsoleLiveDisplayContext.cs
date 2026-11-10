@@ -12,7 +12,7 @@ namespace RazorConsole.Core.Rendering;
 /// <summary>
 /// Provides a simplified facade over Spectre.Console live display updates.
 /// </summary>
-public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRenderer.RenderSnapshot>
+internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRenderer.RenderSnapshot>
 {
     private readonly ILiveDisplayCanvas _canvas;
     private readonly Lock _sync = new();

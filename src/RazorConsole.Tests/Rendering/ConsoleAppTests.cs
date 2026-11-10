@@ -5,48 +5,11 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using RazorConsole.Core;
-using RazorConsole.Core.Controllers;
 
 namespace RazorConsole.Tests.Rendering;
 
 public sealed class ConsoleAppTests
 {
-    [Fact]
-    public async Task RunAsync_InvokesCustomAfterRenderCallback()
-    {
-        ConsoleViewResult? observed = null;
-        var tcs = new TaskCompletionSource<ConsoleViewResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        using var cts = new CancellationTokenSource();
-
-        Func<Core.Rendering.ConsoleLiveDisplayContext, ConsoleViewResult, CancellationToken, Task>? afterRenderCallback = (context, view, _) =>
-        {
-            observed = view;
-            tcs.TrySetResult(view);
-            return Task.CompletedTask;
-        };
-
-        var hostBuilder = Host.CreateApplicationBuilder();
-        hostBuilder.UseRazorConsole<TestComponent>();
-        hostBuilder.Services.Configure<ConsoleAppOptions>(options =>
-        {
-            options.AfterRenderAsync = afterRenderCallback;
-        });
-
-        var host = hostBuilder.Build();
-
-        var runTask = host.RunAsync(cts.Token);
-
-        var result = await tcs.Task;
-
-        cts.Cancel();
-        await runTask;
-
-        observed.ShouldNotBeNull();
-        observed.ShouldBeSameAs(result);
-        result.Html.ShouldContain("Callback");
-    }
-
     [Fact]
     public async Task RunAsync_DefaultConsoleAppOptionsResolves()
     {
