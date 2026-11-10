@@ -1,89 +1,100 @@
 ### Custom Translators
 
-RazorConsole converts Razor components into Spectre.Console renderables through a Virtual DOM (VDOM) translation pipeline. You can plug into that pipeline with custom translators to render bespoke elements.
+RazorConsole turns your Razor components into a virtual DOM, translates every node into a layout **widget**, then measures and paints those widgets into terminal cells. A custom translator lets you decide how particular nodes become widgets, so you can render your own elements or adjust how built-in ones look.
 
 #### Creating a translator
 
-Implement the `IVdomElementTranslator` interface and translate nodes that match your criteria:
+Implement `IWidgetTranslator`. Handle the nodes you care about and pass everything else to `next`:
 
 ```csharp
-using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Layout;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
-using Spectre.Console.Rendering;
 
-public sealed class OverflowElementTranslator : IVdomElementTranslator
+public sealed class BadgeTranslator : IWidgetTranslator
 {
-    // Lower priority values are processed first (1-1000+)
-    public int Priority => 85;
-
-    public bool TryTranslate(
-        VNode node,
-        TranslationContext context,
-        out IRenderable? renderable)
+    public Widget Translate(WidgetTranslationContext context, WidgetTranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-        // Check for a div with an overflow attribute
-        if (node.Kind != VNodeKind.Element ||
-            !string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase))
+        if (node.Kind != VNodeKind.Element || node.TagName != "badge")
         {
-            return false;
+            return next(node);
         }
 
-        if (!node.Attributes.TryGetValue("data-overflow", out var overflowType))
-        {
-            return false;
-        }
-
-        if (!VdomSpectreTranslator.TryConvertChildrenToRenderables(
-            node.Children, context, out var children))
-        {
-            return false;
-        }
-
-        var content = VdomSpectreTranslator.ComposeChildContent(children);
-
-        renderable = overflowType?.ToLowerInvariant() switch
-        {
-            "ellipsis" => new Padder(content).Overflow(Overflow.Ellipsis),
-            "crop" => new Padder(content).Overflow(Overflow.Crop),
-            "fold" => new Padder(content).Overflow(Overflow.Fold),
-            _ => content
-        };
-
-        return true;
+        var label = node.Attributes.TryGetValue("label", out var value) ? value : string.Empty;
+        return new SpectreWidget(node.ID, new Markup($"[black on green] {Markup.Escape(label ?? "")} [/]"), node.Key, node.Attributes);
     }
 }
 ```
+
+Any Spectre.Console `IRenderable` can be wrapped in a `SpectreWidget`. It is laid out as a single leaf and painted into the terminal cells like every other widget.
 
 #### Registering the translator
 
 ```csharp
 using Microsoft.Extensions.Hosting;
 using RazorConsole.Core;
-using RazorConsole.Core.Vdom;
 
 IHostBuilder hostBuilder = Host.CreateDefaultBuilder(args)
     .UseRazorConsole<MyComponent>(configure: config =>
+    {
+        config.ConfigureServices(services =>
         {
-            config.ConfigureServices(services =>
-            {
-                services.AddVdomTranslator<OverflowElementTranslator>();
-            });
-        }
-    );
+            services.AddWidgetTranslator<BadgeTranslator>();
+        });
+    });
 
-IHost host = hostBuilder.Build();
-await host.RunAsync();
+await hostBuilder.Build().RunAsync();
 ```
+
+Translators run in the order they are added, before RazorConsole's built-in translation, for every node in the tree. `AddWidgetTranslator(instance)` registers an existing instance instead.
 
 #### Using it in components
 
 ```razor
-<div data-overflow="ellipsis">
-    This text will be truncated with ellipsis if it's too long
-</div>
+<Rows>
+    <badge label="Build passed" />
+    <badge label="408 tests" />
+</Rows>
 ```
 
-For a deeper dive, read the [custom translators guide](https://github.com/RazorConsole/RazorConsole/blob/main/design-doc/custom-translators.md).
+#### Composing widgets and children
+
+A translator can return any widget, not only a `SpectreWidget`. Translate child nodes with `context.Translate(child)`, which runs the whole chain again, and arrange them with the built-in widgets such as `FlexWidget`, `BoxWidget`, `StackWidget` or `TableWidget`.
+
+To change how an existing element looks, call `next(node)` and wrap the result:
+
+```csharp
+public sealed class FramedTranslator : IWidgetTranslator
+{
+    public Widget Translate(WidgetTranslationContext context, WidgetTranslationDelegate next, VNode node)
+    {
+        var widget = next(node);
+        return node.Attributes.ContainsKey("data-framed")
+            ? new BoxWidget(node.ID + "-frame", widget, border: BoxBorderStyle.Rounded)
+            : widget;
+    }
+}
+```
+
+Keep the node's `ID`, `Key` and `Attributes` on the widget that represents it, so focus, mouse events and layout queries still find the element.
+
+#### Animated content
+
+If a `SpectreWidget` holds a renderable that implements `IAnimatedConsoleRenderable`, call `context.TrackAnimation(renderable)` so the display refreshes it on its interval.
+
+#### Migrating from `ITranslationMiddleware`
+
+RazorConsole 1.0 removes the legacy Spectre rendering pipeline along with `ITranslationMiddleware`, `TranslationContext` and `VdomSpectreTranslator`. The widget translator follows the same chain-of-responsibility shape:
+
+| Before | Now |
+| --- | --- |
+| `ITranslationMiddleware.Translate(context, next, node)` returning `IRenderable` | `IWidgetTranslator.Translate(context, next, node)` returning `Widget` |
+| `return renderable;` | `return new SpectreWidget(node.ID, renderable, node.Key, node.Attributes);` |
+| `context.Translate(child)` returning `IRenderable` | `context.Translate(child)` returning `Widget` |
+| `context.AnimatedRenderables.Add(animated)` | `context.TrackAnimation(animated)` |
+| `services.AddSingleton<ITranslationMiddleware, T>()` | `services.AddWidgetTranslator<T>()` |
+
+Unlike the legacy chain, a widget translator runs for every node, including nodes nested inside built-in components.
+
+For the design behind translation, see the [custom translators design document](https://github.com/RazorConsole/RazorConsole/blob/main/design-doc/custom-translators.md).

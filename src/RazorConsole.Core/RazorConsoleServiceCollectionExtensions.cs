@@ -1,5 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -138,6 +139,37 @@ public static class RazorConsoleServiceCollectionExtensions
         // Add ConsoleAppOptions as a singleton by resolving the IOptions value in a factory to avoid IOptions dependency in injecting components.
         services.AddSingleton<ConsoleAppOptions>(resolver => resolver.GetRequiredService<IOptions<ConsoleAppOptions>>().Value);
 
+        return services;
+    }
+
+    /// <summary>
+    /// Adds a custom <see cref="IWidgetTranslator"/> that runs before the built-in widget translation.
+    /// </summary>
+    /// <typeparam name="TTranslator">The translator type, resolved as a singleton.</typeparam>
+    /// <param name="services">The service collection to add the translator to.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <remarks>Translators run in the order they are added.</remarks>
+    public static IServiceCollection AddWidgetTranslator<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTranslator>(this IServiceCollection services)
+        where TTranslator : class, IWidgetTranslator
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.AddSingleton<IWidgetTranslator, TTranslator>();
+        return services;
+    }
+
+    /// <summary>
+    /// Adds a custom <see cref="IWidgetTranslator"/> instance that runs before the built-in widget translation.
+    /// </summary>
+    /// <param name="services">The service collection to add the translator to.</param>
+    /// <param name="translator">The translator.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <remarks>Translators run in the order they are added.</remarks>
+    public static IServiceCollection AddWidgetTranslator(this IServiceCollection services, IWidgetTranslator translator)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(translator);
+        services.AddSingleton(translator);
         return services;
     }
 }
