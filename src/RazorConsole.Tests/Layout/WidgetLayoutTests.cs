@@ -806,7 +806,7 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
-    public void WidgetTranslationContext_SpectreFallbackPreservesCollectedOverlays()
+    public void WidgetTranslationContext_AbsoluteChildOfPlainDiv_OverlaysFlowContent()
     {
         var root = VNode.CreateElement("div");
         root.AddChild(VNode.CreateText("flowing"));
@@ -826,7 +826,7 @@ public sealed class WidgetLayoutTests
         var widget = context.Translate(root);
         var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 5));
 
-        widget.ShouldBeOfType<SpectreWidget>();
+        widget.ShouldBeOfType<StackWidget>();
         RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldContain("fltopng");
     }
 
