@@ -88,19 +88,18 @@ For more complete sample applications, check out the [Examples](#examples) secti
 
 ### Rendering pipeline
 
-WidgetLayout is the default and recommended rendering pipeline. The legacy
-Spectre.Console-based layout pipeline (`LegacySpectre`) is deprecated and will be
-completely removed in v1.1.0. Until then, it is retained for compatibility only.
-Selecting it in code produces an obsolete API warning;
-rendering with it logs a deprecation warning once per renderer, including when
-selected through `RAZORCONSOLE_RENDERING_PIPELINE`.
+RazorConsole renders every frame through WidgetLayout: components become widgets
+that are measured, arranged and painted into terminal cells, which gives every
+element known bounds for focus, layout queries and coordinate-aware mouse events.
+Spectre.Console-backed content such as charts, Figlet text and syntax highlighting
+is painted as widget leaves.
 
-To migrate, remove any `LegacySpectre` option assignment and unset the
-`RAZORCONSOLE_RENDERING_PIPELINE` override, or explicitly select `WidgetLayout`.
-WidgetLayout provides layout metadata and coordinate-aware mouse events that the
-legacy pipeline does not support. Spectre.Console-backed content and custom
-renderables remain supported; only the legacy layout pipeline is deprecated.
-See the [Widget Layout guide](website/src/docs/widget-layout.md) for details.
+The legacy Spectre.Console layout pipeline was removed in 1.0. If you upgrade from
+0.x, remove any `ConsoleAppOptions.RenderingPipeline` assignment and the
+`RAZORCONSOLE_RENDERING_PIPELINE` environment variable, and move custom
+`ITranslationMiddleware` translators to `IWidgetTranslator`. See the
+[Widget Layout guide](website/src/docs/widget-layout.md) and the
+[custom translator guide](website/src/docs/custom-translators.md) for details.
 
 Animated applications can opt into synchronized frame presentation with
 `options.ConsoleLiveDisplayOptions.EnableSynchronizedUpdates = true`.
@@ -175,107 +174,69 @@ See [`design-doc/builtin-components.md`](design-doc/builtin-components.md) for t
 
 ## Custom Translators
 
-RazorConsole uses a Virtual DOM (VDOM) translation system to convert Razor components into Spectre.Console renderables. You can extend this system by creating custom translators to support additional Spectre.Console features or build entirely custom components.
+RazorConsole translates the virtual DOM of your Razor components into layout widgets before measuring and painting them. Custom translators let you render your own elements, or change how built-in ones look, by deciding which widget a node becomes.
 
 ### Creating a Custom Translator
 
-Implement the `IVdomElementTranslator` interface to create a custom translator:
+Implement `IWidgetTranslator`. Handle the nodes you care about and pass everything else to `next`:
 
 ```csharp
-using RazorConsole.Core.Rendering.Vdom;
+using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Layout;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
-using Spectre.Console.Rendering;
 
-public sealed class OverflowElementTranslator : IVdomElementTranslator
+public sealed class BadgeTranslator : IWidgetTranslator
 {
-    // Lower priority values are processed first (1-1000+)
-    public int Priority => 85;
-
-    public bool TryTranslate(VNode node, TranslationContext context, out IRenderable? renderable)
+    public Widget Translate(WidgetTranslationContext context, WidgetTranslationDelegate next, VNode node)
     {
-        renderable = null;
-
-        // Check if this is a div with overflow attribute
-        if (node.Kind != VNodeKind.Element || 
-            !string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase))
+        if (node.Kind != VNodeKind.Element || node.TagName != "badge")
         {
-            return false;
+            return next(node);
         }
 
-        if (!node.Attributes.TryGetValue("data-overflow", out var overflowType))
-        {
-            return false;
-        }
-
-        // Translate child nodes
-        if (!VdomSpectreTranslator.TryConvertChildrenToRenderables(
-            node.Children, context, out var children))
-        {
-            return false;
-        }
-
-        var content = VdomSpectreTranslator.ComposeChildContent(children);
-
-        // Create renderable with overflow handling
-        renderable = overflowType?.ToLowerInvariant() switch
-        {
-            "ellipsis" => new Padder(content).Overflow(Overflow.Ellipsis),
-            "crop" => new Padder(content).Overflow(Overflow.Crop),
-            "fold" => new Padder(content).Overflow(Overflow.Fold),
-            _ => content
-        };
-
-        return true;
+        var label = node.Attributes.TryGetValue("label", out var value) ? value : string.Empty;
+        return new SpectreWidget(node.ID, new Markup($"[black on green] {Markup.Escape(label ?? "")} [/]"), node.Key, node.Attributes);
     }
 }
 ```
 
-### Registering a Custom Translator
+Any Spectre.Console `IRenderable` can be wrapped in a `SpectreWidget`; it takes part in layout and paints into the terminal cells like every other widget. A translator can also return built-in widgets such as `FlexWidget` or `BoxWidget`, translating children with `context.Translate(child)`.
 
-Register your translator in your application's service configuration:
+### Registering a Custom Translator
 
 ```csharp
 using Microsoft.Extensions.Hosting;
 using RazorConsole.Core;
-using RazorConsole.Core.Vdom;
 
 IHostBuilder hostBuilder = Host.CreateDefaultBuilder(args)
-    .UseRazorConsole<MyComponent>(configure: config => 
+    .UseRazorConsole<MyComponent>(configure: config =>
         {
             config.ConfigureServices(services =>
-            { 
-                // Register your custom translator
-                services.AddVdomTranslator<OverflowElementTranslator>();   
+            {
+                services.AddWidgetTranslator<BadgeTranslator>();
             });
         }
     );
 
 IHost host = hostBuilder.Build();
 await host.RunAsync();
-
 ```
+
+Translators run in the order they are added, before the built-in translation, for every node in the tree.
 
 ### Using Custom Translators in Components
 
-Once registered, use your custom translator in Razor components:
-
 ```razor
-<div data-overflow="ellipsis">
-    This text will be truncated with ellipsis if it's too long
-</div>
+<Rows>
+    <badge label="Build passed" />
+    <badge label="408 tests" />
+</Rows>
 ```
 
 ### Learn More
 
-For comprehensive documentation on custom translators, including:
-- Architecture overview and translation pipeline
-- Complete reference of built-in translators and priorities
-- Utility methods for common translation tasks
-- Best practices and advanced scenarios
-- Troubleshooting and testing strategies
-
-See the full guide at [`design-doc/custom-translators.md`](design-doc/custom-translators.md).
+See the [custom translator guide](website/src/docs/custom-translators.md), including how to decorate built-in elements and migrate from the 0.x `ITranslationMiddleware` API, and the [design document](design-doc/custom-translators.md).
 
 ## Component Gallery
 
