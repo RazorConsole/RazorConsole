@@ -142,6 +142,41 @@ public sealed class LiveDisplayCanvasTests
         options.Clone().EnableSynchronizedUpdates.ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task Refresh_DuringWrite_ReturnsImmediatelyAndWritesOneMoreFrame()
+    {
+        var writes = 0;
+        using var writeStarted = new ManualResetEventSlim();
+        using var releaseWrite = new ManualResetEventSlim(true);
+        var console = Substitute.For<IAnsiConsole>();
+        console.When(static console => console.Write(Arg.Any<IRenderable>()))
+            .Do(_ =>
+            {
+                Interlocked.Increment(ref writes);
+                writeStarted.Set();
+                releaseWrite.Wait(TimeSpan.FromSeconds(10));
+            });
+        using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console);
+        canvas.UpdateTarget(new TextRenderable("hello"));
+        writes.ShouldBe(1);
+
+        writeStarted.Reset();
+        releaseWrite.Reset();
+        var blockedRefresh = Task.Run(canvas.Refresh, TestContext.Current.CancellationToken);
+        writeStarted.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken).ShouldBeTrue();
+
+        for (var i = 0; i < 20; i++)
+        {
+            canvas.Refresh();
+        }
+
+        writes.ShouldBe(2);
+        releaseWrite.Set();
+        await blockedRefresh.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        writes.ShouldBe(3);
+    }
+
     private static IAnsiConsole CreateConsole(List<IRenderable> captured)
     {
         var console = Substitute.For<IAnsiConsole>();

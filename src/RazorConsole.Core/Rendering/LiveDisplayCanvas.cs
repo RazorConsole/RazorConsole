@@ -14,6 +14,7 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly bool _useAlternateScreenBuffer = options.UseAlternateScreenBuffer || options.EnableMouseEvents;
     private bool _alternateScreenBufferActive;
+    private int _refreshRequested;
     private bool _disposed;
 
     public event Action? Refreshed;
@@ -55,24 +56,40 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
         {
             _semaphore.Release();
         }
+
+        WriteRequestedRefreshes();
     }
 
-
+    /// <summary>
+    /// Writes the current target again without blocking the caller.
+    /// </summary>
+    /// <remarks>
+    /// When another write holds the canvas, the request is recorded and the thread holding it writes
+    /// one more frame after it finishes, so overlapping refreshes collapse into one write.
+    /// </remarks>
     public void Refresh()
     {
-        _semaphore.Wait();
-        try
+        Volatile.Write(ref _refreshRequested, 1);
+        WriteRequestedRefreshes();
+    }
+
+    private void WriteRequestedRefreshes()
+    {
+        while (Volatile.Read(ref _refreshRequested) == 1 && _semaphore.Wait(0))
         {
-            if (_current is not null && !_disposed)
+            try
             {
-                EnterAlternateScreenBufferIfNeeded();
-                WriteCurrent();
-                Refreshed?.Invoke();
+                if (Interlocked.Exchange(ref _refreshRequested, 0) == 1 && _current is not null && !_disposed)
+                {
+                    EnterAlternateScreenBufferIfNeeded();
+                    WriteCurrent();
+                    Refreshed?.Invoke();
+                }
             }
-        }
-        finally
-        {
-            _semaphore.Release();
+            finally
+            {
+                _semaphore.Release();
+            }
         }
     }
 
