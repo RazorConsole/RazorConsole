@@ -1,12 +1,10 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
-using System.Reflection;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Rendering.Syntax;
 using RazorConsole.Core.Rendering.Translation;
 using RazorConsole.Core.Rendering.Translation.Contexts;
-using RazorConsole.Core.Rendering.Translation.Translators;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -699,17 +697,8 @@ public class VdomSpectreTranslatorTests
 
     private static string BuildInlineMarkupLiteral(VNode node)
     {
-        var translatorType = typeof(HtmlInlineTextElementTranslator);
-        translatorType.ShouldNotBeNull();
-
-        var method = translatorType!.GetMethod("TryBuildMarkup", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
-        method.ShouldNotBeNull();
-
-        var arguments = new object?[] { node, null };
-        var success = (bool)method!.Invoke(null, arguments)!;
-        success.ShouldBeTrue();
-
-        return arguments[1].ShouldBeOfType<string>();
+        RazorConsole.Core.Layout.Leaves.InlineMarkupBuilder.TryBuildMarkup(node, out var markup).ShouldBeTrue();
+        return markup;
     }
 
 

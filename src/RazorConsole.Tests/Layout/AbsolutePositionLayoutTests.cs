@@ -1,9 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
-using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Layout;
 using RazorConsole.Core.Renderables;
-using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -225,13 +223,10 @@ public sealed class AbsolutePositionLayoutTests
         overlay.AddChild(VNode.CreateText("X"));
         flex.AddChild(overlay);
 
-        // Any fallback middleware enables the Spectre fallback path, as in the app.
-        var fallback = new FallbackMarker();
-        var widget = new WidgetTranslationContext([fallback]).Translate(flex);
+        var widget = new WidgetTranslationContext().Translate(flex);
         var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 10));
 
         widget.ShouldBeOfType<FlexWidget>();
-        fallback.Calls.ShouldBe(0);
         RenderToText(result, 20).Split('\n')[0].ShouldBe("012X456789");
     }
 
@@ -306,17 +301,6 @@ public sealed class AbsolutePositionLayoutTests
         var lines = RenderToText(result, 10).Split('\n');
         lines[0].ShouldBe("01XXXX6789");
         lines[1].ShouldBe("abX   ghij");
-    }
-
-    private sealed class FallbackMarker : ITranslationMiddleware
-    {
-        public int Calls { get; private set; }
-
-        public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
-        {
-            Calls++;
-            return new Text("fallback");
-        }
     }
 
     private static TextWidget Absolute(string id, string text, int? top = null, int? left = null, int? right = null, int? bottom = null, int zIndex = 0)

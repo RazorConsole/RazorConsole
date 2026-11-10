@@ -1,12 +1,11 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Globalization;
-using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Layout.Leaves;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Rendering.Syntax;
-using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Utilities;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
@@ -16,17 +15,14 @@ namespace RazorConsole.Core.Layout;
 
 public sealed class WidgetTranslationContext
 {
-    private readonly IReadOnlyList<ITranslationMiddleware> _spectreFallbackMiddlewares;
     private readonly ScrollableLayoutCoordinator? _scrollableLayoutCoordinator;
     private readonly SyntaxHighlightingService? _syntaxHighlightingService;
     private readonly HashSet<IAnimatedConsoleRenderable> _animatedRenderables = [];
 
     public WidgetTranslationContext(
-        IEnumerable<ITranslationMiddleware>? spectreFallbackMiddlewares = null,
         ScrollableLayoutCoordinator? scrollableLayoutCoordinator = null,
         SyntaxHighlightingService? syntaxHighlightingService = null)
     {
-        _spectreFallbackMiddlewares = spectreFallbackMiddlewares?.ToArray() ?? [];
         _scrollableLayoutCoordinator = scrollableLayoutCoordinator;
         _syntaxHighlightingService = syntaxHighlightingService;
     }
@@ -135,9 +131,19 @@ public sealed class WidgetTranslationContext
             return new RuleWidget(node.ID, new Style(Color.Grey), node.Key, node.Attributes, zIndex);
         }
 
-        if (TryCreateSpectreFallbackWidget(node, zIndex) is { } fallbackWidget)
+        if (TryCreateLeafWidget(node, className, zIndex) is { } leafWidget)
         {
-            return fallbackWidget;
+            return leafWidget;
+        }
+
+        if (string.Equals(className, "grid", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateGridWidget(node, zIndex);
+        }
+
+        if (TryCreateInlineFlowWidget(node, className, zIndex) is { } inlineWidget)
+        {
+            return inlineWidget;
         }
 
         var children = TranslateChildren(node);
@@ -348,33 +354,52 @@ public sealed class WidgetTranslationContext
             Opaque = IsTruthy(GetAttribute(node, "data-opaque")),
         };
 
-    private Widget? TryCreateSpectreFallbackWidget(VNode node, int zIndex)
+    // Components that wrap a Spectre.Console renderable become opaque leaves that paint into the cell grid.
+    private Widget? TryCreateLeafWidget(VNode node, string? className, int zIndex)
     {
-        if (_spectreFallbackMiddlewares.Count == 0 || !ShouldUseSpectreFallback(node))
+        var renderable = CreateLeafRenderable(node, className);
+        return renderable is null
+            ? null
+            : new SpectreWidget(node.ID, renderable, node.Key, node.Attributes, zIndex);
+    }
+
+    private IRenderable? CreateLeafRenderable(VNode node, string? className)
+    {
+        if (string.Equals(className, "syntax-highlighter", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateSyntaxHighlighterRenderable(node);
+        }
+
+        if (IsTruthy(GetAttribute(node, "data-canvas")))
+        {
+            return SpectreCanvasRenderableBuilder.TryCreate(node);
+        }
+
+        if (node.Attributes.ContainsKey("data-spinner"))
+        {
+            return CreateSpinnerRenderable(node);
+        }
+
+        return node.TagName?.ToLowerInvariant() switch
+        {
+            "stepchart" => StepChartRenderableBuilder.TryCreate(node),
+            "barchart" => BarChartRenderableBuilder.TryCreate(node),
+            "breakdownchart" => BreakdownChartRenderableBuilder.TryCreate(node),
+            _ => null,
+        };
+    }
+
+    private static IRenderable? CreateSyntaxHighlighterRenderable(VNode node)
+    {
+        var payload = GetAttribute(node, "data-payload");
+        if (string.IsNullOrEmpty(payload))
         {
             return null;
         }
 
         try
         {
-            var context = new TranslationContext(_spectreFallbackMiddlewares);
-            var renderable = context.Translate(node);
-            if (context.CollectedOverlays.Count > 0)
-            {
-                renderable = new OverlayRenderable(renderable, context.CollectedOverlays);
-            }
-
-            foreach (var animated in context.AnimatedRenderables)
-            {
-                _animatedRenderables.Add(animated);
-            }
-
-            return new SpectreWidget(
-                node.ID,
-                renderable,
-                node.Key,
-                node.Attributes,
-                zIndex);
+            return new SyntaxRenderable(SyntaxHighlightingService.DecodePayload(payload));
         }
         catch (Exception)
         {
@@ -382,40 +407,91 @@ public sealed class WidgetTranslationContext
         }
     }
 
-    private static bool ShouldUseSpectreFallback(VNode node)
+    private AnimatedSpinnerRenderable CreateSpinnerRenderable(VNode node)
     {
-        if (node.Kind != VNodeKind.Element)
-        {
-            return false;
-        }
+        var spinner = ComponentMarkupUtilities.ResolveSpinner(GetAttribute(node, "data-spinner-type"));
+        var message = GetAttribute(node, "data-message") ?? string.Empty;
+        var style = GetAttribute(node, "data-style");
+        var autoDismiss = VNodeAttributeReader.TryGetBoolAttribute(node, "data-auto-dismiss", out var parsed) && parsed;
 
-        var className = GetAttribute(node, "class");
-        if (string.Equals(className, "syntax-highlighter", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(className, "flexbox", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(className, "grid", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (IsTruthy(GetAttribute(node, "data-canvas")) || node.Attributes.ContainsKey("data-spinner"))
-        {
-            return true;
-        }
-
-        if (IsPlainDivWrapper(node) && node.Children.Any(ContainsAbsolutePositionedElement))
-        {
-            return true;
-        }
-
-        if (IsHtmlElementRequiringInlineOrBlockSemantics(node))
-        {
-            return true;
-        }
-
-        return string.Equals(node.TagName, "stepchart", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(node.TagName, "barchart", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(node.TagName, "breakdownchart", StringComparison.OrdinalIgnoreCase);
+        var animated = new AnimatedSpinnerRenderable(spinner, message, style, autoDismiss);
+        _animatedRenderables.Add(animated);
+        return animated;
     }
+
+    // A grid is a borderless table that fills rows left to right, like Spectre's Grid:
+    // columns are separated by two spaces and a short last row is padded with empty cells.
+    private TableWidget CreateGridWidget(VNode node, int zIndex)
+    {
+        var columnCount = Math.Max(1, TryGetIntAttribute(node, "data-columns", 2));
+        var children = TranslateChildren(node);
+        var rows = new List<TableWidgetRow>();
+
+        for (var start = 0; start < children.Count; start += columnCount)
+        {
+            var cells = new TableWidgetCell[columnCount];
+            for (var column = 0; column < columnCount; column++)
+            {
+                var index = start + column;
+                var cellId = $"{node.ID}-cell-{index}";
+                var child = index < children.Count ? children[index] : new TextWidget(cellId + "-empty", string.Empty);
+                cells[column] = new TableWidgetCell(
+                    cellId,
+                    child,
+                    paddingLeft: 0,
+                    paddingRight: column == columnCount - 1 ? 0 : 2);
+            }
+
+            rows.Add(new TableWidgetRow(cells));
+        }
+
+        return new TableWidget(
+            node.ID,
+            [],
+            rows,
+            TableWidgetBorderStyle.None,
+            expand: !string.Equals(GetAttribute(node, "data-expand"), "false", StringComparison.OrdinalIgnoreCase),
+            showHeaders: false,
+            width: TryParsePositiveInt(GetAttribute(node, "data-width")),
+            key: node.Key,
+            attributes: node.Attributes,
+            zIndex: zIndex);
+    }
+
+    // Paragraphs, inline formatting elements, and plain wrappers around inline elements flow as one
+    // wrapped run of styled text, with whitespace collapsed like HTML.
+    private Widget? TryCreateInlineFlowWidget(VNode node, string? className, int zIndex)
+    {
+        if (!string.IsNullOrWhiteSpace(className)
+            || string.Equals(GetAttribute(node, "position"), "absolute", StringComparison.OrdinalIgnoreCase)
+            || node.Attributes.ContainsKey(IVNodeIdAccessor.HookAttributeName)
+            || node.Attributes.ContainsKey("data-focus-key"))
+        {
+            return null;
+        }
+
+        var isParagraph = string.Equals(node.TagName, "p", StringComparison.OrdinalIgnoreCase);
+        var isInlineElement = InlineMarkupBuilder.IsInlineTag(node.TagName);
+        var isInlineWrapper = IsPlainInlineWrapper(node) && node.Children.Any(IsInlineElement);
+        if (!isParagraph && !isInlineElement && !isInlineWrapper)
+        {
+            return null;
+        }
+
+        IReadOnlyList<VNode> run = isInlineElement ? [node] : node.Children;
+        if (InlineMarkupBuilder.TryBuildFlowMarkup(run, out var markup))
+        {
+            return new SpectreWidget(node.ID, new Markup(markup), node.Key, node.Attributes, zIndex);
+        }
+
+        // A paragraph holding components keeps its children side by side, wrapping when they do not fit.
+        return isParagraph
+            ? new FlexWidget(node.ID, TranslateChildren(node), FlexDirection.Row, wrap: FlexWrap.Wrap, key: node.Key, attributes: node.Attributes, zIndex: zIndex)
+            : null;
+    }
+
+    private static bool IsInlineElement(VNode node)
+        => node.Kind == VNodeKind.Element && InlineMarkupBuilder.IsInlineTag(node.TagName);
 
     private static bool IsFlexNode(VNode node, string? className)
         => string.Equals(className, "flex", StringComparison.OrdinalIgnoreCase)
@@ -425,46 +501,12 @@ public sealed class WidgetTranslationContext
         => string.Equals(className, "box", StringComparison.OrdinalIgnoreCase)
             || string.Equals(GetAttribute(node, "data-layout"), "box", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsHtmlElementRequiringInlineOrBlockSemantics(VNode node)
-    {
-        if (!string.IsNullOrWhiteSpace(GetAttribute(node, "class"))
-            || string.Equals(GetAttribute(node, "position"), "absolute", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (node.Attributes.ContainsKey(IVNodeIdAccessor.HookAttributeName)
-            || node.Attributes.ContainsKey("data-focus-key"))
-        {
-            return false;
-        }
-
-        return node.TagName?.ToLowerInvariant() switch
-        {
-            "p" or "strong" or "em" or "mark" or "code" or "abbr" or "sup" or "sub" or "a" or "q" or "cite" or "ul" or "ol" or "li" => true,
-            _ => false,
-        };
-    }
-
-    private static bool IsPlainDivWrapper(VNode node)
-        => string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
-            && string.IsNullOrWhiteSpace(GetAttribute(node, "class"))
-            && string.IsNullOrWhiteSpace(GetAttribute(node, "position"))
+    private static bool IsPlainInlineWrapper(VNode node)
+        => (string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(node.TagName, "span", StringComparison.OrdinalIgnoreCase))
             && string.IsNullOrWhiteSpace(GetAttribute(node, "data-layout"))
             && !node.Attributes.ContainsKey(ConsoleRenderer.ComponentWrapperAttribute)
-            && !node.Attributes.ContainsKey(IVNodeIdAccessor.HookAttributeName)
-            && !node.Attributes.ContainsKey("data-focus-key");
-
-    private static bool ContainsAbsolutePositionedElement(VNode node)
-    {
-        if (node.Kind == VNodeKind.Element
-            && string.Equals(GetAttribute(node, "position"), "absolute", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return node.Children.Any(ContainsAbsolutePositionedElement);
-    }
+            && !IsTruthy(GetAttribute(node, "data-text"));
 
     private IReadOnlyList<Widget> TranslateChildren(VNode node)
         => node.Children
