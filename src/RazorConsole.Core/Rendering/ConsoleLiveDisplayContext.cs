@@ -1,11 +1,9 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
-using System.Collections.ObjectModel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Rendering.ComponentMarkup;
-using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Vdom;
 using Spectre.Console.Rendering;
 
@@ -20,7 +18,6 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
     private readonly Lock _sync = new();
     private readonly VdomDiffService _diffService;
     private readonly ConsoleRenderer _renderer;
-    private readonly Translation.Contexts.TranslationContext _translationContext;
     private bool _disposed;
     private ConsoleViewResult? _currentView;
     private readonly IDisposable? _snapshotSubscription;
@@ -38,7 +35,6 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         _terminalMonitor = terminalMonitor;
         _terminalMonitor.OnResized += HandleTerminalResize;
         _renderer = renderer;
-        _translationContext = renderer.GetTranslationContext();
         if (initialView is not null)
         {
             _currentView = initialView;
@@ -71,30 +67,13 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
             var previousRoot = previous?.VdomRoot;
             var currentRoot = view.VdomRoot;
 
-            bool updated;
-
-            if (previousRoot is not null && currentRoot is not null && _diffService is not null)
-            {
-                var diff = _diffService.Diff(previousRoot, currentRoot);
-                if (!diff.HasChanges)
-                {
-                    updated = false;
-                }
-                else
-                {
-                    var applied = TryApplyMutations(diff);
-                    if (!applied)
-                    {
-                        _canvas.UpdateTarget(view.Renderable);
-                    }
-
-                    updated = true;
-                }
-            }
-            else
+            // An unchanged tree keeps the current output; any change repaints the whole frame.
+            var updated = previousRoot is null
+                || currentRoot is null
+                || _diffService.Diff(previousRoot, currentRoot).HasChanges;
+            if (updated)
             {
                 _canvas.UpdateTarget(view.Renderable);
-                updated = true;
             }
 
             _currentView = view;
@@ -167,8 +146,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         var services = new ServiceCollection();
         RazorConsoleServiceCollectionExtensions.AddRazorConsoleServices(services);
         var serviceProvider = services.BuildServiceProvider();
-        var translationContext = serviceProvider.GetRequiredService<TranslationContext>();
-        return new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance, translationContext);
+        return new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance);
     }
 
     public void OnCompleted()
@@ -190,47 +168,6 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         {
             // skip rendering errors from background updates
         }
-    }
-
-    private bool TryApplyMutations(VdomDiffResult diff)
-    {
-        if (!diff.HasChanges)
-        {
-            return false;
-        }
-
-        foreach (var mutation in diff.Mutations)
-        {
-            var applied = mutation.Kind switch
-            {
-                VdomMutationKind.UpdateText => _canvas.TryUpdateText(mutation.Path, mutation.Text),
-                VdomMutationKind.UpdateAttributes => _canvas.TryUpdateAttributes(mutation.Path, mutation.Attributes ?? EmptyAttributes),
-                VdomMutationKind.ReplaceNode => TryReplaceNode(mutation),
-                _ => false,
-            };
-
-            if (!applied)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private bool TryReplaceNode(VdomMutation mutation)
-    {
-        if (mutation.Node is null)
-        {
-            return false;
-        }
-
-        if (!SpectreRenderableFactory.TryCreateRenderable(mutation.Node, _translationContext, out var renderable, out _) || renderable is null)
-        {
-            return false;
-        }
-
-        return _canvas.TryReplaceNode(mutation.Path, renderable);
     }
 
     private void UpdateAnimations(IReadOnlyCollection<IAnimatedConsoleRenderable> animatedRenderables)
@@ -266,34 +203,9 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         _animationSubscriptions = null;
     }
 
-    //private static ConsoleRenderer CreateRenderer()
-    //{
-    //    var services = new ServiceCollection();
-    //    services.AddDefaultVdomTranslators();
-    //    services.AddSingleton<Rendering.Vdom.VdomSpectreTranslator>(sp =>
-    //    {
-    //        var translators = sp.GetServices<Rendering.Vdom.IVdomElementTranslator>()
-    //            .OrderBy(t => t.Priority)
-    //            .ToList();
-    //        return new Rendering.Vdom.VdomSpectreTranslator(translators);
-    //    });
-    //    var serviceProvider = services.BuildServiceProvider();
-    //    var translator = serviceProvider.GetRequiredService<Rendering.Vdom.VdomSpectreTranslator>();
-    //    return new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance, translator);
-    //}
-
-    private static readonly IReadOnlyDictionary<string, string?> EmptyAttributes =
-        new ReadOnlyDictionary<string, string?>(new Dictionary<string, string?>(0, StringComparer.Ordinal));
-
     internal interface ILiveDisplayCanvas
     {
         void UpdateTarget(IRenderable? renderable);
-
-        bool TryReplaceNode(IReadOnlyList<int> path, IRenderable renderable);
-
-        bool TryUpdateText(IReadOnlyList<int> path, string? text);
-
-        bool TryUpdateAttributes(IReadOnlyList<int> path, IReadOnlyDictionary<string, string?> attributes);
 
         void Refresh();
 
@@ -336,15 +248,6 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
 
         public void UpdateTarget(IRenderable? renderable)
             => _context.UpdateTarget(renderable);
-
-        public bool TryReplaceNode(IReadOnlyList<int> path, IRenderable renderable)
-            => false;
-
-        public bool TryUpdateText(IReadOnlyList<int> path, string? text)
-            => false;
-
-        public bool TryUpdateAttributes(IReadOnlyList<int> path, IReadOnlyDictionary<string, string?> attributes)
-            => false;
 
         public void Refresh()
         {

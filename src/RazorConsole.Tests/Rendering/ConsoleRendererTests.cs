@@ -6,12 +6,9 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using RazorConsole.Core;
 using RazorConsole.Core.Input;
-using RazorConsole.Core.Layout;
 using RazorConsole.Core.Rendering;
-using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Vdom;
 using RazorConsole.Tests.TestComponents;
 using Spectre.Console;
@@ -79,52 +76,8 @@ public sealed class ConsoleRendererTests
         RenderToText(snapshot.Renderable!, maxWidth: 20).ShouldBe("Simple");
     }
 
-    [Theory]
-    [InlineData("LegacySpectre", 1)]
-    [InlineData("WidgetLayout", 0)]
-    public async Task RenderingPipeline_LogsDeprecationOnlyOnceForLegacyLayout(string pipeline, int expectedWarnings)
-    {
-        var services = new ServiceCollection();
-        services.AddRazorConsoleServices();
-        services.Configure<ConsoleAppOptions>(options =>
-            options.RenderingPipeline = Enum.Parse<RazorConsoleRenderingPipeline>(pipeline));
-        using var serviceProvider = services.BuildServiceProvider();
-        var logger = Substitute.For<ILogger>();
-        logger.IsEnabled(LogLevel.Warning).Returns(true);
-        var loggerFactory = Substitute.For<ILoggerFactory>();
-        loggerFactory.CreateLogger(Arg.Any<string>()).Returns(logger);
-        using var renderer = new ConsoleRenderer(
-            serviceProvider,
-            loggerFactory,
-            serviceProvider.GetRequiredService<TranslationContext>(),
-            serviceProvider.GetRequiredService<ConsoleAppOptions>());
-
-        var snapshot = await renderer.MountComponentAsync<SimpleComponent>(ParameterView.Empty, CancellationToken.None);
-        renderer.RefreshSnapshot();
-        renderer.RefreshSnapshot();
-
-        snapshot.Renderable.ShouldNotBeNull();
-        RenderToText(snapshot.Renderable, maxWidth: 20).ShouldBe("Simple");
-        (snapshot.Renderable is WidgetCanvasRenderable).ShouldBe(pipeline == "WidgetLayout");
-        var warnings = logger.ReceivedCalls()
-            .Where(call => call.GetMethodInfo().Name == nameof(ILogger.Log)
-                && call.GetArguments()[0] is LogLevel.Warning)
-            .ToArray();
-        warnings.Length.ShouldBe(expectedWarnings);
-        if (expectedWarnings > 0)
-        {
-            var arguments = warnings[0].GetArguments();
-            ((EventId)arguments[1]!).Id.ShouldBe(19);
-            var message = arguments[2]!.ToString().ShouldNotBeNull();
-            message.ShouldContain("deprecated");
-            message.ShouldContain("will be completely removed in v1.1.0");
-            message.ShouldContain("WidgetLayout");
-            message.ShouldContain("RAZORCONSOLE_RENDERING_PIPELINE");
-        }
-    }
-
     [Fact]
-    public async Task WidgetLayoutPipeline_CollectsAnimatedFallbackRenderables()
+    public async Task WidgetLayoutPipeline_CollectsAnimatedLeafRenderables()
     {
         using var renderer = CreateWidgetLayoutRenderer(out _);
 
@@ -442,7 +395,6 @@ public sealed class ConsoleRendererTests
     {
         var services = new ServiceCollection();
         services.AddRazorConsoleServices();
-        services.Configure<ConsoleAppOptions>(options => options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout);
         serviceProvider = services.BuildServiceProvider();
         return TestHelpers.CreateTestRenderer(serviceProvider);
     }
