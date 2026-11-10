@@ -104,15 +104,6 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
         }
     }
 
-    public bool TryReplaceNode(IReadOnlyList<int> path, IRenderable renderable)
-        => false;
-
-    public bool TryUpdateText(IReadOnlyList<int> path, string? text)
-        => false;
-
-    public bool TryUpdateAttributes(IReadOnlyList<int> path, IReadOnlyDictionary<string, string?> attributes)
-        => false;
-
     public void Dispose()
     {
         if (_disposed)

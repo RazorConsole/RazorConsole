@@ -11,7 +11,6 @@ using RazorConsole.Core;
 using RazorConsole.Core.Diagnostics;
 using RazorConsole.Core.Layout;
 using RazorConsole.Core.Rendering;
-using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Vdom;
 
 namespace RazorConsole.Tests.Diagnostics;
@@ -287,8 +286,6 @@ public sealed class DiagnosticsHooksTests
         return new ConsoleRenderer(
             serviceProvider,
             NullLoggerFactory.Instance,
-            serviceProvider.GetRequiredService<TranslationContext>(),
-            serviceProvider.GetService<ConsoleAppOptions>(),
             serviceProvider.GetService<WidgetTranslationContext>(),
             serviceProvider.GetService<LayoutEngine>(),
             serviceProvider.GetService<VNodeIdAccessor>(),

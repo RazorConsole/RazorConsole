@@ -90,7 +90,7 @@ internal sealed class DiagnosticsState
 /// </summary>
 /// <param name="Sequence">Increases by one per published frame, starting at 1.</param>
 /// <param name="Root">The rendered tree, or <see langword="null"/> when nothing is mounted.</param>
-/// <param name="Layouts">Layout per node, or <see langword="null"/> on the legacy pipeline.</param>
+/// <param name="Layouts">Layout per node, or <see langword="null"/> when nothing is mounted.</param>
 /// <param name="LayoutParents">Layout parent per node ID, when the pipeline provides it.</param>
 /// <param name="RenderSequence">
 /// The render snapshot sequence observers must have processed to match this frame, or 0 when there is nothing to wait for.
@@ -115,7 +115,7 @@ internal sealed record DiagnosticsFrame(
 
     /// <summary>
     /// Paints the frame on first use and returns the same canvas afterwards, whichever thread asks. It is
-    /// <see langword="null"/> on the legacy pipeline and when nothing is mounted.
+    /// <see langword="null"/> when nothing is mounted.
     /// </summary>
     /// <remarks>
     /// This is a second paint of the frame's widgets, on the caller's thread: the display paints the same tree on its

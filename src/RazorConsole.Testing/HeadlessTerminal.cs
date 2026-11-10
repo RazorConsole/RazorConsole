@@ -66,7 +66,6 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         options.ConfigureServices?.Invoke(services);
         services.Configure<ConsoleAppOptions>(appOptions =>
         {
-            appOptions.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
             appOptions.EnableTerminalResizing = true;
         });
 
@@ -673,12 +672,6 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         public void UpdateTarget(IRenderable? renderable)
         {
         }
-
-        public bool TryReplaceNode(IReadOnlyList<int> path, IRenderable renderable) => false;
-
-        public bool TryUpdateText(IReadOnlyList<int> path, string? text) => false;
-
-        public bool TryUpdateAttributes(IReadOnlyList<int> path, IReadOnlyDictionary<string, string?> attributes) => false;
 
         public void Refresh() => Refreshed?.Invoke();
     }

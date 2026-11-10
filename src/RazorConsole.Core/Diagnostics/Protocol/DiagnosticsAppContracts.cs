@@ -62,9 +62,6 @@ internal static class DiagnosticsUnavailableReasons
     /// <summary>The app does not handle mouse input.</summary>
     public const string MouseDisabled = "mouse_disabled";
 
-    /// <summary>The app renders with the legacy pipeline, which has no canvas.</summary>
-    public const string LegacyPipeline = "legacy_pipeline";
-
     /// <summary>Nothing has been painted yet.</summary>
     public const string NotPainted = "not_painted";
 
@@ -313,7 +310,7 @@ internal sealed record LogsResult(IReadOnlyList<LogResult> Entries, long Next);
 
 /// <param name="Frames">Frames delivered to the renderer's observers; the ones replaced before delivery are not counted.</param>
 /// <param name="UptimeMs">Milliseconds since the app's diagnostics started.</param>
-/// <param name="Pipeline">The rendering pipeline in use.</param>
+/// <param name="Pipeline">The rendering pipeline in use; always <c>WidgetLayout</c>.</param>
 /// <param name="Frame">The sequence of the latest published frame.</param>
 internal sealed record StatsResult(long Frames, long UptimeMs, string Pipeline, long Frame);
 

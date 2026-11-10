@@ -101,7 +101,7 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         _navigationManager = navigationManager;
         _renderer = renderer;
         _observer = observer;
-        _queries = state is null ? null : new DiagnosticsAppQueries(state, focusManager, navigationManager, options);
+        _queries = state is null ? null : new DiagnosticsAppQueries(state, focusManager, navigationManager);
         _logger = logger;
         _settings = settings ?? new DiagnosticsEndpointSettings();
 
