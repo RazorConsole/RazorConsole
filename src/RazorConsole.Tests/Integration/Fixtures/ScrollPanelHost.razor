@@ -1,0 +1,42 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using RazorConsole.Components
+
+@* A panel whose content scrolls; the engine owns the offset. *@
+<Panel Height="5" Border="@Spectre.Console.BoxBorder.Square" Padding="@(new Spectre.Console.Padding(0, 0, 0, 0))"
+       Overflow="RazorConsole.Core.Layout.OverflowMode.Scroll"
+       ScrollId="@ScrollId"
+       ScrollTop="@ScrollTop"
+       ScrollTopChanged="@OnScrollTopChanged">
+    @for (var i = 0; i < 20; i++)
+    {
+        <Markup Content="@($"line {i}")" />
+    }
+</Panel>
+
+@code {
+    [Parameter] public string ScrollId { get; set; } = "log";
+
+    [Parameter] public int ScrollTop { get; set; }
+
+    [Parameter] public bool BindScrollTop { get; set; }
+
+    [Parameter] public List<int> Changes { get; set; } = [];
+
+    [Parameter] public RenderCounter Counter { get; set; } = new();
+
+    private EventCallback<int> OnScrollTopChanged => BindScrollTop
+        ? EventCallback.Factory.Create<int>(this, top =>
+        {
+            Changes.Add(top);
+            ScrollTop = top;
+        })
+        : default;
+
+    protected override void OnAfterRender(bool firstRender)
+        => Counter.Renders++;
+
+    public sealed class RenderCounter
+    {
+        public int Renders;
+    }
+}

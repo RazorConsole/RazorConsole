@@ -64,8 +64,13 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<TerminalMonitor>();
         services.TryAddSingleton<ITerminalViewport>(sp => sp.GetRequiredService<TerminalMonitor>());
         services.TryAddSingleton<ScrollableLayoutCoordinator>();
+        services.TryAddSingleton<ScrollStateRegistry>();
         services.TryAddSingleton<LayoutEngine>();
-        services.TryAddSingleton<WidgetTranslationContext>();
+        services.TryAddSingleton(sp => new WidgetTranslationContext(
+            sp.GetServices<IWidgetTranslator>(),
+            sp.GetService<ScrollableLayoutCoordinator>(),
+            sp.GetService<SyntaxHighlightingService>(),
+            sp.GetService<ScrollStateRegistry>()));
         services.TryAddSingleton<VNodeIdAccessor>();
         services.TryAddSingleton<IVNodeIdAccessor>(sp => sp.GetRequiredService<VNodeIdAccessor>());
         services.TryAddSingleton<VNodeLayoutAccessor>();

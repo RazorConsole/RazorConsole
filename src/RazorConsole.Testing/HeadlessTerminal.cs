@@ -47,6 +47,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     private readonly AnsiOutputWriter? _ansiOutput;
     private readonly IAnsiConsole? _ansiConsole;
     private IDisposable? _snapshotSubscription;
+    private RazorConsole.Core.Layout.ScrollStateRegistry? _scrollRegistry;
     private IDisposable? _focusSubscription;
     private ConsoleLiveDisplayContext? _liveContext;
     private FocusManager.FocusSession? _focusSession;
@@ -495,6 +496,11 @@ public sealed class HeadlessTerminal : IAsyncDisposable
 
         _disposed = true;
         _shutdown.Cancel();
+        if (_scrollRegistry is not null)
+        {
+            _scrollRegistry.RepaintRequested -= OnScrollRepaintRequested;
+        }
+
         _focusSession?.Dispose();
         _focusSubscription?.Dispose();
         _snapshotSubscription?.Dispose();
@@ -528,7 +534,37 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         _focusSession = _focusManager.BeginSession(_liveContext, view, _shutdown.Token);
         await _focusSession.InitializationTask.ConfigureAwait(false);
         Capture(_renderer.RefreshSnapshot());
+
+        // Scroll state changed by the engine (not by a Blazor render or by input sent through this terminal) repaints the host; capture it like one.
+        if (_renderer.ScrollRegistry is { } scrollRegistry)
+        {
+            _scrollRegistry = scrollRegistry;
+            scrollRegistry.RepaintRequested += OnScrollRepaintRequested;
+        }
     }
+
+    private void OnScrollRepaintRequested()
+        => _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _inputGate.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    if (!_disposed)
+                    {
+                        Capture(_renderer.RefreshSnapshot());
+                    }
+                }
+                finally
+                {
+                    _inputGate.Release();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        });
 
     private async Task RunInputAsync(Func<CancellationToken, Task> input, CancellationToken cancellationToken)
     {
