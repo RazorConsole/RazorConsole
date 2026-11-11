@@ -99,6 +99,12 @@ public abstract class Widget
             return;
         }
 
+        // Skip widgets that lie entirely outside the current clip (e.g. rows scrolled out of a viewport).
+        if (!Bounds.IsEmpty && !context.Canvas.IsVisible(Bounds))
+        {
+            return;
+        }
+
         PaintCore(context);
     }
 
@@ -222,6 +228,12 @@ public sealed record LayoutBox(
     int ZIndex,
     IReadOnlyList<LayoutBox> Children)
 {
+    /// <summary>Gets the clip inherited from the nearest scroll viewport ancestor, or <see langword="null"/> when unclipped.</summary>
+    public LayoutRect? Clip { get; init; }
+
+    /// <summary>Gets <see cref="Bounds"/> limited by <see cref="Clip"/>; empty when scrolled out of view.</summary>
+    public LayoutRect VisibleBounds => Clip is { } clip ? Bounds.Intersect(clip) : Bounds;
+
     public VNodeLayoutInfo ToLayoutInfo(bool isVisible, int renderVersion)
         => new(
             VNodeId,
@@ -232,5 +244,8 @@ public sealed record LayoutBox(
             Bounds.Width,
             Bounds.Height,
             ZIndex,
-            IsCentered: false);
+            IsCentered: false)
+        {
+            VisibleBounds = VisibleBounds,
+        };
 }
