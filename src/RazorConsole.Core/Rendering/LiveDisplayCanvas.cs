@@ -57,7 +57,8 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
             _semaphore.Release();
         }
 
-        WriteRequestedRefreshes();
+        // This call's frame is written; refreshes other threads queued meanwhile must not fail it.
+        WriteRequestedRefreshes(propagateFirstError: false);
     }
 
     /// <summary>
@@ -66,15 +67,17 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
     /// <remarks>
     /// When another write holds the canvas, the request is recorded and the thread holding it writes
     /// one more frame after it finishes, so overlapping refreshes collapse into one write.
+    /// An error from the caller's own write is thrown; errors from frames written for other callers are dropped.
     /// </remarks>
     public void Refresh()
     {
         Volatile.Write(ref _refreshRequested, 1);
-        WriteRequestedRefreshes();
+        WriteRequestedRefreshes(propagateFirstError: true);
     }
 
-    private void WriteRequestedRefreshes()
+    private void WriteRequestedRefreshes(bool propagateFirstError)
     {
+        var propagate = propagateFirstError;
         while (Volatile.Read(ref _refreshRequested) == 1 && _semaphore.Wait(0))
         {
             try
@@ -86,10 +89,17 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
                     Refreshed?.Invoke();
                 }
             }
+            catch when (!propagate)
+            {
+                // A repaint requested by another caller; WriteCurrent already reset the diff state,
+                // so the next frame redraws everything.
+            }
             finally
             {
                 _semaphore.Release();
             }
+
+            propagate = false;
         }
     }
 

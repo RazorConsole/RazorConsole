@@ -177,6 +177,59 @@ public sealed class LiveDisplayCanvasTests
         writes.ShouldBe(3);
     }
 
+    [Fact]
+    public async Task UpdateTarget_DropsErrorsFromRefreshesQueuedByOtherCallers()
+    {
+        var writes = 0;
+        using var secondWriteStarted = new ManualResetEventSlim();
+        using var releaseSecondWrite = new ManualResetEventSlim();
+        var console = Substitute.For<IAnsiConsole>();
+        console.When(static console => console.Write(Arg.Any<IRenderable>()))
+            .Do(_ =>
+            {
+                switch (Interlocked.Increment(ref writes))
+                {
+                    case 2:
+                        secondWriteStarted.Set();
+                        releaseSecondWrite.Wait(TimeSpan.FromSeconds(10));
+                        break;
+                    case 3:
+                        throw new IOException("Background repaint failed.");
+                }
+            });
+        using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console);
+        canvas.UpdateTarget(new TextRenderable("first"));
+
+        var update = Task.Run(() => canvas.UpdateTarget(new TextRenderable("second")), TestContext.Current.CancellationToken);
+        secondWriteStarted.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken).ShouldBeTrue();
+        canvas.Refresh();
+        releaseSecondWrite.Set();
+
+        await update.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        writes.ShouldBe(3);
+    }
+
+    [Fact]
+    public void Refresh_ThrowsErrorFromItsOwnWrite()
+    {
+        var fail = false;
+        var console = Substitute.For<IAnsiConsole>();
+        console.When(static console => console.Write(Arg.Any<IRenderable>()))
+            .Do(_ =>
+            {
+                if (fail)
+                {
+                    throw new IOException("Frame write failed.");
+                }
+            });
+        using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console);
+        canvas.UpdateTarget(new TextRenderable("hello"));
+
+        fail = true;
+
+        Should.Throw<IOException>(canvas.Refresh);
+    }
+
     private static IAnsiConsole CreateConsole(List<IRenderable> captured)
     {
         var console = Substitute.For<IAnsiConsole>();
