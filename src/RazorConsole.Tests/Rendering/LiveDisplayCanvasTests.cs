@@ -210,24 +210,32 @@ public sealed class LiveDisplayCanvasTests
     }
 
     [Fact]
-    public void Refresh_ThrowsErrorFromItsOwnWrite()
+    public void Refresh_DropsWriteErrors_AndNextFrameRedrawsEverything()
     {
+        var captured = new List<IRenderable>();
         var fail = false;
         var console = Substitute.For<IAnsiConsole>();
         console.When(static console => console.Write(Arg.Any<IRenderable>()))
-            .Do(_ =>
+            .Do(call =>
             {
                 if (fail)
                 {
                     throw new IOException("Frame write failed.");
                 }
+
+                captured.Add(call.Arg<IRenderable>());
             });
         using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console);
         canvas.UpdateTarget(new TextRenderable("hello"));
 
         fail = true;
+        Should.NotThrow(canvas.Refresh);
 
-        Should.Throw<IOException>(canvas.Refresh);
+        fail = false;
+        canvas.Refresh();
+        var output = string.Concat(captured[^1].Render(CreateRenderOptions(), 80).Select(static segment => segment.Text));
+        output.ShouldContain(ED(2));
+        output.ShouldContain("hello");
     }
 
     private static IAnsiConsole CreateConsole(List<IRenderable> captured)

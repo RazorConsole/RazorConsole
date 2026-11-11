@@ -184,8 +184,8 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
         void UpdateTarget(IRenderable? renderable);
 
         /// <summary>
-        /// Writes the current target again. Must not block: a refresh that arrives while a write is in progress
-        /// is folded into a write that follows it.
+        /// Writes the current target again, best effort. Must not block or throw: a refresh that arrives while
+        /// a write is in progress is folded into a write that follows it.
         /// </summary>
         void Refresh();
 
