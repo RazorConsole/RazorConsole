@@ -1,5 +1,7 @@
 ## Virtual DOM renderer redesign
 
+> **Historical design.** This document records the move from HTML snapshots to the `VNode` tree. Its Spectre translation stages (`VdomSpectreTranslator`, `SpectreRenderableFactory`, VDOM mutations applied to the display) were replaced by widget translation and layout, and the legacy pipeline was removed in 1.0. See [rendering-process.md](rendering-process.md) for the current pipeline.
+
 ### Architecture Overview
 
 ```mermaid

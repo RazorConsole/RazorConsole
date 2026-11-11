@@ -81,7 +81,7 @@ Keep the node's `ID`, `Key` and `Attributes` on the widget that represents it, s
 
 #### Animated content
 
-If a `SpectreWidget` holds a renderable that implements `IAnimatedConsoleRenderable`, call `context.TrackAnimation(renderable)` so the display refreshes it on its interval.
+If a `SpectreWidget` holds a renderable that implements `IAnimatedConsoleRenderable`, call `context.TrackAnimation(renderable)` so the display refreshes it on its interval. All animations share one timer that runs at the shortest interval on screen, so the renderable must choose its frame from the current time when it renders, not from a render count.
 
 #### Migrating from `ITranslationMiddleware`
 
