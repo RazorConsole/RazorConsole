@@ -94,11 +94,15 @@ element known bounds for focus, layout queries and coordinate-aware mouse events
 Spectre.Console-backed content such as charts, Figlet text and syntax highlighting
 is painted as widget leaves.
 
-The legacy Spectre.Console layout pipeline was removed in 1.0. If you upgrade from
-0.x, remove any `ConsoleAppOptions.RenderingPipeline` assignment and the
-`RAZORCONSOLE_RENDERING_PIPELINE` environment variable, and move custom
-`ITranslationMiddleware` translators to `IWidgetTranslator`. See the
-[Widget Layout guide](website/src/docs/widget-layout.md) and the
+The legacy Spectre.Console layout pipeline was removed in 1.0 (earlier warnings
+said 1.1.0). If you upgrade from 0.x, remove any `ConsoleAppOptions.RenderingPipeline`
+assignment and the `RAZORCONSOLE_RENDERING_PIPELINE` environment variable, which
+no longer has any effect, and move custom `ITranslationMiddleware` translators to
+`IWidgetTranslator`. `ConsoleAppOptions.AfterRenderAsync` was also removed; use the
+root component's `OnAfterRenderAsync`, `IHostApplicationLifetime.ApplicationStarted`
+or an `IHostedService` instead. `ConsoleViewResult`, `ConsoleLiveDisplayContext` and
+`FocusManager.BeginSession` are now internal. See the
+[Widget Layout guide](website/src/docs/widget-layout.md#upgrading-from-0x) and the
 [custom translator guide](website/src/docs/custom-translators.md) for details.
 
 Animated applications can opt into synchronized frame presentation with
