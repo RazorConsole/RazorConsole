@@ -198,7 +198,7 @@ public sealed class BoxWidget : Widget
             width = Math.Max(width, Segment.CellCount([new Segment(Title)]) + 4);
         }
 
-        var height = Height ?? (FillHeight ? Math.Max(0, constraints.MaxHeight - outerVerticalInset) : contentHeight);
+        var height = Height ?? (FillHeight ? constraints.ResolveFillHeight(outerVerticalInset, contentHeight) : contentHeight);
         return constraints.Constrain(new LayoutSize(
             width + outerHorizontalInset,
             height + outerVerticalInset));

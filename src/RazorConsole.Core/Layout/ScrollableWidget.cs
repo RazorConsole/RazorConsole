@@ -27,7 +27,7 @@ public sealed class ScrollableWidget : Widget
         string? key = null,
         IReadOnlyDictionary<string, string?>? attributes = null,
         int zIndex = 0)
-        : base(vnodeId, key, attributes, [child], zIndex)
+        : base(vnodeId, key, attributes, [cropLines ? new ScrollViewportWidget(vnodeId + "-viewport", child, offset) : child], zIndex)
     {
         if (itemsCount < 0)
         {
@@ -49,6 +49,7 @@ public sealed class ScrollableWidget : Widget
             throw new ArgumentOutOfRangeException(nameof(minThumbHeight), "Minimum thumb height must be positive.");
         }
 
+        Child = child;
         ItemsCount = itemsCount;
         Offset = offset;
         PageSize = pageSize;
@@ -65,7 +66,9 @@ public sealed class ScrollableWidget : Widget
         MinThumbHeight = minThumbHeight;
     }
 
-    public Widget Child => Children[0];
+    public Widget Child { get; }
+
+    private ScrollViewportWidget? Viewport => Children[0] as ScrollViewportWidget;
 
     public int ItemsCount { get; }
 
@@ -108,38 +111,32 @@ public sealed class ScrollableWidget : Widget
 
         var reserveScrollbar = ShowScrollbar && !EnableEmbedded;
         var scrollbarWidth = reserveScrollbar ? 2 : 0;
-        var childConstraints = CropLines
-            ? new BoxConstraints(0, Math.Max(0, constraints.MaxWidth - scrollbarWidth), 0, int.MaxValue / 4)
-            : constraints.Deflate(0, 0, scrollbarWidth, 0);
-        var childSize = Child.Measure(context, childConstraints);
-        ContentHeight = childSize.Height;
         VisiblePageSize = ResolvePageSize(constraints.MaxHeight);
-        var height = CropLines ? Math.Min(ContentHeight, VisiblePageSize) : childSize.Height;
-        return constraints.Constrain(new LayoutSize(childSize.Width + scrollbarWidth, height));
+        if (Viewport is { } viewport)
+        {
+            var viewportSize = viewport.Measure(
+                context,
+                new BoxConstraints(0, Math.Max(0, constraints.MaxWidth - scrollbarWidth), 0, Math.Min(VisiblePageSize, constraints.MaxHeight)));
+            ContentHeight = viewport.ContentHeight;
+            return constraints.Constrain(new LayoutSize(viewportSize.Width + scrollbarWidth, viewportSize.Height));
+        }
+
+        var childSize = Child.Measure(context, constraints.Deflate(0, 0, scrollbarWidth, 0));
+        ContentHeight = childSize.Height;
+        return constraints.Constrain(new LayoutSize(childSize.Width + scrollbarWidth, childSize.Height));
     }
 
     protected override void ArrangeCore(LayoutContext context, LayoutRect bounds)
     {
         VisiblePageSize = ResolvePageSize(bounds.Height);
-        var actualOffset = Math.Clamp(Offset, 0, MaxOffset);
         LayoutCoordinator?.ReportMaxOffset(ScrollId ?? string.Empty, MaxOffset);
         var childWidth = Math.Max(0, bounds.Width - (HasScrollbar ? 2 : 0));
-        var childY = CropLines ? bounds.Y - actualOffset : bounds.Y;
-        var childHeight = CropLines ? Math.Max(ContentHeight, bounds.Height + actualOffset) : bounds.Height;
-        Child.Arrange(context, new LayoutRect(bounds.X, childY, childWidth, childHeight));
+        Children[0].Arrange(context, new LayoutRect(bounds.X, bounds.Y, childWidth, bounds.Height));
     }
 
     protected override void PaintCore(PaintContext context)
     {
-        if (CropLines)
-        {
-            using var _ = context.Canvas.PushClip(Bounds);
-            Child.Paint(context);
-        }
-        else
-        {
-            Child.Paint(context);
-        }
+        Children[0].Paint(context);
 
         if (!HasScrollbar || Bounds.IsEmpty)
         {
@@ -162,21 +159,8 @@ public sealed class ScrollableWidget : Widget
 
     private (int Top, int Height) CalculateThumb(int trackHeight)
     {
-        var totalItems = CropLines ? ContentHeight : ItemsCount;
-        var pageSize = CropLines ? VisiblePageSize : PageSize;
-
-        if (trackHeight <= 0 || totalItems <= 0)
-        {
-            return (0, 0);
-        }
-
-        var thumbHeight = Math.Clamp(
-            (int)Math.Ceiling(trackHeight * (pageSize / (double)totalItems)),
-            Math.Min(MinThumbHeight, trackHeight),
-            trackHeight);
-        var maxOffset = CropLines ? MaxOffset : Math.Max(0, ItemsCount - PageSize);
-        var maxTop = Math.Max(0, trackHeight - thumbHeight);
-        var top = maxOffset == 0 ? 0 : (int)Math.Round(maxTop * (Offset / (double)maxOffset));
-        return (top, thumbHeight);
+        return CropLines
+            ? ScrollbarGeometry.CalculateThumb(trackHeight, VisiblePageSize, ContentHeight, Viewport?.Top ?? Offset, MinThumbHeight)
+            : ScrollbarGeometry.CalculateThumb(trackHeight, PageSize, ItemsCount, Offset, MinThumbHeight);
     }
 }
