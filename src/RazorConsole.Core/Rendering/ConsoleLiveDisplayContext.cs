@@ -71,7 +71,7 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
             // An unchanged tree keeps the current output; any change repaints the whole frame.
             var updated = previousRoot is null
                 || currentRoot is null
-                || _diffService.Diff(previousRoot, currentRoot).HasChanges;
+                || _diffService.HasChanges(previousRoot, currentRoot);
             if (updated)
             {
                 _canvas.UpdateTarget(view.Renderable);

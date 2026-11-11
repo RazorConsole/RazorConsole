@@ -8,6 +8,32 @@ public class VdomDiffServiceTests
 {
     private readonly VdomDiffService _service = new();
 
+    [Theory]
+    [InlineData("<div><span>Hi</span></div>", "<div><span>Hi</span></div>")]
+    [InlineData("<div><span>Hi</span></div>", "<div><span>Hi</span><span>There</span></div>")]
+    [InlineData("<div><span>Hi</span><span>There</span></div>", "<div><span>Hi</span></div>")]
+    [InlineData("<div><span>Hi</span></div>", "<div><span>Bye</span></div>")]
+    [InlineData("<panel header=\"Old\"></panel>", "<panel header=\"New\"></panel>")]
+    [InlineData("<div><span>Hi</span></div>", "<div><strong>Hi</strong></div>")]
+    public void HasChanges_MatchesFullDiff(string previousHtml, string currentHtml)
+    {
+        HtmlVdomConverter.TryConvert(previousHtml, out var previous);
+        HtmlVdomConverter.TryConvert(currentHtml, out var current);
+
+        _service.HasChanges(previous, current).ShouldBe(_service.Diff(previous, current).HasChanges);
+    }
+
+    [Fact]
+    public void HasChanges_HandlesMissingTrees()
+    {
+        HtmlVdomConverter.TryConvert("<div></div>", out var tree);
+
+        _service.HasChanges(null, null).ShouldBeFalse();
+        _service.HasChanges(null, tree).ShouldBeTrue();
+        _service.HasChanges(tree, null).ShouldBeTrue();
+        _service.HasChanges(tree, tree).ShouldBeFalse();
+    }
+
     [Fact]
     public void Diff_InsertsNode_WhenNewChildAppears()
     {

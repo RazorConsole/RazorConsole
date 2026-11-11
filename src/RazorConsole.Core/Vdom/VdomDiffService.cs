@@ -4,6 +4,14 @@ namespace RazorConsole.Core.Vdom;
 
 public sealed class VdomDiffService
 {
+    /// <summary>
+    /// Returns whether <paramref name="current"/> differs from <paramref name="previous"/>.
+    /// Stops at the first difference and builds no mutation list, so it is cheaper than
+    /// <see cref="Diff"/> when only the answer is needed.
+    /// </summary>
+    public bool HasChanges(VNode? previous, VNode? current)
+        => !VdomComparer.AreEqual(previous, current);
+
     public VdomDiffResult Diff(VNode? previous, VNode? current)
     {
         var mutations = new List<VdomMutation>();

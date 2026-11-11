@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Layout;
+using RazorConsole.Core.Layout.Leaves;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
@@ -59,6 +60,84 @@ public sealed class NativeWidgetTranslationTests
 
         widget.ShouldBeOfType<SpectreWidget>();
         Render(widget, 40).ShouldBe("Hello bold and [x] text.");
+    }
+
+    [Fact]
+    public void Anchor_WithHref_RendersAsLink()
+    {
+        var anchor = Element("a", ("href", "https://example.com"));
+        anchor.AddChild(Text("Click here"));
+
+        InlineMarkupBuilder.TryBuildMarkup(anchor, out var markup).ShouldBeTrue();
+
+        markup.ShouldBe("[link=https://example.com]Click here[/]");
+        Render(new WidgetTranslationContext().Translate(anchor), 20).ShouldBe("Click here");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Anchor_WithoutHref_RendersPlainText(string? href)
+    {
+        var anchor = href is null ? Element("a") : Element("a", ("href", href));
+        anchor.AddChild(Text("Not a link"));
+
+        InlineMarkupBuilder.TryBuildMarkup(anchor, out var markup).ShouldBeTrue();
+
+        markup.ShouldBe("Not a link");
+        Render(new WidgetTranslationContext().Translate(anchor), 20).ShouldBe("Not a link");
+    }
+
+    [Fact]
+    public void Anchor_EscapesMarkupCharactersInHref()
+    {
+        var anchor = Element("a", ("href", "https://example.com/path?q=[test]"));
+        anchor.AddChild(Text("Link"));
+
+        InlineMarkupBuilder.TryBuildMarkup(anchor, out var markup).ShouldBeTrue();
+
+        markup.ShouldBe("[link=https://example.com/path?q=[[test]]]Link[/]");
+        Render(new WidgetTranslationContext().Translate(anchor), 20).ShouldBe("Link");
+    }
+
+    [Fact]
+    public void Anchor_ComposesNestedFormatting()
+    {
+        var anchor = Element("a", ("href", "https://example.com"));
+        anchor.AddChild(Text("Click "));
+        var strong = Element("strong");
+        strong.AddChild(Text("here"));
+        anchor.AddChild(strong);
+
+        InlineMarkupBuilder.TryBuildMarkup(anchor, out var markup).ShouldBeTrue();
+
+        markup.ShouldBe("[link=https://example.com]Click [bold]here[/][/]");
+    }
+
+    [Fact]
+    public void Code_StylesTextAndEscapesMarkup()
+    {
+        var code = Element("code");
+        code.AddChild(Text("var value = [42];"));
+
+        InlineMarkupBuilder.TryBuildMarkup(code, out var markup).ShouldBeTrue();
+
+        markup.ShouldBe("[indianred1 on #1f1f1f]var value = [[42]];[/]");
+        Render(new WidgetTranslationContext().Translate(code), 30).ShouldBe("var value = [42];");
+    }
+
+    [Fact]
+    public void Code_DisablesNestedFormatting()
+    {
+        var code = Element("code");
+        code.AddChild(Text("var "));
+        var strong = Element("strong");
+        strong.AddChild(Text("value"));
+        code.AddChild(strong);
+
+        InlineMarkupBuilder.TryBuildMarkup(code, out _).ShouldBeFalse();
+        InlineMarkupBuilder.TryBuildFlowMarkup([code], out _).ShouldBeFalse();
     }
 
     [Fact]
