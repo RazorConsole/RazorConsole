@@ -28,7 +28,7 @@ public interface IWidgetTranslator
 - **Children.** A translator that handles a container translates its children with `context.Translate(child)`, which runs the full chain again. Calling `context.Translate(node)` on the node being handled recurses forever; use `next(node)` instead.
 - **Decoration.** Calling `next(node)` and wrapping or replacing the result changes a built-in element without reimplementing it.
 - **Identity.** The widget that represents a node should carry the node's `ID`, `Key` and `Attributes`. Layout introspection, focus and mouse hit-testing look widgets up by those values.
-- **Animations.** Widgets are recreated on every render, so animated Spectre renderables are registered per translation with `context.TrackAnimation`. The renderer reads `AnimatedRenderables` after translating.
+- **Animations.** Widgets are recreated on every render, so animated Spectre renderables are registered per translation with `context.TrackAnimation`. The renderer reads `AnimatedRenderables` after translating, and the live display drives all of them from one timer at the shortest `RefreshInterval`, so each animation must derive its frame from the clock rather than from a render count.
 - **Spectre content.** `SpectreWidget` wraps any `IRenderable` as a leaf: it measures by rendering at the offered width and paints the resulting segments into cells.
 
 ## Registration

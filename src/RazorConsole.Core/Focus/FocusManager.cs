@@ -144,7 +144,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
     /// <param name="initialView">The initial view rendered to the console.</param>
     /// <param name="shutdownToken">Token that signals when the session should be cancelled.</param>
     /// <returns>A disposable scope that tears down focus tracking when disposed.</returns>
-    public FocusSession BeginSession(ConsoleLiveDisplayContext context, ConsoleViewResult initialView, CancellationToken shutdownToken)
+    internal FocusSession BeginSession(ConsoleLiveDisplayContext context, ConsoleViewResult initialView, CancellationToken shutdownToken)
     {
         if (context is null)
         {
@@ -749,7 +749,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
     /// <summary>
     /// Disposable scope representing an active focus tracking session.
     /// </summary>
-    public sealed class FocusSession : IDisposable
+    internal sealed class FocusSession : IDisposable
     {
         private readonly FocusManager _manager;
         private readonly ConsoleLiveDisplayContext _context;

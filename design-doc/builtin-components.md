@@ -89,7 +89,7 @@ Lays out child items using a CSS-like flexbox model with configurable direction,
 | `Width` | `int?` | `null` | Explicit width constraint in characters. When `null`, uses all available width. |
 | `Height` | `int?` | `null` | Explicit height constraint in lines. When `null`, uses the natural content height. |
 
-See [`design-doc/flexbox-renderable.md`](flexbox-renderable.md) for the full layout algorithm and advanced usage.
+`FlexBox` lays out its children with `FlexWidget`; see [`layout-box-flex.md`](layout-box-flex.md) for the flex layout model.
 
 ## Grid
 Builds a Spectre.Console grid with configurable columns.

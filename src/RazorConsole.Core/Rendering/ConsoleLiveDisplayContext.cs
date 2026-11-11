@@ -12,7 +12,7 @@ namespace RazorConsole.Core.Rendering;
 /// <summary>
 /// Provides a simplified facade over Spectre.Console live display updates.
 /// </summary>
-public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRenderer.RenderSnapshot>
+internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRenderer.RenderSnapshot>
 {
     private readonly ILiveDisplayCanvas _canvas;
     private readonly Lock _sync = new();
@@ -21,7 +21,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
     private bool _disposed;
     private ConsoleViewResult? _currentView;
     private readonly IDisposable? _snapshotSubscription;
-    private List<AnimationSubscription>? _animationSubscriptions;
+    private readonly AnimationTicker _animationTicker;
     private readonly TerminalMonitor _terminalMonitor;
 
     internal ConsoleLiveDisplayContext(
@@ -32,6 +32,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         VdomDiffService? diffService = null)
     {
         _canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
+        _animationTicker = new AnimationTicker(_canvas.Refresh);
         _terminalMonitor = terminalMonitor;
         _terminalMonitor.OnResized += HandleTerminalResize;
         _renderer = renderer;
@@ -92,7 +93,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         lock (_sync)
         {
             _currentView = null;
-            DisposeAnimations();
+            _animationTicker.Update(null);
         }
     }
 
@@ -121,7 +122,7 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
         {
             return;
         }
-        DisposeAnimations();
+        _animationTicker.Dispose();
         _terminalMonitor.OnResized -= HandleTerminalResize;
         _snapshotSubscription?.Dispose();
         if (_canvas is IDisposable disposableCanvas)
@@ -171,70 +172,24 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
     }
 
     private void UpdateAnimations(IReadOnlyCollection<IAnimatedConsoleRenderable> animatedRenderables)
-    {
-        DisposeAnimations();
+        => _animationTicker.Update(animatedRenderables);
 
-        if (animatedRenderables is null || animatedRenderables.Count == 0)
-        {
-            return;
-        }
-
-        var subscriptions = new List<AnimationSubscription>(animatedRenderables.Count);
-        foreach (var animated in animatedRenderables)
-        {
-            subscriptions.Add(new AnimationSubscription(animated.RefreshInterval, _canvas));
-        }
-
-        _animationSubscriptions = subscriptions;
-    }
-
-    private void DisposeAnimations()
-    {
-        if (_animationSubscriptions is null)
-        {
-            return;
-        }
-
-        foreach (var subscription in _animationSubscriptions)
-        {
-            subscription.Dispose();
-        }
-
-        _animationSubscriptions = null;
-    }
+    /// <summary>
+    /// Gets the interval the shared animation timer runs at, or <see langword="null"/> when no animation is on screen.
+    /// </summary>
+    internal TimeSpan? AnimationInterval => _animationTicker.Interval;
 
     internal interface ILiveDisplayCanvas
     {
         void UpdateTarget(IRenderable? renderable);
 
+        /// <summary>
+        /// Writes the current target again, best effort. Must not block or throw: a refresh that arrives while
+        /// a write is in progress is folded into a write that follows it.
+        /// </summary>
         void Refresh();
 
         event Action? Refreshed;
-    }
-
-    private sealed class AnimationSubscription : IDisposable
-    {
-        private readonly Timer _timer;
-
-        public AnimationSubscription(TimeSpan interval, ILiveDisplayCanvas canvas)
-        {
-            _timer = new Timer(_ => SafeRefresh(canvas), null, interval, interval);
-        }
-
-        private static void SafeRefresh(ILiveDisplayCanvas canvas)
-        {
-            try
-            {
-                canvas.Refresh();
-            }
-            catch
-            {
-                // Ignore rendering exceptions from background updates.
-            }
-        }
-
-        public void Dispose()
-            => _timer.Dispose();
     }
 
     private sealed class LiveDisplayCanvasAdapter : ILiveDisplayCanvas

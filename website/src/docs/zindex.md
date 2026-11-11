@@ -99,14 +99,11 @@ In `RazorConsole`, the "Document" (Canvas) is dynamic.
 
 ## 6. Implementation Details
 
-Absolute positioning is handled by the [`AbsolutePositionMiddleware`](https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Rendering/Translation/Translators/AbsolutePositionMiddleware.cs). It intercepts nodes with the `position="absolute"` attribute and moves them to a special `CollectedOverlays` list in the `TranslationContext`.
+Absolute positioning is part of the widget layout engine. A widget with `position="absolute"` is taken out of its container's flow, so it does not affect the size or position of its siblings. [`Widget`](https://github.com/RazorConsole/RazorConsole/blob/main/src/RazorConsole.Core/Layout/Widget.cs) resolves its bounds against the document: `top` and `left` are offsets from the document root or the nearest absolute ancestor, while `bottom` and `right` are measured from the document edges.
 
-The final composition is performed by [`OverlayRenderable`](https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Renderables/OverlayRenderable.cs), which:
+[`LayoutEngine`](https://github.com/RazorConsole/RazorConsole/blob/main/src/RazorConsole.Core/Layout/LayoutEngine.cs) then grows the document to fit absolute widgets that extend past the flow content. When the frame is painted into terminal cells, absolute widgets are deferred and painted after the flow content in `z-index` order, so a higher `z-index` draws on top.
 
-1. Renders the background.
-2. Splits the output into a line-based `canvas`.
-3. Handles `z-index` sorting before merging
-4. Merges overlay segments into the canvas.
+Because overlays are ordinary widgets, they keep their layout bounds: focus, mouse hit-testing and layout queries see them where they are drawn.
 
 ---
 

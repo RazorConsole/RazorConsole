@@ -101,7 +101,7 @@ public sealed class WidgetTranslationContext
 
         if (string.Equals(node.TagName, "modal", StringComparison.OrdinalIgnoreCase))
         {
-            // Modals are centered absolute overlays (see ModalTranslator in the legacy pipeline).
+            // Modals are centered absolute overlays.
             var modalAttributes = new Dictionary<string, string?>(node.Attributes, StringComparer.Ordinal)
             {
                 ["position"] = "absolute",
