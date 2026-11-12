@@ -74,9 +74,21 @@ public sealed class WidgetTranslationContext
     }
 
     private Widget TranslateWith(int index, VNode node)
-        => index < _translators.Length
-            ? _translators[index].Translate(this, nextNode => TranslateWith(index + 1, nextNode), node)
-            : TranslateBuiltIn(node);
+    {
+        if (index >= _translators.Length)
+        {
+            return TranslateBuiltIn(node);
+        }
+
+        var translator = _translators[index];
+        return translator.Translate(this, nextNode => TranslateWith(index + 1, nextNode), node)
+            ?? throw new InvalidOperationException(
+                $"Widget translator '{translator.GetType().FullName}' returned null for {DescribeNode(node)}. "
+                + "Return a widget, or next(node) to pass the node on.");
+    }
+
+    private static string DescribeNode(VNode node)
+        => node.Kind == VNodeKind.Element ? $"<{node.TagName}>" : $"a {node.Kind} node";
 
     private Widget TranslateBuiltIn(VNode node)
     {

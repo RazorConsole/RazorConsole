@@ -47,7 +47,20 @@ IHostBuilder hostBuilder = Host.CreateDefaultBuilder(args)
 await hostBuilder.Build().RunAsync();
 ```
 
-Translators run in the order they are added, before RazorConsole's built-in translation, for every node in the tree. `AddWidgetTranslator(instance)` registers an existing instance instead.
+Translators run in the order they are added, before RazorConsole's built-in translation. `AddWidgetTranslator(instance)` registers an existing instance instead.
+
+#### Which nodes reach a translator
+
+A translator sees every node that becomes a widget of its own: the root, and every child that a built-in container (`div`, `Rows`, `Columns`, `Panel`, `Grid`, table cells, ...) translates through `context.Translate`. Your own elements are reached wherever they appear in the tree.
+
+Some built-in elements read their content directly and turn it into a single widget, so those inner nodes never reach a translator:
+
+- the text and inline elements (`<strong>`, `<a>`, `<code>`, ...) inside a paragraph or another inline run;
+- headings, list items and nested lists;
+- the `<code>` inside a `<pre>`;
+- the parts of built-in components, such as the series of a chart.
+
+To change those, handle the enclosing element, for example the `<p>`.
 
 #### Using it in components
 
@@ -61,6 +74,8 @@ Translators run in the order they are added, before RazorConsole's built-in tran
 #### Composing widgets and children
 
 A translator can return any widget, not only a `SpectreWidget`. Translate child nodes with `context.Translate(child)`, which runs the whole chain again, and arrange them with the built-in widgets such as `FlexWidget`, `BoxWidget`, `StackWidget` or `TableWidget`.
+
+Use `next(node)` for the node you are handling and `context.Translate(child)` only for its children. Calling `context.Translate(node)` on the current node restarts the chain on the same node and recurses until the stack overflows. A translator must return a widget; returning `null` throws an `InvalidOperationException` that names the translator.
 
 To change how an existing element looks, call `next(node)` and wrap the result:
 
@@ -95,6 +110,6 @@ RazorConsole 1.0 removes the legacy Spectre rendering pipeline along with `ITran
 | `context.AnimatedRenderables.Add(animated)` | `context.TrackAnimation(animated)` |
 | `services.AddSingleton<ITranslationMiddleware, T>()` | `services.AddWidgetTranslator<T>()` |
 
-Unlike the legacy chain, a widget translator runs for every node, including nodes nested inside built-in components.
+Under WidgetLayout, the legacy chain only ran for the nodes WidgetLayout handed back to Spectre. A widget translator runs for every node that becomes a widget, including the children of built-in containers; see [Which nodes reach a translator](#which-nodes-reach-a-translator) for the exceptions.
 
 For the design behind translation, see the [custom translators design document](https://github.com/RazorConsole/RazorConsole/blob/main/design-doc/custom-translators.md).

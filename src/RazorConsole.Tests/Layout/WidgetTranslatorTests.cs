@@ -95,6 +95,53 @@ public sealed class WidgetTranslatorTests
         terminal.CurrentFrame.ContainsText("[from app]").ShouldBeTrue(terminal.DumpDiagnostics());
     }
 
+    [Fact]
+    public void Translator_ReturningNull_ThrowsNamingTheTranslator()
+    {
+        var context = new WidgetTranslationContext([new NullTranslator()]);
+
+        var exception = Should.Throw<InvalidOperationException>(() => context.Translate(VNode.CreateElement("badge")));
+
+        exception.Message.ShouldContain(typeof(NullTranslator).FullName!);
+        exception.Message.ShouldContain("<badge>");
+    }
+
+    [Fact]
+    public void Translator_NullFromNextTranslator_IsReportedForThatTranslator()
+    {
+        var calls = new List<string>();
+        var context = new WidgetTranslationContext([new RecordingTranslator("outer", calls), new NullTranslator()]);
+
+        var exception = Should.Throw<InvalidOperationException>(() => context.Translate(VNode.CreateText("x")));
+
+        exception.Message.ShouldContain(typeof(NullTranslator).FullName!);
+        calls.ShouldBe(["outer"]);
+    }
+
+    [Fact]
+    public void Translator_SeesChildrenOfContainersButNotInlineContentOfParagraphs()
+    {
+        var seen = new List<string>();
+        var context = new WidgetTranslationContext([new TagRecordingTranslator(seen)]);
+        var root = VNode.CreateElement("div");
+        root.SetAttribute("class", "rows");
+        var standalone = VNode.CreateElement("strong");
+        standalone.AddChild(VNode.CreateText("alone"));
+        root.AddChild(standalone);
+        var paragraph = VNode.CreateElement("p");
+        paragraph.AddChild(VNode.CreateText("in "));
+        var nested = VNode.CreateElement("strong");
+        nested.AddChild(VNode.CreateText("paragraph"));
+        paragraph.AddChild(nested);
+        root.AddChild(paragraph);
+
+        var widget = context.Translate(root);
+
+        // The <strong> inside <p> is part of the paragraph's inline run and is not offered on its own.
+        seen.ShouldBe(["div", "strong", "p"]);
+        Render(widget, 20).ShouldBe("alone\nin paragraph");
+    }
+
     private static VNode Badge(string label)
     {
         var node = VNode.CreateElement("badge");
@@ -146,6 +193,24 @@ public sealed class WidgetTranslatorTests
         public Widget Translate(WidgetTranslationContext context, WidgetTranslationDelegate next, VNode node)
         {
             calls.Add(name);
+            return next(node);
+        }
+    }
+
+    private sealed class NullTranslator : IWidgetTranslator
+    {
+        public Widget Translate(WidgetTranslationContext context, WidgetTranslationDelegate next, VNode node) => null!;
+    }
+
+    private sealed class TagRecordingTranslator(List<string> seen) : IWidgetTranslator
+    {
+        public Widget Translate(WidgetTranslationContext context, WidgetTranslationDelegate next, VNode node)
+        {
+            if (node.Kind == VNodeKind.Element)
+            {
+                seen.Add(node.TagName!);
+            }
+
             return next(node);
         }
     }

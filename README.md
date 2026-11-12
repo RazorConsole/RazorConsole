@@ -227,7 +227,7 @@ IHost host = hostBuilder.Build();
 await host.RunAsync();
 ```
 
-Translators run in the order they are added, before the built-in translation, for every node in the tree.
+Translators run in the order they are added, before the built-in translation, for every node that becomes a widget. Inline content inside a paragraph, headings, list items and the parts of built-in components are read directly by their element; see [which nodes reach a translator](website/src/docs/custom-translators.md#which-nodes-reach-a-translator).
 
 ### Using Custom Translators in Components
 

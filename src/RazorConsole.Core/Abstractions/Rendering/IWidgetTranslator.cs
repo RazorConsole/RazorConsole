@@ -19,12 +19,20 @@ public delegate Widget WidgetTranslationDelegate(VNode node);
 /// <para>
 /// Register a translator with
 /// <see cref="RazorConsoleServiceCollectionExtensions.AddWidgetTranslator{TTranslator}(Microsoft.Extensions.DependencyInjection.IServiceCollection)"/>.
-/// Translators run in registration order, before RazorConsole's built-in translation, for every node in the tree.
+/// Translators run in registration order, before RazorConsole's built-in translation, for every node that becomes a widget
+/// of its own: the root, and every child that a built-in container translates through <see cref="WidgetTranslationContext.Translate(VNode)"/>.
+/// Some built-in elements read their content directly into a single widget, so those inner nodes never reach a translator:
+/// the text and inline elements (<c>strong</c>, <c>a</c>, <c>code</c>, ...) inside a paragraph or other inline run, headings,
+/// list items and nested lists, the <c>code</c> inside a <c>pre</c>, and the parts of built-in components such as chart series.
+/// To change those, handle the enclosing element.
 /// </para>
 /// <para>
 /// A translator either handles the node and returns a widget, or returns <c>next(node)</c> to pass it on.
 /// Calling <c>next(node)</c> and wrapping the result decorates the default translation.
 /// Translate child nodes with <see cref="WidgetTranslationContext.Translate(VNode)"/>, which runs the whole chain again.
+/// Never call it for the node being handled: that restarts the chain on the same node and recurses until the stack overflows.
+/// Use <c>next(node)</c> for the current node and <c>context.Translate(child)</c> only for its children.
+/// A translator must not return <see langword="null"/>.
 /// </para>
 /// <para>
 /// To show a Spectre.Console <see cref="Spectre.Console.Rendering.IRenderable"/>, return a <see cref="SpectreWidget"/>;

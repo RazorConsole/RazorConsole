@@ -154,7 +154,7 @@ flowchart TD
     Stack -->|children| VNode
 ```
 
-Translators run for every node, including children of built-in containers, because containers translate their children through the same `WidgetTranslationContext.Translate`. Animated renderables found while translating, such as spinners, are collected so the live display can refresh them on their interval. See [custom-translators.md](custom-translators.md).
+Translators run for every node that becomes a widget, including children of built-in containers, because containers translate their children through the same `WidgetTranslationContext.Translate`. Content that a built-in element reads directly into one widget, such as the inline run inside a paragraph, does not reach translators. Animated renderables found while translating, such as spinners, are collected so the live display can refresh them on their interval. See [custom-translators.md](custom-translators.md).
 
 ## Layout and Paint
 

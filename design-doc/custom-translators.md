@@ -24,7 +24,8 @@ public interface IWidgetTranslator
 ```
 
 - **Chain of responsibility.** Translators run in registration order. Each one either returns a widget for the node or returns `next(node)`. The end of the chain is the built-in translation, which handles every node, so `next` always produces a widget.
-- **Every node.** `WidgetTranslationContext.Translate` runs the chain for each node it visits, including children that built-in containers translate. A translator therefore sees nodes nested anywhere in the tree.
+- **Every widget node.** `WidgetTranslationContext.Translate` runs the chain for each node it visits, including children that built-in containers translate, so a translator sees custom elements nested anywhere in the tree. Built-in elements that read their content directly into one widget do not visit their inner nodes: inline runs (text, `strong`, `a`, `code`, ... inside a paragraph or inline wrapper), headings, list items and nested lists, the `code` inside a `pre`, and the parts of leaf components such as chart series. A translator changes those by handling the enclosing element.
+- **Null results.** A translator must return a widget. `WidgetTranslationContext` throws an `InvalidOperationException` naming the translator when one returns `null`, so the failure points at the culprit instead of surfacing later in layout.
 - **Children.** A translator that handles a container translates its children with `context.Translate(child)`, which runs the full chain again. Calling `context.Translate(node)` on the node being handled recurses forever; use `next(node)` instead.
 - **Decoration.** Calling `next(node)` and wrapping or replacing the result changes a built-in element without reimplementing it.
 - **Identity.** The widget that represents a node should carry the node's `ID`, `Key` and `Attributes`. Layout introspection, focus and mouse hit-testing look widgets up by those values.
@@ -61,7 +62,7 @@ The built-in translation maps RazorConsole's own markup to widgets:
 
 ## History
 
-Before 1.0, RazorConsole had a second, Spectre-based pipeline that translated nodes straight to `IRenderable` through `ITranslationMiddleware`. WidgetLayout borrowed that chain as a fallback for some nodes, which made custom middleware run only for those nodes and left their subtrees without layout information. RazorConsole 1.0 removes the legacy pipeline; `IWidgetTranslator` replaces `ITranslationMiddleware` with the same shape but returns widgets and runs for every node.
+Before 1.0, RazorConsole had a second, Spectre-based pipeline that translated nodes straight to `IRenderable` through `ITranslationMiddleware`. WidgetLayout borrowed that chain as a fallback for some nodes, which made custom middleware run only for those nodes and left their subtrees without layout information. RazorConsole 1.0 removes the legacy pipeline; `IWidgetTranslator` replaces `ITranslationMiddleware` with the same shape but returns widgets and runs for every node that becomes a widget.
 
 ## Testing
 
