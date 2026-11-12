@@ -106,7 +106,9 @@ public sealed class FlexWidget : Widget
         var totalGap = Math.Max(0, flowChildren.Length - 1) * Gap;
         if (WrapsRows)
         {
-            var lines = PartitionRowLines(flowChildren, Width ?? constraints.MaxWidth);
+            // Break lines at the width ArrangeRow will get: a fixed Width larger than the constraint is
+            // clamped, so measuring at the unclamped width would report fewer lines than are arranged.
+            var lines = PartitionRowLines(flowChildren, Math.Min(Width ?? constraints.MaxWidth, constraints.MaxWidth));
             width = lines.Max(MeasureLineWidth);
             height = lines.Sum(line => line.Select(child => child.DesiredSize.Height).DefaultIfEmpty(0).Max());
         }

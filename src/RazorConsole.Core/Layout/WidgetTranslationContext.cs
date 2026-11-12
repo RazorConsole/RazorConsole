@@ -409,9 +409,20 @@ public sealed class WidgetTranslationContext
         };
 
     // Components that wrap a Spectre.Console renderable become opaque leaves that paint into the cell grid.
+    // A malformed node (a missing size, an unknown color, a chart too small for its axes) makes the
+    // builders throw; it then falls back to the default widget instead of failing the whole render.
     private Widget? TryCreateLeafWidget(VNode node, string? className, int zIndex)
     {
-        var renderable = CreateLeafRenderable(node, className);
+        IRenderable? renderable;
+        try
+        {
+            renderable = CreateLeafRenderable(node, className);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
         return renderable is null
             ? null
             : new SpectreWidget(node.ID, renderable, node.Key, node.Attributes, zIndex);
@@ -532,10 +543,13 @@ public sealed class WidgetTranslationContext
             return null;
         }
 
+        // The run becomes one piece of markup, so only this node keeps its identity. Nested inline
+        // elements are flattened: their classes, event handlers and focus keys are dropped, as they were
+        // in the legacy pipeline. Give such an element its own block (or a class) to keep it interactive.
         IReadOnlyList<VNode> run = isInlineElement ? [node] : node.Children;
-        if (InlineMarkupBuilder.TryBuildFlowMarkup(run, out var markup))
+        if (InlineMarkupBuilder.TryBuildFlowMarkup(run, out var markup) && TryCreateMarkup(markup) is { } inlineMarkup)
         {
-            return new SpectreWidget(node.ID, new Markup(markup), node.Key, node.Attributes, zIndex);
+            return new SpectreWidget(node.ID, inlineMarkup, node.Key, node.Attributes, zIndex);
         }
 
         // A paragraph holding components keeps its children side by side, wrapping when they do not fit.
@@ -546,6 +560,19 @@ public sealed class WidgetTranslationContext
 
     private static bool IsInlineElement(VNode node)
         => node.Kind == VNodeKind.Element && InlineMarkupBuilder.IsInlineTag(node.TagName);
+
+    // The builder escapes text, so parsing should not fail; if it does, the node takes the default path.
+    private static Markup? TryCreateMarkup(string markup)
+    {
+        try
+        {
+            return new Markup(markup);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
 
     private static bool IsFlexNode(VNode node, string? className)
         => string.Equals(className, "flex", StringComparison.OrdinalIgnoreCase)

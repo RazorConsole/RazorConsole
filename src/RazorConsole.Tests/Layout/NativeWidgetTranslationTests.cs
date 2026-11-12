@@ -207,6 +207,92 @@ public sealed class NativeWidgetTranslationTests
         Render(widget, 20).ShouldContain("Apples");
     }
 
+    [Theory]
+    [InlineData("data-color", "notacolor")]
+    [InlineData("data-axes-color", "notacolor")]
+    [InlineData("data-width", "2")]
+    public void StepChart_WithBadAttribute_FallsBackInsteadOfThrowing(string name, string value)
+    {
+        var node = Element("stepchart", ("data-show-axes", "true"), ("data-width", "20"), ("data-height", "6"));
+        var series = Element("chartseries", ("data-points", "0,1;1,2;2,3"));
+        node.AddChild(series);
+        (name == "data-color" ? series : node).SetAttribute(name, value);
+
+        var widget = Should.NotThrow(() => new WidgetTranslationContext().Translate(node));
+
+        widget.ShouldNotBeOfType<SpectreWidget>();
+        Should.NotThrow(() => Render(widget, 20));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("abc")]
+    [InlineData("0")]
+    public void Canvas_WithMissingOrInvalidSize_FallsBackInsteadOfThrowing(string? width)
+    {
+        var node = Element("div", ("data-canvas", "true"), ("data-height", "4"), ("data-canvas-data-id", Guid.NewGuid().ToString()));
+        if (width is not null)
+        {
+            node.SetAttribute("data-width", width);
+        }
+
+        var widget = Should.NotThrow(() => new WidgetTranslationContext().Translate(node));
+
+        widget.ShouldNotBeOfType<SpectreWidget>();
+    }
+
+    [Fact]
+    public void Paragraph_FlattensNestedInlineElements_DroppingTheirClassesAndHandlers()
+    {
+        var paragraph = Element("p");
+        paragraph.AddChild(Text("Press "));
+        var link = Element("a", ("href", "https://example.com"), ("data-focus-key", "link"), (IVNodeIdAccessor.HookAttributeName, "1"));
+        link.AddChild(Text("here"));
+        paragraph.AddChild(link);
+        paragraph.AddChild(Text(" or "));
+        var strong = Element("strong", ("class", "x"));
+        strong.AddChild(Text("there"));
+        paragraph.AddChild(strong);
+
+        var widget = new WidgetTranslationContext().Translate(paragraph);
+
+        // One leaf for the whole run: the nested elements get no widgets, bounds or focus of their own.
+        widget.ShouldBeOfType<SpectreWidget>();
+        widget.Children.ShouldBeEmpty();
+        Render(widget, 40).ShouldBe("Press here or there");
+    }
+
+    [Fact]
+    public void FlexWidget_Wrap_FixedWidthWiderThanConstraint_MeasuresTheArrangedLines()
+    {
+        var widget = new FlexWidget(
+            "flex",
+            [new TextWidget("a", "aaaa"), new TextWidget("b", "bbbb"), new TextWidget("c", "cccc")],
+            wrap: FlexWrap.Wrap,
+            width: 12);
+
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 8, 0, 10));
+
+        result.Size.ShouldBe(new LayoutSize(8, 2));
+        RenderText(result, 8).ShouldBe("aaaabbbb\ncccc");
+    }
+
+    [Fact]
+    public void FlexWidget_Wrap_FillWidth_MeasuresTheArrangedLines()
+    {
+        var widget = new FlexWidget(
+            "flex",
+            [new TextWidget("a", "aaaa"), new TextWidget("b", "bbbb"), new TextWidget("c", "cccc")],
+            wrap: FlexWrap.Wrap,
+            gap: 1,
+            fillWidth: true);
+
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 10, 0, 10));
+
+        result.Size.ShouldBe(new LayoutSize(10, 2));
+        RenderText(result, 10).ShouldBe("aaaa bbbb\ncccc");
+    }
+
     [Fact]
     public void FlexWidget_WrapsRowItemsOntoNewLines()
     {

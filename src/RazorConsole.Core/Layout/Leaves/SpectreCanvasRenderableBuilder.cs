@@ -17,20 +17,24 @@ internal static class SpectreCanvasRenderableBuilder
             return null;
         }
 
-        var width = GetIntAttribute(node, "data-width");
-        var height = GetIntAttribute(node, "data-height");
-        var scale = GetBoolAttribute(node, "data-scale", false);
-        var maxWidth = GetNullableIntAttribute(node, "data-maxwidth");
-        var pixelsDataIdAttribute = VNodeAttributeReader.GetAttribute(node, "data-canvas-data-id");
-
-        var canvas = new Canvas(width, height);
-
-        if (maxWidth.HasValue)
+        // A canvas needs a positive size; without one the node falls back to the default widget.
+        if (!VNodeAttributeReader.TryParsePositiveInt(VNodeAttributeReader.GetAttribute(node, "data-width"), out var width)
+            || !VNodeAttributeReader.TryParsePositiveInt(VNodeAttributeReader.GetAttribute(node, "data-height"), out var height))
         {
-            canvas.MaxWidth = maxWidth.Value;
+            return null;
         }
 
-        canvas.Scale = scale;
+        var pixelsDataIdAttribute = VNodeAttributeReader.GetAttribute(node, "data-canvas-data-id");
+
+        var canvas = new Canvas(width, height)
+        {
+            Scale = VNodeAttributeReader.TryGetBoolAttribute(node, "data-scale", out var scale) && scale,
+        };
+
+        if (VNodeAttributeReader.TryParsePositiveInt(VNodeAttributeReader.GetAttribute(node, "data-maxwidth"), out var maxWidth))
+        {
+            canvas.MaxWidth = maxWidth;
+        }
 
         if (!string.IsNullOrWhiteSpace(pixelsDataIdAttribute) &&
             Guid.TryParse(pixelsDataIdAttribute, out var dataId))
@@ -60,42 +64,5 @@ internal static class SpectreCanvasRenderableBuilder
            && string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
            && node.Attributes.TryGetValue("data-canvas", out var canvasAttr)
            && string.Equals(canvasAttr, "true", StringComparison.OrdinalIgnoreCase);
-
-    private static int GetIntAttribute(VNode node, string name, int? defaultValue = null)
-    {
-        if (node.Attributes.TryGetValue(name, out var value)
-            && int.TryParse(value, out var result))
-        {
-            return result;
-        }
-
-        if (defaultValue.HasValue)
-        {
-            return defaultValue.Value;
-        }
-
-        throw new InvalidOperationException($"Required canvas attribute '{name}' is missing or has an invalid value.");
-    }
-
-    private static bool GetBoolAttribute(VNode node, string name, bool defaultValue)
-    {
-        if (node.Attributes.TryGetValue(name, out var value))
-        {
-            return string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
-        }
-
-        return defaultValue;
-    }
-
-    private static int? GetNullableIntAttribute(VNode node, string name)
-    {
-        if (node.Attributes.TryGetValue(name, out var value)
-            && int.TryParse(value, out var result))
-        {
-            return result;
-        }
-
-        return null;
-    }
 }
 
