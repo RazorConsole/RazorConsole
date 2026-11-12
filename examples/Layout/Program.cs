@@ -12,7 +12,6 @@ var builder = Host.CreateDefaultBuilder(args)
             services.Configure<ConsoleAppOptions>(options =>
             {
                 options.EnableTerminalResizing = true;
-                options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
             });
         });
     });

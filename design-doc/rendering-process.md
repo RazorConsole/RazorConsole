@@ -1,76 +1,50 @@
 # Rendering Process
 
-This document describes the complete rendering pipeline in RazorConsole, from Razor component to console output.
+This document describes the rendering pipeline in RazorConsole, from Razor component to console output.
 
 ## Overview
 
-RazorConsole uses a multi-stage rendering pipeline that converts Razor components into console output:
+RazorConsole converts Razor components into console output in these stages:
 
-1. **Component Rendering**: Blazor renders Razor components into a `RenderBatch`
-2. **VDOM Construction**: `ConsoleRenderer` converts `RenderBatch` into a `VNode` tree
-3. **Translation**: `VdomSpectreTranslator` converts `VNode` tree into Spectre.Console `IRenderable`
-4. **Diff & Update**: `VdomDiffService` computes differences for efficient updates
-5. **Console Output**: Spectre.Console renders to ANSI escape sequences
+1. **Component Rendering**: Blazor renders Razor components into a `RenderBatch`.
+2. **VDOM Construction**: `ConsoleRenderer` applies the batch to a `VNode` tree.
+3. **Widget Translation**: `WidgetTranslationContext` translates the `VNode` tree into a `Widget` tree, running registered `IWidgetTranslator`s before the built-in translation.
+4. **Layout**: `LayoutEngine` measures and arranges the widgets within the terminal viewport and records the bounds of every node.
+5. **Paint**: the laid-out widgets paint into a `TerminalCanvas` of terminal cells; absolute-positioned widgets paint last, in `z-index` order.
+6. **Console Output**: the live display writes the frame through Spectre.Console as ANSI escape sequences.
+
+Before 1.0 there was also a legacy pipeline that translated `VNode`s straight to Spectre.Console `IRenderable`s through `ITranslationMiddleware`. It could not report element bounds and was removed in 1.0.
 
 ## Complete Rendering Flow
 
 ```mermaid
 sequenceDiagram
     participant Component as Razor Component
-    participant Blazor as Blazor Renderer
     participant Renderer as ConsoleRenderer
-    participant Batch as RenderBatch
     participant VNode as VNode Tree
-    participant Translator as VdomSpectreTranslator
-    participant Renderable as IRenderable
-    participant Diff as VdomDiffService
-    participant LiveDisplay as ConsoleLiveDisplayContext
-    participant Spectre as Spectre.Console
+    participant Translator as WidgetTranslationContext
+    participant Layout as LayoutEngine
+    participant Canvas as TerminalCanvas
+    participant LiveDisplay as Live display
     participant Output as Console Output
 
-    Note over Component,Output: Initial Render
-    Component->>Blazor: Render component
-    Blazor->>Batch: Create RenderBatch
-    Batch->>Renderer: UpdateDisplayAsync(batch)
-    Renderer->>Renderer: ApplyComponentEdits()
-    Renderer->>Renderer: BuildSubtree()
-    Renderer->>VNode: Create VNode tree
-    VNode->>Translator: TryTranslate(vnode)
-    Translator->>Translator: TryTranslateElement()
-    Translator->>Renderable: Create IRenderable
-    Renderable->>Renderer: CreateSnapshot()
+    Note over Component,Output: Initial render and every re-render
+    Component->>Renderer: RenderBatch (UpdateDisplayAsync)
+    Renderer->>VNode: Apply component edits
+    Renderer->>Translator: Translate(root)
+    Translator->>Translator: Custom IWidgetTranslators, then built-in translation
+    Translator-->>Renderer: Widget tree
+    Renderer->>Layout: Layout(widgets, viewport constraints)
+    Layout-->>Renderer: LayoutResult (bounds per node)
+    Renderer->>Renderer: Update layout accessors, create RenderSnapshot
     Renderer->>LiveDisplay: OnNext(snapshot)
-    LiveDisplay->>Diff: Diff(previous, current)
-    Diff->>LiveDisplay: VdomDiffResult
-    alt Has changes
-        LiveDisplay->>LiveDisplay: TryApplyMutations()
-        LiveDisplay->>Spectre: UpdateTarget(renderable)
-    else No changes
-        LiveDisplay->>LiveDisplay: Skip update
+    LiveDisplay->>LiveDisplay: Diff VNode trees
+    alt Tree changed
+        LiveDisplay->>Canvas: Paint widgets into cells
+        Canvas->>Output: Write changed lines as ANSI
+    else No change
+        LiveDisplay->>LiveDisplay: Skip redraw
     end
-    Spectre->>Output: Write ANSI sequences
-
-    Note over Component,Output: Re-render (State Change)
-    Component->>Component: StateChanged()
-    Component->>Blazor: RequestRender()
-    Blazor->>Batch: Create new RenderBatch
-    Batch->>Renderer: UpdateDisplayAsync(batch)
-    Renderer->>Renderer: ApplyComponentEdits()
-    Note right of Renderer: Only changed components are processed
-    Renderer->>VNode: Update VNode tree
-    VNode->>Translator: TryTranslate(vnode)
-    Translator->>Renderable: Create new IRenderable
-    Renderable->>Renderer: CreateSnapshot()
-    Renderer->>LiveDisplay: OnNext(snapshot)
-    LiveDisplay->>Diff: Diff(previous, current)
-    Diff->>LiveDisplay: Mutations list
-    LiveDisplay->>LiveDisplay: TryApplyMutations()
-    alt Can apply mutations
-        LiveDisplay->>Spectre: TryUpdateText/Attributes/ReplaceNode()
-    else Full update
-        LiveDisplay->>Spectre: UpdateTarget(renderable)
-    end
-    Spectre->>Output: Write ANSI sequences
 ```
 
 ## Component Lifecycle
@@ -78,37 +52,38 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> Mount: Component Mount
-    
+
     state Mount {
         [*] --> InstantiateComponent
         InstantiateComponent --> AssignComponentId
         AssignComponentId --> RenderRootComponent
     }
-    
+
     state Render {
         RenderRootComponent --> BuildRenderTree
         BuildRenderTree --> CreateRenderBatch
         CreateRenderBatch --> UpdateDisplayAsync
         UpdateDisplayAsync --> BuildVNodeTree
-        BuildVNodeTree --> TranslateToRenderable
-        TranslateToRenderable --> CreateSnapshot
+        BuildVNodeTree --> TranslateToWidgets
+        TranslateToWidgets --> LayoutWidgets
+        LayoutWidgets --> CreateSnapshot
     }
-    
+
     state Update {
         CreateSnapshot --> NotifyObservers
         NotifyObservers --> DiffVDOM
-        DiffVDOM --> ApplyMutations
-        ApplyMutations --> UpdateConsole
+        DiffVDOM --> PaintCells
+        PaintCells --> UpdateConsole
     }
-    
+
     state Events {
         UpdateConsole --> WaitForInput
-        WaitForInput --> KeyboardEvent
-        KeyboardEvent --> DispatchEvent
+        WaitForInput --> InputEvent
+        InputEvent --> DispatchEvent
         DispatchEvent --> StateChange
         StateChange --> Render
     }
-    
+
     Mount --> Render
     Render --> Update
     Update --> Events
@@ -156,98 +131,65 @@ flowchart TD
     Build -.-> note1
 ```
 
-## Translation Process
+## Widget Translation
 
 ```mermaid
 flowchart TD
-    VNode[VNode Tree] --> Translate[TryTranslate]
-    Translate -->|Switch by VNodeKind| Translate
-    
-    Translate -->|VNodeKind.Text| TextPath[Create Text]
-    TextPath --> Renderable[IRenderable]
-    
-    Translate -->|VNodeKind.Element| TranslateElement[TryTranslateElement]
-    TranslateElement --> Interface[IVdomElementTranslator]
-    Interface -->|Priority order| Button[ButtonElementTranslator]
-    Interface -->|Priority order| Panel[PanelElementTranslator]
-    Interface -->|Priority order| TextTranslator[TextElementTranslator]
-    Interface -->|Priority order| Custom[Custom Translators]
-    
-    Button -->|TryTranslate| Match{Translator matches?}
-    Panel -->|TryTranslate| Match
-    TextTranslator -->|TryTranslate| Match
-    Custom -->|TryTranslate| Match
-    
-    Match -->|Yes| Context[TranslationContext]
-    Context -->|Recursive call| Translate
-    Context --> SpectreComp[Create Spectre component]
-    SpectreComp --> Renderable
-    
-    Match -->|No| Fail[null - fail]
-    
-    Translate -->|VNodeKind.Component| Context2[TranslationContext]
-    Context2 --> BlockInline[BlockInlineRenderable]
-    BlockInline --> Renderable
-    
-    Translate --> Animated[Collect animated renderables]
-    Animated --> Renderable
-    
-    note1[Translators are ordered by Priority.<br/>First matching translator wins.]
-    Interface -.-> note1
+    VNode[VNode] --> Custom{Custom IWidgetTranslator<br/>handles it?}
+    Custom -->|Yes| CustomWidget[Widget from the translator]
+    Custom -->|"No: next(node)"| BuiltIn[Built-in translation]
+
+    BuiltIn -->|Text, span data-text| Text[TextWidget]
+    BuiltIn -->|Rows, Columns, Flex, FlexBox| Flex[FlexWidget]
+    BuiltIn -->|Panel, Padder, Box| Box[BoxWidget]
+    BuiltIn -->|table, Grid| Table[TableWidget]
+    BuiltIn -->|Scrollable| Scroll[ScrollableWidget]
+    BuiltIn -->|p, strong, em, code, a| Inline[SpectreWidget with wrapped Markup]
+    BuiltIn -->|Charts, Figlet, Spinner, SyntaxHighlighter| Leaf[SpectreWidget leaf]
+    BuiltIn -->|Anything else| Stack[StackWidget of children]
+
+    Flex -->|children| VNode
+    Box -->|children| VNode
+    Table -->|cells| VNode
+    Stack -->|children| VNode
 ```
 
-## Diff and Update Process
+Translators run for every node that becomes a widget, including children of built-in containers, because containers translate their children through the same `WidgetTranslationContext.Translate`. Content that a built-in element reads directly into one widget, such as the inline run inside a paragraph, does not reach translators. Animated renderables found while translating, such as spinners, are collected so the live display can refresh them on their interval. See [custom-translators.md](custom-translators.md).
+
+## Layout and Paint
+
+`LayoutEngine.Layout` measures the widget tree against the viewport constraints, arranges every widget into a `LayoutRect`, and grows the document to fit absolute-positioned widgets. The resulting `LayoutResult` provides:
+
+- the layout box of every node, which feeds `IVNodeLayoutAccessor`, focus and mouse hit-testing, and the diagnostics endpoint;
+- `PaintToRenderable()`, which paints the widgets into a `TerminalCanvas` when the frame is written.
+
+`SpectreWidget` leaves render their Spectre.Console renderable at the width they were given and copy the resulting segments into the canvas cells, so Spectre-backed content takes part in layout like any other widget.
+
+## Update Process
 
 ```mermaid
 sequenceDiagram
     participant Renderer as ConsoleRenderer
-    participant Snapshot as RenderSnapshot
     participant LiveDisplay as ConsoleLiveDisplayContext
     participant DiffService as VdomDiffService
-    participant DiffResult as VdomDiffResult
     participant Canvas as LiveDisplayCanvas
-    participant Spectre as Spectre.Console
+    participant Terminal as Terminal
 
-    Renderer->>Snapshot: CreateSnapshot()
-    Snapshot->>LiveDisplay: OnNext(snapshot)
-    LiveDisplay->>LiveDisplay: UpdateView(view)
-
-    alt First render
-        LiveDisplay->>Canvas: UpdateTarget(renderable)
-        Canvas->>Spectre: Write(renderable)
-    else Subsequent render
+    Renderer->>LiveDisplay: OnNext(snapshot)
+    alt First frame
+        LiveDisplay->>Canvas: UpdateTarget(frame)
+    else Later frame
         LiveDisplay->>DiffService: Diff(previousRoot, currentRoot)
-        DiffService->>DiffResult: Compute mutations
-        
-        alt Has changes
-            DiffResult->>LiveDisplay: Mutations list
-            LiveDisplay->>LiveDisplay: TryApplyMutations()
-            
-            loop For each mutation
-                alt UpdateText
-                    LiveDisplay->>Canvas: TryUpdateText(path, text)
-                else UpdateAttributes
-                    LiveDisplay->>Canvas: TryUpdateAttributes(path, attrs)
-                else ReplaceNode
-                    LiveDisplay->>LiveDisplay: TryReplaceNode()
-                    LiveDisplay->>Canvas: TryReplaceNode(path, renderable)
-                end
-            end
-            
-            alt Mutations applied
-                Canvas->>Spectre: Partial update
-            else Fallback to full update
-                Canvas->>Spectre: UpdateTarget(renderable)
-            end
-        else No changes
-            LiveDisplay->>LiveDisplay: Skip update
+        alt Tree changed
+            LiveDisplay->>Canvas: UpdateTarget(frame)
+        else No change
+            LiveDisplay->>LiveDisplay: Skip redraw
         end
     end
-
-    Spectre->>Spectre: Render to ANSI
-
-    Note right of DiffService: Diff algorithm:<br/>1. Compare VNode trees recursively<br/>2. Detect text changes<br/>3. Detect attribute changes<br/>4. Detect structural changes<br/>5. Generate mutation list
+    Canvas->>Terminal: Write the lines that changed
 ```
+
+A terminal resize refreshes the snapshot through the same path, so the frame is laid out again at the new size. Issue #425 plans to make the painted cell grid the pipeline's official output, with terminal, headless and diagnostics backends consuming the same frames.
 
 ## Event Handling and Re-render
 

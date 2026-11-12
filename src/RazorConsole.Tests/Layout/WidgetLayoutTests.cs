@@ -413,6 +413,25 @@ public sealed class WidgetLayoutTests
         RenderToText(orderedResult.PaintToRenderable(), maxWidth: 20).ShouldBe("50. Coffee");
     }
 
+    [Theory]
+    [InlineData("invalid")]
+    [InlineData("")]
+    public void WidgetTranslationContext_OrderedListWithInvalidStart_NumbersFromOne(string start)
+    {
+        var ordered = VNode.CreateElement("ol");
+        ordered.SetAttribute("start", start);
+        foreach (var text in new[] { "First", "Second" })
+        {
+            var item = VNode.CreateElement("li");
+            item.AddChild(VNode.CreateText(text));
+            ordered.AddChild(item);
+        }
+
+        var result = new LayoutEngine().Layout(new WidgetTranslationContext().Translate(ordered), new BoxConstraints(0, 20, 0, 5));
+
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("1. First \n2. Second");
+    }
+
     [Fact]
     public void WidgetTranslationContext_TranslatesPanelWithSpectreDefaultPaddingAndExpand()
     {

@@ -119,8 +119,6 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
     {
         var initialView = await RenderComponentInternalAsync(token).ConfigureAwait(false);
 
-        var callback = options.AfterRenderAsync ?? ConsoleAppOptions.DefaultAfterRenderAsync;
-
         if (options.AutoClearConsole)
         {
             AnsiConsole.Clear();
@@ -135,8 +133,6 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
         {
             terminalMonitor.Start(token);
         }
-
-        await callback(liveContext, initialView, token).ConfigureAwait(false);
 
         await Task.Delay(Timeout.InfiniteTimeSpan, token).ConfigureAwait(false);
     }

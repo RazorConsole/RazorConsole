@@ -46,7 +46,6 @@ hostBuilder.ConfigureServices((context, services) =>
     {
         options.AutoClearConsole = false;
         options.EnableTerminalResizing = true;
-        options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
         options.ConsoleLiveDisplayOptions.UseAlternateScreenBuffer = true;
         options.ConsoleLiveDisplayOptions.EnableMouseEvents = true;
     });

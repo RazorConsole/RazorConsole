@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Globalization;
+using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Layout.Leaves;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering;
@@ -13,32 +14,85 @@ using Spectre.Console.Rendering;
 
 namespace RazorConsole.Core.Layout;
 
+/// <summary>
+/// Translates a virtual DOM tree into the <see cref="Widget"/> tree that the layout engine measures and paints.
+/// </summary>
 public sealed class WidgetTranslationContext
 {
+    private readonly IWidgetTranslator[] _translators;
     private readonly ScrollableLayoutCoordinator? _scrollableLayoutCoordinator;
     private readonly SyntaxHighlightingService? _syntaxHighlightingService;
     private readonly HashSet<IAnimatedConsoleRenderable> _animatedRenderables = [];
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WidgetTranslationContext"/> class.
+    /// </summary>
+    /// <param name="translators">Custom translators, run in order before the built-in translation.</param>
+    /// <param name="scrollableLayoutCoordinator">Coordinates view-height scrollables with the layout.</param>
+    /// <param name="syntaxHighlightingService">Highlights code blocks.</param>
     public WidgetTranslationContext(
+        IEnumerable<IWidgetTranslator>? translators = null,
         ScrollableLayoutCoordinator? scrollableLayoutCoordinator = null,
         SyntaxHighlightingService? syntaxHighlightingService = null)
     {
+        _translators = translators?.ToArray() ?? [];
         _scrollableLayoutCoordinator = scrollableLayoutCoordinator;
         _syntaxHighlightingService = syntaxHighlightingService;
     }
 
+    /// <summary>
+    /// Gets the animated renderables found in the current translation.
+    /// </summary>
     public IReadOnlyCollection<IAnimatedConsoleRenderable> AnimatedRenderables => _animatedRenderables;
 
+    /// <summary>
+    /// Forgets the animated renderables of the previous translation.
+    /// </summary>
     public void ClearAnimatedRenderables()
         => _animatedRenderables.Clear();
 
+    /// <summary>
+    /// Registers an animated renderable so the display refreshes it on its interval.
+    /// Custom translators call this for animated content they place in a <see cref="SpectreWidget"/>.
+    /// </summary>
+    /// <param name="renderable">The animated renderable.</param>
+    public void TrackAnimation(IAnimatedConsoleRenderable renderable)
+    {
+        ArgumentNullException.ThrowIfNull(renderable);
+        _animatedRenderables.Add(renderable);
+    }
+
+    /// <summary>
+    /// Translates <paramref name="node"/> through the custom translators and then the built-in translation.
+    /// </summary>
+    /// <param name="node">The virtual DOM node to translate.</param>
+    /// <returns>The widget for <paramref name="node"/>.</returns>
     public Widget Translate(VNode node)
     {
-        if (node is null)
+        ArgumentNullException.ThrowIfNull(node);
+        return _translators.Length == 0 ? TranslateBuiltIn(node) : TranslateWith(0, node);
+    }
+
+    private Widget TranslateWith(int index, VNode node)
+    {
+        if (index >= _translators.Length)
         {
-            throw new ArgumentNullException(nameof(node));
+            return TranslateBuiltIn(node);
         }
 
+        var translator = _translators[index];
+        return translator.Translate(this, nextNode => TranslateWith(index + 1, nextNode), node)
+            ?? throw new InvalidOperationException(
+                $"Widget translator '{translator.GetType().FullName}' returned null for {DescribeNode(node)}. "
+                + "Return a widget, or next(node) to pass the node on.");
+    }
+
+    private static string DescribeNode(VNode node)
+        => node.Kind == VNodeKind.Element ? $"<{node.TagName}>" : $"a {node.Kind} node";
+
+    private Widget TranslateBuiltIn(VNode node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
         return node.Kind switch
         {
             VNodeKind.Text => new TextWidget(node.ID, string.IsNullOrWhiteSpace(node.Text) ? string.Empty : node.Text),
@@ -59,7 +113,7 @@ public sealed class WidgetTranslationContext
 
         if (string.Equals(node.TagName, "modal", StringComparison.OrdinalIgnoreCase))
         {
-            // Modals are centered absolute overlays (see ModalTranslator in the legacy pipeline).
+            // Modals are centered absolute overlays.
             var modalAttributes = new Dictionary<string, string?>(node.Attributes, StringComparer.Ordinal)
             {
                 ["position"] = "absolute",

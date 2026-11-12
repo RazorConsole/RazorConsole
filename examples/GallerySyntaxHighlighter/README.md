@@ -6,14 +6,6 @@ This project keeps the Gallery preview as a runnable sample and intentionally om
 
 ## Run
 
-Legacy Spectre layout pipeline:
-
 ```bash
-dotnet run --project examples/GallerySyntaxHighlighter/GallerySyntaxHighlighter.csproj -f net10.0
-```
-
-WidgetLayout pipeline:
-
-```bash
-dotnet run --project examples/GallerySyntaxHighlighter/GallerySyntaxHighlighter.csproj -f net10.0 -- --widget-layout
+dotnet run --project examples/GallerySyntaxHighlighter/GallerySyntaxHighlighter.csproj
 ```

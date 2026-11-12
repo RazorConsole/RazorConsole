@@ -1,70 +1,38 @@
 ### VDom Tree Visualization
 
-Debug and inspect the Virtual DOM structure of your RazorConsole components with the built-in VDom tree printer.
+Debug and inspect the Virtual DOM structure of your RazorConsole components with the `razorconsole` command-line tool.
 
 #### Overview
 
-RazorConsole uses a Virtual DOM (VDOM) to efficiently render Razor components to the console. When debugging complex component hierarchies or investigating rendering issues, you can enable the VDom tree printer to visualize the internal structure.
+RazorConsole turns your Razor components into a Virtual DOM (VDOM), translates it into layout widgets, and paints them into terminal cells. When you debug a complex component hierarchy or a rendering issue, you can read the live tree of a running app, including where each element was laid out.
 
-#### How to Enable
+#### Reading the tree
 
-Set the `RC_PRINT_VDOM_TREE` environment variable to `true` before running your application:
+Start your app in a session and read its tree:
 
-**On Windows (PowerShell):**
-
-```shell
-$env:RC_PRINT_VDOM_TREE="true"
-dotnet run
+```bash
+razorconsole start demo --project ./MyApp
+razorconsole tree --depth 3
 ```
 
-**On Linux/macOS:**
+Each line shows an element with its tag, generated id, `@key`, hook, focus key, text, and laid-out position and size (`@left,top widthxheight`). `tree <selector>` limits the output to one element and its children, for example `razorconsole tree hook:sidebar`. Add `--json` for the full tree with each element's attributes.
 
-```shell
-RC_PRINT_VDOM_TREE=true dotnet run
+#### Inspecting one element
+
+```bash
+razorconsole find text:Save          # every element that holds "Save"
+razorconsole inspect hook:save       # one element and the chain of its ancestors
+razorconsole inspect-at 10 4         # the cell at column 10, row 4 and the elements under it
 ```
 
-**Or inline:**
+Add `data-vnode-hook="<name>"` to an element to give it a stable `hook:<name>` selector. The [command-line tool guide](/docs#cli) describes every selector and command.
 
-```shell
-RC_PRINT_VDOM_TREE=true dotnet watch run
-```
+#### Watching the tree change
 
-#### What You'll See
+`razorconsole frames` and `razorconsole diff` show recent terminal frames and what changed between them. Run `tree` again after sending keys or clicks to see how the tree changed.
 
-When enabled, the tree printer displays each frame's VDOM structure in a panel, showing:
+> **Note:** The diagnostics endpoint the tool connects to is enabled by default for Debug builds and the Development environment. Set `ConsoleAppOptions.Diagnostics` to `Disabled` or the `RAZORCONSOLE_DIAGNOSTICS` environment variable to `0` to turn it off.
 
-- **Node hierarchy** - Visual tree structure with indentation
-- **Node types** - Element, Text, Component, or Region
-- **Element details** - Tag names, keys, IDs, and text content
-- **Attributes** - All data attributes attached to nodes
-- **Events** - Registered event handlers (onclick, onfocus, etc.)
+#### Before 1.0
 
-**Example output:**
-
-```
-Frame 1
-┌─────────────────────────────────────────┐
-│ • Element div key=root-key text='...'   │
-│    v-id=a3f2 attrs[data-rows=true]      │
-│   ├── Element span key=first            │
-│   │   text='First Item' v-id=b7c4       │
-│   │   attrs[data-focusable=true]        │
-│   │   events[onfocus, onfocusin]        │
-│   └── Element span key=second           │
-│       text='Second Item' v-id=c1d8      │
-│       attrs[data-focusable=true]        │
-│       events[onfocus, onfocusin]        │
-└─────────────────────────────────────────┘
-```
-
-#### Frame History
-
-The tree printer accumulates frames as your application runs, allowing you to see how the VDOM evolves over time. Each panel represents a snapshot of the VDOM at a specific render cycle.
-
-> **Note:** This feature has a performance impact and is intended for development and debugging only. Don't enable it in production environments.
-
-#### Technical Details
-
-The VDom tree printer is implemented as an `IVdomElementTranslator` with priority 0 (highest priority). When enabled, it intercepts the translation process and generates a text representation of the entire VDOM tree before passing through to the standard rendering pipeline.
-
-For more information on custom translators, see the [Custom Translators](/docs#custom-translators) guide.
+Earlier versions printed the VDOM tree in each frame when the `RC_PRINT_VDOM_TREE` environment variable was set. That printer was part of the legacy Spectre rendering pipeline, which RazorConsole 1.0 removes, so the variable no longer has any effect.

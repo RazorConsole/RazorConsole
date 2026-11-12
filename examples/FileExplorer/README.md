@@ -23,12 +23,6 @@ Or from this directory:
 dotnet run
 ```
 
-To compare the widget layout pipeline:
-
-```bash
-dotnet run -- --widget-layout
-```
-
 ## Features Demonstrated
 
 - **Directory Navigation**: Browse directories with clickable navigation

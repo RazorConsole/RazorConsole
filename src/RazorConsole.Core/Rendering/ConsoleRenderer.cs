@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Layout;
-using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Vdom;
 using Spectre.Console.Rendering;
@@ -20,8 +19,6 @@ namespace RazorConsole.Core.Rendering;
 internal sealed class ConsoleRenderer(
     IServiceProvider services,
     ILoggerFactory loggerFactory,
-    Translation.Contexts.TranslationContext translationContext,
-    ConsoleAppOptions? options = null,
     WidgetTranslationContext? widgetTranslationContext = null,
     LayoutEngine? layoutEngine = null,
     VNodeIdAccessor? vnodeIdAccessor = null,
@@ -35,8 +32,6 @@ internal sealed class ConsoleRenderer(
     private readonly Dispatcher _dispatcher = Dispatcher.CreateDefault();
     private readonly ILogger<ConsoleRenderer> _logger = loggerFactory?.CreateLogger<ConsoleRenderer>()
         ?? throw new ArgumentNullException(nameof(loggerFactory));
-    private readonly Translation.Contexts.TranslationContext _translationContext = translationContext;
-    private readonly ConsoleAppOptions _options = options ?? new ConsoleAppOptions();
     private readonly WidgetTranslationContext _widgetTranslationContext = widgetTranslationContext ?? new WidgetTranslationContext();
     private readonly LayoutEngine _layoutEngine = layoutEngine ?? new LayoutEngine();
     private readonly VNodeIdAccessor? _vnodeIdAccessor = vnodeIdAccessor;
@@ -50,7 +45,6 @@ internal sealed class ConsoleRenderer(
     private RenderSnapshot? _pendingObserverSnapshot;
     private int _rootComponentId = -1;
     private bool _observerNotificationScheduled;
-    private bool _legacyPipelineWarningLogged;
     private RenderSnapshot _lastSnapshot = RenderSnapshot.Empty;
     private long _snapshotSequence;
     private bool _disposed;
@@ -61,8 +55,6 @@ internal sealed class ConsoleRenderer(
     /// <summary>The console renderer is interactive: components handle events as soon as they render.</summary>
     protected override RendererInfo RendererInfo { get; } = new("Console", isInteractive: true);
 #endif
-
-    internal Translation.Contexts.TranslationContext GetTranslationContext() => _translationContext;
 
     internal RenderSnapshot RefreshSnapshot()
     {
@@ -506,29 +498,7 @@ internal sealed class ConsoleRenderer(
                 return RenderSnapshot.Empty;
             }
 
-            if (_options.RenderingPipeline == RazorConsoleRenderingPipeline.WidgetLayout)
-            {
-                return CreateWidgetLayoutSnapshot(rootNode);
-            }
-
-            if (!_legacyPipelineWarningLogged)
-            {
-                _legacyPipelineWarningLogged = true;
-                _logger.LogLegacySpectrePipelineDeprecated();
-            }
-
-            _translationContext.CollectedOverlays.Clear();
-            _translationContext.AnimatedRenderables.Clear();
-
-            var mainRenderable = _translationContext.Translate(rootNode);
-
-            IRenderable finalRenderable = _translationContext.CollectedOverlays.Count > 0
-                ? new OverlayRenderable(mainRenderable, _translationContext.CollectedOverlays)
-                : mainRenderable;
-
-            UpdateSnapshotAccessors(rootNode, layouts: null);
-
-            return new RenderSnapshot(rootNode, finalRenderable, _translationContext.AnimatedRenderables);
+            return CreateWidgetLayoutSnapshot(rootNode);
         }
         catch (Exception ex)
         {
@@ -539,7 +509,6 @@ internal sealed class ConsoleRenderer(
 
     private RenderSnapshot CreateWidgetLayoutSnapshot(VNode rootNode)
     {
-        _translationContext.AnimatedRenderables.Clear();
         _widgetTranslationContext.ClearAnimatedRenderables();
 
         var widgetRoot = _widgetTranslationContext.Translate(rootNode);
@@ -783,7 +752,7 @@ internal sealed class ConsoleRenderer(
         /// <summary>Creation order: a snapshot with a higher value reflects a later render.</summary>
         internal long Sequence { get; init; }
 
-        /// <summary>The widget layout of this snapshot; null on the legacy pipeline.</summary>
+        /// <summary>The widget layout of this snapshot; null when nothing is mounted.</summary>
         internal IReadOnlyCollection<VNodeLayoutInfo>? Layouts { get; init; }
 
         internal IReadOnlyDictionary<string, string?>? LayoutParents { get; init; }

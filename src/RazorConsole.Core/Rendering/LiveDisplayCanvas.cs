@@ -14,6 +14,7 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly bool _useAlternateScreenBuffer = options.UseAlternateScreenBuffer || options.EnableMouseEvents;
     private bool _alternateScreenBufferActive;
+    private int _refreshRequested;
     private bool _disposed;
 
     public event Action? Refreshed;
@@ -55,24 +56,48 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
         {
             _semaphore.Release();
         }
+
+        // This call's frame is written; refreshes other threads queued meanwhile must not fail it.
+        WriteRequestedRefreshes();
     }
 
-
+    /// <summary>
+    /// Writes the current target again, best effort and without blocking the caller.
+    /// </summary>
+    /// <remarks>
+    /// When another write holds the canvas, the request is recorded and the thread holding it writes
+    /// one more frame after it finishes, so overlapping refreshes collapse into one write.
+    /// Write errors are dropped: a failed write resets the diff state, so the next frame redraws everything.
+    /// </remarks>
     public void Refresh()
     {
-        _semaphore.Wait();
-        try
+        Volatile.Write(ref _refreshRequested, 1);
+        WriteRequestedRefreshes();
+    }
+
+    // Writes the refreshes requested so far. Every path that holds the canvas lock calls this after
+    // releasing it, so a request left while the lock was busy is never lost.
+    private void WriteRequestedRefreshes()
+    {
+        while (Volatile.Read(ref _refreshRequested) == 1 && _semaphore.Wait(0))
         {
-            if (_current is not null && !_disposed)
+            try
             {
-                EnterAlternateScreenBufferIfNeeded();
-                WriteCurrent();
-                Refreshed?.Invoke();
+                if (Interlocked.Exchange(ref _refreshRequested, 0) == 1 && _current is not null && !_disposed)
+                {
+                    EnterAlternateScreenBufferIfNeeded();
+                    WriteCurrent();
+                    Refreshed?.Invoke();
+                }
             }
-        }
-        finally
-        {
-            _semaphore.Release();
+            catch
+            {
+                // Best effort: WriteCurrent already reset the diff state, so the next frame redraws everything.
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
         }
     }
 
@@ -103,15 +128,6 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
             throw;
         }
     }
-
-    public bool TryReplaceNode(IReadOnlyList<int> path, IRenderable renderable)
-        => false;
-
-    public bool TryUpdateText(IReadOnlyList<int> path, string? text)
-        => false;
-
-    public bool TryUpdateAttributes(IReadOnlyList<int> path, IReadOnlyDictionary<string, string?> attributes)
-        => false;
 
     public void Dispose()
     {

@@ -10,16 +10,14 @@ namespace RazorConsole.Tests.Rendering;
 public sealed class ConsoleRendererOptionsTests
 {
     [Fact]
-    public void Constructor_WithoutOptions_UsesDefaultOptions()
+    public void Constructor_WithOnlyRequiredArguments_UsesDefaults()
     {
         var services = new ServiceCollection();
         services.AddRazorConsoleServices();
         var serviceProvider = services.BuildServiceProvider();
-        var translationContext = serviceProvider.GetRequiredService<RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext>();
 
-        using var renderer = new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance, translationContext);
+        using var renderer = new ConsoleRenderer(serviceProvider, NullLoggerFactory.Instance);
 
         renderer.ShouldNotBeNull();
     }
 }
-
