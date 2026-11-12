@@ -169,7 +169,8 @@ public sealed class BoxWidget : Widget
 
     private int BorderLeftThickness => Border.Left == BoxBorderStyle.None ? 0 : 1;
 
-    private int BorderTopThickness => Border.Top == BoxBorderStyle.None ? 0 : 1;
+    // Like a Spectre Panel, a titled box keeps its top row for the title even without a top border.
+    private int BorderTopThickness => Border.Top == BoxBorderStyle.None && Title is null ? 0 : 1;
 
     private int BorderRightThickness => Border.Right == BoxBorderStyle.None ? 0 : 1;
 
@@ -193,7 +194,7 @@ public sealed class BoxWidget : Widget
         var contentWidth = childSize.Width + leftInset + rightInset;
         var contentHeight = childSize.Height + topInset + bottomInset;
         var width = Width ?? (FillWidth ? Math.Max(0, constraints.MaxWidth - outerHorizontalInset) : contentWidth);
-        if (Title is not null && Border.Top != BoxBorderStyle.None)
+        if (Title is not null)
         {
             width = Math.Max(width, Segment.CellCount([new Segment(Title)]) + 4);
         }
@@ -305,7 +306,7 @@ public sealed class BoxWidget : Widget
 
     private void PaintTitle(TerminalCanvas canvas, LayoutRect bounds)
     {
-        if (Title is null || Border.Top == BoxBorderStyle.None || bounds.Width <= 4)
+        if (Title is null || bounds.Width <= 4)
         {
             return;
         }

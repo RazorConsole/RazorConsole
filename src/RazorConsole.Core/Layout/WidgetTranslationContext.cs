@@ -2,11 +2,11 @@
 
 using System.Globalization;
 using RazorConsole.Core.Abstractions.Rendering;
+using RazorConsole.Core.Layout.Leaves;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Rendering.Syntax;
-using RazorConsole.Core.Rendering.Translation.Contexts;
 using RazorConsole.Core.Utilities;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
@@ -14,35 +14,85 @@ using Spectre.Console.Rendering;
 
 namespace RazorConsole.Core.Layout;
 
+/// <summary>
+/// Translates a virtual DOM tree into the <see cref="Widget"/> tree that the layout engine measures and paints.
+/// </summary>
 public sealed class WidgetTranslationContext
 {
-    private readonly IReadOnlyList<ITranslationMiddleware> _spectreFallbackMiddlewares;
+    private readonly IWidgetTranslator[] _translators;
     private readonly ScrollableLayoutCoordinator? _scrollableLayoutCoordinator;
     private readonly SyntaxHighlightingService? _syntaxHighlightingService;
     private readonly HashSet<IAnimatedConsoleRenderable> _animatedRenderables = [];
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WidgetTranslationContext"/> class.
+    /// </summary>
+    /// <param name="translators">Custom translators, run in order before the built-in translation.</param>
+    /// <param name="scrollableLayoutCoordinator">Coordinates view-height scrollables with the layout.</param>
+    /// <param name="syntaxHighlightingService">Highlights code blocks.</param>
     public WidgetTranslationContext(
-        IEnumerable<ITranslationMiddleware>? spectreFallbackMiddlewares = null,
+        IEnumerable<IWidgetTranslator>? translators = null,
         ScrollableLayoutCoordinator? scrollableLayoutCoordinator = null,
         SyntaxHighlightingService? syntaxHighlightingService = null)
     {
-        _spectreFallbackMiddlewares = spectreFallbackMiddlewares?.ToArray() ?? [];
+        _translators = translators?.ToArray() ?? [];
         _scrollableLayoutCoordinator = scrollableLayoutCoordinator;
         _syntaxHighlightingService = syntaxHighlightingService;
     }
 
+    /// <summary>
+    /// Gets the animated renderables found in the current translation.
+    /// </summary>
     public IReadOnlyCollection<IAnimatedConsoleRenderable> AnimatedRenderables => _animatedRenderables;
 
+    /// <summary>
+    /// Forgets the animated renderables of the previous translation.
+    /// </summary>
     public void ClearAnimatedRenderables()
         => _animatedRenderables.Clear();
 
+    /// <summary>
+    /// Registers an animated renderable so the display refreshes it on its interval.
+    /// Custom translators call this for animated content they place in a <see cref="SpectreWidget"/>.
+    /// </summary>
+    /// <param name="renderable">The animated renderable.</param>
+    public void TrackAnimation(IAnimatedConsoleRenderable renderable)
+    {
+        ArgumentNullException.ThrowIfNull(renderable);
+        _animatedRenderables.Add(renderable);
+    }
+
+    /// <summary>
+    /// Translates <paramref name="node"/> through the custom translators and then the built-in translation.
+    /// </summary>
+    /// <param name="node">The virtual DOM node to translate.</param>
+    /// <returns>The widget for <paramref name="node"/>.</returns>
     public Widget Translate(VNode node)
     {
-        if (node is null)
+        ArgumentNullException.ThrowIfNull(node);
+        return _translators.Length == 0 ? TranslateBuiltIn(node) : TranslateWith(0, node);
+    }
+
+    private Widget TranslateWith(int index, VNode node)
+    {
+        if (index >= _translators.Length)
         {
-            throw new ArgumentNullException(nameof(node));
+            return TranslateBuiltIn(node);
         }
 
+        var translator = _translators[index];
+        return translator.Translate(this, nextNode => TranslateWith(index + 1, nextNode), node)
+            ?? throw new InvalidOperationException(
+                $"Widget translator '{translator.GetType().FullName}' returned null for {DescribeNode(node)}. "
+                + "Return a widget, or next(node) to pass the node on.");
+    }
+
+    private static string DescribeNode(VNode node)
+        => node.Kind == VNodeKind.Element ? $"<{node.TagName}>" : $"a {node.Kind} node";
+
+    private Widget TranslateBuiltIn(VNode node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
         return node.Kind switch
         {
             VNodeKind.Text => new TextWidget(node.ID, string.IsNullOrWhiteSpace(node.Text) ? string.Empty : node.Text),
@@ -63,7 +113,7 @@ public sealed class WidgetTranslationContext
 
         if (string.Equals(node.TagName, "modal", StringComparison.OrdinalIgnoreCase))
         {
-            // Modals are centered absolute overlays (see ModalTranslator in the legacy pipeline).
+            // Modals are centered absolute overlays.
             var modalAttributes = new Dictionary<string, string?>(node.Attributes, StringComparer.Ordinal)
             {
                 ["position"] = "absolute",
@@ -135,9 +185,19 @@ public sealed class WidgetTranslationContext
             return new RuleWidget(node.ID, new Style(Color.Grey), node.Key, node.Attributes, zIndex);
         }
 
-        if (TryCreateSpectreFallbackWidget(node, zIndex) is { } fallbackWidget)
+        if (TryCreateLeafWidget(node, className, zIndex) is { } leafWidget)
         {
-            return fallbackWidget;
+            return leafWidget;
+        }
+
+        if (string.Equals(className, "grid", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateGridWidget(node, zIndex);
+        }
+
+        if (TryCreateInlineFlowWidget(node, className, zIndex) is { } inlineWidget)
+        {
+            return inlineWidget;
         }
 
         var children = TranslateChildren(node);
@@ -348,33 +408,63 @@ public sealed class WidgetTranslationContext
             Opaque = IsTruthy(GetAttribute(node, "data-opaque")),
         };
 
-    private Widget? TryCreateSpectreFallbackWidget(VNode node, int zIndex)
+    // Components that wrap a Spectre.Console renderable become opaque leaves that paint into the cell grid.
+    // A malformed node (a missing size, an unknown color, a chart too small for its axes) makes the
+    // builders throw; it then falls back to the default widget instead of failing the whole render.
+    private Widget? TryCreateLeafWidget(VNode node, string? className, int zIndex)
     {
-        if (_spectreFallbackMiddlewares.Count == 0 || !ShouldUseSpectreFallback(node))
+        IRenderable? renderable;
+        try
+        {
+            renderable = CreateLeafRenderable(node, className);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        return renderable is null
+            ? null
+            : new SpectreWidget(node.ID, renderable, node.Key, node.Attributes, zIndex);
+    }
+
+    private IRenderable? CreateLeafRenderable(VNode node, string? className)
+    {
+        if (string.Equals(className, "syntax-highlighter", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateSyntaxHighlighterRenderable(node);
+        }
+
+        if (IsTruthy(GetAttribute(node, "data-canvas")))
+        {
+            return SpectreCanvasRenderableBuilder.TryCreate(node);
+        }
+
+        if (node.Attributes.ContainsKey("data-spinner"))
+        {
+            return CreateSpinnerRenderable(node);
+        }
+
+        return node.TagName?.ToLowerInvariant() switch
+        {
+            "stepchart" => StepChartRenderableBuilder.TryCreate(node),
+            "barchart" => BarChartRenderableBuilder.TryCreate(node),
+            "breakdownchart" => BreakdownChartRenderableBuilder.TryCreate(node),
+            _ => null,
+        };
+    }
+
+    private static IRenderable? CreateSyntaxHighlighterRenderable(VNode node)
+    {
+        var payload = GetAttribute(node, "data-payload");
+        if (string.IsNullOrEmpty(payload))
         {
             return null;
         }
 
         try
         {
-            var context = new TranslationContext(_spectreFallbackMiddlewares);
-            var renderable = context.Translate(node);
-            if (context.CollectedOverlays.Count > 0)
-            {
-                renderable = new OverlayRenderable(renderable, context.CollectedOverlays);
-            }
-
-            foreach (var animated in context.AnimatedRenderables)
-            {
-                _animatedRenderables.Add(animated);
-            }
-
-            return new SpectreWidget(
-                node.ID,
-                renderable,
-                node.Key,
-                node.Attributes,
-                zIndex);
+            return new SyntaxRenderable(SyntaxHighlightingService.DecodePayload(payload));
         }
         catch (Exception)
         {
@@ -382,39 +472,106 @@ public sealed class WidgetTranslationContext
         }
     }
 
-    private static bool ShouldUseSpectreFallback(VNode node)
+    private AnimatedSpinnerRenderable CreateSpinnerRenderable(VNode node)
     {
-        if (node.Kind != VNodeKind.Element)
+        var spinner = ComponentMarkupUtilities.ResolveSpinner(GetAttribute(node, "data-spinner-type"));
+        var message = GetAttribute(node, "data-message") ?? string.Empty;
+        var style = GetAttribute(node, "data-style");
+        var autoDismiss = VNodeAttributeReader.TryGetBoolAttribute(node, "data-auto-dismiss", out var parsed) && parsed;
+
+        var animated = new AnimatedSpinnerRenderable(spinner, message, style, autoDismiss);
+        _animatedRenderables.Add(animated);
+        return animated;
+    }
+
+    // A grid is a borderless table that fills rows left to right, like Spectre's Grid:
+    // columns are separated by two spaces and a short last row is padded with empty cells.
+    private TableWidget CreateGridWidget(VNode node, int zIndex)
+    {
+        var columnCount = Math.Max(1, TryGetIntAttribute(node, "data-columns", 2));
+        var children = TranslateChildren(node);
+        var rows = new List<TableWidgetRow>();
+
+        for (var start = 0; start < children.Count; start += columnCount)
         {
-            return false;
+            var cells = new TableWidgetCell[columnCount];
+            for (var column = 0; column < columnCount; column++)
+            {
+                var index = start + column;
+                var cellId = $"{node.ID}-cell-{index}";
+                var child = index < children.Count ? children[index] : new TextWidget(cellId + "-empty", string.Empty);
+                cells[column] = new TableWidgetCell(
+                    cellId,
+                    child,
+                    paddingLeft: 0,
+                    paddingRight: column == columnCount - 1 ? 0 : 2);
+            }
+
+            rows.Add(new TableWidgetRow(cells));
         }
 
-        var className = GetAttribute(node, "class");
-        if (string.Equals(className, "syntax-highlighter", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(className, "flexbox", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(className, "grid", StringComparison.OrdinalIgnoreCase))
+        return new TableWidget(
+            node.ID,
+            [],
+            rows,
+            TableWidgetBorderStyle.None,
+            expand: !string.Equals(GetAttribute(node, "data-expand"), "false", StringComparison.OrdinalIgnoreCase),
+            showHeaders: false,
+            width: TryParsePositiveInt(GetAttribute(node, "data-width")),
+            key: node.Key,
+            attributes: node.Attributes,
+            zIndex: zIndex);
+    }
+
+    // Paragraphs, inline formatting elements, and plain wrappers around inline elements flow as one
+    // wrapped run of styled text, with whitespace collapsed like HTML.
+    private Widget? TryCreateInlineFlowWidget(VNode node, string? className, int zIndex)
+    {
+        if (!string.IsNullOrWhiteSpace(className)
+            || string.Equals(GetAttribute(node, "position"), "absolute", StringComparison.OrdinalIgnoreCase)
+            || node.Attributes.ContainsKey(IVNodeIdAccessor.HookAttributeName)
+            || node.Attributes.ContainsKey("data-focus-key"))
         {
-            return true;
+            return null;
         }
 
-        if (IsTruthy(GetAttribute(node, "data-canvas")) || node.Attributes.ContainsKey("data-spinner"))
+        var isParagraph = string.Equals(node.TagName, "p", StringComparison.OrdinalIgnoreCase);
+        var isInlineElement = InlineMarkupBuilder.IsInlineTag(node.TagName);
+        var isInlineWrapper = IsPlainInlineWrapper(node) && node.Children.Any(IsInlineElement);
+        if (!isParagraph && !isInlineElement && !isInlineWrapper)
         {
-            return true;
+            return null;
         }
 
-        if (IsPlainDivWrapper(node) && node.Children.Any(ContainsAbsolutePositionedElement))
+        // The run becomes one piece of markup, so only this node keeps its identity. Nested inline
+        // elements are flattened: their classes, event handlers and focus keys are dropped, as they were
+        // in the legacy pipeline. Give such an element its own block (or a class) to keep it interactive.
+        IReadOnlyList<VNode> run = isInlineElement ? [node] : node.Children;
+        if (InlineMarkupBuilder.TryBuildFlowMarkup(run, out var markup) && TryCreateMarkup(markup) is { } inlineMarkup)
         {
-            return true;
+            return new SpectreWidget(node.ID, inlineMarkup, node.Key, node.Attributes, zIndex);
         }
 
-        if (IsHtmlElementRequiringInlineOrBlockSemantics(node))
-        {
-            return true;
-        }
+        // A paragraph holding components keeps its children side by side, wrapping when they do not fit.
+        return isParagraph
+            ? new FlexWidget(node.ID, TranslateChildren(node), FlexDirection.Row, wrap: FlexWrap.Wrap, key: node.Key, attributes: node.Attributes, zIndex: zIndex)
+            : null;
+    }
 
-        return string.Equals(node.TagName, "stepchart", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(node.TagName, "barchart", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(node.TagName, "breakdownchart", StringComparison.OrdinalIgnoreCase);
+    private static bool IsInlineElement(VNode node)
+        => node.Kind == VNodeKind.Element && InlineMarkupBuilder.IsInlineTag(node.TagName);
+
+    // The builder escapes text, so parsing should not fail; if it does, the node takes the default path.
+    private static Markup? TryCreateMarkup(string markup)
+    {
+        try
+        {
+            return new Markup(markup);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static bool IsFlexNode(VNode node, string? className)
@@ -425,46 +582,12 @@ public sealed class WidgetTranslationContext
         => string.Equals(className, "box", StringComparison.OrdinalIgnoreCase)
             || string.Equals(GetAttribute(node, "data-layout"), "box", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsHtmlElementRequiringInlineOrBlockSemantics(VNode node)
-    {
-        if (!string.IsNullOrWhiteSpace(GetAttribute(node, "class"))
-            || string.Equals(GetAttribute(node, "position"), "absolute", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (node.Attributes.ContainsKey(IVNodeIdAccessor.HookAttributeName)
-            || node.Attributes.ContainsKey("data-focus-key"))
-        {
-            return false;
-        }
-
-        return node.TagName?.ToLowerInvariant() switch
-        {
-            "p" or "strong" or "em" or "mark" or "code" or "abbr" or "sup" or "sub" or "a" or "q" or "cite" or "ul" or "ol" or "li" => true,
-            _ => false,
-        };
-    }
-
-    private static bool IsPlainDivWrapper(VNode node)
-        => string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
-            && string.IsNullOrWhiteSpace(GetAttribute(node, "class"))
-            && string.IsNullOrWhiteSpace(GetAttribute(node, "position"))
+    private static bool IsPlainInlineWrapper(VNode node)
+        => (string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(node.TagName, "span", StringComparison.OrdinalIgnoreCase))
             && string.IsNullOrWhiteSpace(GetAttribute(node, "data-layout"))
             && !node.Attributes.ContainsKey(ConsoleRenderer.ComponentWrapperAttribute)
-            && !node.Attributes.ContainsKey(IVNodeIdAccessor.HookAttributeName)
-            && !node.Attributes.ContainsKey("data-focus-key");
-
-    private static bool ContainsAbsolutePositionedElement(VNode node)
-    {
-        if (node.Kind == VNodeKind.Element
-            && string.Equals(GetAttribute(node, "position"), "absolute", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return node.Children.Any(ContainsAbsolutePositionedElement);
-    }
+            && !IsTruthy(GetAttribute(node, "data-text"));
 
     private IReadOnlyList<Widget> TranslateChildren(VNode node)
         => node.Children

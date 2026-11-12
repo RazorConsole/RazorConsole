@@ -46,7 +46,6 @@ static async Task<int> RunGoldenAsync(string[] args)
     {
         config.Services.Configure<ConsoleAppOptions>(options =>
         {
-            options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
             options.EnableTerminalResizing = true;
             options.ConsoleLiveDisplayOptions.UseAlternateScreenBuffer = true;
         });
@@ -66,7 +65,6 @@ static async Task<int> RunAppAsync<TView>(string[] args)
     {
         config.Services.Configure<ConsoleAppOptions>(options =>
         {
-            options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
             options.ConsoleLiveDisplayOptions.EnableMouseEvents = true;
         });
     });

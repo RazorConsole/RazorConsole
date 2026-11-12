@@ -74,7 +74,6 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         var services = new ServiceCollection();
         services.Configure<ConsoleAppOptions>(options =>
         {
-            options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout;
             options.ConsoleLiveDisplayOptions.EnableMouseEvents = true;
         });
         services.AddRazorConsoleServices();

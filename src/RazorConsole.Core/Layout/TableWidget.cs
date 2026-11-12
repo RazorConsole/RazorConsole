@@ -16,6 +16,7 @@ public sealed class TableWidget : Widget
 {
     private readonly TableWidgetCell[] _allCells;
     private int[] _columnWidths = [];
+    private int[] _preferredColumnWidths = [];
     private int[] _headerRowHeights = [];
     private int[] _bodyRowHeights = [];
 
@@ -78,10 +79,11 @@ public sealed class TableWidget : Widget
         }
 
         MeasureCells(context, constraints);
-        var preferredColumns = CalculatePreferredColumnWidths();
-        var desiredWidth = Width ?? (Expand ? constraints.MaxWidth : CalculateTotalWidth(preferredColumns));
+        _preferredColumnWidths = CalculatePreferredColumnWidths();
+        var desiredWidth = Width ?? (Expand ? constraints.MaxWidth : CalculateTotalWidth(_preferredColumnWidths));
         desiredWidth = Math.Min(desiredWidth, constraints.MaxWidth);
-        _columnWidths = ResolveColumnWidths(preferredColumns, desiredWidth);
+        _columnWidths = ResolveColumnWidths(_preferredColumnWidths, desiredWidth);
+        FitCellsToColumns(context, constraints.MaxHeight);
         _headerRowHeights = CalculateRowHeights(HeaderRows, _columnWidths);
         _bodyRowHeights = CalculateRowHeights(BodyRows, _columnWidths);
 
@@ -99,9 +101,11 @@ public sealed class TableWidget : Widget
         if (_columnWidths.Length != ColumnCount)
         {
             MeasureCells(context, new BoxConstraints(0, bounds.Width, 0, bounds.Height));
+            _preferredColumnWidths = CalculatePreferredColumnWidths();
         }
 
-        _columnWidths = ResolveColumnWidths(CalculatePreferredColumnWidths(), bounds.Width);
+        _columnWidths = ResolveColumnWidths(_preferredColumnWidths, bounds.Width);
+        FitCellsToColumns(context, bounds.Height);
         _headerRowHeights = CalculateRowHeights(HeaderRows, _columnWidths);
         _bodyRowHeights = CalculateRowHeights(BodyRows, _columnWidths);
 
@@ -164,6 +168,26 @@ public sealed class TableWidget : Widget
         foreach (var cell in _allCells)
         {
             cell.Child.Measure(context, new BoxConstraints(0, constraints.MaxWidth, 0, constraints.MaxHeight));
+            cell.PreferredWidth = cell.Child.DesiredSize.Width;
+        }
+    }
+
+    // Like Spectre's Table, content wider than its resolved column is measured again at the column width,
+    // so wrapping content wraps (and grows the row) instead of being cropped.
+    private void FitCellsToColumns(LayoutContext context, int maxHeight)
+    {
+        foreach (var row in HeaderRows.Concat(BodyRows))
+        {
+            for (var column = 0; column < row.Cells.Count && column < _columnWidths.Length; column++)
+            {
+                var cell = row.Cells[column];
+                var contentWidth = Math.Max(0, _columnWidths[column] - cell.PaddingLeft - cell.PaddingRight);
+                var targetWidth = Math.Min(contentWidth, cell.PreferredWidth);
+                if (cell.Child.DesiredSize.Width != targetWidth)
+                {
+                    cell.Child.Measure(context, new BoxConstraints(0, targetWidth, 0, maxHeight));
+                }
+            }
         }
     }
 
@@ -476,4 +500,7 @@ public sealed class TableWidgetCell
     public int? Width { get; }
 
     public LayoutRect Bounds { get; internal set; }
+
+    /// <summary>The child's width when measured without a column limit.</summary>
+    internal int PreferredWidth { get; set; }
 }

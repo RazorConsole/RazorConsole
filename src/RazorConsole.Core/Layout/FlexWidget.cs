@@ -104,7 +104,15 @@ public sealed class FlexWidget : Widget
         }
 
         var totalGap = Math.Max(0, flowChildren.Length - 1) * Gap;
-        if (Direction == FlexDirection.Row)
+        if (WrapsRows)
+        {
+            // Break lines at the width ArrangeRow will get: a fixed Width larger than the constraint is
+            // clamped, so measuring at the unclamped width would report fewer lines than are arranged.
+            var lines = PartitionRowLines(flowChildren, Math.Min(Width ?? constraints.MaxWidth, constraints.MaxWidth));
+            width = lines.Max(MeasureLineWidth);
+            height = lines.Sum(line => line.Select(child => child.DesiredSize.Height).DefaultIfEmpty(0).Max());
+        }
+        else if (Direction == FlexDirection.Row)
         {
             width += totalGap;
         }
@@ -141,29 +149,79 @@ public sealed class FlexWidget : Widget
 
     private void ArrangeRow(LayoutContext context, LayoutRect bounds)
     {
-        var flowChildren = Children.Where(child => !child.IsAbsolutePositioned).ToArray();
-        var mainSizes = ResolveMainSizes(flowChildren, bounds.Width, child => child.DesiredSize.Width, FillsMainAxis);
-        var occupiedWidth = mainSizes.Sum() + Math.Max(0, flowChildren.Length - 1) * Gap;
-        var x = bounds.X + ResolveJustifyOffset(bounds.Width, occupiedWidth);
-        var spacing = ResolveGap(flowChildren.Length, bounds.Width, occupiedWidth);
-        var flowIndex = 0;
-
-        for (var i = 0; i < Children.Count; i++)
+        foreach (var child in Children.Where(child => child.IsAbsolutePositioned))
         {
-            var child = Children[i];
-            if (child.IsAbsolutePositioned)
-            {
-                child.Arrange(context, bounds);
-                continue;
-            }
+            child.Arrange(context, bounds);
+        }
 
-            var childWidth = Math.Min(mainSizes[flowIndex++], Math.Max(0, bounds.Right - x));
+        var flowChildren = Children.Where(child => !child.IsAbsolutePositioned).ToArray();
+        if (!WrapsRows)
+        {
+            ArrangeRowLine(context, flowChildren, bounds);
+            return;
+        }
+
+        var y = bounds.Y;
+        foreach (var line in PartitionRowLines(flowChildren, bounds.Width))
+        {
+            var lineHeight = Math.Min(line.Select(child => child.DesiredSize.Height).DefaultIfEmpty(0).Max(), Math.Max(0, bounds.Bottom - y));
+            ArrangeRowLine(context, line, new LayoutRect(bounds.X, y, bounds.Width, lineHeight));
+            y += lineHeight;
+        }
+    }
+
+    private void ArrangeRowLine(LayoutContext context, IReadOnlyList<Widget> line, LayoutRect bounds)
+    {
+        var mainSizes = ResolveMainSizes(line, bounds.Width, child => child.DesiredSize.Width, FillsMainAxis);
+        var occupiedWidth = mainSizes.Sum() + Math.Max(0, line.Count - 1) * Gap;
+        var x = bounds.X + ResolveJustifyOffset(bounds.Width, occupiedWidth);
+        var spacing = ResolveGap(line.Count, bounds.Width, occupiedWidth);
+
+        for (var i = 0; i < line.Count; i++)
+        {
+            var child = line[i];
+            var childWidth = Math.Min(mainSizes[i], Math.Max(0, bounds.Right - x));
             var childHeight = FillsCrossAxis(child) || Align == FlexAlign.Stretch ? bounds.Height : Math.Min(child.DesiredSize.Height, bounds.Height);
             var y = bounds.Y + ResolveCrossOffset(bounds.Height, childHeight);
             child.Arrange(context, new LayoutRect(x, y, childWidth, childHeight));
             x += childWidth + spacing;
         }
     }
+
+    private bool WrapsRows => Direction == FlexDirection.Row && Wrap == FlexWrap.Wrap;
+
+    // Greedy line breaking, like FlexBox: an item moves to a new line when it no longer fits after the gap.
+    private List<Widget[]> PartitionRowLines(IReadOnlyList<Widget> flowChildren, int availableWidth)
+    {
+        var lines = new List<Widget[]>();
+        var current = new List<Widget>();
+        var currentWidth = 0;
+        foreach (var child in flowChildren)
+        {
+            var itemWidth = child.DesiredSize.Width;
+            var gapBefore = current.Count > 0 ? Gap : 0;
+            if (current.Count > 0 && currentWidth + gapBefore + itemWidth > availableWidth)
+            {
+                lines.Add([.. current]);
+                current.Clear();
+                currentWidth = 0;
+                gapBefore = 0;
+            }
+
+            current.Add(child);
+            currentWidth += gapBefore + itemWidth;
+        }
+
+        if (current.Count > 0 || lines.Count == 0)
+        {
+            lines.Add([.. current]);
+        }
+
+        return lines;
+    }
+
+    private int MeasureLineWidth(Widget[] line)
+        => line.Sum(child => child.DesiredSize.Width) + Math.Max(0, line.Length - 1) * Gap;
 
     private void ArrangeColumn(LayoutContext context, LayoutRect bounds)
     {

@@ -20,7 +20,6 @@ var builder = Host.CreateDefaultBuilder(args)
         hostBuilder.ConfigureServices(services =>
         {
             services.AddSingleton(counter);
-            services.Configure<ConsoleAppOptions>(options => options.RenderingPipeline = RazorConsoleRenderingPipeline.WidgetLayout);
         });
     });
 

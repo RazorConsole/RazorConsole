@@ -13,14 +13,8 @@ It keeps non-table UI to a single `Rows` wrapper and a title, while the tables c
 - custom cell padding through attributes
 - child widgets inside cells, including `Markup` and `TextButton`
 
-Run with the native widget layout pipeline:
+Run it with:
 
 ```bash
-dotnet run --project examples/TableWidget/TableWidget.csproj -f net10.0 -- --widget-layout
-```
-
-Run with the legacy Spectre layout pipeline:
-
-```bash
-dotnet run --project examples/TableWidget/TableWidget.csproj -f net10.0
+dotnet run --project examples/TableWidget/TableWidget.csproj
 ```

@@ -3,7 +3,6 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
-using RazorConsole.Core;
 using RazorConsole.Core.Diagnostics;
 using RazorConsole.Core.Diagnostics.Protocol;
 using RazorConsole.Core.Focus;
@@ -28,7 +27,7 @@ public sealed class DiagnosticsScreenTests
         using var renderer = DiagnosticsHooksTests.CreateObservedRenderer(state);
         await DiagnosticsHooksTests.MountAsync<LabelComponent>(renderer, state, ct);
         var frame = state.LatestFrame.ShouldNotBeNull();
-        var queries = new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager(), new ConsoleAppOptions());
+        var queries = new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager());
 
         var result = queries.Screen(new ScreenParams());
 
@@ -61,7 +60,7 @@ public sealed class DiagnosticsScreenTests
             canvas.Write(0, 0, "ab", new Style(new Color(255, 0, 0), new Color(0, 0, 255), Decoration.Bold | Decoration.Underline), "https://example.test");
             canvas.Write(0, 1, "cd");
         }).Publish(state);
-        var queries = new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager(), new ConsoleAppOptions());
+        var queries = new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager());
 
         var full = queries.Screen(new ScreenParams());
         full.Lines.ShouldBe(["ab    ", "cd    "]);
@@ -90,15 +89,13 @@ public sealed class DiagnosticsScreenTests
             .Code.ShouldBe(DiagnosticsErrorCodes.InvalidParams);
     }
 
-    [Theory]
-    [InlineData("WidgetLayout", DiagnosticsUnavailableReasons.NotPainted)]
-    [InlineData("LegacySpectre", DiagnosticsUnavailableReasons.LegacyPipeline)]
-    public void Screen_WithoutACanvas_IsUnavailableWithAReason(string pipeline, string reason)
+    [Fact]
+    public void Screen_WithoutACanvas_IsUnavailableWithAReason()
     {
         var state = new DiagnosticsState();
-        var queries = new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager(), new ConsoleAppOptions { RenderingPipeline = Enum.Parse<RazorConsoleRenderingPipeline>(pipeline) });
+        var queries = new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager());
 
-        // Before the first frame, and for a frame whose renderable is not a widget canvas (legacy pipeline, nothing mounted).
+        // Before the first frame, and for a frame whose renderable is not a widget canvas (nothing mounted).
         foreach (var publish in new Action[] { () => { }, () => state.PublishFrame(null, null, null), () => state.PublishFrame(null, null, null, new Text("legacy")) })
         {
             publish();
@@ -106,7 +103,7 @@ public sealed class DiagnosticsScreenTests
             var error = Should.Throw<DiagnosticsProtocolException>(() => queries.Screen(new ScreenParams())).ToError();
 
             error.Code.ShouldBe(DiagnosticsErrorCodes.ScreenUnavailable);
-            error.Data.ShouldNotBeNull().Deserialize(DiagnosticsJsonContext.Default.DiagnosticsUnavailableData)!.Reason.ShouldBe(reason);
+            error.Data.ShouldNotBeNull().Deserialize(DiagnosticsJsonContext.Default.DiagnosticsUnavailableData)!.Reason.ShouldBe(DiagnosticsUnavailableReasons.NotPainted);
             queries.InspectAt(new InspectAtParams(0, 0)).Cell.ShouldBeNull();
         }
     }
@@ -116,7 +113,7 @@ public sealed class DiagnosticsScreenTests
     {
         var state = new DiagnosticsState();
         new DrawWidget(2, 2).Publish(state);
-        var queries = new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager(), new ConsoleAppOptions());
+        var queries = new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager());
 
         queries.InspectAt(new InspectAtParams(1, 1)).Cell.ShouldNotBeNull().Text.ShouldBe(" ");
         queries.InspectAt(new InspectAtParams(2, 0)).Cell.ShouldBeNull();
@@ -137,7 +134,7 @@ public sealed class DiagnosticsScreenTests
 
         second.ShouldBeSameAs(first);
         widget.Paints.ShouldBe(1);
-        new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager(), new ConsoleAppOptions()).Screen(new ScreenParams());
+        new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager()).Screen(new ScreenParams());
         widget.Paints.ShouldBe(1);
     }
 

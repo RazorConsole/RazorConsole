@@ -70,7 +70,7 @@ sequenceDiagram
 
     Note right of Bridge: Bi-directional communication:<br/>- JS → WASM: Keyboard events, registration<br/>- WASM → JS: ANSI output, terminal commands
 
-    Note right of Pipeline: Rendering pipeline:<br/>1. VNode tree from component<br/>2. VdomSpectreTranslator converts to IRenderable<br/>3. Spectre.Console renders to ANSI<br/>4. ANSI sent back to browser
+    Note right of Pipeline: Rendering pipeline:<br/>1. VNode tree from component<br/>2. Widget translation, layout and paint into terminal cells<br/>3. Spectre.Console writes the cells as ANSI<br/>4. ANSI sent back to browser
 ```
 
 ## Component Registration Sequence
@@ -100,7 +100,7 @@ sequenceDiagram
     Services->>Services: Add ConsoleRenderer
     Services->>Services: Add KeyboardEventManager
     Services->>Services: Add FocusManager
-    Services->>Services: Add VdomSpectreTranslator
+    Services->>Services: Add WidgetTranslationContext and LayoutEngine
     Services->>Renderer: Build ServiceProvider
 
     Renderer->>ConsoleRenderer: Get service

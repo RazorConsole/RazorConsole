@@ -2,7 +2,6 @@
 
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using RazorConsole.Core;
 using RazorConsole.Core.Diagnostics;
 using RazorConsole.Core.Diagnostics.Protocol;
 using RazorConsole.Core.Focus;
@@ -28,7 +27,7 @@ public sealed class DiagnosticsAppQueriesTests
 
     public DiagnosticsAppQueriesTests()
     {
-        _queries = new DiagnosticsAppQueries(_state, _focus, _navigation, new ConsoleAppOptions());
+        _queries = new DiagnosticsAppQueries(_state, _focus, _navigation);
 
         _root = VNode.CreateElement("div");
         _root.SetAttribute(IVNodeIdAccessor.HookAttributeName, "form");
@@ -121,7 +120,7 @@ public sealed class DiagnosticsAppQueriesTests
     [Fact]
     public void Tree_BeforeTheFirstFrameIsEmpty()
     {
-        var queries = new DiagnosticsAppQueries(new DiagnosticsState(), new FocusManager(), _navigation, new ConsoleAppOptions());
+        var queries = new DiagnosticsAppQueries(new DiagnosticsState(), new FocusManager(), _navigation);
 
         var result = queries.Tree(new TreeParams());
 
@@ -275,7 +274,7 @@ public sealed class DiagnosticsAppQueriesTests
         var stats = _queries.Stats();
 
         stats.Frames.ShouldBe(2);
-        stats.Pipeline.ShouldBe(new ConsoleAppOptions().RenderingPipeline.ToString());
+        stats.Pipeline.ShouldBe("WidgetLayout");
         stats.Frame.ShouldBe(_state.LatestFrame!.Sequence);
         stats.UptimeMs.ShouldBeGreaterThanOrEqualTo(0);
     }

@@ -3,30 +3,27 @@
 using System.Globalization;
 using System.Text.Json;
 using RazorConsole.Components;
-using RazorConsole.Core.Abstractions.Rendering;
 
-using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Utilities;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
-using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Translation.Translators;
+namespace RazorConsole.Core.Layout.Leaves;
 
-public sealed class BarChartTranslator : ITranslationMiddleware
+internal static class BarChartRenderableBuilder
 {
-    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
+    public static IRenderable? TryCreate(VNode node)
     {
         if (!IsBarChart(node))
         {
-            return next(node);
+            return null;
         }
 
-        var itemsAttribute = VdomSpectreTranslator.GetAttribute(node, "data-items");
+        var itemsAttribute = VNodeAttributeReader.GetAttribute(node, "data-items");
         if (string.IsNullOrEmpty(itemsAttribute))
         {
-            return next(node);
+            return null;
         }
 
         List<JsonElement> rawItems;
@@ -37,7 +34,7 @@ public sealed class BarChartTranslator : ITranslationMiddleware
         }
         catch
         {
-            return next(node);
+            return null;
         }
 
         var barChart = new Spectre.Console.BarChart();
@@ -47,45 +44,45 @@ public sealed class BarChartTranslator : ITranslationMiddleware
         }
         catch
         {
-            return next(node);
+            return null;
         }
 
-        if (VdomSpectreTranslator.TryParsePositiveInt(VdomSpectreTranslator.GetAttribute(node, "data-width"),
+        if (VNodeAttributeReader.TryParsePositiveInt(VNodeAttributeReader.GetAttribute(node, "data-width"),
                 out var width))
         {
             barChart.Width = width;
         }
 
-        var label = VdomSpectreTranslator.GetAttribute(node, "data-label");
+        var label = VNodeAttributeReader.GetAttribute(node, "data-label");
         if (!string.IsNullOrEmpty(label))
         {
             barChart.Label = label;
-            var labelStyleAttributes = VdomSpectreTranslator.GetAttribute(node, "data-label-style");
+            var labelStyleAttributes = VNodeAttributeReader.GetAttribute(node, "data-label-style");
             if (!string.IsNullOrEmpty(labelStyleAttributes) && Style.TryParse(labelStyleAttributes, out var labelStyle))
             {
                 barChart.Label = $"[{labelStyle!.ToMarkup()}]{label}[/]";
             }
         }
 
-        var labelAlignmentAttribute = VdomSpectreTranslator.GetAttribute(node, "data-label-alignment");
+        var labelAlignmentAttribute = VNodeAttributeReader.GetAttribute(node, "data-label-alignment");
         if (!string.IsNullOrEmpty(labelAlignmentAttribute) &&
             Enum.TryParse<Justify>(labelAlignmentAttribute, true, out var labelAlignment))
         {
             barChart.LabelAlignment = labelAlignment;
         }
 
-        if (VdomSpectreTranslator.TryParsePositiveDouble(VdomSpectreTranslator.GetAttribute(node, "data-max-value"),
+        if (VNodeAttributeReader.TryParsePositiveDouble(VNodeAttributeReader.GetAttribute(node, "data-max-value"),
                 out var maxValue))
         {
             barChart.MaxValue = maxValue;
         }
 
-        if (VdomSpectreTranslator.TryGetBoolAttribute(node, "data-show-values", out var showValues))
+        if (VNodeAttributeReader.TryGetBoolAttribute(node, "data-show-values", out var showValues))
         {
             barChart.ShowValues = showValues;
         }
 
-        var cultureInfoAttribute = VdomSpectreTranslator.GetAttribute(node, "data-culture");
+        var cultureInfoAttribute = VNodeAttributeReader.GetAttribute(node, "data-culture");
         CultureInfo cultureInfo;
         if (cultureInfoAttribute != null)
         {
@@ -95,12 +92,12 @@ public sealed class BarChartTranslator : ITranslationMiddleware
             }
             catch
             {
-                return next(node);
+                return null;
             }
         }
         else
         {
-            return next(node);
+            return null;
         }
         barChart.Culture = cultureInfo;
 
@@ -111,7 +108,7 @@ public sealed class BarChartTranslator : ITranslationMiddleware
         => node.Kind == VNodeKind.Element
            && string.Equals(node.TagName, "barchart", StringComparison.OrdinalIgnoreCase);
 
-    private void AddBarChartItems(Spectre.Console.BarChart barChart, List<JsonElement> rawItems)
+    private static void AddBarChartItems(Spectre.Console.BarChart barChart, List<JsonElement> rawItems)
     {
         foreach (var el in rawItems)
         {

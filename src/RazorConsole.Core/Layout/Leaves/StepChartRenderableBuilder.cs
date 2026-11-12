@@ -1,32 +1,29 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using System.Text;
-using RazorConsole.Core.Abstractions.Rendering;
 
-using RazorConsole.Core.Rendering.Vdom;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
 using Spectre.Console.Rendering;
-using TranslationContext = RazorConsole.Core.Rendering.Translation.Contexts.TranslationContext;
 
-namespace RazorConsole.Core.Rendering.Translation.Translators;
+namespace RazorConsole.Core.Layout.Leaves;
 
-public sealed class StepChartTranslator : ITranslationMiddleware
+internal static class StepChartRenderableBuilder
 {
-    public IRenderable Translate(TranslationContext context, TranslationDelegate next, VNode node)
+    public static IRenderable? TryCreate(VNode node)
     {
         if (!CanHandle(node))
         {
-            return next(node);
+            return null;
         }
 
-        var width = VdomSpectreTranslator.TryGetIntAttribute(node, "data-width", 60);
-        var height = VdomSpectreTranslator.TryGetIntAttribute(node, "data-height", 20);
-        var showAxes = VdomSpectreTranslator.TryGetBoolAttribute(node, "data-show-axes", out var axes) && axes;
-        var axesColor = VdomSpectreTranslator.GetAttribute(node, "data-axes-color") ?? Color.Grey.ToMarkup();
-        var labelsColor = VdomSpectreTranslator.GetAttribute(node, "data-labels-color") ?? Color.Grey.ToMarkup();
-        var title = VdomSpectreTranslator.GetAttribute(node, "data-title");
-        var titleColor = VdomSpectreTranslator.GetAttribute(node, "data-title-color") ?? Color.Grey.ToMarkup();
+        var width = VNodeAttributeReader.TryGetIntAttribute(node, "data-width", 60);
+        var height = VNodeAttributeReader.TryGetIntAttribute(node, "data-height", 20);
+        var showAxes = VNodeAttributeReader.TryGetBoolAttribute(node, "data-show-axes", out var axes) && axes;
+        var axesColor = VNodeAttributeReader.GetAttribute(node, "data-axes-color") ?? Color.Grey.ToMarkup();
+        var labelsColor = VNodeAttributeReader.GetAttribute(node, "data-labels-color") ?? Color.Grey.ToMarkup();
+        var title = VNodeAttributeReader.GetAttribute(node, "data-title");
+        var titleColor = VNodeAttributeReader.GetAttribute(node, "data-title-color") ?? Color.Grey.ToMarkup();
 
         var seriesList = new List<SeriesData>();
         foreach (var child in node.Children)
@@ -36,15 +33,15 @@ public sealed class StepChartTranslator : ITranslationMiddleware
                 continue;
             }
 
-            var color = VdomSpectreTranslator.GetAttribute(child, "data-color") ?? "white";
-            var pointsStr = VdomSpectreTranslator.GetAttribute(child, "data-points") ?? "";
+            var color = VNodeAttributeReader.GetAttribute(child, "data-color") ?? "white";
+            var pointsStr = VNodeAttributeReader.GetAttribute(child, "data-points") ?? "";
             var points = ParsePoints(pointsStr);
             seriesList.Add(new SeriesData(color, points));
         }
 
         if (seriesList.Count == 0)
         {
-            return next(node);
+            return null;
         }
 
         var chartText = RenderStepChart(seriesList, width, height, showAxes, axesColor, labelsColor, title, titleColor);
@@ -54,7 +51,7 @@ public sealed class StepChartTranslator : ITranslationMiddleware
     private static bool CanHandle(VNode node)
         => node.Kind == VNodeKind.Element && node.TagName == "stepchart";
 
-    private List<(double X, double Y)> ParsePoints(string data)
+    private static List<(double X, double Y)> ParsePoints(string data)
     {
         var points = new List<(double, double)>();
         if (string.IsNullOrEmpty(data))
@@ -76,7 +73,7 @@ public sealed class StepChartTranslator : ITranslationMiddleware
         return points.OrderBy<(double, double), object>(p => p.Item1).ToList();
     }
 
-    private string RenderStepChart(
+    private static string RenderStepChart(
         List<SeriesData> series,
         int width, int height,
         bool showAxes, string axesColor,
@@ -267,7 +264,7 @@ public sealed class StepChartTranslator : ITranslationMiddleware
         return sb.ToString();
     }
 
-    private List<(double Value, int Position)> CalculateNonOverlappingLabels(
+    private static List<(double Value, int Position)> CalculateNonOverlappingLabels(
         double min, double max, int totalPositions, int maxLabels)
     {
         var labels = new List<(double Value, int Position)>();
