@@ -16,8 +16,7 @@ namespace RazorConsole.Core.Diagnostics;
 internal sealed class DiagnosticsAppQueries(
     DiagnosticsState state,
     FocusManager focusManager,
-    NavigationManager navigationManager,
-    ConsoleAppOptions options)
+    NavigationManager navigationManager)
 {
     private const int MaxAmbiguousCandidates = 20;
 
@@ -61,8 +60,7 @@ internal sealed class DiagnosticsAppQueries(
     /// Hit-tests the layout: the element with the highest z-index, then the deepest, whose rectangle holds the cell.
     /// </summary>
     /// <remarks>
-    /// Reads one frame, so the stack and the painted cell belong together. Without a canvas (nothing mounted, or the
-    /// legacy pipeline) it returns no cell.
+    /// Reads one frame, so the stack and the painted cell belong together. Without a canvas (nothing mounted) it returns no cell.
     /// </remarks>
     public InspectAtResult InspectAt(InspectAtParams parameters, DiagnosticsFrame? frame = null)
     {
@@ -92,7 +90,7 @@ internal sealed class DiagnosticsAppQueries(
         return new InspectAtResult(parameters.X, parameters.Y, cell, stack, index.Frame);
     }
 
-    public ScreenResult Screen(ScreenParams parameters) => DiagnosticsScreenReader.Read(state, options, parameters);
+    public ScreenResult Screen(ScreenParams parameters) => DiagnosticsScreenReader.Read(state, parameters);
 
     public FocusResult Focus()
     {
@@ -156,7 +154,7 @@ internal sealed class DiagnosticsAppQueries(
         return new StatsResult(
             state.Frames,
             (long)state.Uptime.TotalMilliseconds,
-            options.RenderingPipeline.ToString(),
+            "WidgetLayout",
             state.LatestFrame?.Sequence ?? 0);
     }
 

@@ -1,5 +1,7 @@
 # Widget Layout Engine Plan
 
+> **Status:** implemented. WidgetLayout became the default in 0.6.0, and RazorConsole 1.0 removed the legacy Spectre pipeline, its `ITranslationMiddleware` translators and the `RenderingPipeline` option. Custom translation now goes through `IWidgetTranslator` ([custom-translators.md](custom-translators.md)). The sections below are the original plan and describe the code as it was before the migration.
+
 ## Implementation Progress
 
 - [x] Phase 0 foundation started: added `RazorConsole.Core.Layout` geometry primitives, widget/layout-box scaffolding, and a `TerminalCanvas` that can emit a precomputed Spectre `IRenderable`.
@@ -20,7 +22,7 @@
 - [x] Started FileExplorer alignment: added the `--widget-layout`/`RAZORCONSOLE_RENDERING_PIPELINE` switch and translated `SpectreTable`/`Scrollable` into widget-compatible leaf/container output.
 - [x] Added a minimal `ScrollableMinimal` example and a native `ScrollableWidget` side-scrollbar path; the minimal legacy and widget outputs now match (`One/Two/Three` with a `█/│` scrollbar).
 - [x] Added a native `TableWidget` with column sizing, borders, header separators, cell child arrangement, row/cell layout boxes, and `WidgetTranslationContext` table wiring.
-- [ ] Expand widget translation fallback coverage for richer HTML inline/block semantics and legacy Spectre leaf adapters.
+- [x] Replaced the Spectre fallback with native widgets and direct `SpectreWidget` leaves (charts, canvas, spinner, syntax highlighter, inline HTML text), then removed the legacy pipeline in 1.0.
 
 ## Problem
 

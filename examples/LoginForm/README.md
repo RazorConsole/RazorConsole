@@ -96,12 +96,6 @@ cd examples/LoginForm
 dotnet run
 ```
 
-To compare the widget layout pipeline:
-
-```bash
-dotnet run -- --widget-layout
-```
-
 Use `Tab` to navigate between inputs and buttons, `Enter` to submit or click buttons, and `Ctrl+C` to exit.
 
 ## Components Used

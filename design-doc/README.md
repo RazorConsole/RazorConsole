@@ -26,7 +26,7 @@ The documentation uses various Mermaid diagram types:
 - `keyboard-events.md` - Keyboard event handling
 - `wasm-js-interop.md` - Browser/WASM interop
 - `custom-translators.md` - Custom translator development
-- `block-inline-renderable.md` - Block/inline rendering
+- `widget-layout-engine.md` - Original plan for the widget layout engine (implemented; the legacy pipeline was removed in 1.0)
 - `layout-box-flex.md` - Native layout model for Box, Flex, fill, padding, margin, borders, and diagnostics
 - `syntax-highlighter.md` - Syntax highlighting component
 

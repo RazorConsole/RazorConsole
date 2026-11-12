@@ -10,7 +10,7 @@ namespace RazorConsole.Core.Controllers;
 /// <summary>
 /// Represents the outcome of rendering a Razor component for the console.
 /// </summary>
-public sealed class ConsoleViewResult
+internal sealed class ConsoleViewResult
 {
     private ConsoleViewResult(
         string html,

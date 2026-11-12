@@ -8,70 +8,68 @@ flowchart TB
         Razor[Razor .razor files]
         Blazor[Blazor Components]
     end
-    
+
     subgraph Core["RazorConsole.Core"]
         subgraph Rendering["Rendering"]
             Renderer[ConsoleRenderer]
-            LiveDisplay[ConsoleLiveDisplayContext]
+            LiveDisplay[Live display]
             Batch[RenderBatch Processing]
         end
-        
+
         subgraph VDOM["VDOM"]
             VNode[VNode Tree]
-            Translator[VdomSpectreTranslator]
             Diff[VdomDiffService]
         end
-        
+
+        subgraph Layout["Widget layout"]
+            Translator[WidgetTranslationContext]
+            Custom[Custom IWidgetTranslators]
+            Engine[LayoutEngine]
+            Canvas[TerminalCanvas]
+        end
+
         subgraph Input["Input"]
             Keyboard[KeyboardEventManager]
             Focus[FocusManager]
         end
-        
-        subgraph Components["Components"]
-            BuiltIn[Built-in Components]
-            Custom[Custom Translators]
-        end
     end
-    
+
     subgraph Spectre["Spectre.Console"]
-        Renderable[IRenderable]
         ANSI[ANSI Output]
     end
-    
+
     subgraph Output["Output"]
         Console[Console Application]
         Browser[Browser WASM]
     end
-    
+
     Razor -->|Component definition| Blazor
     Blazor -->|Render component| Renderer
     Renderer -->|Process RenderBatch| Batch
     Batch -->|Build VNode tree| VNode
-    VNode -->|Translate to IRenderable| Translator
-    Translator -->|Use built-in translators| BuiltIn
-    Translator -->|Use custom translators| Custom
-    Translator -->|Create Spectre renderable| Renderable
-    Renderable -->|Generate ANSI sequences| ANSI
-    
+    VNode -->|Translate to widgets| Translator
+    Custom -->|Run first| Translator
+    Translator -->|Widget tree| Engine
+    Engine -->|Measure, arrange, paint| Canvas
+
     Renderer -->|RenderSnapshot| LiveDisplay
     LiveDisplay -->|Diff VNode trees| Diff
-    Diff -->|Apply mutations| LiveDisplay
-    LiveDisplay -->|Update display| Renderable
-    
-    User[User] -->|Keyboard input| Keyboard
+    LiveDisplay -->|Write frame| ANSI
+
+    User[User] -->|Keyboard and mouse input| Keyboard
     Keyboard -->|Get focus target| Focus
     Focus -->|Dispatch event| Renderer
     Renderer -->|EventCallback| Blazor
     Blazor -->|State change → re-render| Renderer
-    
+
     ANSI -->|Native console output| Console
     ANSI -->|WASM interop output| Browser
-    
-    Note1[VNode tree:<br/>- Immutable structure<br/>- Component roots stored separately<br/>- Events captured in descriptors<br/>- Keys for efficient diffing]
+
+    Note1[VNode tree:<br/>- Component roots stored separately<br/>- Events captured in descriptors<br/>- Keys for efficient diffing]
     VNode -.-> Note1
-    
-    Note2[Translation chain:<br/>1. VNode tree<br/>2. Element translators by priority<br/>3. Spectre.Console IRenderable<br/>4. ANSI escape sequences]
-    Translator -.-> Note2
+
+    Note2[Every frame:<br/>1. VNode tree<br/>2. Widget tree<br/>3. Layout bounds per node<br/>4. Terminal cells<br/>5. ANSI escape sequences]
+    Engine -.-> Note2
 ```
 
 ## Project Structure
@@ -117,11 +115,11 @@ RazorConsole.slnx - Solution file
 - Captures events and attributes
 - Enables efficient diffing
 
-### VdomSpectreTranslator
-- Translates VNode tree to Spectre.Console renderables
-- Uses priority-based translator chain
-- Supports custom translators
-- Handles animated renderables
+### WidgetTranslationContext and LayoutEngine
+- Translate the VNode tree into widgets, running custom `IWidgetTranslator`s first
+- Measure and arrange widgets, recording the bounds of every node for focus, mouse input and diagnostics
+- Paint the widgets into a `TerminalCanvas` of terminal cells
+- Collect animated renderables so the display refreshes them
 
 ### KeyboardEventManager
 - Processes console keyboard input

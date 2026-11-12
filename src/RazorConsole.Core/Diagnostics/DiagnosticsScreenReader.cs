@@ -33,21 +33,16 @@ internal static class DiagnosticsScreenReader
     /// Reads the canvas of the latest frame, painting it on first use.
     /// </summary>
     /// <exception cref="DiagnosticsProtocolException">Nothing is painted, or the region is invalid.</exception>
-    public static ScreenResult Read(DiagnosticsState state, ConsoleAppOptions options, ScreenParams parameters)
+    public static ScreenResult Read(DiagnosticsState state, ScreenParams parameters)
     {
         var frame = state.LatestFrame;
         if (frame?.PaintCanvas() is not { } canvas)
         {
-            var reason = options.RenderingPipeline == RazorConsoleRenderingPipeline.WidgetLayout
-                ? DiagnosticsUnavailableReasons.NotPainted
-                : DiagnosticsUnavailableReasons.LegacyPipeline;
             throw new DiagnosticsProtocolException(
                 DiagnosticsErrorCodes.ScreenUnavailable,
-                reason == DiagnosticsUnavailableReasons.NotPainted
-                    ? "The app has not painted a frame yet."
-                    : "The legacy rendering pipeline has no canvas to read.",
+                "The app has not painted a frame yet.",
                 errorData: JsonSerializer.SerializeToElement(
-                    new DiagnosticsUnavailableData(reason),
+                    new DiagnosticsUnavailableData(DiagnosticsUnavailableReasons.NotPainted),
                     DiagnosticsJsonContext.Default.DiagnosticsUnavailableData));
         }
 
