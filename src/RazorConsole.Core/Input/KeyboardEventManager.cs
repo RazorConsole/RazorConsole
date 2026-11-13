@@ -75,6 +75,7 @@ internal sealed class KeyboardEventManager
     private volatile string? _activeFocusKey;
     private readonly MouseEventManager? _mouse;
     private readonly ConsoleAppOptions? _options;
+    private readonly ScrollInputNavigator? _scroll;
     private TerminalInputDispatcher? _injectedInputDispatcher;
 
     public KeyboardEventManager(
@@ -83,8 +84,10 @@ internal sealed class KeyboardEventManager
         IConsoleInput console,
         ILogger<KeyboardEventManager>? logger = null,
         MouseEventManager? mouse = null,
-        ConsoleAppOptions? options = null)
+        ConsoleAppOptions? options = null,
+        ScrollInputNavigator? scroll = null)
     {
+        _scroll = scroll;
         _focusManager = focusManager;
         _dispatcher = dispatcher;
         _console = console;
@@ -238,6 +241,13 @@ internal sealed class KeyboardEventManager
         var handled = await DispatchKeyboardEventAsync(initialTarget, "onkeydown", keyInfo, token).ConfigureAwait(false);
 
         if (managedKey || handled)
+        {
+            await DispatchKeyboardEventAsync(initialTarget, "onkeyup", keyInfo, token).ConfigureAwait(false);
+            return;
+        }
+
+        // Keys nobody handled scroll the nearest scroll container of the focused element.
+        if (_scroll?.TryScroll(initialTarget.VNodeId, keyInfo.Key) == true)
         {
             await DispatchKeyboardEventAsync(initialTarget, "onkeyup", keyInfo, token).ConfigureAwait(false);
             return;

@@ -8,9 +8,8 @@
 @implements IDisposable
 @inject ScrollStateRegistry ScrollState;
 
-@* Not a Tab stop itself: the wheel handler would otherwise make it focusable; the scrollbar takes focus. *@
+@* Not a Tab stop itself; the scrollbar takes focus. The wheel is handled by the layout engine. *@
 <view-height-scrollable
-    @onwheel="HandleWheel" @onwheel:stopPropagation="true"
     data-focusable="false"
     data-offset="@ScrollOffset"
     data-lines-to-render="@LinesToRender"
@@ -95,7 +94,7 @@
 
     [Parameter] public required RenderFragment<ScrollContext> ChildContent { get; set; }
 
-    // The engine owns the scroll position: this component mirrors it into ScrollOffset, and pushes offsets it computes itself (keys, wheel) back.
+    // The engine owns the scroll position: this component mirrors it into ScrollOffset, and pushes offsets it computes itself (keys) back.
     protected override void OnInitialized()
         => ScrollState.TopChanged += OnEngineTopChanged;
 
@@ -162,17 +161,6 @@
             if (ScrollOffsetChanged.HasDelegate)
                 await ScrollOffsetChanged.InvokeAsync(newOffset);
             StateHasChanged();
-        }
-    }
-
-    private async Task HandleWheel(WheelEventArgs e)
-    {
-        var next = Math.Clamp(ScrollOffset + (int)e.DeltaY, 0, MaxOffset);
-        if (next != ScrollOffset)
-        {
-            ScrollOffset = next;
-            ScrollState.SetTop(_scrollId, next, ScrollChangeSource.Parameter);
-            await ScrollOffsetChanged.InvokeAsync(next);
         }
     }
 
