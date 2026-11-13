@@ -1,0 +1,54 @@
+@namespace Tutorial.Components.Chapters
+@implements IDisposable
+
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using ScrollController = RazorConsole.Core.Layout.ScrollController
+@using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
+@using ScrollbarPlacement = RazorConsole.Core.Rendering.ScrollbarPlacement
+
+<Box Border="BoxBorder.Rounded" Padding="new Padding(1)" Expand="true">
+    <Rows>
+        <Markup Content="Scrolling with Overflow" Foreground="Color.Cyan1" Decoration="Decoration.Bold" />
+        <Panel Title="Log" Border="BoxBorder.Rounded" Height="7" Overflow="OverflowMode.Scroll"
+               Focusable="true" Controller="_controller" StickToBottom="true"
+               Scrollbar="@(new ScrollbarSettings(placement: ScrollbarPlacement.Border))" Expand="true">
+            @foreach (var line in _lines)
+            {
+                <Markup Content="@line" />
+            }
+        </Panel>
+        <Markup Content="@Status" Foreground="Color.Grey58" />
+        <Columns>
+            <TextButton Content="Top" OnClick="@(() => _controller.ScrollToStartAsync())" />
+            <TextButton Content="Bottom" OnClick="@(() => _controller.ScrollToEndAsync())" />
+            <TextButton Content="Add line" OnClick="AddLine" />
+        </Columns>
+        <Markup Content="Wheel over the log, or use the arrow keys, PageUp, PageDown, Home and End while it has focus. Tab moves on to the buttons." Foreground="Color.Grey58" />
+    </Rows>
+</Box>
+
+@code {
+    private readonly ScrollController _controller = new();
+    private readonly List<string> _lines = [.. Enumerable.Range(1, 20).Select(i => $"log: line {i}")];
+
+    private string Status
+    {
+        get
+        {
+            var metrics = _controller.Metrics;
+            return $"Top {metrics.Top} of {metrics.MaxTop} - {metrics.ContentHeight} lines in {metrics.ViewportHeight} rows";
+        }
+    }
+
+    protected override void OnInitialized()
+        => _controller.MetricsChanged += OnMetricsChanged;
+
+    private void OnMetricsChanged(RazorConsole.Core.Layout.ScrollViewMetrics metrics)
+        => _ = InvokeAsync(StateHasChanged);
+
+    private void AddLine()
+        => _lines.Add($"log: line {_lines.Count + 1}");
+
+    public void Dispose()
+        => _controller.MetricsChanged -= OnMetricsChanged;
+}

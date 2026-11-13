@@ -116,6 +116,9 @@ public partial class Registry
             case "TutorialWidgetLayoutAndResize":
                 _renderers[instanceID] = new RazorConsoleRenderer<WidgetLayoutAndResize>(instanceID, cols, rows);
                 break;
+            case "TutorialScrollingWithOverflow":
+                _renderers[instanceID] = new RazorConsoleRenderer<ScrollingWithOverflow>(instanceID, cols, rows);
+                break;
             case "TutorialRouting":
                 _renderers[instanceID] = new RazorConsoleRenderer<RoutingDemo>(instanceID, cols, rows);
                 break;

@@ -29,6 +29,7 @@ export default {
       "text-input-and-focus",
       "mouse-events",
       "widget-layout-and-resize",
+      "scrolling-with-overflow",
       "routing",
       "async-work",
       "complete-app",

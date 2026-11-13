@@ -3,9 +3,10 @@ import stateAndEvents from "../../../tutorial/chapters/02-state-and-events.md?ra
 import textInputAndFocus from "../../../tutorial/chapters/03-text-input-and-focus.md?raw"
 import mouseEvents from "../../../tutorial/chapters/04-mouse-events.md?raw"
 import widgetLayoutAndResize from "../../../tutorial/chapters/05-widget-layout-and-resize.md?raw"
-import routing from "../../../tutorial/chapters/06-routing.md?raw"
-import asyncWork from "../../../tutorial/chapters/07-async-work.md?raw"
-import completeApp from "../../../tutorial/chapters/08-complete-app.md?raw"
+import scrollingWithOverflow from "../../../tutorial/chapters/06-scrolling-with-overflow.md?raw"
+import routing from "../../../tutorial/chapters/07-routing.md?raw"
+import asyncWork from "../../../tutorial/chapters/08-async-work.md?raw"
+import completeApp from "../../../tutorial/chapters/09-complete-app.md?raw"
 
 export interface TutorialChapter {
   number: number
@@ -75,9 +76,20 @@ export const tutorialChapters: TutorialChapter[] = [
   },
   {
     number: 6,
+    slug: "scrolling-with-overflow",
+    shortTitle: "Scrolling with Overflow",
+    title: "Chapter 6: Scrolling with Overflow",
+    description: "Make any container scroll with the wheel, the keyboard, a scrollbar and code.",
+    content: scrollingWithOverflow,
+    componentId: "TutorialScrollingWithOverflow",
+    previewInstructions: "Wheel over the log, use the arrow keys while it has focus, then Tab to the buttons.",
+    previewHeight: "h-[400px]",
+  },
+  {
+    number: 7,
     slug: "routing",
     shortTitle: "Routing",
-    title: "Chapter 6: Routing and Multi-page Apps",
+    title: "Chapter 7: Routing and Multi-page Apps",
     description: "Build routed terminal pages with NavigationManager.",
     content: routing,
     componentId: "TutorialRouting",
@@ -85,10 +97,10 @@ export const tutorialChapters: TutorialChapter[] = [
     previewHeight: "h-[330px]",
   },
   {
-    number: 7,
+    number: 8,
     slug: "async-work",
     shortTitle: "Async Work",
-    title: "Chapter 7: Async Work, Loading, and Errors",
+    title: "Chapter 8: Async Work, Loading, and Errors",
     description: "Render loading, success, failure, and cancellation states.",
     content: asyncWork,
     componentId: "TutorialAsyncWork",
@@ -96,10 +108,10 @@ export const tutorialChapters: TutorialChapter[] = [
     previewHeight: "h-[340px]",
   },
   {
-    number: 8,
+    number: 9,
     slug: "complete-app",
     shortTitle: "Complete App",
-    title: "Chapter 8: Complete Interactive App",
+    title: "Chapter 9: Complete Interactive App",
     description: "Combine the course concepts in a small task board.",
     content: completeApp,
     componentId: "TutorialCompleteApp",
