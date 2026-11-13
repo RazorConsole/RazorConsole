@@ -45,6 +45,7 @@ internal enum ScrollChangeSource
 internal sealed class ScrollStateRegistry(ILogger<ScrollStateRegistry>? logger = null)
 {
     private readonly object _gate = new();
+    private long _version;
     private readonly ConcurrentDictionary<string, ScrollState> _states = new(StringComparer.Ordinal);
     private readonly HashSet<string> _passIds = new(StringComparer.Ordinal);
     private readonly HashSet<string> _reportedDuplicates = new(StringComparer.Ordinal);
@@ -57,6 +58,12 @@ internal sealed class ScrollStateRegistry(ILogger<ScrollStateRegistry>? logger =
 
     /// <summary>Raised when state changed outside a Blazor render and the screen must be repainted.</summary>
     public event Action? RepaintRequested;
+
+    /// <summary>
+    /// Gets a counter that changes whenever an offset or follow-the-end flag is changed from outside layout.
+    /// Layout's own clamping and metrics do not change it, so an unchanged value means a relayout would give the same result.
+    /// </summary>
+    public long Version => Interlocked.Read(ref _version);
 
     public ScrollState Get(string scrollId)
         => _states.TryGetValue(scrollId, out var state) ? state : ScrollState.Default;
@@ -89,6 +96,10 @@ internal sealed class ScrollStateRegistry(ILogger<ScrollStateRegistry>? logger =
             }
 
             _states[scrollId] = next;
+            if (next != previous)
+            {
+                Interlocked.Increment(ref _version);
+            }
         }
 
         if (next.Top == previous.Top)
@@ -115,6 +126,7 @@ internal sealed class ScrollStateRegistry(ILogger<ScrollStateRegistry>? logger =
             }
 
             _states[scrollId] = state with { Sticky = sticky, FollowEnd = sticky };
+            Interlocked.Increment(ref _version);
         }
 
         if (sticky)
@@ -163,7 +175,11 @@ internal sealed class ScrollStateRegistry(ILogger<ScrollStateRegistry>? logger =
     {
         lock (_gate)
         {
-            _states.TryRemove(scrollId, out _);
+            if (_states.TryRemove(scrollId, out _))
+            {
+                Interlocked.Increment(ref _version);
+            }
+
             _reportedDuplicates.Remove(scrollId);
         }
     }

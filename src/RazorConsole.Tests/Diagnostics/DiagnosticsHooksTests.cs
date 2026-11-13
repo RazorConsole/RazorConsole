@@ -51,6 +51,7 @@ public sealed class DiagnosticsHooksTests
         var frame = await WaitForFrameAsync(state, snapshot.Sequence, ct);
 
         // A refresh builds a snapshot for hit tests but delivers it to nobody.
+        InvalidateSnapshot(renderer);
         var refreshed = renderer.RefreshSnapshot();
         await Task.Delay(100, ct);
 
@@ -120,6 +121,7 @@ public sealed class DiagnosticsHooksTests
         (await focus.WaitForSnapshotAsync(mounted.Sequence, TimeSpan.FromSeconds(30), ct)).ShouldBeTrue();
 
         // A resize or a hit test builds a snapshot that no observer is ever told about; Subscribe replays it.
+        InvalidateSnapshot(renderer);
         var refreshed = renderer.RefreshSnapshot();
         refreshed.Sequence.ShouldBeGreaterThan(focus.SnapshotSequence);
         using var observer = new DiagnosticsSnapshotObserver(state, renderer);
@@ -290,8 +292,13 @@ public sealed class DiagnosticsHooksTests
             serviceProvider.GetService<LayoutEngine>(),
             serviceProvider.GetService<VNodeIdAccessor>(),
             serviceProvider.GetService<VNodeLayoutAccessor>(),
-            monitor ?? serviceProvider.GetService<TerminalMonitor>());
+            monitor ?? serviceProvider.GetService<TerminalMonitor>(),
+            serviceProvider.GetService<ScrollStateRegistry>());
     }
+
+    /// <summary>Changes the scroll state, which is what makes the renderer build a new snapshot on the next refresh.</summary>
+    private static void InvalidateSnapshot(ConsoleRenderer renderer)
+        => renderer.ScrollRegistry.ShouldNotBeNull().SetTop("probe", 1, ScrollChangeSource.Parameter);
 
     /// <summary>A renderer whose delivered snapshots fill <paramref name="state"/>, as the hosted observer does in an app.</summary>
     internal static ConsoleRenderer CreateObservedRenderer(DiagnosticsState state)
