@@ -79,7 +79,12 @@ public sealed class FlexWidget : Widget
         }
 
         var flowChildren = Children.Where(child => !child.IsAbsolutePositioned).ToArray();
-        var childConstraints = new BoxConstraints(0, constraints.MaxWidth, 0, constraints.MaxHeight);
+        // Children are measured in the space they are arranged in, so content that wraps does so in both passes.
+        var childConstraints = new BoxConstraints(
+            0,
+            Math.Min(Width ?? constraints.MaxWidth, constraints.MaxWidth),
+            0,
+            Math.Min(Height ?? constraints.MaxHeight, constraints.MaxHeight));
         var width = 0;
         var height = 0;
 
