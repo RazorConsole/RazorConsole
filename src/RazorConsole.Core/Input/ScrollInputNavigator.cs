@@ -45,7 +45,8 @@ internal sealed class ScrollInputNavigator
 
         foreach (var node in MouseEventManager.Path(root, focusedNodeId).AsEnumerable().Reverse())
         {
-            if (_layouts.GetLayoutByVNodeIdOrDefault(node.ID)?.Scroll is not { ScrollId: { } scrollId } scroll
+            // The scroll id comes from the element itself, so keys keep working while layout is a frame behind a render.
+            if (!node.Attributes.TryGetValue("data-scroll-id", out var scrollId) || string.IsNullOrEmpty(scrollId)
                 || (isArrow && node.ID != focusedNodeId))
             {
                 continue;
@@ -53,7 +54,7 @@ internal sealed class ScrollInputNavigator
 
             var state = registry.Get(scrollId);
             var max = state.Metrics.MaxTop;
-            var page = Math.Max(1, scroll.ViewportHeight);
+            var page = Math.Max(1, state.Metrics.ViewportHeight);
             var target = key switch
             {
                 ConsoleKey.UpArrow => state.Top - 1,
@@ -79,21 +80,63 @@ internal sealed class ScrollInputNavigator
         return false;
     }
 
+    /// <summary>
+    /// Scrolls the containers around an element so that it is visible.
+    /// </summary>
+    /// <param name="target">The element's <c>data-vnode-hook</c>, <c>data-focus-key</c> or key.</param>
+    /// <returns><see langword="true"/> when the element exists.</returns>
+    public bool ScrollIntoView(string target)
+    {
+        if (_renderer.RefreshSnapshot().Root is not { } root || Find(root, target) is not { } node)
+        {
+            return false;
+        }
+
+        ScrollNodeIntoView(root, node.ID);
+        return true;
+    }
+
+    private static VNode? Find(VNode node, string target)
+    {
+        if (node.Kind == VNodeKind.Element
+            && (node.Key == target
+                || (node.Attributes.TryGetValue("data-vnode-hook", out var hook) && hook == target)
+                || (node.Attributes.TryGetValue("data-focus-key", out var focusKey) && focusKey == target)))
+        {
+            return node;
+        }
+
+        foreach (var child in node.Children)
+        {
+            if (Find(child, target) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
     private void OnFocusChanged(object? sender, FocusChangedEventArgs e)
     {
+        if (_focus.TryGetFocusedTarget(out var target) && target is not null && _renderer.RefreshSnapshot().Root is { } root)
+        {
+            ScrollNodeIntoView(root, target.VNodeId);
+        }
+    }
+
+    private void ScrollNodeIntoView(VNode root, string nodeId)
+    {
         if (_renderer.ScrollRegistry is not { } registry
-            || !_focus.TryGetFocusedTarget(out var target)
-            || target is null
-            || _renderer.RefreshSnapshot().Root is not { } root
-            || _layouts.GetLayoutByVNodeIdOrDefault(target.VNodeId) is not { Top: { } top, Height: { } height })
+            || _layouts.GetLayoutByVNodeIdOrDefault(nodeId) is not { Top: { } top, Height: { } height })
         {
             return;
         }
 
         var bottom = top + height;
-        foreach (var node in MouseEventManager.Path(root, target.VNodeId).AsEnumerable().Reverse())
+        foreach (var node in MouseEventManager.Path(root, nodeId).AsEnumerable().Reverse())
         {
-            if (node.ID == target.VNodeId
+            if (node.ID == nodeId
                 || _layouts.GetLayoutByVNodeIdOrDefault(node.ID)?.Scroll is not { ScrollId: { } scrollId, Viewport: { IsEmpty: false } viewport })
             {
                 continue;

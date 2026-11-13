@@ -202,7 +202,7 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
 
         foreach (var node in Path(root, id).AsEnumerable().Reverse())
         {
-            if (layouts.GetLayoutByVNodeIdOrDefault(node.ID)?.Scroll is { ScrollId: { } scrollId })
+            if (node.Attributes.TryGetValue("data-scroll-id", out var scrollId) && !string.IsNullOrEmpty(scrollId))
             {
                 var state = registry.Get(scrollId);
                 var max = state.Metrics.MaxTop;
