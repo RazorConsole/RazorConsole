@@ -3,7 +3,6 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
-using RazorConsole.Core;
 using RazorConsole.Core.Input;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Testing;
@@ -25,7 +24,7 @@ public sealed class EventHandlerConcurrencyTests
     {
         var ct = TestContext.Current.CancellationToken;
         var events = new List<string>();
-        await using var terminal = await StartLongRunningHostAsync(events, TimeSpan.FromSeconds(5), serialize: false, ct);
+        await using var terminal = await StartLongRunningHostAsync(events, TimeSpan.FromSeconds(5), ct);
 
         var start = terminal.ClickAsync(1, StartRow, ct);
         await terminal.WaitForTextAsync("status=working", cancellationToken: ct);
@@ -49,27 +48,12 @@ public sealed class EventHandlerConcurrencyTests
     {
         var ct = TestContext.Current.CancellationToken;
         var events = new List<string>();
-        await using var terminal = await StartLongRunningHostAsync(events, TimeSpan.FromMilliseconds(200), serialize: false, ct);
+        await using var terminal = await StartLongRunningHostAsync(events, TimeSpan.FromMilliseconds(200), ct);
 
         await terminal.ClickAsync(1, StartRow, ct);
 
         Snapshot(events).ShouldBe(["start", "end:done"]);
         terminal.CurrentFrame.ScreenText.ShouldContain("status=done");
-    }
-
-    [Fact]
-    public async Task SerializeEventHandlers_WaitsForEachHandlerBeforeTheNextInput()
-    {
-        var ct = TestContext.Current.CancellationToken;
-        var events = new List<string>();
-        await using var terminal = await StartLongRunningHostAsync(events, TimeSpan.FromMilliseconds(300), serialize: true, ct);
-
-        var start = terminal.ClickAsync(1, StartRow, ct);
-        await terminal.WaitForTextAsync("status=working", cancellationToken: ct);
-        var count = terminal.ClickAsync(1, CountRow, ct);
-        await Task.WhenAll(start, count).WaitAsync(TimeSpan.FromSeconds(5), ct);
-
-        Snapshot(events).ShouldBe(["start", "end:done", "count"]);
     }
 
     [Fact]
@@ -233,7 +217,7 @@ public sealed class EventHandlerConcurrencyTests
         await terminal.WaitForTextAsync("buffer=<x> submitted=hi", cancellationToken: ct);
     }
 
-    private static async Task<HeadlessTerminal> StartLongRunningHostAsync(List<string> events, TimeSpan duration, bool serialize, CancellationToken ct)
+    private static async Task<HeadlessTerminal> StartLongRunningHostAsync(List<string> events, TimeSpan duration, CancellationToken ct)
     {
         var terminal = await HeadlessTerminal.StartAsync<LongRunningHandlerHost>(
             new HeadlessTerminalOptions
@@ -245,7 +229,6 @@ public sealed class EventHandlerConcurrencyTests
                     [nameof(LongRunningHandlerHost.Events)] = events,
                     [nameof(LongRunningHandlerHost.WorkDuration)] = duration,
                 },
-                ConfigureServices = services => services.Configure<ConsoleAppOptions>(o => o.SerializeEventHandlers = serialize),
             },
             ct);
         await terminal.WaitForTextAsync("status=idle", cancellationToken: ct);

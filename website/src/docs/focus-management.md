@@ -90,7 +90,7 @@ Users can navigate between focusable elements using:
 
 Navigation wraps around: when reaching the last element, Tab moves to the first, and vice versa.
 
-A `@onkeydown` handler can keep Tab or Enter from doing their default action by marking the key as handled before its first `await`. Input does not wait for an `async` handler to finish, so focus and key events can reach your components while an earlier handler is still running; see the [keyboard guide](/blog/keyboard-events/) for how async handlers behave and how to opt out.
+A `@onkeydown` handler can keep Tab or Enter from doing their default action by marking the key as handled before its first `await`. Input does not wait for an `async` handler to finish, so focus and key events can reach your components while an earlier handler is still running; see the [keyboard guide](/blog/keyboard-events/) for how async handlers behave.
 
 ## Programmatic Focus Control
 

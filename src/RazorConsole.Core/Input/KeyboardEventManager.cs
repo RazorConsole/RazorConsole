@@ -30,27 +30,22 @@ internal interface IKeyboardEventDispatcher
 /// <see cref="Task"/>: the returned task completes once the handler has started (its synchronous part ran
 /// on the renderer's dispatcher), so input keeps flowing while an <c>async</c> handler awaits.
 /// Events still reach the dispatcher one at a time, in arrival order.
-/// <see cref="ConsoleAppOptions.SerializeEventHandlers"/> restores waiting for each handler to finish.
 /// </summary>
 internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher, IFocusEventDispatcher
 {
     private readonly ConsoleRenderer _renderer;
-    private readonly ConsoleAppOptions? _options;
     private readonly ILogger<RendererKeyboardEventDispatcher> _logger;
 
     public RendererKeyboardEventDispatcher(
         ConsoleRenderer renderer,
-        ConsoleAppOptions? options = null,
         ILogger<RendererKeyboardEventDispatcher>? logger = null)
     {
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
-        _options = options;
         _logger = logger ?? NullLogger<RendererKeyboardEventDispatcher>.Instance;
     }
 
     /// <returns>
-    /// A task that completes when the handler has started, or, with
-    /// <see cref="ConsoleAppOptions.SerializeEventHandlers"/>, when it has finished.
+    /// A task that completes when the handler has started; an <c>async</c> handler may still be running.
     /// It faults when the handler id is stale or the handler throws synchronously.
     /// </returns>
     public Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken)
@@ -83,12 +78,7 @@ internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher
             return;
         }
 
-        var observed = ObserveAsync(completion);
-        EventHandlerScope.Track(observed);
-        if (_options?.SerializeEventHandlers == true)
-        {
-            await observed.ConfigureAwait(false);
-        }
+        EventHandlerScope.Track(ObserveAsync(completion));
     }
 
     // The renderer reported an asynchronous handler failure through HandleException before the task faulted.
