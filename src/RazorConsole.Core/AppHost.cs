@@ -87,7 +87,8 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
     ConsoleRenderer consoleRenderer,
     FocusManager focusManager,
     KeyboardEventManager keyboardEventManager,
-    TerminalMonitor terminalMonitor) : BackgroundService where TComponent : IComponent
+    TerminalMonitor terminalMonitor,
+    ILoggerFactory loggerFactory) : BackgroundService where TComponent : IComponent
 {
     private readonly SemaphoreSlim _renderSemaphore = new(1, 1);
 
@@ -124,7 +125,13 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
             AnsiConsole.Clear();
         }
 
-        using var liveContext = new ConsoleLiveDisplayContext(new LiveDisplayCanvas(options.ConsoleLiveDisplayOptions, AnsiConsole.Console), consoleRenderer, terminalMonitor, null);
+        // Disposed last: it waits for the frame being written before it leaves the alternate screen buffer and
+        // turns mouse mode off, so a late frame cannot land on the main screen.
+        await using var liveContext = new ConsoleLiveDisplayContext(
+            new LiveDisplayCanvas(options.ConsoleLiveDisplayOptions, AnsiConsole.Console, loggerFactory.CreateLogger<LiveDisplayCanvas>()),
+            consoleRenderer,
+            terminalMonitor,
+            null);
         using var _ = consoleRenderer.Subscribe(focusManager);
         using var focusSession = focusManager.BeginSession(liveContext, initialView, token);
         await focusSession.InitializationTask.ConfigureAwait(false);
