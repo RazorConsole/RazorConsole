@@ -4,7 +4,7 @@
 @using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
 @using ScrollbarPlacement = RazorConsole.Core.Rendering.ScrollbarPlacement
 
-<GalleryWorkbench Id="scrollable" Title="Scrollable" Description="Scrolling is a property of a container: set Overflow, or use ScrollView. Wheel over a preview, or focus it and use the keys." Code="@_scrollableMarkup" Source="Scrollable" OnReset="() => { _resetVersion++; _log.Clear(); _log.AddRange(InitialLog); }">
+<GalleryWorkbench Id="scrollable" Title="Scrollable" Description="Scrolling is a property of a container: set Overflow. Wheel over a preview, or focus it and use the keys." Code="@_scrollableMarkup" Source="Scrollable" OnReset="() => { _resetVersion++; _log.Clear(); _log.AddRange(InitialLog); }">
     <Preview>
         <Rows>
             <Panel @key="(_resetVersion, 0)" Title="Embedded scrollbar" Border="BoxBorder.Rounded" Height="7" Overflow="OverflowMode.Scroll" Focusable="true" Expand>
@@ -14,22 +14,22 @@
                 }
             </Panel>
 
-            <Panel Title="Not embedded scrollbar - ScrollView with the bar outside" Border="BoxBorder.Rounded" Expand>
-                <ScrollView @key="(_resetVersion, 1)" Height="4" Focusable="true" Scrollbar="@(new ScrollbarSettings(placement: ScrollbarPlacement.Outside))">
+            <Panel Title="Not embedded scrollbar - Box with the bar outside" Border="BoxBorder.Rounded" Expand>
+                <Box Overflow="OverflowMode.Scroll" @key="(_resetVersion, 1)" Height="4" Focusable="true" Scrollbar="@(new ScrollbarSettings(placement: ScrollbarPlacement.Outside))">
                     @foreach (var item in AlphabetData)
                     {
                         <Markup Content="@($"{item.Letter} - {item.Color}")" Foreground="@item.Color" />
                     }
-                </ScrollView>
+                </Box>
             </Panel>
 
             <Panel Title="Controller and StickToBottom" Border="BoxBorder.Rounded" Expand>
-                <ScrollView Height="3" Controller="@_controller" StickToBottom="true">
+                <Box Overflow="OverflowMode.Scroll" Height="3" Controller="@_controller" StickToBottom="true">
                     @foreach (var line in _log)
                     {
                         <Markup Content="@line" />
                     }
-                </ScrollView>
+                </Box>
                 <Columns>
                     <TextButton Content="Top" OnClick="@(() => _controller.ScrollToStartAsync())" />
                     <TextButton Content="Bottom" OnClick="@(() => _controller.ScrollToEndAsync())" />
@@ -99,22 +99,22 @@
     }
 </Panel>
 
-<Panel Title=""Not embedded scrollbar - ScrollView with the bar outside"" Border=""BoxBorder.Rounded"" Expand>
-    <ScrollView Height=""4"" Focusable=""true"" Scrollbar=""@(new ScrollbarSettings(placement: ScrollbarPlacement.Outside))"">
+<Panel Title=""Not embedded scrollbar - Box with the bar outside"" Border=""BoxBorder.Rounded"" Expand>
+    <Box Overflow=""OverflowMode.Scroll"" Height=""4"" Focusable=""true"" Scrollbar=""@(new ScrollbarSettings(placement: ScrollbarPlacement.Outside))"">
         @foreach (var item in AlphabetData)
         {
             <Markup Content=""@($""{item.Letter} - {item.Color}"")"" Foreground=""@item.Color"" />
         }
-    </ScrollView>
+    </Box>
 </Panel>
 
 <Panel Title=""Controller and StickToBottom"" Border=""BoxBorder.Rounded"" Expand>
-    <ScrollView Height=""3"" Controller=""@_controller"" StickToBottom=""true"">
+    <Box Overflow=""OverflowMode.Scroll"" Height=""3"" Controller=""@_controller"" StickToBottom=""true"">
         @foreach (var line in _log)
         {
             <Markup Content=""@line"" />
         }
-    </ScrollView>
+    </Box>
     <Columns>
         <TextButton Content=""Top"" OnClick=""@(() => _controller.ScrollToStartAsync())"" />
         <TextButton Content=""Bottom"" OnClick=""@(() => _controller.ScrollToEndAsync())"" />
