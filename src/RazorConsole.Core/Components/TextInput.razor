@@ -62,6 +62,12 @@
     private bool _isFocused;
     private string _currentValue = string.Empty;
     private string _lastIncomingValue = string.Empty;
+    // Input does not wait for event handlers, so keystrokes can arrive while an async ValueChanged still runs.
+    // Callbacks are delivered one at a time in typing order, and the parent's intermediate values do not
+    // replace newer typed text.
+    private Task _pendingCallbacks = Task.CompletedTask;
+    private int _pendingCallbackCount;
+    private bool _incomingChangedWhilePending;
 
     /// <summary>
     /// Current value of the text input. Supports two-way binding with @bind-Value.
@@ -318,8 +324,51 @@
         // This prevents resetting user input when the parent re-renders with the same value
         if (!string.Equals(incoming, _lastIncomingValue, StringComparison.Ordinal))
         {
-            _currentValue = incoming;
             _lastIncomingValue = incoming;
+            if (_pendingCallbackCount > 0)
+            {
+                _incomingChangedWhilePending = true;
+            }
+            else
+            {
+                _currentValue = incoming;
+            }
+        }
+    }
+
+    // Runs callback after the callbacks of earlier input events have finished.
+    private async Task RunInOrderAsync(Func<Task> callback)
+    {
+        _pendingCallbackCount++;
+        var previous = _pendingCallbacks;
+        var current = RunAfterAsync(previous, callback);
+        _pendingCallbacks = current;
+        try
+        {
+            await current;
+        }
+        finally
+        {
+            if (--_pendingCallbackCount == 0 && _incomingChangedWhilePending)
+            {
+                // The parent set a value of its own (for example a normalized one) in response to the last input.
+                _incomingChangedWhilePending = false;
+                _currentValue = _lastIncomingValue;
+            }
+        }
+
+        static async Task RunAfterAsync(Task previous, Func<Task> callback)
+        {
+            try
+            {
+                await previous;
+            }
+            catch
+            {
+                // The earlier event's own handler has already reported it.
+            }
+
+            await callback();
         }
     }
 
@@ -333,17 +382,18 @@
         var newValue = ExtractValue(args) ?? string.Empty;
         _currentValue = newValue;
 
-        if (ValueChanged.HasDelegate)
+        await RunInOrderAsync(async () =>
         {
-            await ValueChanged.InvokeAsync(newValue).ConfigureAwait(false);
-        }
+            if (ValueChanged.HasDelegate)
+            {
+                await ValueChanged.InvokeAsync(newValue);
+            }
 
-        if (OnInput.HasDelegate)
-        {
-            await OnInput.InvokeAsync(newValue).ConfigureAwait(false);
-        }
-
-        await InvokeAsync(StateHasChanged).ConfigureAwait(false);
+            if (OnInput.HasDelegate)
+            {
+                await OnInput.InvokeAsync(newValue);
+            }
+        });
     }
 
     private async Task HandleSubmitAsync(ChangeEventArgs args)
@@ -358,7 +408,8 @@
 
         if (OnSubmit.HasDelegate)
         {
-            await OnSubmit.InvokeAsync(submittedValue).ConfigureAwait(false);
+            // After the ValueChanged of every key typed before Enter.
+            await RunInOrderAsync(() => OnSubmit.InvokeAsync(submittedValue));
         }
     }
 

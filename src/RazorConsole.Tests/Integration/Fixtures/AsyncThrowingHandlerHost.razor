@@ -1,0 +1,16 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+
+@* A click handler that fails after its first await. *@
+<div @onclick="FailAsync"><Markup Content="Fail" /></div>
+
+@code {
+    [Parameter] public string Message { get; set; } = "boom";
+
+    private async Task FailAsync()
+    {
+        await Task.Yield();
+        throw new InvalidOperationException(Message);
+    }
+}

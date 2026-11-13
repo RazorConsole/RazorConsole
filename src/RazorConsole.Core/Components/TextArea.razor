@@ -57,6 +57,12 @@
     [Parameter] public bool FollowOutput { get; set; }
     [Parameter] public EventCallback<string> OnSubmit { get; set; }
     [Parameter] public EventCallback<KeyboardEventArgs> OnCommand { get; set; }
+    /// <summary>
+    /// Sees each key first; return <see langword="true"/> to consume it.
+    /// A consumed Tab does not move focus only when the returned task is already complete,
+    /// so decide before the first real <c>await</c>, like <c>preventDefault</c> in a browser:
+    /// input does not wait for an async handler before it applies the key's default action.
+    /// </summary>
     [Parameter] public Func<KeyboardEventArgs, Task<bool>>? OnPreviewKey { get; set; }
     [Parameter] public EventCallback OnChanged { get; set; }
     [Parameter] public EventCallback<bool> IsFocusedChanged { get; set; }
@@ -269,7 +275,12 @@
         switch (e.Key)
         {
             case "Enter" when e.ShiftKey || e.AltKey: Buffer.Insert("\n"); break;
-            case "Enter" when CanSubmit: await OnSubmit.InvokeAsync(Buffer.Text); Buffer.SetText(""); break;
+            case "Enter" when CanSubmit:
+                // Clear first: keys typed while an async OnSubmit runs belong to the next message.
+                var submitted = Buffer.Text;
+                Buffer.SetText("");
+                await OnSubmit.InvokeAsync(submitted);
+                break;
             case "Enter": return;
             case "Backspace": Buffer.Backspace(); break;
             case "Delete": Buffer.Delete(); break;

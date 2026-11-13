@@ -256,7 +256,7 @@ internal sealed record DiagnosticsMouseInput(
 internal sealed record InputParams(string? Data = null, DiagnosticsMouseInput? Mouse = null, int? TimeoutMs = null);
 
 /// <summary>
-/// Returned after the input's handlers have run.
+/// Returned once the input's handlers have started; an <c>async</c> handler may still be running.
 /// </summary>
 /// <param name="Frame">The latest frame at that time.</param>
 internal sealed record InputResult(long Frame);

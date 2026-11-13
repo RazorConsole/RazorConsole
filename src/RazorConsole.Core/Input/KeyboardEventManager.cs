@@ -25,6 +25,12 @@ internal interface IKeyboardEventDispatcher
     Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Sends input events to the renderer. Like Blazor's browser side, it never waits for a handler's
+/// <see cref="Task"/>: the returned task completes once the handler has started (its synchronous part ran
+/// on the renderer's dispatcher), so input keeps flowing while an <c>async</c> handler awaits.
+/// Events still reach the dispatcher one at a time, in arrival order.
+/// </summary>
 internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher, IFocusEventDispatcher
 {
     private readonly ConsoleRenderer _renderer;

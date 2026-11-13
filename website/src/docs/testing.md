@@ -66,7 +66,14 @@ await using var terminal = await HeadlessTerminal.StartAsync<Greeting>(new Headl
 
 ### Input
 
-Every input method returns after the input has been handled and a frame has been captured.
+Every input method returns once the event handlers it raised have started (their code up to the first `await` has run) and a frame has been captured. Like a real terminal, it does not wait for an `async` handler to finish, so wait for the state you expect (see below). This also makes a Cancel button testable:
+
+```csharp
+await terminal.ClickAsync(1, 0, ct);                // Start: returns while its work is still awaiting
+await terminal.WaitForTextAsync("working...", cancellationToken: ct);
+await terminal.ClickAsync(1, 1, ct);                // Cancel
+await terminal.WaitForTextAsync("cancelled", cancellationToken: ct);
+```
 
 - `SendKeyAsync`: one key press, sent to the focused element.
 - `TypeAsync`: text, one key press per character. `\r` and `\n` are Enter, `\t` is Tab, `\b` and DEL are Backspace, upper-case letters add Shift, and other control characters are Ctrl+letter.
