@@ -35,6 +35,9 @@ public partial class Registry
             case "Scrollable":
                 _renderers[instanceID] = new RazorConsoleRenderer<Scrollable_1>(instanceID, cols, rows);
                 break;
+            case "ScrollView":
+                _renderers[instanceID] = new RazorConsoleRenderer<ScrollView_1>(instanceID, cols, rows);
+                break;
             case "ViewHeightScrollable":
                 _renderers[instanceID] = new RazorConsoleRenderer<ViewHeightScrollable_1>(instanceID, cols, rows);
                 break;

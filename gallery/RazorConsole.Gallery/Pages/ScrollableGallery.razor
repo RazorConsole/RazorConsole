@@ -1,74 +1,57 @@
 @page "/scrollable"
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using ScrollController = RazorConsole.Core.Layout.ScrollController
+@using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
+@using ScrollbarPlacement = RazorConsole.Core.Rendering.ScrollbarPlacement
 
-<GalleryWorkbench Id="scrollable" Title="Scrollable" Description="Wheel over each preview, or focus its scrollbar and use arrow keys." Code="@_scrollableMarkup" Source="Scrollable" OnReset="() => _resetVersion++">
+<GalleryWorkbench Id="scrollable" Title="Scrollable" Description="Scrolling is a property of a container: set Overflow, or use ScrollView. Wheel over a preview, or focus it and use the keys." Code="@_scrollableMarkup" Source="Scrollable" OnReset="() => { _resetVersion++; _log.Clear(); _log.AddRange(InitialLog); }">
     <Preview>
         <Rows>
-            <Panel Title="Embedded scrollbar" Border="BoxBorder.Rounded" Expand>
-                <Scrollable @key="(_resetVersion, 0)" Scrollbar="new()" Items="@AlphabetData" PageSize="3">
-                    <SpectreTable Title="Table" Border="TableBorder.Rounded" Expand>
-                        <SpectreTHead>
-                            <SpectreTR>
-                                <SpectreTH Align="Justify.Left">N</SpectreTH>
-                                <SpectreTH Align="Justify.Center">Letter</SpectreTH>
-                            </SpectreTR>
-                        </SpectreTHead>
-                        <SpectreTBody>
-                            @foreach (var item in context)
-                            {
-                                <SpectreTR>
-                                    <SpectreTD>
-                                        <Markup Content="@item.Number.ToString()" Foreground="@item.Color"/>
-                                    </SpectreTD>
-                                    <SpectreTD>
-                                        <Markup Content="@item.Letter" Foreground="@item.Color"/>
-                                    </SpectreTD>
-                                </SpectreTR>
-                            }
-                        </SpectreTBody>
-                    </SpectreTable>
-
-                    <Markup Content=@($"Page: {context.CurrentOffset + 1} / {context.PagesCount}")/>
-                </Scrollable>
-
-                <Scrollable @key="(_resetVersion, 1)" Scrollbar="@new()" Items="@AlphabetData" PageSize="6">
-                    <Panel Border="BoxBorder.Rounded" Title="Panel with list (ol)" Expand>
-                        <ol start="@(context.CurrentOffset + 1)">
-                            @foreach (var item in context)
-                            {
-                                <li>
-                                    <Markup Content=@($"{item.Letter}") Foreground="@item.Color"/>
-                                </li>
-                            }
-                        </ol>
-                    </Panel>
-
-                    <Markup Content=@($"Page: {context.CurrentOffset + 1} / {context.PagesCount}")/>
-                </Scrollable>
+            <Panel @key="(_resetVersion, 0)" Title="Embedded scrollbar" Border="BoxBorder.Rounded" Height="7" Overflow="OverflowMode.Scroll" Focusable="true" Expand>
+                @foreach (var item in AlphabetData)
+                {
+                    <Markup Content="@($"{item.Number,2}  {item.Letter}")" Foreground="@item.Color" />
+                }
             </Panel>
 
-            <Panel Title="Not embedded scrollbar - just list of markups" Border="BoxBorder.Rounded" Expand>
-                <Scrollable @key="_resetVersion" Scrollbar="new()" Items="@AlphabetData" PageSize="4">
-                    @foreach (var item in context)
+            <Panel Title="Not embedded scrollbar - ScrollView with the bar outside" Border="BoxBorder.Rounded" Expand>
+                <ScrollView @key="(_resetVersion, 1)" Height="4" Focusable="true" Scrollbar="@(new ScrollbarSettings(placement: ScrollbarPlacement.Outside))">
+                    @foreach (var item in AlphabetData)
                     {
-                        <Markup Content=@($"{item.Letter}") Foreground="@item.Color"/>
+                        <Markup Content="@($"{item.Letter} - {item.Color}")" Foreground="@item.Color" />
                     }
-                </Scrollable>
+                </ScrollView>
             </Panel>
 
-            <ViewHeightScrollable @key="_resetVersion" Scrollbar="new()" LinesToRender="3">
-                <Panel Title="View Height scrollable" Border="BoxBorder.Rounded">
-                    <Markup Content="@_largeText"/>
-                </Panel>
-            </ViewHeightScrollable>
+            <Panel Title="Controller and StickToBottom" Border="BoxBorder.Rounded" Expand>
+                <ScrollView Height="3" Controller="@_controller" StickToBottom="true">
+                    @foreach (var line in _log)
+                    {
+                        <Markup Content="@line" />
+                    }
+                </ScrollView>
+                <Columns>
+                    <TextButton Content="Top" OnClick="@(() => _controller.ScrollToStartAsync())" />
+                    <TextButton Content="Bottom" OnClick="@(() => _controller.ScrollToEndAsync())" />
+                    <TextButton Content="Add line" OnClick="AddLine" />
+                </Columns>
+            </Panel>
 
+            <Panel Title="Panel with a long text" Border="BoxBorder.Rounded" Height="5" Overflow="OverflowMode.Scroll" Scrollbar="@(new ScrollbarSettings())">
+                <Markup Content="@_largeText" />
+            </Panel>
         </Rows>
     </Preview>
 </GalleryWorkbench>
 
 @code {
     private int _resetVersion;
-    private const string ScrollableDocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/Scrollable.razor";
-    private const string ViewHeightScrollableDocumentationUrl = "https://github.com/LittleLittleCloud/RazorConsole/blob/main/src/RazorConsole.Core/Components/ViewHeightScrollable.razor";
+    private readonly ScrollController _controller = new();
+    private static readonly string[] InitialLog = ["log: started", "log: connected", "log: ready"];
+    private readonly List<string> _log = [.. InitialLog];
+
+    private void AddLine() => _log.Add($"log: line {_log.Count + 1}");
+
     private readonly string _largeText = string.Join("\n", [
         "Start of line",
         "Some text",
@@ -109,66 +92,39 @@
     }
 
     private readonly string _scrollableMarkup = @"
-<Panel Title=""Embedded scrollbar"" Border=""BoxBorder.Rounded"" Expand>
-    <Scrollable Items=""@AlphabetData"" PageSize=""3"">
-        <SpectreTable Title=""Table"" Border=""TableBorder.Rounded"" Expand>
-            <SpectreTHead>
-                <SpectreTR>
-                    <SpectreTH Align=""Justify.Left"">N</SpectreTH>
-                    <SpectreTH Align=""Justify.Center"">Letter</SpectreTH>
-                </SpectreTR>
-            </SpectreTHead>
-            <SpectreTBody>
-                @foreach (var item in context)
-                {
-                    <SpectreTR>
-                        <SpectreTD>
-                            <Markup Content=""@item.Number.ToString()"" Foreground=""@item.Color""/>
-                        </SpectreTD>
-                        <SpectreTD>
-                            <Markup Content=""@item.Letter"" Foreground=""@item.Color""/>
-                        </SpectreTD>
-                    </SpectreTR>
-                }
-            </SpectreTBody>
-        </SpectreTable>
-
-        <Markup Content=@($""Page: {context.CurrentOffset + 1} / {context.PagesCount}"")/>
-        <Scrollbar ScrollContext=""context""/>
-    </Scrollable>
-
-    <Scrollable Items=""@AlphabetData"" PageSize=""6"">
-        <Panel Border=""BoxBorder.Rounded"" Title=""Panel with list (ol)"" Expand>
-            <ol start=""@(context.CurrentOffset + 1)"">
-                @foreach (var item in context)
-                {
-                    <li>
-                        <Markup Content=@($""{item.Letter}"") Foreground=""@item.Color""/>
-                    </li>
-                }
-            </ol>
-        </Panel>
-
-        <Markup Content=@($""Page: {context.CurrentOffset + 1} / {context.PagesCount}"")/>
-        <Scrollbar ScrollContext=""context""/>
-    </Scrollable>
+<Panel Title=""Embedded scrollbar"" Border=""BoxBorder.Rounded"" Height=""7"" Overflow=""OverflowMode.Scroll"" Focusable=""true"" Expand>
+    @foreach (var item in AlphabetData)
+    {
+        <Markup Content=""@($""{item.Number,2}  {item.Letter}"")"" Foreground=""@item.Color"" />
+    }
 </Panel>
 
-<Panel Title=""Not embedded scrollbar - just list of markups"" Border=""BoxBorder.Rounded"" Expand>
-    <Scrollable Items=""@AlphabetData"" PageSize=""4"">
-            @foreach (var item in context)
-            {
-                <Markup Content=@($""{item.Letter}"") Foreground=""@item.Color""/>
-            }
-        <Scrollbar ScrollContext=""context""/>
-    </Scrollable>
+<Panel Title=""Not embedded scrollbar - ScrollView with the bar outside"" Border=""BoxBorder.Rounded"" Expand>
+    <ScrollView Height=""4"" Focusable=""true"" Scrollbar=""@(new ScrollbarSettings(placement: ScrollbarPlacement.Outside))"">
+        @foreach (var item in AlphabetData)
+        {
+            <Markup Content=""@($""{item.Letter} - {item.Color}"")"" Foreground=""@item.Color"" />
+        }
+    </ScrollView>
 </Panel>
 
-<ViewHeightScrollable Scrollbar=""new()"" LinesToRender=""3"">
-    <Panel Title=""View Height scrollable"" Border=""BoxBorder.Rounded"">
-        <Markup Content=""@_largeText""/>
-    </Panel>
-</ViewHeightScrollable>
+<Panel Title=""Controller and StickToBottom"" Border=""BoxBorder.Rounded"" Expand>
+    <ScrollView Height=""3"" Controller=""@_controller"" StickToBottom=""true"">
+        @foreach (var line in _log)
+        {
+            <Markup Content=""@line"" />
+        }
+    </ScrollView>
+    <Columns>
+        <TextButton Content=""Top"" OnClick=""@(() => _controller.ScrollToStartAsync())"" />
+        <TextButton Content=""Bottom"" OnClick=""@(() => _controller.ScrollToEndAsync())"" />
+        <TextButton Content=""Add line"" OnClick=""AddLine"" />
+    </Columns>
+</Panel>
+
+<Panel Title=""Panel with a long text"" Border=""BoxBorder.Rounded"" Height=""5"" Overflow=""OverflowMode.Scroll"" Scrollbar=""@(new ScrollbarSettings())"">
+    <Markup Content=""@_largeText"" />
+</Panel>
 ";
 
 }

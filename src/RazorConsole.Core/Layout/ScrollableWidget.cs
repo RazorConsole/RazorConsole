@@ -5,6 +5,7 @@ using Spectre.Console;
 
 namespace RazorConsole.Core.Layout;
 
+[Obsolete("Scroll containers use Overflow=Scroll, which wraps their content in a ScrollViewportWidget inside a BoxWidget. This widget is kept for the obsolete Scrollable component.")]
 public sealed class ScrollableWidget : Widget
 {
     public ScrollableWidget(

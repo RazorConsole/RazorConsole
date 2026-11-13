@@ -68,14 +68,20 @@ export const componentMetadata: Record<string, Partial<ComponentInfo>> = {
     description: "Arranges children in rows.",
     examples: ["Rows_1.razor"],
   },
+  ScrollView: {
+    category: "Layout",
+    description:
+      "Scrolls any content inside a fixed height. Scrolling is a property of the container: the same Overflow, Scrollbar, Controller and StickToBottom parameters work on Box, Panel, Padder, Border, Flex, Rows and Columns.",
+    examples: ["ScrollView_1.razor"],
+  },
   Scrollable: {
     category: "Layout",
-    description: "Provides scrollable content area.",
+    description: "Deprecated: set Overflow=Scroll on a container instead. The demo shows the replacement.",
     examples: ["Scrollable_1.razor"],
   },
   ViewHeightScrollable: {
     category: "Layout",
-    description: "Provides scrollable content area that scrolls through physical lines of any content. Has all functionalities of default Scrollable.",
+    description: "Deprecated: use ScrollView, or Overflow=Scroll on a Panel. The demo shows the replacement.",
     examples: ["ViewHeightScrollable_1.razor"],
   },
   Select: {

@@ -1,0 +1,24 @@
+@using Spectre.Console
+@using RazorConsole.Components
+@using ScrollController = RazorConsole.Core.Layout.ScrollController
+
+<Panel Title="Wheel to scroll, or Tab here and use the keys" Border="BoxBorder.Rounded" Expand>
+    <ScrollView Height="5" Focusable="true" Controller="@_controller" StickToBottom="true">
+        @foreach (var line in _lines)
+        {
+            <Markup Content="@line" />
+        }
+    </ScrollView>
+    <Columns>
+        <TextButton Content="Top" OnClick="@(() => _controller.ScrollToStartAsync())" />
+        <TextButton Content="Bottom" OnClick="@(() => _controller.ScrollToEndAsync())" />
+        <TextButton Content="Add line" OnClick="AddLine" />
+    </Columns>
+</Panel>
+
+@code {
+    private readonly ScrollController _controller = new();
+    private readonly List<string> _lines = [.. Enumerable.Range(1, 12).Select(i => $"Line {i}")];
+
+    private void AddLine() => _lines.Add($"Line {_lines.Count + 1}");
+}
