@@ -2,6 +2,7 @@
 
 @using Microsoft.AspNetCore.Components
 @using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using OverscrollBehavior = RazorConsole.Core.Layout.OverscrollBehavior
 @using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
 @using Spectre.Console
 
@@ -18,6 +19,8 @@
     FillWidth="@FillWidth"
     FillHeight="@FillHeight"
     Overflow="@Overflow"
+    OverscrollBehavior="@OverscrollBehavior"
+    Focusable="@Focusable"
     ScrollTop="@ScrollTop"
     ScrollTopChanged="@ScrollTopChanged"
     ScrollId="@ScrollId"
@@ -115,6 +118,18 @@
     /// </summary>
     [Parameter]
     public OverflowMode Overflow { get; set; }
+
+    /// <summary>
+    /// Whether scrolling continues in the parent scroll container once this one reaches its limit. See <see cref="Box.OverscrollBehavior"/>.
+    /// </summary>
+    [Parameter]
+    public OverscrollBehavior OverscrollBehavior { get; set; }
+
+    /// <summary>
+    /// Makes the scroll container a Tab stop that scrolls with the arrow keys, PageUp, PageDown, Home and End. See <see cref="Box.Focusable"/>.
+    /// </summary>
+    [Parameter]
+    public bool Focusable { get; set; }
 
     /// <summary>
     /// Scroll offset in rows, applied when its value changes. See <see cref="Box.ScrollTop"/>.

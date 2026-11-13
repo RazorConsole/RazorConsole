@@ -320,51 +320,46 @@ public sealed class BoxWidget : Widget
     public override LayoutBox CreateLayoutBox()
         => base.CreateLayoutBox() with { Scroll = _scroll is { ScrollId: not null } ? _scroll : null };
 
+    // Always describes the scrolling of a scroll container, so wheel and keyboard can find it; the track and thumb are empty when no bar shows.
     private ScrollLayoutInfo? ComputeScrollbar(LayoutRect frame)
     {
-        if (Viewport is not { } viewport || Scrollbar is not { Visibility: not ScrollbarVisibility.Never } bar || frame.IsEmpty)
-        {
-            return null;
-        }
-
-        if (bar.Visibility != ScrollbarVisibility.Always && viewport.ContentHeight <= viewport.ViewportHeight)
+        if (Viewport is not { } viewport || frame.IsEmpty)
         {
             return null;
         }
 
         var rows = viewport.Bounds;
-        LayoutRect track;
-        switch (ResolvePlacement(bar))
+        var track = LayoutRect.Empty;
+        var thumb = LayoutRect.Empty;
+        if (Scrollbar is { Visibility: not ScrollbarVisibility.Never } bar
+            && (bar.Visibility == ScrollbarVisibility.Always || viewport.ContentHeight > viewport.ViewportHeight))
         {
-            case ScrollbarPlacement.Border:
-                track = new LayoutRect(frame.Right - 1, rows.Y, 1, rows.Height);
-                break;
-            case ScrollbarPlacement.Inset when _reserveInsideColumn:
-                track = new LayoutRect(frame.Right - BorderRightThickness - PaddingRight - 1, rows.Y, 1, rows.Height);
-                break;
-            case ScrollbarPlacement.Outside when _reserveOutsideColumn:
-                track = new LayoutRect(frame.Right, frame.Y, 1, frame.Height);
-                break;
-            default:
-                return null;
+            track = ResolvePlacement(bar) switch
+            {
+                ScrollbarPlacement.Border => new LayoutRect(frame.Right - 1, rows.Y, 1, rows.Height),
+                ScrollbarPlacement.Inset when _reserveInsideColumn
+                    => new LayoutRect(frame.Right - BorderRightThickness - PaddingRight - 1, rows.Y, 1, rows.Height),
+                ScrollbarPlacement.Outside when _reserveOutsideColumn => new LayoutRect(frame.Right, frame.Y, 1, frame.Height),
+                _ => LayoutRect.Empty,
+            };
+
+            if (!track.IsEmpty)
+            {
+                var (thumbTop, thumbLength) = ScrollbarGeometry.CalculateThumb(
+                    track.Height,
+                    viewport.ViewportHeight,
+                    viewport.ContentHeight,
+                    viewport.Top,
+                    bar.MinThumbHeight);
+                thumb = new LayoutRect(track.X, track.Y + thumbTop, 1, thumbLength);
+            }
         }
 
-        if (track.IsEmpty)
-        {
-            return null;
-        }
-
-        var (thumbTop, thumbLength) = ScrollbarGeometry.CalculateThumb(
-            track.Height,
-            viewport.ViewportHeight,
-            viewport.ContentHeight,
-            viewport.Top,
-            bar.MinThumbHeight);
         return new ScrollLayoutInfo(
             viewport.ScrollId,
             rows,
             track,
-            new LayoutRect(track.X, track.Y + thumbTop, 1, thumbLength),
+            thumb,
             viewport.Top,
             viewport.ContentHeight,
             viewport.ViewportHeight);
@@ -385,7 +380,7 @@ public sealed class BoxWidget : Widget
 
     private void PaintScrollbar(TerminalCanvas canvas)
     {
-        if (_scroll is not { } scroll || Scrollbar is not { } bar)
+        if (_scroll is not { Track.IsEmpty: false } scroll || Scrollbar is not { } bar)
         {
             return;
         }
