@@ -230,6 +230,14 @@ The first implementation can expose `ToRenderable()` as a custom Spectre `Render
 
 Later, `LiveDisplayCanvas` can diff `TerminalCanvas` frames directly and bypass part of `DiffRenderable`.
 
+## Scroll Containers
+
+Scrolling is a container property owned by the engine (issue #461). `Overflow` on a box-like component makes the translator wrap the container's content in a `ScrollViewportWidget`, which measures the content with an unbounded height (`BoxConstraints.UnboundedHeight`), arranges it at `Y - Top` with `Top` clamped to the scrollable range, and clips and culls it while painting. The border and title stay on the owning `BoxWidget`, which also paints the scrollbar (`Border`, `Inset` or `Outside`) and publishes the viewport, track and thumb as `LayoutBox.Scroll`.
+
+The scroll position lives in `ScrollStateRegistry`, keyed by scroll id, as immutable snapshots under a lock. Layout writes the measured content and viewport height back in the same pass that applies `Top`, so there is no frame of lag, and it applies the sticky (StickToBottom) end. Painting uses the values captured during arrange and never reads the registry. Input (wheel, keys, scrollbar clicks and drags) and `ScrollController` write offsets and request a repaint that relayouts and repaints without a Blazor render.
+
+A node reports its logical bounds and, separately, `VisibleBounds` clipped by the viewports around it; mouse hit testing honors the visible bounds. Wheel input scrolls the innermost container under the pointer that can still move and chains outward, `OverscrollBehavior.Contain` stops the chain, and `preventDefault` and `stopPropagation` on `onwheel` apply. Focus changes scroll the focused node into view. Windowed lists that do not need every row in the tree (virtualization) are not part of this design.
+
 ## Public Layout Introspection
 
 `IVNodeLayoutAccessor` should be fed from the layout pass instead of translator side effects.

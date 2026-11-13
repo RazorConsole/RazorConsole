@@ -12,7 +12,8 @@ public sealed class ScrollFlexTests
     [Theory]
     [InlineData("rows")]
     [InlineData("flex")]
-    public async Task RowsAndFlex_ScrollTheirItemsInsideTheGivenHeight(string kind)
+    [InlineData("html")]
+    public async Task RowsFlexAndPlainHtml_ScrollTheirItemsInsideTheGivenHeight(string kind)
     {
         var ct = TestContext.Current.CancellationToken;
         var controller = new ScrollController();
@@ -21,8 +22,12 @@ public sealed class ScrollFlexTests
         var first = await terminal.WaitForTextAsync("row 0", cancellationToken: ct);
         first.ContainsText("row 3").ShouldBeTrue();
         first.ContainsText("row 4").ShouldBeFalse();
-        controller.Metrics.ContentHeight.ShouldBe(12);
-        controller.Metrics.ViewportHeight.ShouldBe(4);
+        if (kind != "html")
+        {
+            // A plain element has no controller to attach.
+            controller.Metrics.ContentHeight.ShouldBe(12);
+            controller.Metrics.ViewportHeight.ShouldBe(4);
+        }
 
         await terminal.SendMouseAsync(new TerminalMouseEvent(TerminalMouseKind.Wheel, 1, 1, DeltaY: 3), ct);
 
