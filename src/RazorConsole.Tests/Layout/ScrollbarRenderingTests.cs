@@ -149,13 +149,17 @@ public sealed class ScrollbarRenderingTests
     }
 
     [Fact]
-    public void NoBarShowing_PublishesNothing()
+    public void NoBarShowing_PublishesAnEmptyTrack()
     {
         var box = CreateBox(rows: 2, Chars, registry: new ScrollStateRegistry(), scrollId: "s");
 
         var result = new LayoutEngine().Layout(box, new BoxConstraints(0, 20, 0, 10));
 
-        result.EnumerateLayoutBoxes().Single(b => b.VNodeId == "box").Scroll.ShouldBeNull();
+        var scroll = result.EnumerateLayoutBoxes().Single(b => b.VNodeId == "box").Scroll;
+        scroll.ShouldNotBeNull();
+        scroll.ScrollId.ShouldBe("s");
+        scroll.Track.IsEmpty.ShouldBeTrue();
+        scroll.Thumb.IsEmpty.ShouldBeTrue();
     }
 
     [Fact]
