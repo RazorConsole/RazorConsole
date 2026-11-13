@@ -13,6 +13,17 @@
         }
     </Rows>
 }
+else if (Kind == "html")
+{
+    <Flex Direction="FlexDirection.Column" Height="4">
+        <div overflow="scroll">
+            @for (var i = 0; i < 12; i++)
+            {
+                <Markup Content="@($"row {i}")" />
+            }
+        </div>
+    </Flex>
+}
 else if (Kind == "flex")
 {
     <Flex Direction="FlexDirection.Column" Height="4" Overflow="OverflowMode.Scroll" Controller="@Controller">

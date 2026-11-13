@@ -27,6 +27,10 @@ Razor component
 
 Native widgets such as rows, columns, padding, alignment, panels, tables, text input, and scrollable regions compute their own sizes and child bounds. Spectre-backed output such as charts, Figlet text, syntax highlighting and spinners is wrapped in `SpectreWidget` leaves, which take part in layout and paint into the same terminal cells.
 
+## Scroll containers
+
+Scrolling is part of layout. A container with `Overflow="OverflowMode.Scroll"` measures its content with unbounded height, arranges it at its scrolled position, and clips and culls it when painting. The layout it reports distinguishes the logical bounds of a node, which can lie outside the container, from its visible bounds, which are clipped by the scroll viewport; hit testing uses the visible bounds, so a row that has scrolled out of view receives no pointer events. See [Scrolling](/blog/scrolling/).
+
 ## Upgrading from 0.x
 
 RazorConsole 1.0 removes the legacy Spectre layout pipeline, which rendered each `VNode` straight to a Spectre.Console `IRenderable` and could not report element bounds. WidgetLayout, the default since 0.6.0, is now the only pipeline.
