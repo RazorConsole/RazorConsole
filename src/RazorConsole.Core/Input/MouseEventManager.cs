@@ -2,6 +2,7 @@
 
 using Microsoft.AspNetCore.Components.Web;
 using RazorConsole.Core.Focus;
+using RazorConsole.Core.Layout;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Vdom;
 
@@ -114,8 +115,14 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
     private VNode? Hit(VNode node, int x, int y)
     {
         var bounds = layouts.GetLayoutByVNodeIdOrDefault(node.ID);
-        var inside = bounds is not { Left: int left, Top: int top, Width: int width, Height: int height }
-            || (x >= left && y >= top && x < left + width && y < top + height);
+        var inside = bounds switch
+        {
+            // A node clipped by a scroll viewport only receives pointer events where it is actually visible.
+            { VisibleBounds: { } visible } => visible.Contains(new LayoutPoint(x, y)),
+            { Left: int left, Top: int top, Width: int width, Height: int height }
+                => x >= left && y >= top && x < left + width && y < top + height,
+            _ => true,
+        };
 
         // Children are searched even outside the node: an absolutely positioned one (a dropdown) can lie beyond it.
         foreach (var child in node.Children.OrderBy(c => layouts.GetLayoutByVNodeIdOrDefault(c.ID)?.ZIndex ?? 0).Reverse())

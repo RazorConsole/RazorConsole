@@ -173,6 +173,10 @@ public sealed class TerminalCanvas
     public IRenderable ToRenderable()
         => new CanvasRenderable(this);
 
+    /// <summary>Returns whether any part of <paramref name="rect"/> is inside the current clip and the canvas.</summary>
+    public bool IsVisible(LayoutRect rect)
+        => !rect.Intersect(ClipBounds).Intersect(new LayoutRect(0, 0, Width, Height)).IsEmpty;
+
     public IDisposable PushClip(LayoutRect rect)
     {
         var clipped = rect.Intersect(ClipBounds).Intersect(new LayoutRect(0, 0, Width, Height));
