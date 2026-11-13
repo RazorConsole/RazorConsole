@@ -2,7 +2,7 @@
 @using RazorConsole.Components
 
 @* A panel whose content scrolls; the engine owns the offset. *@
-<Panel Height="5" Border="@Spectre.Console.BoxBorder.Square" Padding="@(new Spectre.Console.Padding(0, 0, 0, 0))"
+<Panel Height="@(Fill ? null : 5)" FillHeight="@Fill" Border="@Spectre.Console.BoxBorder.Square" Padding="@(new Spectre.Console.Padding(0, 0, 0, 0))"
        Overflow="RazorConsole.Core.Layout.OverflowMode.Scroll"
        ScrollId="@ScrollId"
        ScrollTop="@ScrollTop"
@@ -17,6 +17,8 @@
     [Parameter] public string ScrollId { get; set; } = "log";
 
     [Parameter] public int ScrollTop { get; set; }
+
+    [Parameter] public bool Fill { get; set; }
 
     [Parameter] public bool BindScrollTop { get; set; }
 

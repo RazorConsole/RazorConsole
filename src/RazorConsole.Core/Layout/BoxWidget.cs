@@ -1,5 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Rendering;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 
@@ -167,6 +168,57 @@ public sealed class BoxWidget : Widget
 
     public Style? BorderStyle { get; }
 
+    /// <summary>
+    /// Gets or sets how the scrollbar is drawn when the content is a <see cref="ScrollViewportWidget"/>; <see langword="null"/> draws none.
+    /// </summary>
+    public ScrollbarOptions? Scrollbar { get; init; }
+
+    private ScrollViewportWidget? Viewport => Child as ScrollViewportWidget;
+
+    /// <summary>
+    /// Creates a copy of this box whose content is <paramref name="viewport"/>, so the frame stays fixed while the content scrolls.
+    /// </summary>
+    /// <param name="viewport">The scrolling content.</param>
+    /// <param name="scrollbar">How the scrollbar is drawn.</param>
+    /// <param name="contentLines">Visible content rows (the frame is added); zero or less makes the box fill the height it is offered.</param>
+    internal BoxWidget WithScrollingContent(ScrollViewportWidget viewport, ScrollbarOptions scrollbar, int contentLines)
+        => new(
+            VNodeId,
+            viewport,
+            PaddingLeft,
+            PaddingTop,
+            PaddingRight,
+            PaddingBottom,
+            MarginLeft,
+            MarginTop,
+            MarginRight,
+            MarginBottom,
+            Width,
+            contentLines > 0 ? contentLines + BorderTopThickness + PaddingTop + BorderBottomThickness + PaddingBottom : Height,
+            Key,
+            Attributes,
+            ZIndex,
+            Expand,
+            FillWidth,
+            FillHeight || contentLines <= 0,
+            Title,
+            BoxBorderStyle.None,
+            Border.Top,
+            Border.Right,
+            Border.Bottom,
+            Border.Left,
+            BorderStyle)
+        {
+            Scrollbar = scrollbar,
+        };
+
+    // Set by measure: one column reserved inside the box, or one added to the right of its border.
+    private bool _reserveInsideColumn;
+    private bool _reserveOutsideColumn;
+
+    // Set by arrange: the scrollbar as painted and as published to hit testing; null when none is shown.
+    private ScrollLayoutInfo? _scroll;
+
     private int BorderLeftThickness => Border.Left == BoxBorderStyle.None ? 0 : 1;
 
     // Like a Spectre Panel, a titled box keeps its top row for the title even without a top border.
@@ -189,11 +241,24 @@ public sealed class BoxWidget : Widget
             MarginTop + topInset,
             MarginRight + rightInset,
             MarginBottom + bottomInset);
-        var childSize = Child.Measure(context, childConstraints);
+        if (Viewport is not null && Height is { } fixedHeight)
+        {
+            // A box with an explicit height is a max-height for scrolling content, so it overflows at that height.
+            childConstraints = new BoxConstraints(
+                childConstraints.MinWidth,
+                childConstraints.MaxWidth,
+                0,
+                Math.Min(childConstraints.MaxHeight, Math.Max(0, fixedHeight - topInset - bottomInset)));
+        }
 
-        var contentWidth = childSize.Width + leftInset + rightInset;
+        var childSize = Child.Measure(context, childConstraints);
+        MeasureScrollbarColumn(context, ref childConstraints, ref childSize);
+
+        var insideWidth = _reserveInsideColumn ? 1 : 0;
+        var outsideWidth = _reserveOutsideColumn ? 1 : 0;
+        var contentWidth = childSize.Width + leftInset + rightInset + insideWidth;
         var contentHeight = childSize.Height + topInset + bottomInset;
-        var width = Width ?? (FillWidth ? Math.Max(0, constraints.MaxWidth - outerHorizontalInset) : contentWidth);
+        var width = Width ?? (FillWidth ? Math.Max(0, constraints.MaxWidth - outerHorizontalInset - outsideWidth) : contentWidth);
         if (Title is not null)
         {
             width = Math.Max(width, Segment.CellCount([new Segment(Title)]) + 4);
@@ -201,9 +266,39 @@ public sealed class BoxWidget : Widget
 
         var height = Height ?? (FillHeight ? constraints.ResolveFillHeight(outerVerticalInset, contentHeight) : contentHeight);
         return constraints.Constrain(new LayoutSize(
-            width + outerHorizontalInset,
+            width + outerHorizontalInset + outsideWidth,
             height + outerVerticalInset));
     }
+
+    // Reserves a column for an Inset or Outside scrollbar when it will be shown, and measures the content again at the narrower width.
+    private void MeasureScrollbarColumn(LayoutContext context, ref BoxConstraints childConstraints, ref LayoutSize childSize)
+    {
+        _reserveInsideColumn = false;
+        _reserveOutsideColumn = false;
+        if (Viewport is not { } viewport || Scrollbar is not { Visibility: not ScrollbarVisibility.Never } bar)
+        {
+            return;
+        }
+
+        var placement = ResolvePlacement(bar);
+        if (placement == ScrollbarPlacement.Border)
+        {
+            return;
+        }
+
+        if (bar.Visibility != ScrollbarVisibility.Always && viewport.ContentHeight <= childSize.Height)
+        {
+            return;
+        }
+
+        _reserveInsideColumn = placement == ScrollbarPlacement.Inset;
+        _reserveOutsideColumn = placement == ScrollbarPlacement.Outside;
+        childConstraints = childConstraints.Deflate(0, 0, 1, 0);
+        childSize = Child.Measure(context, childConstraints);
+    }
+
+    private ScrollbarPlacement ResolvePlacement(ScrollbarOptions bar)
+        => bar.Placement == ScrollbarPlacement.Border && BorderRightThickness == 0 ? ScrollbarPlacement.Inset : bar.Placement;
 
     protected override void ArrangeCore(LayoutContext context, LayoutRect bounds)
     {
@@ -214,11 +309,65 @@ public sealed class BoxWidget : Widget
         var contentBounds = GetContentBounds(bounds);
         var childX = contentBounds.X + leftInset;
         var childY = contentBounds.Y + topInset;
-        var availableWidth = Math.Max(0, contentBounds.Width - leftInset - rightInset);
+        var availableWidth = Math.Max(0, contentBounds.Width - leftInset - rightInset - (_reserveInsideColumn ? 1 : 0));
         var availableHeight = Math.Max(0, contentBounds.Height - topInset - bottomInset);
         var childWidth = FillsWidth(Child) ? availableWidth : Math.Min(Child.DesiredSize.Width, availableWidth);
         var childHeight = FillsHeight(Child) ? availableHeight : Math.Min(Child.DesiredSize.Height, availableHeight);
         Child.Arrange(context, new LayoutRect(childX, childY, childWidth, childHeight));
+        _scroll = ComputeScrollbar(contentBounds);
+    }
+
+    public override LayoutBox CreateLayoutBox()
+        => base.CreateLayoutBox() with { Scroll = _scroll is { ScrollId: not null } ? _scroll : null };
+
+    private ScrollLayoutInfo? ComputeScrollbar(LayoutRect frame)
+    {
+        if (Viewport is not { } viewport || Scrollbar is not { Visibility: not ScrollbarVisibility.Never } bar || frame.IsEmpty)
+        {
+            return null;
+        }
+
+        if (bar.Visibility != ScrollbarVisibility.Always && viewport.ContentHeight <= viewport.ViewportHeight)
+        {
+            return null;
+        }
+
+        var rows = viewport.Bounds;
+        LayoutRect track;
+        switch (ResolvePlacement(bar))
+        {
+            case ScrollbarPlacement.Border:
+                track = new LayoutRect(frame.Right - 1, rows.Y, 1, rows.Height);
+                break;
+            case ScrollbarPlacement.Inset when _reserveInsideColumn:
+                track = new LayoutRect(frame.Right - BorderRightThickness - PaddingRight - 1, rows.Y, 1, rows.Height);
+                break;
+            case ScrollbarPlacement.Outside when _reserveOutsideColumn:
+                track = new LayoutRect(frame.Right, frame.Y, 1, frame.Height);
+                break;
+            default:
+                return null;
+        }
+
+        if (track.IsEmpty)
+        {
+            return null;
+        }
+
+        var (thumbTop, thumbLength) = ScrollbarGeometry.CalculateThumb(
+            track.Height,
+            viewport.ViewportHeight,
+            viewport.ContentHeight,
+            viewport.Top,
+            bar.MinThumbHeight);
+        return new ScrollLayoutInfo(
+            viewport.ScrollId,
+            rows,
+            track,
+            new LayoutRect(track.X, track.Y + thumbTop, 1, thumbLength),
+            viewport.Top,
+            viewport.ContentHeight,
+            viewport.ViewportHeight);
     }
 
     protected override void PaintCore(PaintContext context)
@@ -231,13 +380,25 @@ public sealed class BoxWidget : Widget
 
         PaintBorder(context.Canvas, contentBounds);
         Child.Paint(context);
+        PaintScrollbar(context.Canvas);
+    }
+
+    private void PaintScrollbar(TerminalCanvas canvas)
+    {
+        if (_scroll is not { } scroll || Scrollbar is not { } bar)
+        {
+            return;
+        }
+
+        canvas.Fill(scroll.Track, bar.TrackChar, bar.TrackStyle);
+        canvas.Fill(scroll.Thumb, bar.ThumbChar, bar.ThumbStyle);
     }
 
     private LayoutRect GetContentBounds(LayoutRect bounds)
         => new(
             bounds.X + MarginLeft,
             bounds.Y + MarginTop,
-            Math.Max(0, bounds.Width - MarginLeft - MarginRight),
+            Math.Max(0, bounds.Width - MarginLeft - MarginRight - (_reserveOutsideColumn ? 1 : 0)),
             Math.Max(0, bounds.Height - MarginTop - MarginBottom));
 
     private void PaintBorder(TerminalCanvas canvas, LayoutRect bounds)

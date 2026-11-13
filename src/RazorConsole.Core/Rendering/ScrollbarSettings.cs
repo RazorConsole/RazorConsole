@@ -16,8 +16,12 @@ public sealed record ScrollbarSettings
         Color? thumbFocusedColor = null,
         int minThumbHeight = 1,
         Action<FocusEventArgs>? onFocusInCallback = null,
-        Action<FocusEventArgs>? onFocusOutCallback = null)
+        Action<FocusEventArgs>? onFocusOutCallback = null,
+        ScrollbarPlacement placement = ScrollbarPlacement.Border,
+        ScrollbarVisibility visibility = ScrollbarVisibility.Auto)
     {
+        Placement = placement;
+        Visibility = visibility;
         TrackChar = trackChar;
         ThumbChar = thumbChar;
         TrackColor = trackColor ?? Color.Grey;
@@ -28,6 +32,16 @@ public sealed record ScrollbarSettings
         OnFocusInCallback = onFocusInCallback;
         OnFocusOutCallback = onFocusOutCallback;
     }
+
+    /// <summary>
+    /// Where a scroll container draws its scrollbar. Default is <see cref="ScrollbarPlacement.Border"/>.
+    /// </summary>
+    public ScrollbarPlacement Placement { get; set; } = ScrollbarPlacement.Border;
+
+    /// <summary>
+    /// When a scroll container shows its scrollbar. Default is <see cref="ScrollbarVisibility.Auto"/>.
+    /// </summary>
+    public ScrollbarVisibility Visibility { get; set; } = ScrollbarVisibility.Auto;
 
     /// <summary>
     /// Character to use for the scrollbar track. Default is │.

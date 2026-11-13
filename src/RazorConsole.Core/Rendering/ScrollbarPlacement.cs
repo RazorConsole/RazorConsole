@@ -1,0 +1,39 @@
+// Copyright (c) RazorConsole. All rights reserved.
+
+namespace RazorConsole.Core.Rendering;
+
+/// <summary>
+/// Where the scrollbar of a scroll container is drawn.
+/// </summary>
+public enum ScrollbarPlacement
+{
+    /// <summary>
+    /// Over the right border of the container. Without a right border it falls back to <see cref="Inset"/>.
+    /// </summary>
+    Border,
+
+    /// <summary>
+    /// In one column reserved inside the container, only while the content overflows.
+    /// </summary>
+    Inset,
+
+    /// <summary>
+    /// In one column added to the right of the container's border.
+    /// </summary>
+    Outside,
+}
+
+/// <summary>
+/// When the scrollbar of a scroll container is shown.
+/// </summary>
+public enum ScrollbarVisibility
+{
+    /// <summary>Shown only while the content overflows the container.</summary>
+    Auto,
+
+    /// <summary>Always shown, even when the content fits.</summary>
+    Always,
+
+    /// <summary>Never shown. The container can still be scrolled by other means.</summary>
+    Never,
+}
