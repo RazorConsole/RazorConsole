@@ -8,8 +8,8 @@ namespace RazorConsole.Core.Rendering;
 public sealed record ScrollbarSettings
 {
     public ScrollbarSettings(
-        char trackChar = '│',
-        char thumbChar = '█',
+        char trackChar = '┃',
+        char thumbChar = '┃',
         Color? trackColor = null,
         Color? thumbColor = null,
         Color? trackFocusedColor = null,
@@ -44,14 +44,14 @@ public sealed record ScrollbarSettings
     public ScrollbarVisibility Visibility { get; set; } = ScrollbarVisibility.Auto;
 
     /// <summary>
-    /// Character to use for the scrollbar track. Default is │.
+    /// Character to use for the scrollbar track. Default is ┃.
     /// </summary>
-    public char TrackChar { get; set; } = '│';
+    public char TrackChar { get; set; } = '┃';
 
     /// <summary>
-    /// Character to use for the scrollbar thumb. Default is █.
+    /// Character to use for the scrollbar thumb. Default is ┃.
     /// </summary>
-    public char ThumbChar { get; set; } = '█';
+    public char ThumbChar { get; set; } = '┃';
 
     /// <summary>
     /// Color for the track. Default is <see cref="Color.Gray"/>.

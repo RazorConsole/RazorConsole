@@ -11,11 +11,22 @@ namespace RazorConsole.Core.Layout;
 public sealed record ScrollbarOptions(
     ScrollbarPlacement Placement = ScrollbarPlacement.Inset,
     ScrollbarVisibility Visibility = ScrollbarVisibility.Auto,
-    char TrackChar = '│',
-    char ThumbChar = '█',
+    char TrackChar = '┃',
+    char ThumbChar = '┃',
     Style? TrackStyle = null,
     Style? ThumbStyle = null,
-    int MinThumbHeight = 1);
+    int MinThumbHeight = 1)
+{
+    /// <summary>
+    /// Gets the track style used when <see cref="TrackStyle"/> is not set.
+    /// </summary>
+    public static Style DefaultTrackStyle { get; } = new(Color.Grey);
+
+    /// <summary>
+    /// Gets the thumb style used when <see cref="ThumbStyle"/> is not set.
+    /// </summary>
+    public static Style DefaultThumbStyle { get; } = new(Color.White);
+}
 
 /// <summary>
 /// The painted scrollbar of a scroll container, published by layout so the pointer can click and drag it.

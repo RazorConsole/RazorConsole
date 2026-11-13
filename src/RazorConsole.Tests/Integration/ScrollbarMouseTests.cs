@@ -20,8 +20,8 @@ public sealed class ScrollbarMouseTests
 
         var frame = await terminal.WaitForTextAsync("line 0", cancellationToken: ct);
 
-        frame.GetLine(1)[BarX].ShouldBe('█');
-        frame.GetLine(2)[BarX].ShouldBe('│');
+        frame.GetLine(1)[BarX].ShouldBe('┃');
+        frame.GetLine(2)[BarX].ShouldBe('┃');
         frame.GetLine(4)[BarX].ShouldBe('─');
     }
 

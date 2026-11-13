@@ -111,6 +111,25 @@ public sealed class ScrollbarRenderingTests
     }
 
     [Fact]
+    public void Defaults_UseOneHeavyGlyphAndTellThumbFromTrackByColor()
+    {
+        var box = CreateBox(rows: 6, new ScrollbarOptions());
+
+        RenderLines(box).ShouldBe(
+        [
+            "┌───┐",
+            "│r0┃│",
+            "│r1┃│",
+            "│r2┃│",
+            "└───┘",
+        ]);
+        ScrollbarOptions.DefaultTrackStyle.Foreground.ShouldBe(Color.Grey);
+        ScrollbarOptions.DefaultThumbStyle.Foreground.ShouldBe(Color.White);
+        new ScrollbarSettings().TrackChar.ShouldBe('┃');
+        new ScrollbarSettings().ThumbChar.ShouldBe('┃');
+    }
+
+    [Fact]
     public void PublishesTrackAndThumbForHitTesting()
     {
         var registry = new ScrollStateRegistry();

@@ -378,8 +378,8 @@ public sealed class BoxWidget : Widget
             return;
         }
 
-        canvas.Fill(scroll.Track, bar.TrackChar, bar.TrackStyle);
-        canvas.Fill(scroll.Thumb, bar.ThumbChar, bar.ThumbStyle);
+        canvas.Fill(scroll.Track, bar.TrackChar, bar.TrackStyle ?? ScrollbarOptions.DefaultTrackStyle);
+        canvas.Fill(scroll.Thumb, bar.ThumbChar, bar.ThumbStyle ?? ScrollbarOptions.DefaultThumbStyle);
     }
 
     private LayoutRect GetContentBounds(LayoutRect bounds)

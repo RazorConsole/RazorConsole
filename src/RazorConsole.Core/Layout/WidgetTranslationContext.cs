@@ -441,8 +441,8 @@ public sealed class WidgetTranslationContext
             scrollbarNode is null
                 ? ScrollbarVisibility.Never
                 : ParseEnum(GetAttribute(scrollbarNode, "data-scrollbar-visibility"), ScrollbarVisibility.Auto),
-            scrollbarNode is null ? '│' : ParseChar(GetAttribute(scrollbarNode, "data-track-char"), '│'),
-            scrollbarNode is null ? '█' : ParseChar(GetAttribute(scrollbarNode, "data-thumb-char"), '█'),
+            scrollbarNode is null ? '┃' : ParseChar(GetAttribute(scrollbarNode, "data-track-char"), '┃'),
+            scrollbarNode is null ? '┃' : ParseChar(GetAttribute(scrollbarNode, "data-thumb-char"), '┃'),
             scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-track-color")),
             scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-thumb-color")),
             scrollbarNode is null ? 1 : Math.Max(1, TryGetIntAttribute(scrollbarNode, "data-min-thumb-height", 1)));
@@ -492,8 +492,8 @@ public sealed class WidgetTranslationContext
         return new ScrollbarOptions(
             ParseEnum(GetAttribute(node, "data-scrollbar-placement"), ScrollbarPlacement.Inset),
             ParseEnum(GetAttribute(node, "data-scrollbar-visibility"), ScrollbarVisibility.Auto),
-            ParseChar(GetAttribute(node, "data-scrollbar-track-char"), '│'),
-            ParseChar(GetAttribute(node, "data-scrollbar-thumb-char"), '█'),
+            ParseChar(GetAttribute(node, "data-scrollbar-track-char"), '┃'),
+            ParseChar(GetAttribute(node, "data-scrollbar-thumb-char"), '┃'),
             TryParseHexStyle(GetAttribute(node, "data-scrollbar-track-color")),
             TryParseHexStyle(GetAttribute(node, "data-scrollbar-thumb-color")),
             Math.Max(1, TryGetIntAttribute(node, "data-scrollbar-min-thumb-height", 1)));
