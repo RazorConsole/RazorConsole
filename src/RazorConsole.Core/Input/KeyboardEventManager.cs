@@ -78,7 +78,8 @@ internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher
             return;
         }
 
-        EventHandlerScope.Track(ObserveAsync(completion));
+        // Not awaited: input keeps flowing while the handler runs.
+        _ = ObserveAsync(completion);
     }
 
     // The renderer reported an asynchronous handler failure through HandleException before the task faulted.

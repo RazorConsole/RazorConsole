@@ -66,13 +66,13 @@ await using var terminal = await HeadlessTerminal.StartAsync<Greeting>(new Headl
 
 ### Input
 
-Every input method returns after the input has been handled, the event handlers it started have finished (including `async` ones), and a frame has been captured. As in a real terminal, the input itself does not wait for those handlers: an input call made while an earlier one is still waiting for an `async` handler is delivered right away. To test a Cancel button, start the long-running click without awaiting it:
+Every input method returns once the event handlers it raised have started (their code up to the first `await` has run) and a frame has been captured. Like a real terminal, it does not wait for an `async` handler to finish, so wait for the state you expect (see below). This also makes a Cancel button testable:
 
 ```csharp
-var start = terminal.ClickAsync(1, 0, ct);          // returns when the work ends
+await terminal.ClickAsync(1, 0, ct);                // Start: returns while its work is still awaiting
 await terminal.WaitForTextAsync("working...", cancellationToken: ct);
-await terminal.ClickAsync(1, 1, ct);                // Cancel runs while Start is still awaiting
-await start;
+await terminal.ClickAsync(1, 1, ct);                // Cancel
+await terminal.WaitForTextAsync("cancelled", cancellationToken: ct);
 ```
 
 - `SendKeyAsync`: one key press, sent to the focused element.
@@ -219,7 +219,7 @@ A frame is captured after each chunk of output. While the application holds a sy
 
 ## Running terminals in parallel
 
-Each `HeadlessTerminal` and `PtyTerminal` has its own services or process, terminal and frames, so tests that use them can run in parallel. One terminal instance is also safe to use from several threads: input calls and `Resize` deliver their input one at a time.
+Each `HeadlessTerminal` and `PtyTerminal` has its own services or process, terminal and frames, so tests that use them can run in parallel. One terminal instance is also safe to use from several threads: input calls and `Resize` run one at a time.
 
 `PtyTerminal` tests start processes and take longer. Tag them, and run them as a separate step:
 

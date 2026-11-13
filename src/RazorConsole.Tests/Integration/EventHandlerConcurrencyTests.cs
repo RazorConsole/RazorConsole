@@ -26,34 +26,38 @@ public sealed class EventHandlerConcurrencyTests
         var events = new List<string>();
         await using var terminal = await StartLongRunningHostAsync(events, TimeSpan.FromSeconds(5), ct);
 
-        var start = terminal.ClickAsync(1, StartRow, ct);
+        // The click returns once the handler has started, not after its 5 s await.
+        var stopwatch = Stopwatch.StartNew();
+        await terminal.ClickAsync(1, StartRow, ct);
         await terminal.WaitForTextAsync("status=working", cancellationToken: ct);
+        stopwatch.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(1));
 
         // A second click is handled while the first handler is still awaiting.
         await terminal.ClickAsync(1, CountRow, ct);
-        await terminal.WaitForTextAsync("count=1", cancellationToken: ct);
-        start.IsCompleted.ShouldBeFalse();
+        await terminal.WaitForTextAsync("status=working count=1", cancellationToken: ct);
 
-        var stopwatch = Stopwatch.StartNew();
+        stopwatch.Restart();
         await terminal.ClickAsync(1, CancelRow, ct);
-        await start.WaitAsync(TimeSpan.FromSeconds(2), ct);
+        await terminal.WaitForTextAsync("status=cancelled", cancellationToken: ct);
         stopwatch.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(1));
 
-        await terminal.WaitForTextAsync("status=cancelled", cancellationToken: ct);
+        await terminal.WaitUntilAsync(_ => Snapshot(events).Length == 4, cancellationToken: ct);
         Snapshot(events).ShouldBe(["start", "count", "cancel", "end:cancelled"]);
     }
 
     [Fact]
-    public async Task InputCall_ReturnsAfterTheHandlersItStartedFinish()
+    public async Task InputCall_ReturnsOnceTheHandlerHasStarted()
     {
         var ct = TestContext.Current.CancellationToken;
         var events = new List<string>();
-        await using var terminal = await StartLongRunningHostAsync(events, TimeSpan.FromMilliseconds(200), ct);
+        await using var terminal = await StartLongRunningHostAsync(events, TimeSpan.FromMilliseconds(300), ct);
 
         await terminal.ClickAsync(1, StartRow, ct);
 
-        Snapshot(events).ShouldBe(["start", "end:done"]);
-        terminal.CurrentFrame.ScreenText.ShouldContain("status=done");
+        // The synchronous part ran and rendered; the rest of the handler is still awaiting.
+        terminal.CurrentFrame.ScreenText.ShouldContain("status=working");
+        Snapshot(events).ShouldBe(["start"]);
+        await terminal.WaitForTextAsync("status=done", cancellationToken: ct);
     }
 
     [Fact]
@@ -126,6 +130,8 @@ public sealed class EventHandlerConcurrencyTests
 
                 await terminal.ClickAsync(1, 0, ct);
 
+                await errors.FirstError.WaitAsync(TimeSpan.FromSeconds(2), ct);
+                await Task.Delay(100, ct);
                 errors.Count.ShouldBe(1);
             }
 
@@ -157,9 +163,9 @@ public sealed class EventHandlerConcurrencyTests
 
         await terminal.TypeAsync("hello", ct);
 
-        Snapshot(values).ShouldBe(["h", "he", "hel", "hell", "hello"]);
         await terminal.WaitForTextAsync("bound=<hello>", cancellationToken: ct);
-        terminal.CurrentFrame.ScreenText.ShouldContain("hello");
+        terminal.CurrentFrame.ScreenText.ShouldContain("│hello│");
+        Snapshot(values).ShouldBe(["h", "he", "hel", "hell", "hello"]);
 
         await terminal.TypeAsync("!", ct);
         await terminal.WaitForTextAsync("bound=<hello!>", cancellationToken: ct);
@@ -207,13 +213,12 @@ public sealed class EventHandlerConcurrencyTests
         await terminal.TypeAsync("hi", ct);
         await terminal.WaitForTextAsync("buffer=<hi>", cancellationToken: ct);
 
-        var enter = terminal.SendKeyAsync(ConsoleKey.Enter, '\r', cancellationToken: ct);
+        await terminal.SendKeyAsync(ConsoleKey.Enter, '\r', cancellationToken: ct);
         await terminal.WaitForTextAsync("buffer=<>", cancellationToken: ct);
         await terminal.TypeAsync("x", ct);
         await terminal.WaitForTextAsync("buffer=<x>", cancellationToken: ct);
 
         gate.SetResult();
-        await enter.WaitAsync(TimeSpan.FromSeconds(2), ct);
         await terminal.WaitForTextAsync("buffer=<x> submitted=hi", cancellationToken: ct);
     }
 
@@ -259,9 +264,12 @@ public sealed class EventHandlerConcurrencyTests
 
     private sealed class ErrorCounter(string message) : IObserver<ConsoleRenderer.RenderSnapshot>
     {
+        private readonly TaskCompletionSource _firstError = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _count;
 
         public int Count => Volatile.Read(ref _count);
+
+        public Task FirstError => _firstError.Task;
 
         public void OnCompleted()
         {
@@ -272,6 +280,7 @@ public sealed class EventHandlerConcurrencyTests
             if (error.Message == message)
             {
                 Interlocked.Increment(ref _count);
+                _firstError.TrySetResult();
             }
         }
 
