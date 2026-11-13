@@ -12,7 +12,7 @@ namespace RazorConsole.Core.Rendering;
 /// <summary>
 /// Provides a simplified facade over Spectre.Console live display updates.
 /// </summary>
-internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRenderer.RenderSnapshot>
+internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable, IObserver<ConsoleRenderer.RenderSnapshot>
 {
     private readonly ILiveDisplayCanvas _canvas;
     private readonly Lock _sync = new();
@@ -116,21 +116,58 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
         }
     }
 
+    /// <summary>
+    /// Returns a task that completes once the frames requested so far have been written to the console.
+    /// </summary>
+    public Task WhenIdleAsync(CancellationToken cancellationToken = default)
+        => _canvas.WhenIdleAsync(cancellationToken);
+
     public void Dispose()
     {
-        if (_disposed)
+        if (!BeginDispose())
         {
             return;
         }
-        _animationTicker.Dispose();
-        _terminalMonitor.OnResized -= HandleTerminalResize;
-        _snapshotSubscription?.Dispose();
+
         if (_canvas is IDisposable disposableCanvas)
         {
             disposableCanvas.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Stops the sources of new frames, then waits for the canvas to finish the frame it is writing before it
+    /// restores the terminal.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (!BeginDispose())
+        {
+            return;
+        }
+
+        if (_canvas is IAsyncDisposable asyncDisposableCanvas)
+        {
+            await asyncDisposableCanvas.DisposeAsync().ConfigureAwait(false);
+        }
+        else if (_canvas is IDisposable disposableCanvas)
+        {
+            disposableCanvas.Dispose();
+        }
+    }
+
+    private bool BeginDispose()
+    {
+        if (_disposed)
+        {
+            return false;
+        }
 
         _disposed = true;
+        _animationTicker.Dispose();
+        _terminalMonitor.OnResized -= HandleTerminalResize;
+        _snapshotSubscription?.Dispose();
+        return true;
     }
 
     internal static ConsoleLiveDisplayContext CreateForTesting(
@@ -181,35 +218,22 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
 
     internal interface ILiveDisplayCanvas
     {
+        /// <summary>
+        /// Requests a frame showing <paramref name="renderable"/>. Must not block or throw for write errors.
+        /// </summary>
         void UpdateTarget(IRenderable? renderable);
 
         /// <summary>
-        /// Writes the current target again, best effort. Must not block or throw: a refresh that arrives while
+        /// Requests a frame of the current target, best effort. Must not block or throw: a refresh that arrives while
         /// a write is in progress is folded into a write that follows it.
         /// </summary>
         void Refresh();
 
+        /// <summary>
+        /// Returns a task that completes once every frame requested before the call has been written, or has failed.
+        /// </summary>
+        Task WhenIdleAsync(CancellationToken cancellationToken = default);
+
         event Action? Refreshed;
-    }
-
-    private sealed class LiveDisplayCanvasAdapter : ILiveDisplayCanvas
-    {
-        private readonly Spectre.Console.LiveDisplayContext _context;
-
-        public LiveDisplayCanvasAdapter(Spectre.Console.LiveDisplayContext context)
-        {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
-        }
-
-        public void UpdateTarget(IRenderable? renderable)
-            => _context.UpdateTarget(renderable);
-
-        public void Refresh()
-        {
-            _context.Refresh();
-            Refreshed?.Invoke();
-        }
-
-        public event Action? Refreshed;
     }
 }

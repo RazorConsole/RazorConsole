@@ -3,6 +3,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RazorConsole.Core;
 using RazorConsole.Core.Controllers;
@@ -103,9 +104,13 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         var initialView = ConsoleViewResult.FromSnapshot(snapshot);
         var terminalMonitor = _serviceProvider.GetRequiredService<TerminalMonitor>();
         _terminalMonitor = terminalMonitor;
-        _canvas = new LiveDisplayCanvas(options.ConsoleLiveDisplayOptions, _ansiConsole);
+        _canvas = new LiveDisplayCanvas(
+            options.ConsoleLiveDisplayOptions,
+            _ansiConsole,
+            _serviceProvider.GetService<ILoggerFactory>()?.CreateLogger<LiveDisplayCanvas>());
 
         // Subscribe to Refreshed BEFORE creating the context, so we catch the initial render.
+        // The canvas raises it on its frame loop, right after each frame was written to _sw.
         _canvas.Refreshed += () =>
         {
             if (_disposed)
@@ -217,7 +222,12 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         {
             _focusSession?.Dispose();
             _focusSubscription?.Dispose();
-            _liveContext?.Dispose();
+            // Async: on the single-threaded browser runtime, a blocking dispose would wait on the frame loop forever.
+            if (_liveContext is not null)
+            {
+                await _liveContext.DisposeAsync().ConfigureAwait(false);
+            }
+
             _terminalMonitor?.Dispose();
             if (_serviceProvider is IAsyncDisposable services)
             {

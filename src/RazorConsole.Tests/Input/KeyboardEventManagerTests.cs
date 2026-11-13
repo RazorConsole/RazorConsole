@@ -792,6 +792,8 @@ public class KeyboardEventManagerTests
             Refreshed?.Invoke();
         }
 
+        public Task WhenIdleAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public event Action? Refreshed;
     }
 

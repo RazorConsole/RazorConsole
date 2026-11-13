@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using RazorConsole.Core;
 using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Focus;
@@ -354,6 +355,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
                 _ansiConsole.Profile.Height = height;
             }
             _terminalMonitor.Resize(width, height);
+            _liveContext?.WhenIdleAsync().GetAwaiter().GetResult();
             Capture(_renderer.RefreshSnapshot());
         }
         finally
@@ -498,7 +500,11 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         _focusSession?.Dispose();
         _focusSubscription?.Dispose();
         _snapshotSubscription?.Dispose();
-        _liveContext?.Dispose();
+        if (_liveContext is not null)
+        {
+            await _liveContext.DisposeAsync().ConfigureAwait(false);
+        }
+
         _shutdown.Dispose();
         await _services.DisposeAsync().ConfigureAwait(false);
     }
@@ -519,7 +525,10 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         var view = ConsoleViewResult.FromSnapshot(renderSnapshot);
         _liveContext = new ConsoleLiveDisplayContext(
             _ansiConsole is not null
-                ? new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { EnableMouseEvents = true }, _ansiConsole)
+                ? new LiveDisplayCanvas(
+                    new ConsoleLiveDisplayOptions { EnableMouseEvents = true },
+                    _ansiConsole,
+                    _services.GetService<ILoggerFactory>()?.CreateLogger<LiveDisplayCanvas>())
                 : new NoopLiveDisplayCanvas(),
             _renderer,
             _terminalMonitor,
@@ -527,6 +536,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         _focusSubscription = _renderer.Subscribe(_focusManager);
         _focusSession = _focusManager.BeginSession(_liveContext, view, _shutdown.Token);
         await _focusSession.InitializationTask.ConfigureAwait(false);
+        await _liveContext.WhenIdleAsync(cancellationToken).ConfigureAwait(false);
         Capture(_renderer.RefreshSnapshot());
     }
 
@@ -538,6 +548,13 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         {
             ThrowIfDisposed();
             await input(cancellationToken).ConfigureAwait(false);
+
+            // Frames are written by the canvas frame loop; wait for it so AnsiOutput includes this input.
+            if (_liveContext is not null)
+            {
+                await _liveContext.WhenIdleAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             Capture(_renderer.RefreshSnapshot());
         }
         finally
@@ -674,6 +691,8 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         }
 
         public void Refresh() => Refreshed?.Invoke();
+
+        public Task WhenIdleAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class AnsiOutputWriter : TextWriter
