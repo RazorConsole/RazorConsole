@@ -868,7 +868,9 @@ internal sealed class ConsoleRenderer(
 
         try
         {
-            return Dispatcher.InvokeAsync(() => Task.FromResult(base.DispatchEventAsync(handlerId, default, eventArgs)));
+            // The explicit <Task> selects the Func<TResult> overload: the handler's task is returned, not awaited,
+            // so this completes once the handler's synchronous part has run.
+            return Dispatcher.InvokeAsync<Task>(() => base.DispatchEventAsync(handlerId, default, eventArgs));
         }
         catch (Exception ex)
         {
