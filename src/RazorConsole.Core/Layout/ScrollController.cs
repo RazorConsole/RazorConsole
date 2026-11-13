@@ -27,7 +27,7 @@ public readonly record struct ScrollViewMetrics(int Top, int ContentHeight, int 
 
 /// <summary>
 /// Scrolls a container from code. Pass an instance to the <c>Controller</c> parameter of a scroll container
-/// (<c>ScrollView</c>, or a <c>Box</c>, <c>Panel</c>, <c>Padder</c> or <c>Border</c> with <c>Overflow="OverflowMode.Scroll"</c>).
+/// (a <c>Box</c>, <c>Panel</c>, <c>Padder</c> or <c>Border</c> with <c>Overflow="OverflowMode.Scroll"</c>).
 /// </summary>
 /// <remarks>
 /// A controller drives one container at a time and does nothing until that container has rendered.

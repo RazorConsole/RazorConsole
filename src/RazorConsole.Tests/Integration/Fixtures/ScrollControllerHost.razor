@@ -2,14 +2,14 @@
 @using RazorConsole.Components
 @using RazorConsole.Core.Layout
 
-@* A ScrollView driven by a controller; Lines grows to exercise StickToBottom. *@
-<ScrollView Height="4" Controller="@Controller" StickToBottom="@StickToBottom" Focusable="@Focusable">
+@* A scroll container driven by a controller; Lines grows to exercise StickToBottom. *@
+<Box Overflow="OverflowMode.Scroll" Height="4" Controller="@Controller" StickToBottom="@StickToBottom" Focusable="@Focusable">
     @for (var i = 0; i < Lines; i++)
     {
         <Markup Content="@($"line {i}")" />
     }
     <div data-vnode-hook="target"><Markup Content="Target" /></div>
-</ScrollView>
+</Box>
 
 @code {
     [Parameter] public ScrollController Controller { get; set; } = new();

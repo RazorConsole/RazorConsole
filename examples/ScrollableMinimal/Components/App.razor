@@ -1,14 +1,15 @@
 @namespace ScrollableMinimal.Components
 
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
 @using RazorConsole.Components
 @using RazorConsole.Core.Rendering
 
-<ScrollView Height="3" Focusable="true" Scrollbar="new ScrollbarSettings(placement: ScrollbarPlacement.Outside)">
+<Box Overflow="OverflowMode.Scroll" Height="3" Focusable="true" Scrollbar="new ScrollbarSettings(placement: ScrollbarPlacement.Outside)">
     @foreach (var item in _items)
     {
         <Markup Content="@item" />
     }
-</ScrollView>
+</Box>
 
 @code {
     private readonly string[] _items =

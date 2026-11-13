@@ -32,15 +32,6 @@ public partial class Registry
             case "Border":
                 _renderers[instanceID] = new RazorConsoleRenderer<Border_1>(instanceID, cols, rows);
                 break;
-            case "Scrollable":
-                _renderers[instanceID] = new RazorConsoleRenderer<Scrollable_1>(instanceID, cols, rows);
-                break;
-            case "ScrollView":
-                _renderers[instanceID] = new RazorConsoleRenderer<ScrollView_1>(instanceID, cols, rows);
-                break;
-            case "ViewHeightScrollable":
-                _renderers[instanceID] = new RazorConsoleRenderer<ViewHeightScrollable_1>(instanceID, cols, rows);
-                break;
             case "Columns":
                 _renderers[instanceID] = new RazorConsoleRenderer<Columns_1>(instanceID, cols, rows);
                 break;
