@@ -1,0 +1,39 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using RazorConsole.Components
+@using RazorConsole.Core.Layout
+@using RazorConsole.Core.Renderables
+
+@* Flex, Rows and Columns as scroll containers. *@
+@if (Kind == "rows")
+{
+    <Rows Height="4" Overflow="OverflowMode.Scroll" Controller="@Controller">
+        @for (var i = 0; i < 12; i++)
+        {
+            <Markup Content="@($"row {i}")" />
+        }
+    </Rows>
+}
+else if (Kind == "flex")
+{
+    <Flex Direction="FlexDirection.Column" Height="4" Overflow="OverflowMode.Scroll" Controller="@Controller">
+        @for (var i = 0; i < 12; i++)
+        {
+            <Markup Content="@($"row {i}")" />
+        }
+    </Flex>
+}
+else
+{
+    <Columns Height="4" Overflow="OverflowMode.Scroll" Controller="@Controller">
+        @for (var i = 0; i < 12; i++)
+        {
+            <Markup Content="@($"c{i}")" />
+        }
+    </Columns>
+}
+
+@code {
+    [Parameter] public string Kind { get; set; } = "rows";
+
+    [Parameter] public ScrollController Controller { get; set; } = new();
+}
