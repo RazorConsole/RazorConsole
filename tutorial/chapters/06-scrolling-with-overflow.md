@@ -78,12 +78,13 @@ The scrollbar is drawn for you whenever the content overflows. The `Scrollbar` p
 
 ```razor
 <Panel Height="8" Overflow="OverflowMode.Scroll"
-       Scrollbar="@(new ScrollbarSettings(placement: ScrollbarPlacement.Border))">...</Panel>
+       Scrollbar="@(new ScrollbarSettings(placement: ScrollbarPlacement.Outside))">...</Panel>
 ```
 
-- `Border` (the default) draws the bar over the right border. Without a right border it falls back to `Inset`.
-- `Inset` reserves a column inside the container.
-- `Outside` adds a column to the right of the container.
+- `Inset` (the default) reserves a column inside the container, so the bar sits between the content and the border.
+- `Outside` adds a column to the right of the container's border.
+
+Both reserve their column only while the content overflows, so a container that fits keeps its full width.
 
 `Visibility` decides when it shows: `Auto` (the default) only while the content overflows, `Always`, or `Never`.
 
