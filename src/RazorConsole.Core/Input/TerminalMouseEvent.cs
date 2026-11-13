@@ -9,6 +9,40 @@ public readonly record struct TerminalMouseEvent(
     TerminalMouseKind Kind, int X, int Y, int Button = 0,
     int DeltaY = 0, ConsoleModifiers Modifiers = 0);
 
+internal static class MouseEventQueue
+{
+    /// <summary>
+    /// Dequeues the mouse event at the head of the queue. A wheel event absorbs the wheel events queued right behind it
+    /// at the same position and in the same direction, so a spin of the wheel is one scroll instead of one relayout per notch.
+    /// </summary>
+    public static bool TryDequeueMouse(Queue<(ConsoleKeyInfo? Key, TerminalMouseEvent? Mouse)> queue, out TerminalMouseEvent value)
+    {
+        if (!queue.TryPeek(out var head) || head.Mouse is not { } mouse)
+        {
+            value = default;
+            return false;
+        }
+
+        queue.Dequeue();
+        if (mouse.Kind == TerminalMouseKind.Wheel)
+        {
+            while (queue.TryPeek(out var next)
+                && next.Mouse is { Kind: TerminalMouseKind.Wheel } following
+                && following.X == mouse.X
+                && following.Y == mouse.Y
+                && Math.Sign(following.DeltaY) == Math.Sign(mouse.DeltaY)
+                && following.Modifiers == mouse.Modifiers)
+            {
+                queue.Dequeue();
+                mouse = mouse with { DeltaY = mouse.DeltaY + following.DeltaY };
+            }
+        }
+
+        value = mouse;
+        return true;
+    }
+}
+
 internal static class SgrMouseParser
 {
     public static bool TryParse(string sequence, out TerminalMouseEvent value)
