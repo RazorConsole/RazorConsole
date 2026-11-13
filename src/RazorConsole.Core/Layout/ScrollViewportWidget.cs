@@ -15,6 +15,19 @@ public sealed class ScrollViewportWidget : Widget
         string? key = null,
         IReadOnlyDictionary<string, string?>? attributes = null,
         int zIndex = 0)
+        : this(vnodeId, child, top, registry: null, scrollId: null, key, attributes, zIndex)
+    {
+    }
+
+    internal ScrollViewportWidget(
+        string vnodeId,
+        Widget child,
+        int top,
+        ScrollStateRegistry? registry,
+        string? scrollId,
+        string? key = null,
+        IReadOnlyDictionary<string, string?>? attributes = null,
+        int zIndex = 0)
         : base(vnodeId, key, attributes, [child], zIndex)
     {
         if (top < 0)
@@ -23,11 +36,18 @@ public sealed class ScrollViewportWidget : Widget
         }
 
         RequestedTop = top;
+        _registry = registry;
+        ScrollId = scrollId;
     }
+
+    private readonly ScrollStateRegistry? _registry;
 
     public Widget Child => Children[0];
 
-    /// <summary>Gets the offset asked for by the caller, before clamping.</summary>
+    /// <summary>Gets the id under which engine-owned scroll state is kept, or <see langword="null"/> for a fixed offset.</summary>
+    public string? ScrollId { get; }
+
+    /// <summary>Gets the offset asked for by the caller, before clamping. Ignored when <see cref="ScrollId"/> is set.</summary>
     public int RequestedTop { get; }
 
     /// <summary>Gets the offset actually applied by the last arrange, clamped to <c>[0, <see cref="MaxTop"/>]</c>.</summary>
@@ -60,7 +80,11 @@ public sealed class ScrollViewportWidget : Widget
     protected override void ArrangeCore(LayoutContext context, LayoutRect bounds)
     {
         ViewportHeight = bounds.Height;
-        Top = Math.Clamp(RequestedTop, 0, MaxTop);
+
+        // Engine-owned state: limits are written back and the offset is clamped in this same pass, so they are never a frame late.
+        Top = _registry is not null && ScrollId is not null
+            ? _registry.ReportLayout(ScrollId, ContentHeight, bounds.Height)
+            : Math.Clamp(RequestedTop, 0, MaxTop);
 
         // A "fill height" child resolves to max(content, viewport).
         var childHeight = Math.Max(ContentHeight, bounds.Height);

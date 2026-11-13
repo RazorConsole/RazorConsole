@@ -23,7 +23,8 @@ internal sealed class ConsoleRenderer(
     LayoutEngine? layoutEngine = null,
     VNodeIdAccessor? vnodeIdAccessor = null,
     VNodeLayoutAccessor? vnodeLayoutAccessor = null,
-    TerminalMonitor? terminalMonitor = null)
+    TerminalMonitor? terminalMonitor = null,
+    ScrollStateRegistry? scrollStateRegistry = null)
     : Renderer(services, loggerFactory),
     IObservable<ConsoleRenderer.RenderSnapshot>
 {
@@ -55,6 +56,9 @@ internal sealed class ConsoleRenderer(
     /// <summary>The console renderer is interactive: components handle events as soon as they render.</summary>
     protected override RendererInfo RendererInfo { get; } = new("Console", isInteractive: true);
 #endif
+
+    /// <summary>Gets the engine-owned scroll state, or <see langword="null"/> when the host did not register one.</summary>
+    internal ScrollStateRegistry? ScrollRegistry => scrollStateRegistry;
 
     internal RenderSnapshot RefreshSnapshot()
     {
@@ -510,6 +514,7 @@ internal sealed class ConsoleRenderer(
     private RenderSnapshot CreateWidgetLayoutSnapshot(VNode rootNode)
     {
         _widgetTranslationContext.ClearAnimatedRenderables();
+        scrollStateRegistry?.BeginLayoutPass();
 
         var widgetRoot = _widgetTranslationContext.Translate(rootNode);
         var layoutResult = _layoutEngine.Layout(widgetRoot, CreateViewportConstraints());

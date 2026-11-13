@@ -22,6 +22,7 @@ public sealed class WidgetTranslationContext
     private readonly IWidgetTranslator[] _translators;
     private readonly ScrollableLayoutCoordinator? _scrollableLayoutCoordinator;
     private readonly SyntaxHighlightingService? _syntaxHighlightingService;
+    private readonly ScrollStateRegistry? _scrollStateRegistry;
     private readonly HashSet<IAnimatedConsoleRenderable> _animatedRenderables = [];
 
     /// <summary>
@@ -34,7 +35,17 @@ public sealed class WidgetTranslationContext
         IEnumerable<IWidgetTranslator>? translators = null,
         ScrollableLayoutCoordinator? scrollableLayoutCoordinator = null,
         SyntaxHighlightingService? syntaxHighlightingService = null)
+        : this(translators, scrollableLayoutCoordinator, syntaxHighlightingService, scrollStateRegistry: null)
     {
+    }
+
+    internal WidgetTranslationContext(
+        IEnumerable<IWidgetTranslator>? translators,
+        ScrollableLayoutCoordinator? scrollableLayoutCoordinator,
+        SyntaxHighlightingService? syntaxHighlightingService,
+        ScrollStateRegistry? scrollStateRegistry)
+    {
+        _scrollStateRegistry = scrollStateRegistry;
         _translators = translators?.ToArray() ?? [];
         _scrollableLayoutCoordinator = scrollableLayoutCoordinator;
         _syntaxHighlightingService = syntaxHighlightingService;
@@ -403,10 +414,22 @@ public sealed class WidgetTranslationContext
 
     // data-opaque hides what is painted beneath the container, e.g. for a dropdown overlay.
     private Widget TranslateContainer(VNode node)
-        => new StackWidget(node.ID, TranslateChildren(node), attributes: node.Attributes, zIndex: TryGetIntAttribute(node, "z-index", 0))
+    {
+        var children = TranslateChildren(node);
+        if (children.Count > 0 && GetOverflowMode(node) != OverflowMode.Visible)
+        {
+            // Plain HTML elements scroll too: the element is the frame and its children are the content.
+            children = [ComposeChildren(node, children)];
+        }
+
+        return new StackWidget(node.ID, children, attributes: node.Attributes, zIndex: TryGetIntAttribute(node, "z-index", 0))
         {
             Opaque = IsTruthy(GetAttribute(node, "data-opaque")),
         };
+    }
+
+    private static OverflowMode GetOverflowMode(VNode node)
+        => ParseEnum(GetAttribute(node, "data-overflow") ?? GetAttribute(node, "overflow"), OverflowMode.Visible);
 
     // Components that wrap a Spectre.Console renderable become opaque leaves that paint into the cell grid.
     // A malformed node (a missing size, an unknown color, a chart too small for its axes) makes the
@@ -597,12 +620,40 @@ public sealed class WidgetTranslationContext
             .ToArray();
 
     private Widget ComposeChildren(VNode owner, IReadOnlyList<Widget> children)
-        => children.Count switch
+        => WrapOverflow(
+            owner,
+            children.Count switch
+            {
+                0 => new TextWidget(owner.ID + "-content", string.Empty),
+                1 => children[0],
+                _ => new StackWidget(owner.ID + "-content", children),
+            });
+
+    // overflow is a property of any container: the border and title stay on the owner, only its content scrolls.
+    private Widget WrapOverflow(VNode owner, Widget content)
+    {
+        var mode = GetOverflowMode(owner);
+        if (mode == OverflowMode.Visible)
         {
-            0 => new TextWidget(owner.ID + "-content", string.Empty),
-            1 => children[0],
-            _ => new StackWidget(owner.ID + "-content", children),
-        };
+            return content;
+        }
+
+        var viewportId = owner.ID + "-viewport";
+        if (mode == OverflowMode.Hidden)
+        {
+            return new ScrollViewportWidget(viewportId, content);
+        }
+
+        var top = Math.Max(0, TryGetIntAttribute(owner, "data-scroll-top", 0));
+        var scrollId = GetAttribute(owner, "data-scroll-id");
+        if (string.IsNullOrWhiteSpace(scrollId))
+        {
+            // Without an explicit ScrollId the state follows the VNode id, which is not stable when siblings are inserted or reordered.
+            scrollId = owner.ID;
+        }
+
+        return new ScrollViewportWidget(viewportId, content, top, _scrollStateRegistry, _scrollStateRegistry is null ? null : scrollId);
+    }
 
     private Widget CreateHtmlListWidget(VNode node, int zIndex)
     {

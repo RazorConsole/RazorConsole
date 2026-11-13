@@ -1,6 +1,7 @@
 @namespace RazorConsole.Components
 
 @using Microsoft.AspNetCore.Components
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
 @using Spectre.Console
 
 <Box Class="panel"
@@ -14,7 +15,11 @@
     Height="@Height"
     Expand="@Expand"
     FillWidth="@FillWidth"
-    FillHeight="@FillHeight">
+    FillHeight="@FillHeight"
+    Overflow="@Overflow"
+    ScrollTop="@ScrollTop"
+    ScrollTopChanged="@ScrollTopChanged"
+    ScrollId="@ScrollId">
     @ChildContent
 </Box>
 
@@ -102,4 +107,28 @@
     /// </summary>
     [Parameter]
     public bool FillHeight { get; set; }
+
+    /// <summary>
+    /// What happens to content taller than the panel. See <see cref="Box.Overflow"/>.
+    /// </summary>
+    [Parameter]
+    public OverflowMode Overflow { get; set; }
+
+    /// <summary>
+    /// Scroll offset in rows, applied when its value changes. See <see cref="Box.ScrollTop"/>.
+    /// </summary>
+    [Parameter]
+    public int ScrollTop { get; set; }
+
+    /// <summary>
+    /// Raised when the engine changes the scroll offset.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> ScrollTopChanged { get; set; }
+
+    /// <summary>
+    /// Stable identity of the scroll state. See <see cref="Box.ScrollId"/>.
+    /// </summary>
+    [Parameter]
+    public string? ScrollId { get; set; }
 }

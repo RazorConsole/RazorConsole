@@ -3,8 +3,14 @@
 @using System.Collections.Generic
 @using System.Globalization
 @using Microsoft.AspNetCore.Components
+@using Microsoft.Extensions.DependencyInjection
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using ScrollChangeSource = RazorConsole.Core.Layout.ScrollChangeSource
+@using ScrollStateRegistry = RazorConsole.Core.Layout.ScrollStateRegistry
 @using RazorConsole.Core.Rendering.ComponentMarkup
 @using Spectre.Console
+@implements IDisposable
+@inject IServiceProvider Services
 
 <div class="@Class"
     @attributes="AdditionalAttributes"
@@ -21,7 +27,10 @@
     data-border-color="@BorderColorAttribute"
     data-border="@BorderAttribute"
     data-horizontal="@HorizontalAttribute"
-    data-vertical="@VerticalAttribute">
+    data-vertical="@VerticalAttribute"
+    data-overflow="@OverflowAttribute"
+    data-scroll-id="@ScrollIdAttribute"
+    data-scroll-top="@ScrollTopAttribute">
     @ChildContent
 </div>
 
@@ -129,10 +138,106 @@
     public VerticalAlignment? Vertical { get; set; }
 
     /// <summary>
+    /// What happens to content taller than the box, like CSS <c>overflow</c>. With <see cref="OverflowMode.Scroll"/> the content scrolls
+    /// inside the box while the border and title stay fixed; give the box a bounded height (for example <see cref="FillHeight"/>
+    /// inside a bounded parent, or <see cref="Height"/>). Default is <see cref="OverflowMode.Visible"/>.
+    /// </summary>
+    [Parameter]
+    public OverflowMode Overflow { get; set; }
+
+    /// <summary>
+    /// Scroll offset in rows. The engine owns the scroll position, so this is applied only when its value changes
+    /// (semi-controlled): a constant value never resets scrolling the user did. Use <c>@bind-ScrollTop</c> to follow the position.
+    /// </summary>
+    [Parameter]
+    public int ScrollTop { get; set; }
+
+    /// <summary>
+    /// Raised when the engine changes the scroll offset (wheel, scrollbar, clamping after the content shrinks).
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> ScrollTopChanged { get; set; }
+
+    /// <summary>
+    /// Stable identity of the scroll state. Without it the state lives and dies with this component instance.
+    /// </summary>
+    [Parameter]
+    public string? ScrollId { get; set; }
+
+    /// <summary>
     /// Additional attributes applied to the emitted box element.
     /// </summary>
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
+
+    private readonly string _instanceScrollId = Guid.NewGuid().ToString("N");
+    private ScrollStateRegistry? _registry;
+    private string? _subscribedScrollId;
+    private int _lastScrollTopParameter;
+
+    private string EffectiveScrollId => string.IsNullOrWhiteSpace(ScrollId) ? _instanceScrollId : ScrollId;
+
+    private string? OverflowAttribute => Overflow == OverflowMode.Visible ? null : Overflow.ToString().ToLowerInvariant();
+
+    private string? ScrollIdAttribute => Overflow == OverflowMode.Scroll ? EffectiveScrollId : null;
+
+    private string? ScrollTopAttribute => Overflow == OverflowMode.Scroll && ScrollTop > 0
+        ? ScrollTop.ToString(CultureInfo.InvariantCulture)
+        : null;
+
+    protected override void OnParametersSet()
+    {
+        if (Overflow != OverflowMode.Scroll)
+        {
+            Unsubscribe();
+            return;
+        }
+
+        var id = EffectiveScrollId;
+        if (_subscribedScrollId != id)
+        {
+            Unsubscribe();
+            _registry = Services.GetService<ScrollStateRegistry>();
+            if (_registry is not null)
+            {
+                _registry.TopChanged += OnEngineTopChanged;
+                _subscribedScrollId = id;
+            }
+        }
+
+        if (ScrollTop != _lastScrollTopParameter)
+        {
+            _lastScrollTopParameter = ScrollTop;
+            _registry?.SetTop(id, ScrollTop, ScrollChangeSource.Parameter);
+        }
+    }
+
+    private void OnEngineTopChanged(string scrollId, int top)
+    {
+        if (scrollId == _subscribedScrollId && ScrollTopChanged.HasDelegate)
+        {
+            _ = InvokeAsync(() => ScrollTopChanged.InvokeAsync(top));
+        }
+    }
+
+    private void Unsubscribe()
+    {
+        if (_registry is null)
+        {
+            return;
+        }
+
+        _registry.TopChanged -= OnEngineTopChanged;
+        if (_subscribedScrollId is not null)
+        {
+            _registry.Remove(_subscribedScrollId);
+        }
+
+        _registry = null;
+        _subscribedScrollId = null;
+    }
+
+    public void Dispose() => Unsubscribe();
 
     private string ExpandAttribute => Expand ? "true" : "false";
 

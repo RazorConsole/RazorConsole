@@ -19,6 +19,7 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
     private readonly VdomDiffService _diffService;
     private readonly ConsoleRenderer _renderer;
     private bool _disposed;
+    private int _scrollRepaintPending;
     private ConsoleViewResult? _currentView;
     private readonly IDisposable? _snapshotSubscription;
     private readonly AnimationTicker _animationTicker;
@@ -36,6 +37,11 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
         _terminalMonitor = terminalMonitor;
         _terminalMonitor.OnResized += HandleTerminalResize;
         _renderer = renderer;
+        if (renderer.ScrollRegistry is { } scrollRegistry)
+        {
+            scrollRegistry.RepaintRequested += HandleScrollRepaintRequested;
+        }
+
         if (initialView is not null)
         {
             _currentView = initialView;
@@ -97,6 +103,25 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
         }
     }
 
+    // Scroll state changed outside a Blazor render: relayout and repaint through the same path as a resize.
+    // Requests arriving while one is pending are coalesced, and the work runs off the caller's stack so a request raised during input handling or layout never re-enters the renderer.
+    private void HandleScrollRepaintRequested()
+    {
+        if (_disposed || Interlocked.Exchange(ref _scrollRepaintPending, 1) == 1)
+        {
+            return;
+        }
+
+        _ = Task.Run(() =>
+        {
+            Volatile.Write(ref _scrollRepaintPending, 0);
+            if (!_disposed)
+            {
+                HandleTerminalResize();
+            }
+        });
+    }
+
     private void HandleTerminalResize()
     {
         try
@@ -124,6 +149,11 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
         }
         _animationTicker.Dispose();
         _terminalMonitor.OnResized -= HandleTerminalResize;
+        if (_renderer.ScrollRegistry is { } scrollRegistry)
+        {
+            scrollRegistry.RepaintRequested -= HandleScrollRepaintRequested;
+        }
+
         _snapshotSubscription?.Dispose();
         if (_canvas is IDisposable disposableCanvas)
         {
