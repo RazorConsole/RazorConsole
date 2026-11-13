@@ -11,7 +11,7 @@ Scrolling is a property of a container. Set `Overflow="OverflowMode.Scroll"` on 
 </Panel>
 ```
 
-The border and title stay fixed; only the content scrolls. The scrollbar is drawn on the right border by default.
+The border and title stay fixed; only the content scrolls. The scrollbar takes one column inside the container while the content overflows.
 
 ## Which containers scroll
 
@@ -31,7 +31,7 @@ A scroll container needs a height to scroll in: set `Height`, or `FillHeight` in
 
 The `Scrollbar` parameter takes a `ScrollbarSettings`:
 
-- `Placement`: `Border` (the default) draws the bar over the right border, `Inset` reserves a column inside the container, and `Outside` adds a column to the right of it. Without a right border, `Border` falls back to `Inset`. `Inset` and `Outside` reserve their column only while the content overflows.
+- `Placement`: `Inset` (the default) reserves a column inside the container, and `Outside` adds a column to the right of its border. Both reserve their column only while the content overflows.
 - `Visibility`: `Auto` (the default) shows the bar only when the content overflows, `Always` and `Never` do what they say.
 - Characters and colors: `TrackChar`, `ThumbChar`, `TrackColor`, `ThumbColor` and `MinThumbHeight`.
 
@@ -99,7 +99,7 @@ Each scroll container has a scroll id. Pass `ScrollId` for state that must survi
 | ------------------------------------------------------- | ------------------------------------------------------------------ |
 | `<ViewHeightScrollable LinesToRender="10">`             | `<Box Height="10" Overflow="OverflowMode.Scroll">`                 |
 | `LinesToRender="0"` (fill)                              | `<Box FillHeight="true" Overflow="OverflowMode.Scroll">` in a parent with a bounded height |
-| `IsScrollbarEmbedded="true"`                            | `Scrollbar` with `Placement = ScrollbarPlacement.Border`           |
+| `IsScrollbarEmbedded="true"`                            | `Scrollbar` with `Placement = ScrollbarPlacement.Inset` (the default) |
 | `IsScrollbarEmbedded="false"`                           | `Scrollbar` with `Placement = ScrollbarPlacement.Outside`          |
 | `ScrollOffset`, `ScrollOffsetChanged`                   | `ScrollTop`, `ScrollTopChanged`                                    |
 | `<Scrollable Items="..." PageSize="3">`                 | A scrolling container around all the items                         |

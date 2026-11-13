@@ -3,15 +3,12 @@
 
 @using OverflowMode = RazorConsole.Core.Layout.OverflowMode
 @using ScrollController = RazorConsole.Core.Layout.ScrollController
-@using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
-@using ScrollbarPlacement = RazorConsole.Core.Rendering.ScrollbarPlacement
 
 <Box Border="BoxBorder.Rounded" Padding="new Padding(1)" Expand="true">
     <Rows>
         <Markup Content="Scrolling with Overflow" Foreground="Color.Cyan1" Decoration="Decoration.Bold" />
         <Panel Title="Log" Border="BoxBorder.Rounded" Height="7" Overflow="OverflowMode.Scroll"
-               Focusable="true" Controller="_controller" StickToBottom="true"
-               Scrollbar="@(new ScrollbarSettings(placement: ScrollbarPlacement.Border))" Expand="true">
+               Focusable="true" Controller="_controller" StickToBottom="true" Expand="true">
             @foreach (var line in _lines)
             {
                 <Markup Content="@line" />
