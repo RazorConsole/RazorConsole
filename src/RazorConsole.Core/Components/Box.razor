@@ -5,6 +5,8 @@
 @using Microsoft.AspNetCore.Components
 @using Microsoft.Extensions.DependencyInjection
 @using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
+@using RazorConsole.Core.Utilities
 @using ScrollChangeSource = RazorConsole.Core.Layout.ScrollChangeSource
 @using ScrollStateRegistry = RazorConsole.Core.Layout.ScrollStateRegistry
 @using RazorConsole.Core.Rendering.ComponentMarkup
@@ -30,7 +32,14 @@
     data-vertical="@VerticalAttribute"
     data-overflow="@OverflowAttribute"
     data-scroll-id="@ScrollIdAttribute"
-    data-scroll-top="@ScrollTopAttribute">
+    data-scroll-top="@ScrollTopAttribute"
+    data-scrollbar-placement="@ScrollbarPlacementAttribute"
+    data-scrollbar-visibility="@ScrollbarVisibilityAttribute"
+    data-scrollbar-track-char="@ScrollbarTrackCharAttribute"
+    data-scrollbar-thumb-char="@ScrollbarThumbCharAttribute"
+    data-scrollbar-track-color="@ScrollbarTrackColorAttribute"
+    data-scrollbar-thumb-color="@ScrollbarThumbColorAttribute"
+    data-scrollbar-min-thumb-height="@ScrollbarMinThumbHeightAttribute">
     @ChildContent
 </div>
 
@@ -165,6 +174,12 @@
     public string? ScrollId { get; set; }
 
     /// <summary>
+    /// How the scrollbar of a scrolling box looks and where it is drawn. Default is a scrollbar over the right border that shows while the content overflows.
+    /// </summary>
+    [Parameter]
+    public ScrollbarSettings? Scrollbar { get; set; }
+
+    /// <summary>
     /// Additional attributes applied to the emitted box element.
     /// </summary>
     [Parameter(CaptureUnmatchedValues = true)]
@@ -176,6 +191,22 @@
     private int _lastScrollTopParameter;
 
     private string EffectiveScrollId => string.IsNullOrWhiteSpace(ScrollId) ? _instanceScrollId : ScrollId;
+
+    private ScrollbarSettings? ActiveScrollbar => Overflow == OverflowMode.Scroll ? Scrollbar : null;
+
+    private string? ScrollbarPlacementAttribute => ActiveScrollbar?.Placement.ToString().ToLowerInvariant();
+
+    private string? ScrollbarVisibilityAttribute => ActiveScrollbar?.Visibility.ToString().ToLowerInvariant();
+
+    private string? ScrollbarTrackCharAttribute => ActiveScrollbar?.TrackChar.ToString();
+
+    private string? ScrollbarThumbCharAttribute => ActiveScrollbar?.ThumbChar.ToString();
+
+    private string? ScrollbarTrackColorAttribute => ActiveScrollbar is { } bar ? ColorAttribute.Format(bar.TrackColor) : null;
+
+    private string? ScrollbarThumbColorAttribute => ActiveScrollbar is { } bar ? ColorAttribute.Format(bar.ThumbColor) : null;
+
+    private string? ScrollbarMinThumbHeightAttribute => ActiveScrollbar?.MinThumbHeight.ToString(CultureInfo.InvariantCulture);
 
     private string? OverflowAttribute => Overflow == OverflowMode.Visible ? null : Overflow.ToString().ToLowerInvariant();
 

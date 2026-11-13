@@ -32,6 +32,11 @@ public readonly record struct VNodeLayoutInfo(
     /// <see langword="null"/> when layout did not compute it. Empty when the node is scrolled out of view.
     /// </summary>
     public LayoutRect? VisibleBounds { get; init; }
+
+    /// <summary>
+    /// Gets the scrollbar of a scroll container that can be clicked and dragged; <see langword="null"/> when the node has none showing.
+    /// </summary>
+    public ScrollLayoutInfo? Scroll { get; init; }
 }
 
 /// <summary>

@@ -240,28 +240,7 @@ public sealed class WidgetTranslationContext
 
         if (string.Equals(node.TagName, "view-height-scrollable", StringComparison.OrdinalIgnoreCase))
         {
-            var child = ComposeChildren(node, children);
-            var scrollbarNode = node.Children.FirstOrDefault(IsScrollbarNode);
-            var linesToRender = TryGetIntAttribute(node, "data-lines-to-render", 1);
-            return new ScrollableWidget(
-                node.ID,
-                child,
-                itemsCount: 0,
-                offset: TryGetIntAttribute(node, "data-offset", 0),
-                pageSize: Math.Max(1, linesToRender),
-                enableEmbedded: IsTruthy(GetAttribute(node, "data-enable-embedded")),
-                trackChar: scrollbarNode is null ? '│' : ParseChar(GetAttribute(scrollbarNode, "data-track-char"), '│'),
-                thumbChar: scrollbarNode is null ? '█' : ParseChar(GetAttribute(scrollbarNode, "data-thumb-char"), '█'),
-                trackStyle: scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-track-color")),
-                thumbStyle: scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-thumb-color")),
-                minThumbHeight: scrollbarNode is null ? 1 : Math.Max(1, TryGetIntAttribute(scrollbarNode, "data-min-thumb-height", 1)),
-                showScrollbar: scrollbarNode is not null,
-                cropLines: true,
-                autoPageSize: linesToRender == 0,
-                layoutCoordinator: _scrollableLayoutCoordinator,
-                scrollId: GetAttribute(node, "data-scroll-id"),
-                attributes: node.Attributes,
-                zIndex: zIndex);
+            return CreateViewHeightScrollable(node, children, zIndex);
         }
 
         if (string.Equals(className, "rows", StringComparison.OrdinalIgnoreCase))
@@ -328,7 +307,10 @@ public sealed class WidgetTranslationContext
                 marginRight: margin.Right,
                 marginBottom: margin.Bottom,
                 attributes: node.Attributes,
-                zIndex: zIndex);
+                zIndex: zIndex)
+            {
+                Scrollbar = ParseScrollbar(node),
+            };
         }
 
         if (string.Equals(className, "align", StringComparison.OrdinalIgnoreCase))
@@ -374,7 +356,10 @@ public sealed class WidgetTranslationContext
                 fillHeight: IsTruthy(GetAttribute(node, "data-fill-height")),
                 borderStyle: TryParseStyle(GetAttribute(node, "data-border-color")),
                 attributes: node.Attributes,
-                zIndex: zIndex);
+                zIndex: zIndex)
+            {
+                Scrollbar = ParseScrollbar(node),
+            };
         }
 
         if (IsBoxNode(node, className))
@@ -406,7 +391,10 @@ public sealed class WidgetTranslationContext
                 borderLeft: ParseOptionalBoxBorder(GetAttribute(node, "data-border-left")),
                 borderStyle: TryParseStyle(GetAttribute(node, "data-border-color")),
                 attributes: node.Attributes,
-                zIndex: zIndex);
+                zIndex: zIndex)
+            {
+                Scrollbar = ParseScrollbar(node),
+            };
         }
 
         return TranslateContainer(node);
@@ -419,13 +407,96 @@ public sealed class WidgetTranslationContext
         if (children.Count > 0 && GetOverflowMode(node) != OverflowMode.Visible)
         {
             // Plain HTML elements scroll too: the element is the frame and its children are the content.
-            children = [ComposeChildren(node, children)];
+            var content = ComposeChildren(node, children);
+            if (ParseScrollbar(node) is { } scrollbar)
+            {
+                return new BoxWidget(node.ID, content, attributes: node.Attributes, zIndex: TryGetIntAttribute(node, "z-index", 0))
+                {
+                    Scrollbar = scrollbar,
+                };
+            }
+
+            children = [content];
         }
 
         return new StackWidget(node.ID, children, attributes: node.Attributes, zIndex: TryGetIntAttribute(node, "z-index", 0))
         {
             Opaque = IsTruthy(GetAttribute(node, "data-opaque")),
         };
+    }
+
+    // <view-height-scrollable> is a scroll container like any other: its content scrolls in a viewport inside a frame.
+    // A single bordered child (a Panel or Border) is that frame, which puts the scrollbar on its border; otherwise a frameless box hosts it.
+    private Widget CreateViewHeightScrollable(VNode node, IReadOnlyList<Widget> children, int zIndex)
+    {
+        var scrollbarNode = node.Children.FirstOrDefault(IsScrollbarNode);
+        var linesToRender = TryGetIntAttribute(node, "data-lines-to-render", 1);
+        var embedded = IsTruthy(GetAttribute(node, "data-enable-embedded"));
+        var scrollId = GetAttribute(node, "data-scroll-id");
+        var offset = Math.Max(0, TryGetIntAttribute(node, "data-offset", 0));
+        var scrollbar = new ScrollbarOptions(
+            embedded && scrollbarNode is not null
+                ? ParseEnum(GetAttribute(scrollbarNode, "data-scrollbar-placement"), ScrollbarPlacement.Border)
+                : embedded ? ScrollbarPlacement.Border : ScrollbarPlacement.Outside,
+            scrollbarNode is null
+                ? ScrollbarVisibility.Never
+                : ParseEnum(GetAttribute(scrollbarNode, "data-scrollbar-visibility"), ScrollbarVisibility.Auto),
+            scrollbarNode is null ? '│' : ParseChar(GetAttribute(scrollbarNode, "data-track-char"), '│'),
+            scrollbarNode is null ? '█' : ParseChar(GetAttribute(scrollbarNode, "data-thumb-char"), '█'),
+            scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-track-color")),
+            scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-thumb-color")),
+            scrollbarNode is null ? 1 : Math.Max(1, TryGetIntAttribute(scrollbarNode, "data-min-thumb-height", 1)));
+
+        var frame = embedded && children.Count == 1 && children[0] is BoxWidget { Child: not ScrollViewportWidget } box
+            && box.Border.Right != BoxBorderStyle.None
+                ? box
+                : null;
+        var content = frame is null ? ComposeChildren(node, children) : frame.Child;
+        var viewport = new ScrollViewportWidget(
+            node.ID + "-viewport",
+            content,
+            offset,
+            _scrollStateRegistry,
+            _scrollStateRegistry is null ? null : scrollId);
+
+        if (frame is not null)
+        {
+            // The outer element keeps a layout box of its own, as it always had.
+            return new StackWidget(
+                node.ID,
+                [frame.WithScrollingContent(viewport, scrollbar, linesToRender)],
+                attributes: node.Attributes,
+                zIndex: zIndex);
+        }
+
+        return new BoxWidget(
+            node.ID,
+            viewport,
+            height: linesToRender > 0 ? linesToRender : null,
+            fillHeight: linesToRender <= 0,
+            attributes: node.Attributes,
+            zIndex: zIndex)
+        {
+            Scrollbar = scrollbar,
+        };
+    }
+
+    // Scrollbar options of a scroll container; null when the container does not scroll.
+    private static ScrollbarOptions? ParseScrollbar(VNode node)
+    {
+        if (GetOverflowMode(node) != OverflowMode.Scroll)
+        {
+            return null;
+        }
+
+        return new ScrollbarOptions(
+            ParseEnum(GetAttribute(node, "data-scrollbar-placement"), ScrollbarPlacement.Border),
+            ParseEnum(GetAttribute(node, "data-scrollbar-visibility"), ScrollbarVisibility.Auto),
+            ParseChar(GetAttribute(node, "data-scrollbar-track-char"), '│'),
+            ParseChar(GetAttribute(node, "data-scrollbar-thumb-char"), '█'),
+            TryParseHexStyle(GetAttribute(node, "data-scrollbar-track-color")),
+            TryParseHexStyle(GetAttribute(node, "data-scrollbar-thumb-color")),
+            Math.Max(1, TryGetIntAttribute(node, "data-scrollbar-min-thumb-height", 1)));
     }
 
     private static OverflowMode GetOverflowMode(VNode node)
