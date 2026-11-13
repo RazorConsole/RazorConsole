@@ -49,14 +49,7 @@ internal sealed class WindowsConsoleInput : IConsoleInput, IDisposable
     public bool TryReadMouse(out TerminalMouseEvent value)
     {
         Pump();
-        if (_pending.TryPeek(out var next) && next.Mouse is { } mouse)
-        {
-            _pending.Dequeue();
-            value = mouse;
-            return true;
-        }
-        value = default;
-        return false;
+        return MouseEventQueue.TryDequeueMouse(_pending, out value);
     }
 
     private void Pump()
