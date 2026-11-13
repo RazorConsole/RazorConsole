@@ -3,10 +3,11 @@
 @using Microsoft.AspNetCore.Components
 @using RazorConsole.Core.Rendering.ComponentMarkup
 @using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
 @using Spectre.Console
 
 <Panel Border="@BoxBorder" BorderColor="@BorderColor" Padding="@Padding" Expand="false"
-    Overflow="@Overflow" ScrollTop="@ScrollTop" ScrollTopChanged="@ScrollTopChanged" ScrollId="@ScrollId">
+    Overflow="@Overflow" ScrollTop="@ScrollTop" ScrollTopChanged="@ScrollTopChanged" ScrollId="@ScrollId" Scrollbar="@Scrollbar">
     @ChildContent
 </Panel>
 
@@ -65,4 +66,10 @@
     /// </summary>
     [Parameter]
     public string? ScrollId { get; set; }
+
+    /// <summary>
+    /// How the scrollbar looks and where it is drawn. See <see cref="Box.Scrollbar"/>.
+    /// </summary>
+    [Parameter]
+    public ScrollbarSettings? Scrollbar { get; set; }
 }

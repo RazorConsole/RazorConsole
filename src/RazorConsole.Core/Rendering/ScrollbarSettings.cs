@@ -8,16 +8,20 @@ namespace RazorConsole.Core.Rendering;
 public sealed record ScrollbarSettings
 {
     public ScrollbarSettings(
-        char trackChar = '│',
-        char thumbChar = '█',
+        char trackChar = '┃',
+        char thumbChar = '┃',
         Color? trackColor = null,
         Color? thumbColor = null,
         Color? trackFocusedColor = null,
         Color? thumbFocusedColor = null,
         int minThumbHeight = 1,
         Action<FocusEventArgs>? onFocusInCallback = null,
-        Action<FocusEventArgs>? onFocusOutCallback = null)
+        Action<FocusEventArgs>? onFocusOutCallback = null,
+        ScrollbarPlacement placement = ScrollbarPlacement.Inset,
+        ScrollbarVisibility visibility = ScrollbarVisibility.Auto)
     {
+        Placement = placement;
+        Visibility = visibility;
         TrackChar = trackChar;
         ThumbChar = thumbChar;
         TrackColor = trackColor ?? Color.Grey;
@@ -30,14 +34,24 @@ public sealed record ScrollbarSettings
     }
 
     /// <summary>
-    /// Character to use for the scrollbar track. Default is │.
+    /// Where a scroll container draws its scrollbar. Default is <see cref="ScrollbarPlacement.Inset"/>.
     /// </summary>
-    public char TrackChar { get; set; } = '│';
+    public ScrollbarPlacement Placement { get; set; } = ScrollbarPlacement.Inset;
 
     /// <summary>
-    /// Character to use for the scrollbar thumb. Default is █.
+    /// When a scroll container shows its scrollbar. Default is <see cref="ScrollbarVisibility.Auto"/>.
     /// </summary>
-    public char ThumbChar { get; set; } = '█';
+    public ScrollbarVisibility Visibility { get; set; } = ScrollbarVisibility.Auto;
+
+    /// <summary>
+    /// Character to use for the scrollbar track. Default is ┃.
+    /// </summary>
+    public char TrackChar { get; set; } = '┃';
+
+    /// <summary>
+    /// Character to use for the scrollbar thumb. Default is ┃.
+    /// </summary>
+    public char ThumbChar { get; set; } = '┃';
 
     /// <summary>
     /// Color for the track. Default is <see cref="Color.Gray"/>.
