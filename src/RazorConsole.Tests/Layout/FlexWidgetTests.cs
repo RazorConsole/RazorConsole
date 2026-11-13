@@ -95,6 +95,38 @@ public sealed class FlexWidgetTests
         Render(flex, 4).ShouldBe("a1b1\na2\nc1");
     }
 
+    [Fact]
+    public void FixedWidth_MeasuresChildrenAtThatWidth_SoWrappedLinesKeepTheirRows()
+    {
+        var column = new FlexWidget("column", [Text("wraps", "aaaa bbbb")], FlexDirection.Column, width: 6);
+        var row = new FlexWidget("row", [column, Text("side", "x")], gap: 1);
+        var page = new FlexWidget("page", [row, Text("below", "next")], FlexDirection.Column);
+
+        Render(page, 20).ShouldBe("aaaa   x\nbbbb\nnext");
+    }
+
+    [Fact]
+    public void FixedHeight_MeasuresChildrenAtThatHeight()
+    {
+        var child = Text("tall", "a\nb\nc\nd");
+        var column = new FlexWidget("column", [child], FlexDirection.Column, height: 2);
+
+        new LayoutEngine().Layout(column, new BoxConstraints(0, 10, 0, 20));
+
+        child.DesiredSize.Height.ShouldBe(2);
+    }
+
+    [Fact]
+    public void FixedWidth_LargerThanTheConstraint_MeasuresChildrenAtTheConstraint()
+    {
+        var child = Text("wraps", "aaaa bbbb");
+        var column = new FlexWidget("column", [child], FlexDirection.Column, width: 30);
+
+        new LayoutEngine().Layout(column, new BoxConstraints(0, 6, 0, 20));
+
+        child.DesiredSize.Height.ShouldBe(2);
+    }
+
     private static TextWidget Text(string id, string text) => new(id, text);
 
     private static string Render(Widget widget, int width)
