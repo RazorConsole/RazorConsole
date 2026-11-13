@@ -4,7 +4,8 @@ namespace RazorConsole.Tests;
 
 /// <summary>
 /// The Gallery wheel-storm tests (headless and in a real terminal) each keep the CPU busy for their whole run;
-/// in one collection they never overlap within a test process. Other collections still run in parallel with them.
+/// in one collection they never overlap within a test process. The Gallery sweep joins them, so its waits are not
+/// slowed by a wheel storm. Other collections still run in parallel with them.
 /// </summary>
 [CollectionDefinition(Name)]
 public sealed class GalleryWheelStressCollection
