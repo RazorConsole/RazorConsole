@@ -66,7 +66,14 @@ await using var terminal = await HeadlessTerminal.StartAsync<Greeting>(new Headl
 
 ### Input
 
-Every input method returns after the input has been handled and a frame has been captured.
+Every input method returns after the input has been handled, the event handlers it started have finished (including `async` ones), and a frame has been captured. As in a real terminal, the input itself does not wait for those handlers: an input call made while an earlier one is still waiting for an `async` handler is delivered right away. To test a Cancel button, start the long-running click without awaiting it:
+
+```csharp
+var start = terminal.ClickAsync(1, 0, ct);          // returns when the work ends
+await terminal.WaitForTextAsync("working...", cancellationToken: ct);
+await terminal.ClickAsync(1, 1, ct);                // Cancel runs while Start is still awaiting
+await start;
+```
 
 - `SendKeyAsync`: one key press, sent to the focused element.
 - `TypeAsync`: text, one key press per character. `\r` and `\n` are Enter, `\t` is Tab, `\b` and DEL are Backspace, upper-case letters add Shift, and other control characters are Ctrl+letter.
@@ -212,7 +219,7 @@ A frame is captured after each chunk of output. While the application holds a sy
 
 ## Running terminals in parallel
 
-Each `HeadlessTerminal` and `PtyTerminal` has its own services or process, terminal and frames, so tests that use them can run in parallel. One terminal instance is also safe to use from several threads: input calls and `Resize` run one at a time.
+Each `HeadlessTerminal` and `PtyTerminal` has its own services or process, terminal and frames, so tests that use them can run in parallel. One terminal instance is also safe to use from several threads: input calls and `Resize` deliver their input one at a time.
 
 `PtyTerminal` tests start processes and take longer. Tag them, and run them as a separate step:
 

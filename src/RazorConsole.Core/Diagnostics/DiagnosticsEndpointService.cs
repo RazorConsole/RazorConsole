@@ -36,7 +36,8 @@ namespace RazorConsole.Core.Diagnostics;
 /// </para>
 /// <para>
 /// Injected input goes through a <see cref="DiagnosticsInputQueue"/> that the app's input loop drains, and is
-/// answered after its handlers have run.
+/// answered once its event handlers have started (their synchronous part and the render it queued).
+/// Like real input, it does not wait for an <c>async</c> handler to finish.
 /// </para>
 /// </remarks>
 internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyncDisposable
@@ -589,7 +590,7 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
             new FocusChangeResult(changed, _queries!.Focus().Current, _state!.LatestFrame?.Sequence ?? 0),
             DiagnosticsJsonContext.Default.FocusChangeResult);
 
-    // Answers after the input's handlers have run, or with a timeout error.
+    // Answers once the input's handlers have started, or with a timeout error.
     private async Task<DiagnosticsMessage> InputAsync(DiagnosticsMessage message, long id, CancellationToken cancellationToken)
     {
         try
@@ -635,7 +636,7 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
                 var dispatched = !item.TryCancel();
                 throw new DiagnosticsProtocolException(
                     DiagnosticsErrorCodes.Timeout,
-                    dispatched ? "The app's input handlers did not finish in time." : "The app did not read the input in time.",
+                    dispatched ? "The app's input handlers did not run in time." : "The app did not read the input in time.",
                     errorData: JsonSerializer.SerializeToElement(new InputTimeoutData(dispatched), DiagnosticsJsonContext.Default.InputTimeoutData));
             }
 

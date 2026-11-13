@@ -838,7 +838,21 @@ internal sealed class ConsoleRenderer(
         }
     }
 
+    /// <summary>
+    /// Dispatches an event and returns a task that completes when the handler completes.
+    /// </summary>
     internal Task DispatchEventAsync(ulong handlerId, EventArgs eventArgs)
+        => StartEventAsync(handlerId, eventArgs).Unwrap();
+
+    /// <summary>
+    /// Dispatches an event on the renderer's dispatcher.
+    /// The returned task completes once the handler's synchronous part has run (and any render it queued),
+    /// and faults when the handler id is unknown (<see cref="ArgumentException"/> with
+    /// <c>ParamName == "eventHandlerId"</c>) or the handler throws synchronously.
+    /// Its result completes with the handler; an asynchronous handler failure has already been
+    /// reported through <see cref="HandleException"/> when that task faults.
+    /// </summary>
+    internal Task<Task> StartEventAsync(ulong handlerId, EventArgs eventArgs)
     {
         if (handlerId == 0)
         {
@@ -854,7 +868,7 @@ internal sealed class ConsoleRenderer(
 
         try
         {
-            return Dispatcher.InvokeAsync(() => base.DispatchEventAsync(handlerId, default, eventArgs));
+            return Dispatcher.InvokeAsync(() => Task.FromResult(base.DispatchEventAsync(handlerId, default, eventArgs)));
         }
         catch (Exception ex)
         {

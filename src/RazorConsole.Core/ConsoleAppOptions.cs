@@ -43,6 +43,19 @@ public sealed class ConsoleAppOptions
     public ConsoleLiveDisplayOptions ConsoleLiveDisplayOptions { get; } = ConsoleLiveDisplayOptions.Default;
 
     /// <summary>
+    /// Gets or sets whether input waits for each event handler to finish before it handles the next key or mouse event.
+    /// Default value is false.
+    /// </summary>
+    /// <remarks>
+    /// By default RazorConsole handles events the way Blazor does: an event is dispatched once the previous
+    /// handler has started (its synchronous part has run), so a click or key press is handled while an earlier
+    /// <c>async</c> handler is still awaiting, for example a Cancel button during long-running work.
+    /// Set this to <see langword="true"/> to restore the earlier behavior, where an <c>async</c> handler
+    /// blocks all later input until its <see cref="Task"/> completes.
+    /// </remarks>
+    public bool SerializeEventHandlers { get; set; } = false;
+
+    /// <summary>
     /// Gets or sets whether the local diagnostics endpoint used by the <c>razorconsole</c> CLI may run.
     /// Defaults to <see cref="RazorConsoleDiagnostics.Auto"/>.
     /// </summary>

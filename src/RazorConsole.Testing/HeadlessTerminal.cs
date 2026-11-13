@@ -22,8 +22,11 @@ namespace RazorConsole.Testing;
 /// Send keyboard, mouse, and raw terminal input, resize the terminal, and inspect the rendered frames.
 /// </summary>
 /// <remarks>
-/// Input methods and <see cref="Resize(int, int)"/> are serialized: concurrent calls run one at a time.
-/// Every input call captures a frame after the input has been handled.
+/// Input methods and <see cref="Resize(int, int)"/> are serialized: concurrent calls deliver their input one at a time.
+/// Every input call captures a frame after the input has been handled, and returns only after the event handlers
+/// it started have finished. Like a real terminal, the next input does not wait for those handlers: an input call
+/// started while an earlier call is still waiting for an <c>async</c> handler (for example a Cancel click during
+/// long-running work) is delivered right away.
 /// </remarks>
 public sealed class HeadlessTerminal : IAsyncDisposable
 {
@@ -533,6 +536,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     private async Task RunInputAsync(Func<CancellationToken, Task> input, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
+        var handlers = EventHandlerScope.Begin();
         await _inputGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -543,6 +547,40 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         finally
         {
             _inputGate.Release();
+        }
+
+        // Like a real terminal, input does not wait for async handlers, so later input (a Cancel click)
+        // can run while they await. This call still returns only after the handlers it started finished.
+        CancellationTokenSource linked;
+        try
+        {
+            linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdown.Token);
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await handlers.WhenAllAsync(linked.Token).ConfigureAwait(false))
+            {
+                return;
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Disposed while a handler was still running.
+            return;
+        }
+        finally
+        {
+            linked.Dispose();
+        }
+
+        if (!_disposed)
+        {
+            Capture(_renderer.RefreshSnapshot());
         }
     }
 
