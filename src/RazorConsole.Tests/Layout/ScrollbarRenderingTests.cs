@@ -12,37 +12,22 @@ public sealed class ScrollbarRenderingTests
     private static readonly ScrollbarOptions Chars = new(TrackChar: '░', ThumbChar: '█');
 
     [Fact]
-    public void Border_PaintsTheBarOverTheRightBorder()
-    {
-        var box = CreateBox(rows: 6, Chars);
-
-        RenderLines(box).ShouldBe(
-        [
-            "┌──┐",
-            "│r0█",
-            "│r1█",
-            "│r2░",
-            "└──┘",
-        ]);
-    }
-
-    [Fact]
-    public void Border_ThumbFollowsTheOffset()
+    public void ThumbFollowsTheOffset()
     {
         var box = CreateBox(rows: 6, Chars, top: 3);
 
         RenderLines(box).ShouldBe(
         [
-            "┌──┐",
-            "│r3░",
-            "│r4█",
-            "│r5█",
-            "└──┘",
+            "┌───┐",
+            "│r3░│",
+            "│r4█│",
+            "│r5█│",
+            "└───┘",
         ]);
     }
 
     [Fact]
-    public void Border_ContentFits_ShowsNoBarWhenAuto()
+    public void ContentFits_ShowsNoBarWhenAuto()
     {
         var box = CreateBox(rows: 2, Chars);
 
@@ -57,17 +42,17 @@ public sealed class ScrollbarRenderingTests
     }
 
     [Fact]
-    public void Border_ContentFits_ShowsFullThumbWhenAlways()
+    public void ContentFits_ShowsFullThumbWhenAlways()
     {
         var box = CreateBox(rows: 2, Chars with { Visibility = ScrollbarVisibility.Always });
 
         RenderLines(box).ShouldBe(
         [
-            "┌──┐",
-            "│r0█",
-            "│r1█",
-            "│  │",
-            "└──┘",
+            "┌───┐",
+            "│r0█│",
+            "│r1█│",
+            "│   │",
+            "└───┘",
         ]);
     }
 
@@ -87,10 +72,10 @@ public sealed class ScrollbarRenderingTests
     }
 
     [Fact]
-    public void Inset_ReservesAColumnInsideTheBoxOnlyWhileOverflowing()
+    public void Default_ReservesAColumnInsideTheBoxOnlyWhileOverflowing()
     {
-        var overflowing = CreateBox(rows: 6, Chars with { Placement = ScrollbarPlacement.Inset });
-        var fitting = CreateBox(rows: 2, Chars with { Placement = ScrollbarPlacement.Inset });
+        var overflowing = CreateBox(rows: 6, Chars);
+        var fitting = CreateBox(rows: 2, Chars);
 
         RenderLines(overflowing).ShouldBe(
         [
@@ -122,21 +107,6 @@ public sealed class ScrollbarRenderingTests
             "│r1│█",
             "│r2│░",
             "└──┘░",
-        ]);
-    }
-
-    [Fact]
-    public void Border_WithoutARightBorder_FallsBackToInset()
-    {
-        var box = CreateBox(rows: 6, Chars, borderRight: BoxBorderStyle.None);
-
-        RenderLines(box).ShouldBe(
-        [
-            "┌───",
-            "│r0█",
-            "│r1█",
-            "│r2░",
-            "└───",
         ]);
     }
 
@@ -176,11 +146,11 @@ public sealed class ScrollbarRenderingTests
 
         RenderLines(box).ShouldBe(
         [
-            "┌──┐",
-            "│r3░",
-            "│r4█",
-            "│r5█",
-            "└──┘",
+            "┌───┐",
+            "│r3░│",
+            "│r4█│",
+            "│r5█│",
+            "└───┘",
         ]);
     }
 

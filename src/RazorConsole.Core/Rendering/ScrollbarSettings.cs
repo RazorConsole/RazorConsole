@@ -17,7 +17,7 @@ public sealed record ScrollbarSettings
         int minThumbHeight = 1,
         Action<FocusEventArgs>? onFocusInCallback = null,
         Action<FocusEventArgs>? onFocusOutCallback = null,
-        ScrollbarPlacement placement = ScrollbarPlacement.Border,
+        ScrollbarPlacement placement = ScrollbarPlacement.Inset,
         ScrollbarVisibility visibility = ScrollbarVisibility.Auto)
     {
         Placement = placement;
@@ -34,9 +34,9 @@ public sealed record ScrollbarSettings
     }
 
     /// <summary>
-    /// Where a scroll container draws its scrollbar. Default is <see cref="ScrollbarPlacement.Border"/>.
+    /// Where a scroll container draws its scrollbar. Default is <see cref="ScrollbarPlacement.Inset"/>.
     /// </summary>
-    public ScrollbarPlacement Placement { get; set; } = ScrollbarPlacement.Border;
+    public ScrollbarPlacement Placement { get; set; } = ScrollbarPlacement.Inset;
 
     /// <summary>
     /// When a scroll container shows its scrollbar. Default is <see cref="ScrollbarVisibility.Auto"/>.

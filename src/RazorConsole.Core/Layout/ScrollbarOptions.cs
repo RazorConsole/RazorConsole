@@ -9,7 +9,7 @@ namespace RazorConsole.Core.Layout;
 /// How a <see cref="BoxWidget"/> that hosts a <see cref="ScrollViewportWidget"/> draws its scrollbar.
 /// </summary>
 public sealed record ScrollbarOptions(
-    ScrollbarPlacement Placement = ScrollbarPlacement.Border,
+    ScrollbarPlacement Placement = ScrollbarPlacement.Inset,
     ScrollbarVisibility Visibility = ScrollbarVisibility.Auto,
     char TrackChar = '│',
     char ThumbChar = '█',

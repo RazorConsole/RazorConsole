@@ -436,8 +436,8 @@ public sealed class WidgetTranslationContext
         var offset = Math.Max(0, TryGetIntAttribute(node, "data-offset", 0));
         var scrollbar = new ScrollbarOptions(
             embedded && scrollbarNode is not null
-                ? ParseEnum(GetAttribute(scrollbarNode, "data-scrollbar-placement"), ScrollbarPlacement.Border)
-                : embedded ? ScrollbarPlacement.Border : ScrollbarPlacement.Outside,
+                ? ParseEnum(GetAttribute(scrollbarNode, "data-scrollbar-placement"), ScrollbarPlacement.Inset)
+                : embedded ? ScrollbarPlacement.Inset : ScrollbarPlacement.Outside,
             scrollbarNode is null
                 ? ScrollbarVisibility.Never
                 : ParseEnum(GetAttribute(scrollbarNode, "data-scrollbar-visibility"), ScrollbarVisibility.Auto),
@@ -490,7 +490,7 @@ public sealed class WidgetTranslationContext
         }
 
         return new ScrollbarOptions(
-            ParseEnum(GetAttribute(node, "data-scrollbar-placement"), ScrollbarPlacement.Border),
+            ParseEnum(GetAttribute(node, "data-scrollbar-placement"), ScrollbarPlacement.Inset),
             ParseEnum(GetAttribute(node, "data-scrollbar-visibility"), ScrollbarVisibility.Auto),
             ParseChar(GetAttribute(node, "data-scrollbar-track-char"), '│'),
             ParseChar(GetAttribute(node, "data-scrollbar-thumb-char"), '█'),

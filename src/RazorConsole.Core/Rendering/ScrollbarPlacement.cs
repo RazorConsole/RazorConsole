@@ -8,12 +8,7 @@ namespace RazorConsole.Core.Rendering;
 public enum ScrollbarPlacement
 {
     /// <summary>
-    /// Over the right border of the container. Without a right border it falls back to <see cref="Inset"/>.
-    /// </summary>
-    Border,
-
-    /// <summary>
-    /// In one column reserved inside the container, only while the content overflows.
+    /// In one column reserved inside the container, only while the content overflows. This is the default.
     /// </summary>
     Inset,
 

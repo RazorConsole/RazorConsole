@@ -8,11 +8,12 @@ namespace RazorConsole.Tests.Integration;
 
 public sealed class ScrollbarMouseTests
 {
-    // The panel is 11 columns wide (7 for "line N", one column of padding on each side and the border), so its scrollbar sits on column 10.
-    private const int BarX = 10;
+    // The panel is 12 columns wide (7 for "line N", the scrollbar column, one column of padding on each side and the border),
+    // so its scrollbar sits on column 9.
+    private const int BarX = 9;
 
     [Fact]
-    public async Task Scrollbar_IsPaintedOverTheRightBorder_AndPublishedToLayout()
+    public async Task Scrollbar_IsPaintedInsideTheContainer_AndPublishedToLayout()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var terminal = await StartAsync(fill: false, ct);
@@ -21,7 +22,7 @@ public sealed class ScrollbarMouseTests
 
         frame.GetLine(1)[BarX].ShouldBe('█');
         frame.GetLine(2)[BarX].ShouldBe('│');
-        frame.GetLine(4)[BarX].ShouldBe('┘');
+        frame.GetLine(4)[BarX].ShouldBe('─');
     }
 
     [Fact]

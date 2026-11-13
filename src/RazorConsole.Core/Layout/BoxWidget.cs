@@ -280,25 +280,16 @@ public sealed class BoxWidget : Widget
             return;
         }
 
-        var placement = ResolvePlacement(bar);
-        if (placement == ScrollbarPlacement.Border)
-        {
-            return;
-        }
-
         if (bar.Visibility != ScrollbarVisibility.Always && viewport.ContentHeight <= childSize.Height)
         {
             return;
         }
 
-        _reserveInsideColumn = placement == ScrollbarPlacement.Inset;
-        _reserveOutsideColumn = placement == ScrollbarPlacement.Outside;
+        _reserveInsideColumn = bar.Placement == ScrollbarPlacement.Inset;
+        _reserveOutsideColumn = bar.Placement == ScrollbarPlacement.Outside;
         childConstraints = childConstraints.Deflate(0, 0, 1, 0);
         childSize = Child.Measure(context, childConstraints);
     }
-
-    private ScrollbarPlacement ResolvePlacement(ScrollbarOptions bar)
-        => bar.Placement == ScrollbarPlacement.Border && BorderRightThickness == 0 ? ScrollbarPlacement.Inset : bar.Placement;
 
     protected override void ArrangeCore(LayoutContext context, LayoutRect bounds)
     {
@@ -334,11 +325,8 @@ public sealed class BoxWidget : Widget
 
         var rows = viewport.Bounds;
         LayoutRect track;
-        switch (ResolvePlacement(bar))
+        switch (bar.Placement)
         {
-            case ScrollbarPlacement.Border:
-                track = new LayoutRect(frame.Right - 1, rows.Y, 1, rows.Height);
-                break;
             case ScrollbarPlacement.Inset when _reserveInsideColumn:
                 track = new LayoutRect(frame.Right - BorderRightThickness - PaddingRight - 1, rows.Y, 1, rows.Height);
                 break;
