@@ -839,20 +839,12 @@ internal sealed class ConsoleRenderer(
     }
 
     /// <summary>
-    /// Dispatches an event and returns a task that completes when the handler completes.
-    /// </summary>
-    internal Task DispatchEventAsync(ulong handlerId, EventArgs eventArgs)
-        => StartEventAsync(handlerId, eventArgs).Unwrap();
-
-    /// <summary>
-    /// Dispatches an event on the renderer's dispatcher.
-    /// The returned task completes once the handler's synchronous part has run (and any render it queued),
+    /// Dispatches an event on the renderer's dispatcher without waiting for the handler to finish.
+    /// The returned task completes once the handler's synchronous part (and any render it queued) has run,
     /// and faults when the handler id is unknown (<see cref="ArgumentException"/> with
     /// <c>ParamName == "eventHandlerId"</c>) or the handler throws synchronously.
-    /// Its result completes with the handler; an asynchronous handler failure has already been
-    /// reported through <see cref="HandleException"/> when that task faults.
     /// </summary>
-    internal Task<Task> StartEventAsync(ulong handlerId, EventArgs eventArgs)
+    internal Task DispatchEventAsync(ulong handlerId, EventArgs eventArgs)
     {
         if (handlerId == 0)
         {
@@ -868,14 +860,34 @@ internal sealed class ConsoleRenderer(
 
         try
         {
-            // The explicit <Task> selects the Func<TResult> overload: the handler's task is returned, not awaited,
-            // so this completes once the handler's synchronous part has run.
-            return Dispatcher.InvokeAsync<Task>(() => base.DispatchEventAsync(handlerId, default, eventArgs));
+            return Dispatcher.InvokeAsync(() => ObserveCompletion(base.DispatchEventAsync(handlerId, default, eventArgs)));
         }
         catch (Exception ex)
         {
             _logger.LogErrorDispatchingEvent(ex, handlerId);
             throw;
+        }
+    }
+
+    // An async handler keeps running after dispatch returns. HandleException has already reported its failure
+    // by the time this task faults, so only observe it.
+    private void ObserveCompletion(Task completion)
+    {
+        if (!completion.IsCompletedSuccessfully)
+        {
+            _ = ObserveAsync(completion);
+        }
+
+        async Task ObserveAsync(Task task)
+        {
+            try
+            {
+                await task.ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogEventHandlerFaultObserved(ex);
+            }
         }
     }
 

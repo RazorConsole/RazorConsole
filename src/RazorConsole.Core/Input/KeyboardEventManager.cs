@@ -34,20 +34,12 @@ internal interface IKeyboardEventDispatcher
 internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher, IFocusEventDispatcher
 {
     private readonly ConsoleRenderer _renderer;
-    private readonly ILogger<RendererKeyboardEventDispatcher> _logger;
 
-    public RendererKeyboardEventDispatcher(
-        ConsoleRenderer renderer,
-        ILogger<RendererKeyboardEventDispatcher>? logger = null)
+    public RendererKeyboardEventDispatcher(ConsoleRenderer renderer)
     {
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
-        _logger = logger ?? NullLogger<RendererKeyboardEventDispatcher>.Instance;
     }
 
-    /// <returns>
-    /// A task that completes when the handler has started; an <c>async</c> handler may still be running.
-    /// It faults when the handler id is stale or the handler throws synchronously.
-    /// </returns>
     public Task DispatchAsync(ulong handlerId, EventArgs eventArgs, CancellationToken cancellationToken)
     {
         if (handlerId == 0)
@@ -63,42 +55,15 @@ internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher
         cancellationToken.ThrowIfCancellationRequested();
 
         // On the dispatcher (e.g. FocusAsync from OnAfterRenderAsync) a render batch may be in progress, and Blazor would apply its diffs again in a nested batch.
-        var started = _renderer.Dispatcher.CheckAccess()
-            ? StartAfterCurrentWorkAsync(handlerId, eventArgs)
-            : _renderer.StartEventAsync(handlerId, eventArgs);
-
-        return DispatchCoreAsync(started);
+        return _renderer.Dispatcher.CheckAccess()
+            ? DispatchAfterCurrentWorkAsync(handlerId, eventArgs)
+            : _renderer.DispatchEventAsync(handlerId, eventArgs);
     }
 
-    private async Task DispatchCoreAsync(Task<Task> started)
-    {
-        var completion = await started.ConfigureAwait(false);
-        if (completion.IsCompletedSuccessfully)
-        {
-            return;
-        }
-
-        // Not awaited: input keeps flowing while the handler runs.
-        _ = ObserveAsync(completion);
-    }
-
-    // The renderer reported an asynchronous handler failure through HandleException before the task faulted.
-    private async Task ObserveAsync(Task completion)
-    {
-        try
-        {
-            await completion.ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogEventHandlerFaultObserved(ex);
-        }
-    }
-
-    private async Task<Task> StartAfterCurrentWorkAsync(ulong handlerId, EventArgs eventArgs)
+    private async Task DispatchAfterCurrentWorkAsync(ulong handlerId, EventArgs eventArgs)
     {
         await Task.Yield();
-        return await _renderer.StartEventAsync(handlerId, eventArgs).ConfigureAwait(false);
+        await _renderer.DispatchEventAsync(handlerId, eventArgs).ConfigureAwait(false);
     }
 }
 
