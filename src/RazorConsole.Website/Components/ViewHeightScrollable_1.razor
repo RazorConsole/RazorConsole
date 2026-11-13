@@ -3,13 +3,14 @@
 @using Markup = RazorConsole.Components.Markup
 @using Panel = RazorConsole.Components.Panel
 
+@* ViewHeightScrollable is replaced by ScrollView (or Overflow on a Panel), which scrolls any content by rows. *@
 <Markup Content="Use tab to change focus and arrow up/down + num keys to scroll"/>
 <Newline/>
-<ViewHeightScrollable Scrollbar="new()" LinesToRender="10">
-    <Panel Title="View Height scrollable with some markdown content" Border="BoxBorder.Rounded">
+<Panel Title="ScrollView with some markdown content" Border="BoxBorder.Rounded">
+    <ScrollView Height="10" Focusable="true">
         <Markdown Content="@_largeText"/>
-    </Panel>
-</ViewHeightScrollable>
+    </ScrollView>
+</Panel>
 
 
 @code {

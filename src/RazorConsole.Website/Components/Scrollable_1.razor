@@ -1,108 +1,16 @@
-@using Microsoft.AspNetCore.Components.Web
 @using Spectre.Console
 @using RazorConsole.Components
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
 
-<Panel Title="Use tab to change focus and arrow up/down + num keys to scroll" Border="BoxBorder.Rounded" Expand>
-
-    <Scrollable Items="@GetAlphabetData()" PageSize="3">
-        <Rows>
-            <SpectreTable Title="Custom realization" Border="TableBorder.Rounded" BorderColor="@_tableColor"
-                          @onfocus="OnFocusTable" @onfocusout="OnFocusOutTable"
-                          @onkeydown="context.KeyDownEventHandler">
-                <SpectreTHead>
-                    <SpectreTR>
-                        <SpectreTH Align="Justify.Left">N</SpectreTH>
-                        <SpectreTH Align="Justify.Center">Letter</SpectreTH>
-                    </SpectreTR>
-                </SpectreTHead>
-                <SpectreTBody>
-                    @foreach (var item in context)
-                    {
-                        <SpectreTR>
-                            <SpectreTD>
-                                <Markup Content="@item.Number.ToString()" Foreground="@item.Color"/>
-                            </SpectreTD>
-                            <SpectreTD>
-                                <Markup Content="@item.Letter" Foreground="@item.Color"/>
-                            </SpectreTD>
-                        </SpectreTR>
-                    }
-                </SpectreTBody>
-            </SpectreTable>
-            <Markup Content=@($"Page: {context.CurrentOffset + 1} / {context.PagesCount}")/>
-        </Rows>
-    </Scrollable>
-
-    <Markup Content="   "/> @*Spaces beteween panels*@
-
-    <Scrollable Scrollbar="new()" Items="@GetAlphabetData()" PageSize="3">
-        <SpectreTable Title="Table" Border="TableBorder.Rounded" Expand>
-            <SpectreTHead>
-                <SpectreTR>
-                    <SpectreTH Align="Justify.Left">N</SpectreTH>
-                    <SpectreTH Align="Justify.Center">Letter</SpectreTH>
-                </SpectreTR>
-            </SpectreTHead>
-            <SpectreTBody>
-                @foreach (var item in context)
-                {
-                    <SpectreTR>
-                        <SpectreTD>
-                            <Markup Content="@item.Number.ToString()" Foreground="@item.Color"/>
-                        </SpectreTD>
-                        <SpectreTD>
-                            <Markup Content="@item.Letter" Foreground="@item.Color"/>
-                        </SpectreTD>
-                    </SpectreTR>
-                }
-            </SpectreTBody>
-        </SpectreTable>
-
-        <Markup Content=@($"Page: {context.CurrentOffset + 1} / {context.PagesCount}")/>
-    </Scrollable>
-
-    <Markup Content="   "/>
-
-    <Scrollable Scrollbar="new()" Items="@GetAlphabetData()" PageSize="6">
-        <Panel Border="BoxBorder.Rounded" Title="Panel" Expand>
-            <ol start="@(context.CurrentOffset + 1)">
-                @foreach (var item in context)
-                {
-                    <li>
-                        <Markup Content=@($"{item.Letter}") Foreground="@item.Color"/>
-                    </li>
-                }
-            </ol>
-        </Panel>
-
-        <Markup Content=@($"Page: {context.CurrentOffset + 1} / {context.PagesCount}")/>
-    </Scrollable>
-
-    <Markup Content="   "/>
-
-    <Rows>
-        <Markup Content="Not embedded"/>
-        <Markup Content="(full container height)" Decoration="Decoration.Italic"/>
-        <Scrollable Scrollbar="new()" Items="@GetAlphabetData()" PageSize="6">
-            <ol start="@(context.CurrentOffset + 1)">
-                @foreach (var item in context)
-                {
-                    <li>
-                        <Markup Content=@($"{item.Letter}") Foreground="@item.Color"/>
-                    </li>
-                }
-            </ol>
-
-            <Markup Content=@($"Page: {context.CurrentOffset + 1} / {context.PagesCount}")/>
-        </Scrollable>
-    </Rows>
+@* Scrollable is replaced by Overflow: any container scrolls, and the layout engine owns the offset. *@
+<Panel Title="Overflow=Scroll: wheel, or Tab here and use the keys" Border="BoxBorder.Rounded" Height="8" Overflow="OverflowMode.Scroll" Focusable="true" Expand>
+    @foreach (var item in GetAlphabetData())
+    {
+        <Markup Content="@($"{item.Number,2}  {item.Letter}")" Foreground="@item.Color" />
+    }
 </Panel>
 
 @code {
-    private Color _tableColor = Color.White;
-
-    record Item(int Number, string Letter, Color Color);
-
     private IReadOnlyList<(int Number, string Letter, Color Color)> GetAlphabetData()
     {
         return
@@ -124,16 +32,4 @@
             (15, "O", Color.SkyBlue1)
         ];
     }
-
-
-    private void OnFocusTable(FocusEventArgs e)
-    {
-        _tableColor = Color.Aqua;
-    }
-
-    private void OnFocusOutTable(FocusEventArgs e)
-    {
-        _tableColor = Color.White;
-    }
-
 }

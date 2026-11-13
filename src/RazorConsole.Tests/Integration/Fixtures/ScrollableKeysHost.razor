@@ -2,6 +2,11 @@
 @using Microsoft.AspNetCore.Components.Web
 @using RazorConsole.Components
 
+@* This fixture covers the legacy ViewHeightScrollable, which stays until it is removed. *@
+@{
+#pragma warning disable CS0618
+}
+
 @* The button comes first in the document; the scrollable's lower focus order must still win. *@
 <TextButton Content="button" FocusOrder="2" />
 <ViewHeightScrollable LinesToRender="2" Scrollbar="new()" FocusOrder="1" OnKeyDown="@(e => Forwarded.Add(e.Key))">

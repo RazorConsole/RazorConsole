@@ -1,5 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+#pragma warning disable CS0618 // These tests cover the legacy ScrollableWidget, which stays until it is removed.
+
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using RazorConsole.Core;

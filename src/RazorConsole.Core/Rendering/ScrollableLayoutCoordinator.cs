@@ -4,6 +4,10 @@ using System.Collections.Concurrent;
 
 namespace RazorConsole.Core.Rendering;
 
+/// <summary>
+/// Tracks the largest scroll offset of <c>Scrollable</c> components.
+/// </summary>
+[Obsolete("Only the obsolete Scrollable component uses this. Set Overflow=Scroll on a container and use a ScrollController to scroll from code.")]
 public class ScrollableLayoutCoordinator
 {
     private readonly ConcurrentDictionary<string, int> _maxOffsets = new();
