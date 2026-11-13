@@ -1,7 +1,5 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
-#pragma warning disable CS0618 // These tests cover the legacy ScrollableWidget, which stays until it is removed.
-
 using RazorConsole.Core.Layout;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -247,25 +245,6 @@ public sealed class ScrollViewportTests
         var result = new LayoutEngine().Layout(Rows(7), new BoxConstraints(0, 10, 0, 5).WithUnboundedHeight());
 
         result.Size.Height.ShouldBe(7);
-    }
-
-    [Fact]
-    public void ScrollableWidget_ThumbStaysInsideTrackWhenOffsetExceedsMax()
-    {
-        var widget = new ScrollableWidget(
-            "scroll",
-            Rows(10),
-            itemsCount: 0,
-            offset: 500,
-            pageSize: 3,
-            enableEmbedded: false,
-            showScrollbar: true,
-            cropLines: true,
-            autoPageSize: true);
-
-        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 3));
-
-        RenderLines(result).ShouldBe(["r7 │", "r8 │", "r9 █"]);
     }
 
     private static StackWidget Rows(int count)

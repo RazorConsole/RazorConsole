@@ -164,7 +164,7 @@ Start with a small set that maps existing semantics:
 | ~~`PaddingWidget`~~ | *(removed)* | Superseded by `BoxWidget` padding. |
 | `AlignWidget` | `Align` | Current native alignment widget; should converge toward `BoxWidget` child alignment. |
 | `OverlayWidget` | absolute/modal overlay collection | Participates in z-index and top/left/right/bottom placement. |
-| `ScrollableWidget` | `ScrollableRenderable` | Computes viewport, content bounds, scrollbar bounds. |
+| `ScrollViewportWidget` | — | Measures its content unbounded, places it at `-Top`, clips and culls it; the container widget draws the scrollbar. |
 | `SpectreWidget` | charts, figlet, legacy adapters | Escape hatch for hard-to-port components. |
 
 `SpectreWidget` is important for incremental migration. It wraps an existing `IRenderable` as a leaf widget: measure through `IRenderable.Measure(...)`, render to segments at paint time, and record only the leaf bounds. This keeps charts/syntax/figlet working while layout containers migrate first.
@@ -188,7 +188,7 @@ Initial mapping:
 | `<Padder>` / `class="padder"` | `BoxWidget(Padding = ...)` | Implemented for first-pass padding behavior. |
 | `<Panel>` / `class="panel"` | `BoxWidget(Border + Padding + Title)` | Implemented; panel translation targets `BoxWidget`. |
 | `<Align>` / `class="align"` | `BoxWidget(ChildAlignment = ...)` | Planned; `AlignWidget` remains the parity-preserving native implementation today. |
-| `<Scrollable>` / `<ViewHeightScrollable>` | `BoxWidget(OverflowX/OverflowY + Scrollbar)` | Planned; `ScrollableWidget` remains the parity-preserving native implementation today. |
+| `Overflow="OverflowMode.Scroll"` on a container | The container widget with a `ScrollViewportWidget` as its content | State lives in `ScrollStateRegistry`; the legacy `<Scrollable>` and `<ViewHeightScrollable>` were removed. |
 
 ## Layout Algorithm
 
@@ -296,8 +296,7 @@ At this point RazorConsole can answer most element positions without render-time
 ### Phase 3 — Overlays, modals, scrolling
 
 - Replace `CollectedOverlays` with `OverlayWidget` / z-layer arranging.
-- Implement `ScrollableWidget` as a viewport/clipping widget with child logical bounds.
-- Move `ScrollableLayoutCoordinator` responsibility into the layout engine.
+- Implemented: `ScrollViewportWidget` is a viewport/clipping widget with child logical bounds, and `ScrollStateRegistry` replaced `ScrollableLayoutCoordinator`.
 
 ### Phase 4 — Flip default pipeline
 
@@ -363,7 +362,7 @@ Add deterministic layout tests that do not need a terminal:
 - `FlexBoxWidget` wrap/gap/justify/align placement.
 - `GridWidget` track sizing.
 - `OverlayWidget` z-index ordering and top/left/right/bottom resolution.
-- `ScrollableWidget` logical bounds vs visible bounds.
+- `ScrollViewportWidget` logical bounds vs visible bounds.
 - `IVNodeLayoutAccessor` hook lookup after normal-flow layout.
 
 Also add golden segment/canvas tests for painting.

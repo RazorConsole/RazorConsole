@@ -158,7 +158,7 @@ public sealed class ScrollStateRegistryTests
     public void Translator_WrapsOnlyTheContentOfAnOverflowContainer()
     {
         var registry = new ScrollStateRegistry();
-        var context = new WidgetTranslationContext(null, null, null, registry);
+        var context = new WidgetTranslationContext(null, null, registry);
         var panel = VNode.CreateElement("div");
         panel.SetAttribute("class", "panel");
         panel.SetAttribute("data-header", "Logs");
@@ -189,7 +189,7 @@ public sealed class ScrollStateRegistryTests
     [Fact]
     public void Translator_PlainDivWithOverflowScroll_ScrollsItsChildren()
     {
-        var context = new WidgetTranslationContext(null, null, null, new ScrollStateRegistry());
+        var context = new WidgetTranslationContext(null, null, new ScrollStateRegistry());
         var div = VNode.CreateElement("div");
         div.SetAttribute("data-overflow", "scroll");
         for (var i = 0; i < 6; i++)
@@ -209,7 +209,7 @@ public sealed class ScrollStateRegistryTests
     public void Translator_OverflowHidden_ClipsWithoutScrollState()
     {
         var registry = new ScrollStateRegistry();
-        var context = new WidgetTranslationContext(null, null, null, registry);
+        var context = new WidgetTranslationContext(null, null, registry);
         var box = VNode.CreateElement("div");
         box.SetAttribute("data-layout", "box");
         box.SetAttribute("data-overflow", "hidden");

@@ -64,16 +64,12 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<IConsoleInput, ConsoleInput>();
         services.TryAddSingleton<TerminalMonitor>();
         services.TryAddSingleton<ITerminalViewport>(sp => sp.GetRequiredService<TerminalMonitor>());
-#pragma warning disable CS0618 // Still registered for the obsolete Scrollable component and for user code that injects it.
-        services.TryAddSingleton<ScrollableLayoutCoordinator>();
         services.TryAddSingleton<ScrollStateRegistry>();
         services.TryAddSingleton<LayoutEngine>();
         services.TryAddSingleton(sp => new WidgetTranslationContext(
             sp.GetServices<IWidgetTranslator>(),
-            sp.GetService<ScrollableLayoutCoordinator>(),
             sp.GetService<SyntaxHighlightingService>(),
             sp.GetService<ScrollStateRegistry>()));
-#pragma warning restore CS0618
         services.TryAddSingleton<VNodeIdAccessor>();
         services.TryAddSingleton<IVNodeIdAccessor>(sp => sp.GetRequiredService<VNodeIdAccessor>());
         services.TryAddSingleton<VNodeLayoutAccessor>();
