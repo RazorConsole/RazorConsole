@@ -53,6 +53,7 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<FocusManager>(sp => new FocusManager(sp.GetService<IFocusEventDispatcher>()));
         services.TryAddSingleton<KeyboardEventManager>();
         services.TryAddSingleton<MouseEventManager>();
+        services.TryAddSingleton<ScrollInputNavigator>();
         services.TryAddSingleton<TerminalInputDispatcher>();
         services.TryAddSingleton<ITerminalActions, TerminalActions>();
         services.TryAddSingleton<ISyntaxLanguageRegistry, ColorCodeLanguageRegistry>();

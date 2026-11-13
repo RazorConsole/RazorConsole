@@ -14,14 +14,7 @@ internal sealed class TerminalInputDecoder
     public ConsoleKeyInfo ReadKey() => _events.Dequeue().Key!.Value;
     public bool TryReadMouse(out TerminalMouseEvent mouse)
     {
-        if (_events.TryPeek(out var item) && item.Mouse is { } value)
-        {
-            _events.Dequeue();
-            mouse = value;
-            return true;
-        }
-        mouse = default;
-        return false;
+        return MouseEventQueue.TryDequeueMouse(_events, out mouse);
     }
 
     public void Feed(ReadOnlySpan<char> input, long now)
