@@ -476,7 +476,10 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
         if (targets.Count == 0)
         {
-            ResetState_NoLock();
+            // Keeps the session and a pending request: its target can still render.
+            _focusTargets = targets;
+            _currentIndex = -1;
+            CurrentFocusKey = null;
 
             return null;
         }
