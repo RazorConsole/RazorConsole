@@ -3,18 +3,12 @@
 @using RazorConsole.Components
 @using RazorConsole.Core.Rendering
 
-<Scrollable TItem="string"
-            Items="_items"
-            PageSize="3"
-            Scrollbar="new ScrollbarSettings()"
-            IsScrollbarEmbedded="false">
-    <Rows>
-        @foreach (var item in context.Items)
-        {
-            <Markup Content="@item" />
-        }
-    </Rows>
-</Scrollable>
+<ScrollView Height="3" Focusable="true" Scrollbar="new ScrollbarSettings(placement: ScrollbarPlacement.Outside)">
+    @foreach (var item in _items)
+    {
+        <Markup Content="@item" />
+    }
+</ScrollView>
 
 @code {
     private readonly string[] _items =

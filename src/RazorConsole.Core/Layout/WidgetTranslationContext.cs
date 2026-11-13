@@ -1,5 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+#pragma warning disable CS0618 // The legacy <scrollable> element still translates to the obsolete ScrollableWidget.
+
 using System.Globalization;
 using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Layout.Leaves;
