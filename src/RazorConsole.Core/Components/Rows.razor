@@ -1,12 +1,27 @@
 @namespace RazorConsole.Components
 @using Microsoft.AspNetCore.Components
 @using RazorConsole.Core.Renderables
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using OverscrollBehavior = RazorConsole.Core.Layout.OverscrollBehavior
+@using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
+@using ScrollController = RazorConsole.Core.Layout.ScrollController
 
 <Flex Class="rows"
     Direction="FlexDirection.Column"
     Expand="Expand"
     FillWidth="FillWidth"
-    FillHeight="FillHeight">
+    FillHeight="FillHeight"
+    Overflow="@Overflow"
+    Scrollbar="@Scrollbar"
+    OverscrollBehavior="@OverscrollBehavior"
+    Focusable="@Focusable"
+    Controller="@Controller"
+    StickToBottom="@StickToBottom"
+    ScrollId="@ScrollId"
+    ScrollTop="@ScrollTop"
+    ScrollTopChanged="@ScrollTopChanged"
+    Width="@Width"
+    Height="@Height">
     @ChildContent
 </Flex>
 
@@ -45,4 +60,70 @@
     /// </summary>
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// What happens to content taller than the container. See <see cref="Flex.Overflow"/>.
+    /// </summary>
+    [Parameter]
+    public OverflowMode Overflow { get; set; }
+
+    /// <summary>
+    /// How the scrollbar looks and where it is drawn. See <see cref="Box.Scrollbar"/>.
+    /// </summary>
+    [Parameter]
+    public ScrollbarSettings? Scrollbar { get; set; }
+
+    /// <summary>
+    /// Whether scrolling continues in the parent scroll container at the limit. See <see cref="Box.OverscrollBehavior"/>.
+    /// </summary>
+    [Parameter]
+    public OverscrollBehavior OverscrollBehavior { get; set; }
+
+    /// <summary>
+    /// Makes a scrolling container a Tab stop that scrolls with the keyboard. See <see cref="Box.Focusable"/>.
+    /// </summary>
+    [Parameter]
+    public bool Focusable { get; set; }
+
+    /// <summary>
+    /// Scrolls the container from code. See <see cref="Box.Controller"/>.
+    /// </summary>
+    [Parameter]
+    public ScrollController? Controller { get; set; }
+
+    /// <summary>
+    /// Keeps the end of the content in view while it grows. See <see cref="Box.StickToBottom"/>.
+    /// </summary>
+    [Parameter]
+    public bool StickToBottom { get; set; }
+
+    /// <summary>
+    /// Stable identity of the scroll state. See <see cref="Box.ScrollId"/>.
+    /// </summary>
+    [Parameter]
+    public string? ScrollId { get; set; }
+
+    /// <summary>
+    /// Scroll offset in rows, applied when its value changes. See <see cref="Box.ScrollTop"/>.
+    /// </summary>
+    [Parameter]
+    public int ScrollTop { get; set; }
+
+    /// <summary>
+    /// Raised when the engine changes the scroll offset.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> ScrollTopChanged { get; set; }
+
+    /// <summary>
+    /// Explicit height in terminal rows; give a scrolling container a height or fill a bounded parent.
+    /// </summary>
+    [Parameter]
+    public int? Height { get; set; }
+
+    /// <summary>
+    /// Explicit width in terminal cells.
+    /// </summary>
+    [Parameter]
+    public int? Width { get; set; }
 }
