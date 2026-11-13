@@ -431,3 +431,7 @@ Here's a complete example demonstrating focus management:
 4. **Use `FocusManager` programmatically** for complex navigation scenarios or when focus needs to change based on application logic
 5. **Clean up event subscriptions** by implementing `IDisposable` and unsubscribing from `FocusChanged` events
 6. **Test keyboard navigation** to ensure your UI is accessible and intuitive
+
+## Scrolling and focus
+
+Moving focus to an element inside a scroll container scrolls the container just enough to show it, so Tab never lands on something you cannot see. A scroll container is not a Tab stop by default; set `Focusable="true"` on it to make it one, and its scroll keys then work while it has focus. See [Scrolling](/blog/scrolling/).

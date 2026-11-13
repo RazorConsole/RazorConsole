@@ -46,8 +46,7 @@ internal sealed class ScrollInputNavigator
         foreach (var node in MouseEventManager.Path(root, focusedNodeId).AsEnumerable().Reverse())
         {
             // The scroll id comes from the element itself, so keys keep working while layout is a frame behind a render.
-            if (!node.Attributes.TryGetValue("data-scroll-id", out var scrollId) || string.IsNullOrEmpty(scrollId)
-                || (isArrow && node.ID != focusedNodeId))
+            if (MouseEventManager.ResolveScrollId(node, _layouts) is not { } scrollId || (isArrow && node.ID != focusedNodeId))
             {
                 continue;
             }
