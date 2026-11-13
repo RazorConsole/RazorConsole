@@ -2,6 +2,7 @@
 
 @using Microsoft.AspNetCore.Components
 @using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using ScrollController = RazorConsole.Core.Layout.ScrollController
 @using OverscrollBehavior = RazorConsole.Core.Layout.OverscrollBehavior
 @using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
 @using Spectre.Console
@@ -21,6 +22,8 @@
     Overflow="@Overflow"
     OverscrollBehavior="@OverscrollBehavior"
     Focusable="@Focusable"
+    Controller="@Controller"
+    StickToBottom="@StickToBottom"
     ScrollTop="@ScrollTop"
     ScrollTopChanged="@ScrollTopChanged"
     ScrollId="@ScrollId"
@@ -130,6 +133,18 @@
     /// </summary>
     [Parameter]
     public bool Focusable { get; set; }
+
+    /// <summary>
+    /// Scrolls this container from code. See <see cref="Box.Controller"/>.
+    /// </summary>
+    [Parameter]
+    public ScrollController? Controller { get; set; }
+
+    /// <summary>
+    /// Keeps the end of the content in view while it grows. See <see cref="Box.StickToBottom"/>.
+    /// </summary>
+    [Parameter]
+    public bool StickToBottom { get; set; }
 
     /// <summary>
     /// Scroll offset in rows, applied when its value changes. See <see cref="Box.ScrollTop"/>.
