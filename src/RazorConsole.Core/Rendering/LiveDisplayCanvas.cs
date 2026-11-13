@@ -1,5 +1,8 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using System.Threading.Channels;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering;
 using Spectre.Console;
@@ -8,95 +11,202 @@ using static RazorConsole.Core.Utilities.AnsiSequences;
 
 namespace RazorConsole.Core;
 
-internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsiConsole ansiConsole) : ConsoleLiveDisplayContext.ILiveDisplayCanvas, IDisposable
+/// <summary>
+/// Writes frames to the console from a single frame loop.
+/// </summary>
+/// <remarks>
+/// <see cref="UpdateTarget"/> and <see cref="Refresh"/> only request a frame: they never block and never throw for
+/// write errors. Requests go into a channel with room for one item, so requests made while a frame is being written
+/// are merged into the next frame, and the latest target wins. The frame loop is the only code that writes to the
+/// console, and it logs write errors.
+/// </remarks>
+internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiveDisplayCanvas, IAsyncDisposable, IDisposable
 {
-    private DiffRenderable? _current;
-    private readonly SemaphoreSlim _semaphore = new(1, 1);
-    private readonly bool _useAlternateScreenBuffer = options.UseAlternateScreenBuffer || options.EnableMouseEvents;
-    private bool _alternateScreenBufferActive;
-    private int _refreshRequested;
-    private bool _disposed;
+    private readonly ConsoleLiveDisplayOptions _options;
+    private readonly IAnsiConsole _ansiConsole;
+    private readonly ILogger _logger;
+    private readonly bool _useAlternateScreenBuffer;
+    private readonly Channel<bool> _frames = Channel.CreateBounded<bool>(new BoundedChannelOptions(1)
+    {
+        FullMode = BoundedChannelFullMode.DropWrite,
+        SingleReader = true,
+        SingleWriter = false,
+    });
+    private readonly Lock _waitersSync = new();
+    private readonly List<(long Sequence, TaskCompletionSource Completion)> _waiters = [];
+    private readonly Task _frameLoop;
 
+    // Owned by the frame loop.
+    private DiffRenderable? _current;
+    private bool _alternateScreenBufferActive;
+    private bool _lastWriteFailed;
+
+    // The newest target that the frame loop has not applied yet.
+    private IRenderable? _pendingTarget;
+
+    // Frame requests made so far, and the requests the frame loop has finished (written or failed).
+    private long _requestedSequence;
+    private long _completedSequence;
+    private int _disposeState;
+
+    public LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsiConsole ansiConsole, ILogger? logger = null)
+    {
+        _options = options ?? throw new ArgumentNullException(nameof(options));
+        _ansiConsole = ansiConsole ?? throw new ArgumentNullException(nameof(ansiConsole));
+        _logger = logger ?? NullLogger.Instance;
+        _useAlternateScreenBuffer = options.UseAlternateScreenBuffer || options.EnableMouseEvents;
+        _frameLoop = Task.Run(FrameLoopAsync);
+    }
+
+    /// <summary>
+    /// Occurs on the frame loop after a frame was written.
+    /// </summary>
     public event Action? Refreshed;
 
+    /// <summary>
+    /// Requests a frame showing <paramref name="renderable"/>. A <see langword="null"/> target is ignored.
+    /// </summary>
     public void UpdateTarget(IRenderable? renderable)
     {
-        if (_current is null && renderable is null)
+        if (renderable is null)
         {
             return;
         }
 
-        if (_current is not null && renderable is not null && ReferenceEquals(_current, renderable))
+        Volatile.Write(ref _pendingTarget, renderable);
+        RequestFrame();
+    }
+
+    /// <summary>
+    /// Requests a frame of the current target. Ignored until a target was set.
+    /// </summary>
+    public void Refresh() => RequestFrame();
+
+    /// <summary>
+    /// Returns a task that completes once every frame requested before the call has been written, or has failed.
+    /// </summary>
+    public Task WhenIdleAsync(CancellationToken cancellationToken = default)
+    {
+        var target = Interlocked.Read(ref _requestedSequence);
+        if (Interlocked.Read(ref _completedSequence) >= target || _frameLoop.IsCompleted)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        if (!_semaphore.Wait(100))
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_waitersSync)
         {
-            return;
+            // Checked again under the lock, because the frame loop releases waiters under it.
+            if (Interlocked.Read(ref _completedSequence) >= target || _frameLoop.IsCompleted)
+            {
+                return Task.CompletedTask;
+            }
+
+            _waiters.Add((target, completion));
         }
+
+        return completion.Task.WaitAsync(cancellationToken);
+    }
+
+    private void RequestFrame()
+    {
+        Interlocked.Increment(ref _requestedSequence);
+
+        // Fails when a request is already waiting (it is folded into that one) or after disposal.
+        _frames.Writer.TryWrite(true);
+    }
+
+    private async Task FrameLoopAsync()
+    {
         try
         {
-            EnterAlternateScreenBufferIfNeeded();
+            await foreach (var _ in _frames.Reader.ReadAllAsync().ConfigureAwait(false))
+            {
+                // Every request counted up to here is served by this frame.
+                var sequence = Interlocked.Read(ref _requestedSequence);
+                if (Volatile.Read(ref _disposeState) == 0)
+                {
+                    WriteFrame();
+                }
 
-            if (_current is null && renderable is not null)
-            {
-                _current = new DiffRenderable(renderable, hideCursor: options.HideCursor);
-                WriteCurrent();
-                Refreshed?.Invoke();
-            }
-            else if (_current is not null && renderable is not null)
-            {
-                _current.UpdateRenderable(renderable);
-                WriteCurrent();
-                Refreshed?.Invoke();
+                CompleteWaiters(sequence);
             }
         }
         finally
         {
-            _semaphore.Release();
+            CompleteWaiters(long.MaxValue);
         }
-
-        // This call's frame is written; refreshes other threads queued meanwhile must not fail it.
-        WriteRequestedRefreshes();
     }
 
-    /// <summary>
-    /// Writes the current target again, best effort and without blocking the caller.
-    /// </summary>
-    /// <remarks>
-    /// When another write holds the canvas, the request is recorded and the thread holding it writes
-    /// one more frame after it finishes, so overlapping refreshes collapse into one write.
-    /// Write errors are dropped: a failed write resets the diff state, so the next frame redraws everything.
-    /// </remarks>
-    public void Refresh()
+    private void WriteFrame()
     {
-        Volatile.Write(ref _refreshRequested, 1);
-        WriteRequestedRefreshes();
-    }
-
-    // Writes the refreshes requested so far. Every path that holds the canvas lock calls this after
-    // releasing it, so a request left while the lock was busy is never lost.
-    private void WriteRequestedRefreshes()
-    {
-        while (Volatile.Read(ref _refreshRequested) == 1 && _semaphore.Wait(0))
+        try
         {
-            try
+            var target = Interlocked.Exchange(ref _pendingTarget, null);
+            if (target is not null)
             {
-                if (Interlocked.Exchange(ref _refreshRequested, 0) == 1 && _current is not null && !_disposed)
+                if (_current is null)
                 {
-                    EnterAlternateScreenBufferIfNeeded();
-                    WriteCurrent();
-                    Refreshed?.Invoke();
+                    _current = new DiffRenderable(target, hideCursor: _options.HideCursor);
+                }
+                else
+                {
+                    _current.UpdateRenderable(target);
                 }
             }
-            catch
+
+            if (_current is null)
             {
-                // Best effort: WriteCurrent already reset the diff state, so the next frame redraws everything.
+                return;
             }
-            finally
+
+            EnterAlternateScreenBufferIfNeeded();
+            WriteCurrent();
+            if (_lastWriteFailed)
             {
-                _semaphore.Release();
+                _lastWriteFailed = false;
+                LogWriteRecovered(_logger);
+            }
+
+            Refreshed?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            // WriteCurrent reset the diff state, so the next frame redraws everything. Log the first failure of a
+            // run of failures only, so a broken output does not flood the log at the frame rate.
+            if (!_lastWriteFailed)
+            {
+                _lastWriteFailed = true;
+                LogWriteFailed(_logger, ex);
+            }
+        }
+    }
+
+    private void CompleteWaiters(long sequence)
+    {
+        List<TaskCompletionSource>? completed = null;
+        lock (_waitersSync)
+        {
+            if (sequence > Interlocked.Read(ref _completedSequence))
+            {
+                Interlocked.Exchange(ref _completedSequence, sequence);
+            }
+
+            for (var i = _waiters.Count - 1; i >= 0; i--)
+            {
+                if (_waiters[i].Sequence <= sequence)
+                {
+                    (completed ??= []).Add(_waiters[i].Completion);
+                    _waiters.RemoveAt(i);
+                }
+            }
+        }
+
+        if (completed is not null)
+        {
+            foreach (var completion in completed)
+            {
+                completion.TrySetResult();
             }
         }
     }
@@ -107,18 +217,18 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
         {
             try
             {
-                if (options.EnableSynchronizedUpdates)
+                if (_options.EnableSynchronizedUpdates)
                 {
-                    ansiConsole.Write(new ControlCode(SM(SynchronizedOutput)));
+                    _ansiConsole.Write(new ControlCode(SM(SynchronizedOutput)));
                 }
 
-                ansiConsole.Write(_current!);
+                _ansiConsole.Write(_current!);
             }
             finally
             {
-                if (options.EnableSynchronizedUpdates)
+                if (_options.EnableSynchronizedUpdates)
                 {
-                    ansiConsole.Write(new ControlCode(RM(SynchronizedOutput)));
+                    _ansiConsole.Write(new ControlCode(RM(SynchronizedOutput)));
                 }
             }
         }
@@ -129,25 +239,27 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
         }
     }
 
-    public void Dispose()
+    /// <summary>
+    /// Stops the frame loop, waits for the frame being written, and then leaves the alternate screen buffer, so no
+    /// frame is written after it. Frames requested but not started are dropped.
+    /// </summary>
+    public async ValueTask DisposeAsync()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposeState, 1) != 0)
         {
             return;
         }
 
-        if (_alternateScreenBufferActive)
-        {
-            if (options.EnableMouseEvents)
-            {
-                ansiConsole.Write(new ControlCode("\u001b[?1003l\u001b[?1006l"));
-            }
-            ansiConsole.Write(new ControlCode(RM(DECALTSCR)));
-            _alternateScreenBufferActive = false;
-        }
-
-        _disposed = true;
+        _frames.Writer.TryComplete();
+        await _frameLoop.ConfigureAwait(false);
+        LeaveAlternateScreenBuffer();
     }
+
+    /// <summary>
+    /// Disposes the canvas synchronously. On a single-threaded runtime (the browser) use <see cref="DisposeAsync"/>,
+    /// because the frame loop cannot finish while this call blocks the only thread.
+    /// </summary>
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     private void EnterAlternateScreenBufferIfNeeded()
     {
@@ -156,11 +268,32 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
             return;
         }
 
-        ansiConsole.Write(new ControlCode(SM(DECALTSCR)));
-        if (options.EnableMouseEvents)
+        _ansiConsole.Write(new ControlCode(SM(DECALTSCR)));
+        if (_options.EnableMouseEvents)
         {
-            ansiConsole.Write(new ControlCode("\u001b[?1003h\u001b[?1006h"));
+            _ansiConsole.Write(new ControlCode("\u001b[?1003h\u001b[?1006h"));
         }
         _alternateScreenBufferActive = true;
     }
+
+    private void LeaveAlternateScreenBuffer()
+    {
+        if (!_alternateScreenBufferActive)
+        {
+            return;
+        }
+
+        if (_options.EnableMouseEvents)
+        {
+            _ansiConsole.Write(new ControlCode("\u001b[?1003l\u001b[?1006l"));
+        }
+        _ansiConsole.Write(new ControlCode(RM(DECALTSCR)));
+        _alternateScreenBufferActive = false;
+    }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Writing a frame to the console failed. Later failures are not logged until a frame is written again.")]
+    private static partial void LogWriteFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Writing frames to the console works again.")]
+    private static partial void LogWriteRecovered(ILogger logger);
 }
