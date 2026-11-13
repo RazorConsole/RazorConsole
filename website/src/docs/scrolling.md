@@ -1,6 +1,6 @@
 # Scrolling
 
-Scrolling is a property of a container. Set `Overflow="OverflowMode.Scroll"` on a container, or use `ScrollView`, and its content scrolls inside it. The layout engine owns the scroll position, so scrolling works with the mouse wheel, the keyboard, a draggable scrollbar and code, and it repaints without a Blazor render.
+Scrolling is a property of a container. Set `Overflow="OverflowMode.Scroll"` on a container and its content scrolls inside it. The layout engine owns the scroll position, so scrolling works with the mouse wheel, the keyboard, a draggable scrollbar and code, and it repaints without a Blazor render.
 
 ```razor
 <Panel Title="Log" Border="BoxBorder.Rounded" Height="8" Overflow="OverflowMode.Scroll">
@@ -15,7 +15,7 @@ The border and title stay fixed; only the content scrolls. The scrollbar is draw
 
 ## Which containers scroll
 
-`Box`, `Panel`, `Padder`, `Border`, `Flex`, `Rows` and `Columns` take `Overflow`. `ScrollView` is a thin component for the common case of a plain scrolling region, and the easiest to use with `@ref` or a `ScrollController`.
+`Box`, `Panel`, `Padder`, `Border`, `Flex`, `Rows` and `Columns` take `Overflow`, together with `Scrollbar`, `Controller` and `StickToBottom`.
 
 | Value                    | Behavior                                                         |
 | ------------------------ | ---------------------------------------------------------------- |
@@ -25,7 +25,7 @@ The border and title stay fixed; only the content scrolls. The scrollbar is draw
 
 A scroll container needs a height to scroll in: set `Height`, or `FillHeight` inside a parent that has a bounded height. Without one, it grows to fit its content and there is nothing to scroll. Plain HTML elements scroll too, with the `overflow="scroll"` attribute.
 
-`FlexBox` and `Grid` are backed by Spectre.Console and do not support `Overflow`; wrap them in a `ScrollView`.
+`FlexBox` and `Grid` are backed by Spectre.Console and do not support `Overflow`; wrap them in a `Box` with `Overflow="OverflowMode.Scroll"`.
 
 ## Scrollbar
 
@@ -56,12 +56,12 @@ Moving focus scrolls the focused element into view. Tabbing to a button below th
 Pass a `ScrollController` to a container to scroll it, and to read its position:
 
 ```razor
-<ScrollView Height="10" Controller="_scroll" StickToBottom="true">
+<Box Height="10" Overflow="OverflowMode.Scroll" Controller="_scroll" StickToBottom="true">
     @foreach (var line in _lines)
     {
         <Markup Content="@line" />
     }
-</ScrollView>
+</Box>
 
 <TextButton Content="Top" OnClick="() => _scroll.ScrollToStartAsync()" />
 
@@ -97,8 +97,8 @@ Each scroll container has a scroll id. Pass `ScrollId` for state that must survi
 
 | Before                                                  | After                                                              |
 | ------------------------------------------------------- | ------------------------------------------------------------------ |
-| `<ViewHeightScrollable LinesToRender="10">`             | `<ScrollView Height="10">`                                         |
-| `LinesToRender="0"` (fill)                              | `<ScrollView>` in a parent with a bounded height                   |
+| `<ViewHeightScrollable LinesToRender="10">`             | `<Box Height="10" Overflow="OverflowMode.Scroll">`                 |
+| `LinesToRender="0"` (fill)                              | `<Box FillHeight="true" Overflow="OverflowMode.Scroll">` in a parent with a bounded height |
 | `IsScrollbarEmbedded="true"`                            | `Scrollbar` with `Placement = ScrollbarPlacement.Border`           |
 | `IsScrollbarEmbedded="false"`                           | `Scrollbar` with `Placement = ScrollbarPlacement.Outside`          |
 | `ScrollOffset`, `ScrollOffsetChanged`                   | `ScrollTop`, `ScrollTopChanged`                                    |
