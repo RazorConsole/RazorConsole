@@ -93,7 +93,7 @@ Each scroll container has a scroll id. Pass `ScrollId` for state that must survi
 
 ## Moving from the older components
 
-`Scrollable<TItem>` and `ViewHeightScrollable` are obsolete. They still work, and will be removed in a later major version.
+`Scrollable<TItem>` and `ViewHeightScrollable` were removed. Replace them with a scroll container:
 
 | Before                                                  | After                                                              |
 | ------------------------------------------------------- | ------------------------------------------------------------------ |

@@ -175,43 +175,6 @@ public sealed class BoxWidget : Widget
 
     private ScrollViewportWidget? Viewport => Child as ScrollViewportWidget;
 
-    /// <summary>
-    /// Creates a copy of this box whose content is <paramref name="viewport"/>, so the frame stays fixed while the content scrolls.
-    /// </summary>
-    /// <param name="viewport">The scrolling content.</param>
-    /// <param name="scrollbar">How the scrollbar is drawn.</param>
-    /// <param name="contentLines">Visible content rows (the frame is added); zero or less makes the box fill the height it is offered.</param>
-    internal BoxWidget WithScrollingContent(ScrollViewportWidget viewport, ScrollbarOptions scrollbar, int contentLines)
-        => new(
-            VNodeId,
-            viewport,
-            PaddingLeft,
-            PaddingTop,
-            PaddingRight,
-            PaddingBottom,
-            MarginLeft,
-            MarginTop,
-            MarginRight,
-            MarginBottom,
-            Width,
-            contentLines > 0 ? contentLines + BorderTopThickness + PaddingTop + BorderBottomThickness + PaddingBottom : Height,
-            Key,
-            Attributes,
-            ZIndex,
-            Expand,
-            FillWidth,
-            FillHeight || contentLines <= 0,
-            Title,
-            BoxBorderStyle.None,
-            Border.Top,
-            Border.Right,
-            Border.Bottom,
-            Border.Left,
-            BorderStyle)
-        {
-            Scrollbar = scrollbar,
-        };
-
     // Set by measure: one column reserved inside the box, or one added to the right of its border.
     private bool _reserveInsideColumn;
     private bool _reserveOutsideColumn;

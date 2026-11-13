@@ -4,7 +4,7 @@ This reference summarizes the Razor components that ship with RazorConsole. Each
 
 > **Tip:** Components marked with `RenderFragment? ChildContent` accept arbitrary nested markup.
 
-Current catalog: `Align`, `Border`, `Columns`, `Figlet`, `FlexBox`, `Grid`, `Markup`, `Newline`, `Padder`, `Panel`, `Rows`, `Select`, `Spinner`, `SyntaxHighlighter`, `Table`, `TextButton`, `TextInput`, `ViewHeightScrollable`.
+Current catalog: `Align`, `Border`, `Columns`, `Figlet`, `FlexBox`, `Grid`, `Markup`, `Newline`, `Padder`, `Panel`, `Rows`, `Select`, `Spinner`, `SyntaxHighlighter`, `Table`, `TextButton`, `TextInput`.
 
 ## Align
 Wraps child content in an alignment container.
@@ -198,35 +198,16 @@ Shows a Spectre spinner with optional message.
 | `Style` | `string?` | `null` | Spectre style markup for the spinner and message. |
 | `AutoDismiss` | `bool` | `false` | Remove spinner automatically when completed. |
 
-## Scrollable
-Renders a limited portion of a collection (`PageSize`) and enables keyboard scrolling.
-
-| Parameter | Type                                   | Default                | Description |
-|-----------|----------------------------------------|------------------------|-------------|
-| `Items` | `IReadOnlyList<TItem>`                 | `Array.Empty<TItem>()` | Full data source. |
-| `PageSize` | `int`                                  | `1`                    | Items shown at once. |
-| `ChildContent` | `RenderFragment<ScrollContext<TItem>>` | —                      | Markup for the visible page. |
-| `ScrollOffset` | `int`                                  | `0`                    | Two-way – start index of current page. |
-| `ScrollOffsetChanged` | `EventCallback<int>`                   | —                      | Fired when offset changes. |
-| `IsScrollbarEmbedded` | `bool`                                 | `true`                  | Determines whether the scrollbar should be visually embedded within the border of a `Table` or `Panel`/`Border` components. |
-
-### `ScrollContext<TItem>`
-Context to get access with paginated items, keyboard event and other info.
-
-| Member | Type | Description |
-|--------|------|-------------|
-| `this[int i]` | `TItem` | Visible item at index `i`. |
-| `Count` | `int` | Visible items count. |
-| `GetEnumerator()` | — | Enables `foreach`. |
-| `KeyDownEventHandler` | `Func<KeyboardEventArgs,Task>` | Attach via `@onkeydown`. |
-| `CurrentOffset` | `int` | Same as `ScrollOffset`. |
-| `PagesCount` | `int` | Total pages: `PageSize >= Items.Count ? 1 : Items.Count - PageSize + 1`. |
+## Scrolling
+Scrolling is a property of a container: set `Overflow="OverflowMode.Scroll"` on a `Box`, `Panel`, `Border`, `Padder`, `Flex`, `Rows` or `Columns`. See the [scrolling guide](../website/src/docs/scrolling.md) for the parameters, the `ScrollController`, keyboard and wheel handling, and `StickToBottom`.
 
 ### `ScrollbarSettings`
-Record, that enables and adjusts scrollbar inside the Scrollable component.
+Record that adjusts the scrollbar of a scroll container (the `Scrollbar` parameter).
 
 | Parameter | Type | Default | Description                                                                                |
 |-----------|------|---------|--------------------------------------------------------------------------------------------|
+| `Placement` | `ScrollbarPlacement` | `Inset` | `Inset` draws the bar inside the box; `Outside` adds a column to the right of the border.  |
+| `Visibility` | `ScrollbarVisibility` | `Auto` | `Auto` shows the bar only while the content overflows; `Always` and `Never` force it.      |
 | `TrackChar` | `char` | `'│'` | Character used for the scrollbar track.                                                    |
 | `ThumbChar` | `char` | `'█'` | Character used for the scrollbar thumb.                                                    |
 | `TrackColor` | `Color` | `Color.Grey` | Color of the track in normal state.                                                        |
@@ -236,28 +217,6 @@ Record, that enables and adjusts scrollbar inside the Scrollable component.
 | `MinThumbHeight` | `int` | `1` | Minimum height of the thumb in characters.                                                 |
 | `OnFocusInCallback` | `Action<FocusEventArgs>?` | `null` | Invoked when scrollbar gains focus.                                                        |
 | `OnFocusOutCallback` | `Action<FocusEventArgs>?` | `null` | Invoked when scrollbar loses focus.                                                        |
-
-## ViewHeightScrollable
-Scrolls any content line-by-line with keyboard navigation. Unlike `Scrollable` (which paginates a typed item list), `ViewHeightScrollable` renders a fixed-height viewport over arbitrary `RenderFragment` content.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `ChildContent` | `RenderFragment<ScrollContext>` | — | Required. Content to display inside the scrollable viewport. Receives a `ScrollContext`. |
-| `LinesToRender` | `int` | `10` | Number of lines visible at one time (viewport height). |
-| `ScrollOffset` | `int` | `0` | Two-way – index of the first visible line. |
-| `ScrollOffsetChanged` | `EventCallback<int>` | — | Fired when the scroll offset changes. |
-| `Scrollbar` | `ScrollbarSettings?` | `null` | When provided, renders a scrollbar alongside the content. Uses the same `ScrollbarSettings` record as `Scrollable`. |
-| `IsScrollbarEmbedded` | `bool` | `true` | When `true`, embeds the scrollbar inside the border of a `Panel`, `Border`, or `Table` child. Falls back to side-rendering when multiple block elements are detected. |
-
-Keyboard shortcuts: `↑`/`↓` (single line), `PageUp`/`PageDown` or `Space` (full page), `Home`/`End` (bounds).
-
-### `ScrollContext` (ViewHeightScrollable)
-
-| Member | Type | Description |
-|--------|------|-------------|
-| `KeyDownEventHandler` | `Func<KeyboardEventArgs,Task>` | Attach via `@onkeydown` on a focusable element inside the viewport. |
-| `CurrentOffset` | `int` | Current scroll offset in lines. |
-
 
 ## StepChart
 

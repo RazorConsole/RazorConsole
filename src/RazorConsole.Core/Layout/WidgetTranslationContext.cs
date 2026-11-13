@@ -1,7 +1,5 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
-#pragma warning disable CS0618 // The legacy <scrollable> element still translates to the obsolete ScrollableWidget.
-
 using System.Globalization;
 using RazorConsole.Core.Abstractions.Rendering;
 using RazorConsole.Core.Layout.Leaves;
@@ -22,7 +20,6 @@ namespace RazorConsole.Core.Layout;
 public sealed class WidgetTranslationContext
 {
     private readonly IWidgetTranslator[] _translators;
-    private readonly ScrollableLayoutCoordinator? _scrollableLayoutCoordinator;
     private readonly SyntaxHighlightingService? _syntaxHighlightingService;
     private readonly ScrollStateRegistry? _scrollStateRegistry;
     private readonly HashSet<IAnimatedConsoleRenderable> _animatedRenderables = [];
@@ -31,25 +28,21 @@ public sealed class WidgetTranslationContext
     /// Initializes a new instance of the <see cref="WidgetTranslationContext"/> class.
     /// </summary>
     /// <param name="translators">Custom translators, run in order before the built-in translation.</param>
-    /// <param name="scrollableLayoutCoordinator">Coordinates view-height scrollables with the layout.</param>
     /// <param name="syntaxHighlightingService">Highlights code blocks.</param>
     public WidgetTranslationContext(
         IEnumerable<IWidgetTranslator>? translators = null,
-        ScrollableLayoutCoordinator? scrollableLayoutCoordinator = null,
         SyntaxHighlightingService? syntaxHighlightingService = null)
-        : this(translators, scrollableLayoutCoordinator, syntaxHighlightingService, scrollStateRegistry: null)
+        : this(translators, syntaxHighlightingService, scrollStateRegistry: null)
     {
     }
 
     internal WidgetTranslationContext(
         IEnumerable<IWidgetTranslator>? translators,
-        ScrollableLayoutCoordinator? scrollableLayoutCoordinator,
         SyntaxHighlightingService? syntaxHighlightingService,
         ScrollStateRegistry? scrollStateRegistry)
     {
         _scrollStateRegistry = scrollStateRegistry;
         _translators = translators?.ToArray() ?? [];
-        _scrollableLayoutCoordinator = scrollableLayoutCoordinator;
         _syntaxHighlightingService = syntaxHighlightingService;
     }
 
@@ -214,36 +207,6 @@ public sealed class WidgetTranslationContext
         }
 
         var children = TranslateChildren(node);
-
-        if (string.Equals(node.TagName, "scrollable", StringComparison.OrdinalIgnoreCase))
-        {
-            var child = ComposeChildren(node, children);
-            var scrollbarNode = node.Children.FirstOrDefault(IsScrollbarNode);
-            if (scrollbarNode is null)
-            {
-                return new StackWidget(node.ID, children, attributes: node.Attributes, zIndex: zIndex);
-            }
-
-            return new ScrollableWidget(
-                node.ID,
-                child,
-                TryGetIntAttribute(node, "data-items-count", 0),
-                TryGetIntAttribute(node, "data-offset", 0),
-                Math.Max(1, TryGetIntAttribute(node, "data-page-size", 1)),
-                IsTruthy(GetAttribute(node, "data-enable-embedded")),
-                ParseChar(GetAttribute(scrollbarNode, "data-track-char"), '│'),
-                ParseChar(GetAttribute(scrollbarNode, "data-thumb-char"), '█'),
-                TryParseHexStyle(GetAttribute(scrollbarNode, "data-track-color")),
-                TryParseHexStyle(GetAttribute(scrollbarNode, "data-thumb-color")),
-                Math.Max(1, TryGetIntAttribute(scrollbarNode, "data-min-thumb-height", 1)),
-                attributes: node.Attributes,
-                zIndex: zIndex);
-        }
-
-        if (string.Equals(node.TagName, "view-height-scrollable", StringComparison.OrdinalIgnoreCase))
-        {
-            return CreateViewHeightScrollable(node, children, zIndex);
-        }
 
         if (string.Equals(className, "rows", StringComparison.OrdinalIgnoreCase))
         {
@@ -424,62 +387,6 @@ public sealed class WidgetTranslationContext
         return new StackWidget(node.ID, children, attributes: node.Attributes, zIndex: TryGetIntAttribute(node, "z-index", 0))
         {
             Opaque = IsTruthy(GetAttribute(node, "data-opaque")),
-        };
-    }
-
-    // <view-height-scrollable> is a scroll container like any other: its content scrolls in a viewport inside a frame.
-    // A single bordered child (a Panel or Border) is that frame, which puts the scrollbar on its border; otherwise a frameless box hosts it.
-    private Widget CreateViewHeightScrollable(VNode node, IReadOnlyList<Widget> children, int zIndex)
-    {
-        var scrollbarNode = node.Children.FirstOrDefault(IsScrollbarNode);
-        var linesToRender = TryGetIntAttribute(node, "data-lines-to-render", 1);
-        var embedded = IsTruthy(GetAttribute(node, "data-enable-embedded"));
-        var scrollId = GetAttribute(node, "data-scroll-id");
-        var offset = Math.Max(0, TryGetIntAttribute(node, "data-offset", 0));
-        var scrollbar = new ScrollbarOptions(
-            embedded && scrollbarNode is not null
-                ? ParseEnum(GetAttribute(scrollbarNode, "data-scrollbar-placement"), ScrollbarPlacement.Inset)
-                : embedded ? ScrollbarPlacement.Inset : ScrollbarPlacement.Outside,
-            scrollbarNode is null
-                ? ScrollbarVisibility.Never
-                : ParseEnum(GetAttribute(scrollbarNode, "data-scrollbar-visibility"), ScrollbarVisibility.Auto),
-            scrollbarNode is null ? '┃' : ParseChar(GetAttribute(scrollbarNode, "data-track-char"), '┃'),
-            scrollbarNode is null ? '┃' : ParseChar(GetAttribute(scrollbarNode, "data-thumb-char"), '┃'),
-            scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-track-color")),
-            scrollbarNode is null ? null : TryParseHexStyle(GetAttribute(scrollbarNode, "data-thumb-color")),
-            scrollbarNode is null ? 1 : Math.Max(1, TryGetIntAttribute(scrollbarNode, "data-min-thumb-height", 1)));
-
-        var frame = embedded && children.Count == 1 && children[0] is BoxWidget { Child: not ScrollViewportWidget } box
-            && box.Border.Right != BoxBorderStyle.None
-                ? box
-                : null;
-        var content = frame is null ? ComposeChildren(node, children) : frame.Child;
-        var viewport = new ScrollViewportWidget(
-            node.ID + "-viewport",
-            content,
-            offset,
-            _scrollStateRegistry,
-            _scrollStateRegistry is null ? null : scrollId);
-
-        if (frame is not null)
-        {
-            // The outer element keeps a layout box of its own, as it always had.
-            return new StackWidget(
-                node.ID,
-                [frame.WithScrollingContent(viewport, scrollbar, linesToRender)],
-                attributes: node.Attributes,
-                zIndex: zIndex);
-        }
-
-        return new BoxWidget(
-            node.ID,
-            viewport,
-            height: linesToRender > 0 ? linesToRender : null,
-            fillHeight: linesToRender <= 0,
-            attributes: node.Attributes,
-            zIndex: zIndex)
-        {
-            Scrollbar = scrollbar,
         };
     }
 
@@ -688,7 +595,6 @@ public sealed class WidgetTranslationContext
     private IReadOnlyList<Widget> TranslateChildren(VNode node)
         => node.Children
             .Where(child => child.Kind != VNodeKind.Text || !string.IsNullOrWhiteSpace(child.Text))
-            .Where(child => !IsScrollbarNode(child))
             .Select(Translate)
             .ToArray();
 
@@ -1124,9 +1030,4 @@ public sealed class WidgetTranslationContext
         => !string.IsNullOrWhiteSpace(value) && ColorAttribute.TryParse(value, out var color)
             ? new Style(color)
             : (Style?)null;
-
-    private static bool IsScrollbarNode(VNode node)
-        => node.Kind == VNodeKind.Element
-            && node.Attributes.TryGetValue("data-scrollbar", out var value)
-            && IsTruthy(value);
 }
