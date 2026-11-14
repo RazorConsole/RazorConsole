@@ -143,7 +143,7 @@ flowchart TD
     BuiltIn -->|Rows, Columns, Flex, FlexBox| Flex[FlexWidget]
     BuiltIn -->|Panel, Padder, Box| Box[BoxWidget]
     BuiltIn -->|table, Grid| Table[TableWidget]
-    BuiltIn -->|Scrollable| Scroll[ScrollableWidget]
+    BuiltIn -->|Overflow| Scroll[ScrollViewportWidget]
     BuiltIn -->|p, strong, em, code, a| Inline[SpectreWidget with wrapped Markup]
     BuiltIn -->|Charts, Figlet, Spinner, SyntaxHighlighter| Leaf[SpectreWidget leaf]
     BuiltIn -->|Anything else| Stack[StackWidget of children]

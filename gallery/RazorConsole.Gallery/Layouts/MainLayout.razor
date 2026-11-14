@@ -1,4 +1,6 @@
 @inherits LayoutComponentBase
+@using RazorConsole.Core.Rendering
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
 @implements IDisposable
 @inject RazorConsole.Core.Rendering.ITerminalViewport Viewport
 @inject NavigationManager Navigation
@@ -23,9 +25,9 @@
             }
         </Flex>
         <Flex Width="@Math.Max(1, Viewport.Width - NavigationWidth - 3)" Height="@ContentHeight" Direction="FlexDirection.Column" data-vnode-hook="gallery-main">
-            <ViewHeightScrollable @key="Navigation.Uri" LinesToRender="@ContentHeight" Scrollbar="new()" IsScrollbarEmbedded="false">
+            <Box Overflow="OverflowMode.Scroll" FillHeight="true" @key="Navigation.Uri" Scrollbar="@(new ScrollbarSettings(placement: ScrollbarPlacement.Outside))">
                 @Body
-            </ViewHeightScrollable>
+            </Box>
         </Flex>
     </Flex>
     <Footer />

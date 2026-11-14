@@ -121,7 +121,7 @@ Create engaging user experiences with interactive elements like buttons, text in
 
 ### 🎯 **Built-in Component Library**
 Get started quickly with **25+ pre-built components** covering layout, input, display, and navigation needs:
-- **Layout** (8): `Align`, `Columns`, `FlexBox`, `Rows`, `Grid`, `Padder`, `Scrollable`, `ViewHeightScrollable`
+- **Layout** (6): `Align`, `Columns`, `FlexBox`, `Rows`, `Grid`, `Padder`
 - **Input** (3): `TextInput`, `TextButton`, `Select`
 - **Display** (12): `BarChart`, `BreakdownChart`, `StepChart`, `Border`, `Figlet`, `Markdown`, `Markup`, `ModalWindow`, `Panel`, `SpectreCanvas`, `SyntaxHighlighter`, `Table`
 - **Utilities** (2): `Spinner`, `Newline`
@@ -172,7 +172,6 @@ RazorConsole ships with a catalog of ready-to-use components that wrap Spectre.C
 - `Table` – display structured data in formatted tables with headers, borders, and rich cell content.
 - `TextButton` – display clickable text with focus and pressed-state styling.
 - `TextInput` – capture user input with optional masking and change handlers.
-- `ViewHeightScrollable` – scroll any content line-by-line with keyboard navigation and optional embedded scrollbar support for `Panel`, `Border`, and `Table`.
 
 See [`design-doc/builtin-components.md`](design-doc/builtin-components.md) for the full reference, including parameters and customization tips.
 

@@ -1,4 +1,4 @@
-# Chapter 6 · Routing and Multi-page Apps
+# Chapter 7 · Routing and Multi-page Apps
 
 Use Blazor routing to switch terminal pages without rebuilding the application host.
 
@@ -70,4 +70,4 @@ Use the three navigation buttons to switch between Home, Settings, and the missi
 
 Add an `/about` page and a fourth navigation button. Give the page a parameterized title component.
 
-[← Chapter 5 · Widget Layout and Resize](/docs/tutorial/widget-layout-and-resize) · [Next: Chapter 7 · Async Work →](/docs/tutorial/async-work)
+[← Chapter 6 · Scrolling with Overflow](/docs/tutorial/scrolling-with-overflow) · [Next: Chapter 8 · Async Work →](/docs/tutorial/async-work)

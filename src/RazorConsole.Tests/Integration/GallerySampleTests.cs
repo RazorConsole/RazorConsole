@@ -205,11 +205,11 @@ public sealed class GallerySampleTests
     public async Task Scrollable_WheelIsLocal_AndResetRestoresOffset()
     {
         await using var terminal = await Start("scrollable", 100, 50);
-        await ClickText(terminal, "Page: 1 / 13", wheel: true);
-        await terminal.WaitUntilAsync(s => s.ContainsText("Page: 4 / 13"), cancellationToken: TestContext.Current.CancellationToken);
+        await ClickText(terminal, " 3  C", wheel: true);
+        await terminal.WaitUntilAsync(s => s.ContainsText(" 8  H") && !s.ContainsText(" 1  A"), cancellationToken: TestContext.Current.CancellationToken);
         terminal.GetLayout("scrollable-preview").Top!.Value.ShouldBeLessThan(10);
         await Click(terminal, "scrollable-reset");
-        await terminal.WaitUntilAsync(s => s.ContainsText("Page: 1 / 13"), cancellationToken: TestContext.Current.CancellationToken);
+        await terminal.WaitUntilAsync(s => s.ContainsText(" 1  A"), cancellationToken: TestContext.Current.CancellationToken);
     }
 
     [Fact]

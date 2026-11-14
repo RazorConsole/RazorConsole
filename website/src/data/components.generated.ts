@@ -68,16 +68,6 @@ export const componentMetadata: Record<string, Partial<ComponentInfo>> = {
     description: "Arranges children in rows.",
     examples: ["Rows_1.razor"],
   },
-  Scrollable: {
-    category: "Layout",
-    description: "Provides scrollable content area.",
-    examples: ["Scrollable_1.razor"],
-  },
-  ViewHeightScrollable: {
-    category: "Layout",
-    description: "Provides scrollable content area that scrolls through physical lines of any content. Has all functionalities of default Scrollable.",
-    examples: ["ViewHeightScrollable_1.razor"],
-  },
   Select: {
     category: "Input",
     description: "Interactive dropdown for choosing a value with keyboard navigation.",

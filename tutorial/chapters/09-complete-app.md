@@ -1,4 +1,4 @@
-# Chapter 8 · Build a Complete Interactive App
+# Chapter 9 · Build a Complete Interactive App
 
 Combine component state, text input, focus, mouse input, layout, and callbacks into a small task board.
 
@@ -71,7 +71,7 @@ input parsing in application code.
 ## 4. Prepare the app for real use
 
 For a larger application, split task rows and editors into child components, inject a repository for persistence, add
-routed detail pages, and wrap service calls in the loading/error pattern from Chapter 7. Retain keyboard alternatives
+routed detail pages, and wrap service calls in the loading/error pattern from Chapter 8. Retain keyboard alternatives
 for every mouse-only action.
 
 ## Run the complete app locally
@@ -86,4 +86,4 @@ Add tasks with the input, click existing tasks to toggle them, and use the focus
 
 Persist tasks to a JSON file through an injected service and add a routed view that shows only completed tasks.
 
-[← Chapter 7 · Async Work](/docs/tutorial/async-work)
+[← Chapter 8 · Async Work](/docs/tutorial/async-work)

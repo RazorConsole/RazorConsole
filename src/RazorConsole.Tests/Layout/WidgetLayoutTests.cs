@@ -582,94 +582,6 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
-    public void ScrollableWidget_Layout_DrawsSideScrollbar()
-    {
-        var widget = new ScrollableWidget(
-            "scroll-1",
-            new StackWidget(
-                "rows-1",
-                [
-                    new TextWidget("text-1", "One"),
-                    new TextWidget("text-2", "Two"),
-                    new TextWidget("text-3", "Three"),
-                ]),
-            itemsCount: 5,
-            offset: 0,
-            pageSize: 3,
-            enableEmbedded: false);
-        var engine = new LayoutEngine();
-
-        var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 10));
-
-        result.Size.ShouldBe(new LayoutSize(7, 3));
-        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("One   █\nTwo   █\nThree │");
-    }
-
-    [Fact]
-    public void ScrollableWidget_Layout_CropsLinesToArrangedHeightWhenAutoPageSize()
-    {
-        var widget = new ScrollableWidget(
-            "scroll-1",
-            new StackWidget(
-                "rows-1",
-                [
-                    new TextWidget("text-1", "One"),
-                    new TextWidget("text-2", "Two"),
-                    new TextWidget("text-3", "Three"),
-                    new TextWidget("text-4", "Four"),
-                    new TextWidget("text-5", "Five"),
-                ]),
-            itemsCount: 0,
-            offset: 1,
-            pageSize: 1,
-            enableEmbedded: false,
-            showScrollbar: true,
-            cropLines: true,
-            autoPageSize: true);
-        var engine = new LayoutEngine();
-
-        var result = engine.Layout(widget, new BoxConstraints(0, 20, 0, 3));
-
-        result.Size.ShouldBe(new LayoutSize(7, 3));
-        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("Two   █\nThree █\nFour  │");
-    }
-
-    [Fact]
-    public void ScrollableWidget_Paint_ClipsChildContentToBounds()
-    {
-        var widget = new ScrollableWidget(
-            "scroll-1",
-            new StackWidget(
-                "rows-1",
-                [
-                    new TextWidget("text-1", "One"),
-                    new TextWidget("text-2", "Two"),
-                    new TextWidget("text-3", "Three"),
-                    new TextWidget("text-4", "Four"),
-                ]),
-            itemsCount: 0,
-            offset: 0,
-            pageSize: 1,
-            enableEmbedded: false,
-            showScrollbar: false,
-            cropLines: true,
-            autoPageSize: true);
-        var layoutContext = new LayoutContext();
-        widget.Measure(layoutContext, new BoxConstraints(0, 10, 0, 2));
-        widget.Arrange(layoutContext, new LayoutRect(0, 1, 10, 2));
-        var canvas = new TerminalCanvas(10, 5);
-
-        widget.Paint(new PaintContext(canvas));
-
-        RenderToText(canvas.ToRenderable(), maxWidth: 10).ShouldBe(
-            "          \n" +
-            "One       \n" +
-            "Two       \n" +
-            "          \n" +
-            "          ");
-    }
-
-    [Fact]
     public void StackWidget_Layout_AllocatesRemainingHeightToExpandingChildren()
     {
         var widget = new StackWidget(
@@ -716,37 +628,6 @@ public sealed class WidgetLayoutTests
         result.Size.ShouldBe(new LayoutSize(12, 1));
         boxes.ShouldContain(box => box.VNodeId == "nav" && box.Bounds == new LayoutRect(0, 0, 3, 1));
         boxes.ShouldContain(box => box.VNodeId == "body" && box.Bounds == new LayoutRect(4, 0, 8, 1));
-    }
-
-    [Fact]
-    public void WidgetTranslationContext_TranslatesScrollableWithScrollbar()
-    {
-        var node = VNode.CreateElement("scrollable");
-        node.SetAttribute("data-items-count", "5");
-        node.SetAttribute("data-offset", "0");
-        node.SetAttribute("data-page-size", "3");
-        node.SetAttribute("data-enable-embedded", "false");
-
-        var scrollbar = VNode.CreateElement("div");
-        scrollbar.SetAttribute("data-scrollbar", "true");
-        scrollbar.SetAttribute("data-track-char", "│");
-        scrollbar.SetAttribute("data-thumb-char", "█");
-        scrollbar.SetAttribute("data-min-thumb-height", "1");
-        node.AddChild(scrollbar);
-
-        var rows = VNode.CreateElement("div");
-        rows.SetAttribute("class", "rows");
-        rows.AddChild(VNode.CreateText("One"));
-        rows.AddChild(VNode.CreateText("Two"));
-        rows.AddChild(VNode.CreateText("Three"));
-        node.AddChild(rows);
-        var context = new WidgetTranslationContext();
-
-        var widget = context.Translate(node);
-        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 10));
-
-        widget.ShouldBeOfType<ScrollableWidget>();
-        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("One   █\nTwo   █\nThree │");
     }
 
     [Fact]

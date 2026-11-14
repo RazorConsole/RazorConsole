@@ -202,7 +202,7 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
 
         foreach (var node in Path(root, id).AsEnumerable().Reverse())
         {
-            if (layouts.GetLayoutByVNodeIdOrDefault(node.ID)?.Scroll is { ScrollId: { } scrollId })
+            if (ResolveScrollId(node, layouts) is { } scrollId)
             {
                 var state = registry.Get(scrollId);
                 var max = state.Metrics.MaxTop;
@@ -224,6 +224,13 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
             }
         }
     }
+
+    // The element carries its scroll id, which stays right while layout is a frame behind a render; elements that scroll
+    // through a plain overflow attribute have none, so the layout's own scroll info stands in for it.
+    internal static string? ResolveScrollId(VNode node, IVNodeLayoutAccessor layouts)
+        => node.Attributes.TryGetValue("data-scroll-id", out var id) && !string.IsNullOrEmpty(id)
+            ? id
+            : layouts.GetLayoutByVNodeIdOrDefault(node.ID)?.Scroll?.ScrollId;
 
     internal static bool IsContained(VNode node)
         => node.Attributes.TryGetValue("data-overscroll", out var value)

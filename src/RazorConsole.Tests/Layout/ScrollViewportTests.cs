@@ -247,25 +247,6 @@ public sealed class ScrollViewportTests
         result.Size.Height.ShouldBe(7);
     }
 
-    [Fact]
-    public void ScrollableWidget_ThumbStaysInsideTrackWhenOffsetExceedsMax()
-    {
-        var widget = new ScrollableWidget(
-            "scroll",
-            Rows(10),
-            itemsCount: 0,
-            offset: 500,
-            pageSize: 3,
-            enableEmbedded: false,
-            showScrollbar: true,
-            cropLines: true,
-            autoPageSize: true);
-
-        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 3));
-
-        RenderLines(result).ShouldBe(["r7 │", "r8 │", "r9 █"]);
-    }
-
     private static StackWidget Rows(int count)
         => new("rows", Enumerable.Range(0, count).Select(i => (Widget)new TextWidget($"row{i}", $"r{i}")).ToArray());
 

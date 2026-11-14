@@ -1,4 +1,4 @@
-# Chapter 7 · Async Work, Loading, and Errors
+# Chapter 8 · Async Work, Loading, and Errors
 
 Keep the terminal responsive while work is in progress and render every operation state explicitly.
 
@@ -79,4 +79,4 @@ Try success, simulated failure, and cancellation. Each path returns to an intera
 
 Add a retry counter and use an increasing delay before each retry.
 
-[← Chapter 6 · Routing](/docs/tutorial/routing) · [Next: Chapter 8 · Complete App →](/docs/tutorial/complete-app)
+[← Chapter 7 · Routing](/docs/tutorial/routing) · [Next: Chapter 9 · Complete App →](/docs/tutorial/complete-app)

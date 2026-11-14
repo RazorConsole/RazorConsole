@@ -54,7 +54,7 @@ The built-in translation maps RazorConsole's own markup to widgets:
 | `Panel`, `Padder`, `Box`, `blockquote` | `BoxWidget` |
 | `Align` | `AlignWidget` |
 | `table`, `Grid` | `TableWidget` |
-| `Scrollable`, `ViewHeightScrollable` | `ScrollableWidget` |
+| any container with `Overflow` | `ScrollViewportWidget` inside the container widget |
 | `hr` | `RuleWidget` |
 | Paragraphs and inline formatting (`strong`, `em`, `code`, `a`, …) | `SpectreWidget` holding wrapped `Markup` |
 | Charts, `SpectreCanvas`, `Spinner`, `SyntaxHighlighter`, `Figlet`, code blocks | `SpectreWidget` leaves |

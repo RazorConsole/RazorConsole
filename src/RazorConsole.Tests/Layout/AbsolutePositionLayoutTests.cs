@@ -153,13 +153,13 @@ public sealed class AbsolutePositionLayoutTests
     }
 
     [Fact]
-    public void Absolute_InsideScrollableClip_IsNotClipped()
+    public void Absolute_InsideScrollViewport_IsNotClipped()
     {
         var widget = new StackWidget(
             "root",
             [
                 new TextWidget("row0", "0123456789"),
-                new ScrollableWidget(
+                new ScrollViewportWidget(
                     "scroll",
                     new StackWidget(
                         "content",
@@ -167,12 +167,7 @@ public sealed class AbsolutePositionLayoutTests
                             new TextWidget("line", "line"),
                             Absolute("abs", "X", top: 0, left: 8),
                         ]),
-                    itemsCount: 1,
-                    offset: 0,
-                    pageSize: 1,
-                    enableEmbedded: false,
-                    showScrollbar: false,
-                    cropLines: true),
+                    top: 0),
             ]);
 
         var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 10));
