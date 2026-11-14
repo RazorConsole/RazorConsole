@@ -1,9 +1,10 @@
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
 @using Spectre.Console
 @using RazorConsole.Components
 
-<ViewHeightScrollable>
+<Box Overflow="OverflowMode.Scroll" Height="10" Focusable="true">
     <Markdown Content="@markdownText" />
-</ViewHeightScrollable>
+</Box>
 
 @code {
 

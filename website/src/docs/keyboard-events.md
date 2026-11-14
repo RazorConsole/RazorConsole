@@ -25,3 +25,7 @@ Interactive experiences rely on keyboard input. RazorConsole exposes the familia
 - `@onkeydown` — fires when a key is pressed.
 - `@onkeyup` — fires when a key is released.
 - `@onkeypress` — fires when a key is pressed and released.
+
+#### Scrolling keys
+
+A scroll container (`Overflow="OverflowMode.Scroll"`) handles `Up`, `Down`, `PageUp`, `PageDown`, `Home` and `End` itself while it has focus; set `Focusable="true"` to make it a Tab stop. `PageUp`, `PageDown`, `Home` and `End` that the focused element does not handle scroll the nearest scroll container around it. See [Scrolling](/blog/scrolling/).

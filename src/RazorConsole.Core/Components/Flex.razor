@@ -4,22 +4,35 @@
 @using System.Globalization
 @using Microsoft.AspNetCore.Components
 @using RazorConsole.Core.Renderables
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using OverscrollBehavior = RazorConsole.Core.Layout.OverscrollBehavior
+@using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
+@using ScrollController = RazorConsole.Core.Layout.ScrollController
 
-<div class="@Class"
-    @attributes="AdditionalAttributes"
-    data-layout="flex"
-    data-direction="@DirectionAttribute"
-    data-justify="@JustifyAttribute"
-    data-align="@AlignAttribute"
-    data-wrap="@WrapAttribute"
-    data-gap="@GapAttribute"
-    data-expand="@ExpandAttribute"
-    data-fill-width="@FillWidthAttribute"
-    data-fill-height="@FillHeightAttribute"
-    data-width="@WidthAttribute"
-    data-height="@HeightAttribute">
-    @ChildContent
-</div>
+@if (Overflow == OverflowMode.Scroll)
+{
+    @* The scroll container owns the size; the flex lays its items out inside it, as tall as they need. *@
+    <Box Overflow="OverflowMode.Scroll"
+        Width="@Width"
+        Height="@Height"
+        Expand="@Expand"
+        FillWidth="@FillWidth"
+        FillHeight="@FillHeight"
+        Scrollbar="@Scrollbar"
+        OverscrollBehavior="@OverscrollBehavior"
+        Focusable="@Focusable"
+        Controller="@Controller"
+        StickToBottom="@StickToBottom"
+        ScrollId="@ScrollId"
+        ScrollTop="@ScrollTop"
+        ScrollTopChanged="@ScrollTopChanged">
+        @FlexElement(true)
+    </Box>
+}
+else
+{
+    @FlexElement(false)
+}
 
 @code {
     /// <summary>
@@ -99,6 +112,78 @@
     /// </summary>
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
+
+    /// <summary>
+    /// What happens to items taller than the container, like CSS <c>overflow</c>. With <see cref="OverflowMode.Scroll"/> the items scroll
+    /// inside the container; give it a <see cref="Height"/> or <see cref="FillHeight"/> in a bounded parent. See <see cref="Box.Overflow"/>.
+    /// </summary>
+    [Parameter]
+    public OverflowMode Overflow { get; set; }
+
+    /// <summary>
+    /// How the scrollbar looks and where it is drawn. See <see cref="Box.Scrollbar"/>.
+    /// </summary>
+    [Parameter]
+    public ScrollbarSettings? Scrollbar { get; set; }
+
+    /// <summary>
+    /// Whether scrolling continues in the parent scroll container at the limit. See <see cref="Box.OverscrollBehavior"/>.
+    /// </summary>
+    [Parameter]
+    public OverscrollBehavior OverscrollBehavior { get; set; }
+
+    /// <summary>
+    /// Makes a scrolling container a Tab stop that scrolls with the keyboard. See <see cref="Box.Focusable"/>.
+    /// </summary>
+    [Parameter]
+    public bool Focusable { get; set; }
+
+    /// <summary>
+    /// Scrolls the container from code. See <see cref="Box.Controller"/>.
+    /// </summary>
+    [Parameter]
+    public ScrollController? Controller { get; set; }
+
+    /// <summary>
+    /// Keeps the end of the content in view while it grows. See <see cref="Box.StickToBottom"/>.
+    /// </summary>
+    [Parameter]
+    public bool StickToBottom { get; set; }
+
+    /// <summary>
+    /// Stable identity of the scroll state. See <see cref="Box.ScrollId"/>.
+    /// </summary>
+    [Parameter]
+    public string? ScrollId { get; set; }
+
+    /// <summary>
+    /// Scroll offset in rows, applied when its value changes. See <see cref="Box.ScrollTop"/>.
+    /// </summary>
+    [Parameter]
+    public int ScrollTop { get; set; }
+
+    /// <summary>
+    /// Raised when the engine changes the scroll offset.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> ScrollTopChanged { get; set; }
+
+    // When scrolling, the Box takes the size and the flex only needs the width it is given.
+    private RenderFragment<bool> FlexElement => scrolling => @<div class="@Class"
+        @attributes="AdditionalAttributes"
+        data-layout="flex"
+        data-direction="@DirectionAttribute"
+        data-justify="@JustifyAttribute"
+        data-align="@AlignAttribute"
+        data-wrap="@WrapAttribute"
+        data-gap="@GapAttribute"
+        data-expand="@(scrolling ? "false" : ExpandAttribute)"
+        data-fill-width="@(scrolling ? "true" : FillWidthAttribute)"
+        data-fill-height="@(scrolling ? "false" : FillHeightAttribute)"
+        data-width="@(scrolling ? null : WidthAttribute)"
+        data-height="@(scrolling ? null : HeightAttribute)">
+        @ChildContent
+    </div>;
 
     private string DirectionAttribute => Direction.ToString().ToLowerInvariant();
 

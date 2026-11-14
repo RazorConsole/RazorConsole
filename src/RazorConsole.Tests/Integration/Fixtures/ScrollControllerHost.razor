@@ -1,0 +1,36 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using RazorConsole.Components
+@using RazorConsole.Core.Layout
+
+@* A scroll container driven by a controller; Lines grows to exercise StickToBottom. *@
+<Box Overflow="OverflowMode.Scroll" Height="4" Controller="@Controller" StickToBottom="@StickToBottom" Focusable="@Focusable">
+    @for (var i = 0; i < Lines; i++)
+    {
+        <Markup Content="@($"line {i}")" />
+    }
+    <div data-vnode-hook="target"><Markup Content="Target" /></div>
+</Box>
+
+@code {
+    [Parameter] public ScrollController Controller { get; set; } = new();
+
+    [Parameter] public bool StickToBottom { get; set; }
+
+    [Parameter] public bool Focusable { get; set; }
+
+    [Parameter] public int Lines { get; set; } = 20;
+
+    [Parameter] public GrowHandle Grow { get; set; } = new();
+
+    protected override void OnInitialized()
+        => Grow.Add = () => InvokeAsync(() =>
+        {
+            Lines++;
+            StateHasChanged();
+        });
+
+    public sealed class GrowHandle
+    {
+        public Func<Task>? Add { get; set; }
+    }
+}

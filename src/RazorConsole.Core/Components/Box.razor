@@ -9,6 +9,8 @@
 @using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
 @using RazorConsole.Core.Utilities
 @using ScrollChangeSource = RazorConsole.Core.Layout.ScrollChangeSource
+@using ScrollController = RazorConsole.Core.Layout.ScrollController
+@using ScrollInputNavigator = RazorConsole.Core.Input.ScrollInputNavigator
 @using ScrollStateRegistry = RazorConsole.Core.Layout.ScrollStateRegistry
 @using RazorConsole.Core.Rendering.ComponentMarkup
 @using Spectre.Console
@@ -173,6 +175,19 @@
     public bool Focusable { get; set; }
 
     /// <summary>
+    /// Scrolls this container from code and reports its position. A controller drives one container at a time.
+    /// </summary>
+    [Parameter]
+    public ScrollController? Controller { get; set; }
+
+    /// <summary>
+    /// Keeps the end of the content in view while it grows, like a log or a chat. Scrolling up releases it,
+    /// and scrolling back to the end follows the content again.
+    /// </summary>
+    [Parameter]
+    public bool StickToBottom { get; set; }
+
+    /// <summary>
     /// Scroll offset in rows. The engine owns the scroll position, so this is applied only when its value changes
     /// (semi-controlled): a constant value never resets scrolling the user did. Use <c>@bind-ScrollTop</c> to follow the position.
     /// </summary>
@@ -207,6 +222,8 @@
     private ScrollStateRegistry? _registry;
     private string? _subscribedScrollId;
     private int _lastScrollTopParameter;
+    private ScrollController? _attachedController;
+    private bool _lastStickToBottom;
 
     private string EffectiveScrollId => string.IsNullOrWhiteSpace(ScrollId) ? _instanceScrollId : ScrollId;
 
@@ -265,6 +282,23 @@
             _lastScrollTopParameter = ScrollTop;
             _registry?.SetTop(id, ScrollTop, ScrollChangeSource.Parameter);
         }
+
+        if (StickToBottom != _lastStickToBottom)
+        {
+            _lastStickToBottom = StickToBottom;
+            _registry?.SetSticky(id, StickToBottom);
+        }
+
+        if (!ReferenceEquals(_attachedController, Controller))
+        {
+            _attachedController?.Detach();
+            _attachedController = Controller;
+        }
+
+        if (_registry is not null)
+        {
+            Controller?.Attach(_registry, id, Services.GetService<ScrollInputNavigator>());
+        }
     }
 
     private void OnEngineTopChanged(string scrollId, int top)
@@ -277,6 +311,9 @@
 
     private void Unsubscribe()
     {
+        _attachedController?.Detach();
+        _attachedController = null;
+        _lastStickToBottom = false;
         if (_registry is null)
         {
             return;

@@ -11,7 +11,6 @@ RazorConsole ships with a library of Spectre.Console-powered components covering
 | [Rows](https://razorconsole.com/components/Rows)             | Stacks children vertically, great for wizard-style layouts.                                                 |
 | [Grid](https://razorconsole.com/components/Grid)             | Builds a multi-column layout with configurable column count and width.                                      |
 | [Padder](https://razorconsole.com/components/Padder)         | Adds Spectre padding around nested content to create spacing.                                               |
-| [Scrollable](https://razorconsole.com/components/Scrollable) | Renders a sliding window of items (`PageSize`) with built-in keyboard navigation (Arrow keys, PageUp/Down). |
 
 ```razor
 <Columns Expand>

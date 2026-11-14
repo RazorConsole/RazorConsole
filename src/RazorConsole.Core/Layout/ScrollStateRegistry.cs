@@ -18,6 +18,9 @@ internal sealed record ScrollMetrics(int ContentHeight, int ViewportHeight)
 /// <summary>Immutable snapshot of one scroll container's state.</summary>
 internal sealed record ScrollState(int Top, bool Sticky, ScrollMetrics Metrics)
 {
+    /// <summary>Whether the container follows the end of its content (StickToBottom); <see cref="Sticky"/> says whether it is at the end right now.</summary>
+    public bool FollowEnd { get; init; }
+
     public static ScrollState Default { get; } = new(0, false, ScrollMetrics.Empty);
 }
 
@@ -86,6 +89,12 @@ internal sealed class ScrollStateRegistry(ILogger<ScrollStateRegistry>? logger =
             previous = Get(scrollId);
             var max = previous.Metrics.ViewportHeight > 0 ? previous.Metrics.MaxTop : int.MaxValue;
             next = previous with { Top = Math.Clamp(top, 0, max) };
+            if (previous.FollowEnd && previous.Metrics.ViewportHeight > 0)
+            {
+                // Scrolling up leaves the end; scrolling back to it follows the content again.
+                next = next with { Sticky = next.Top >= previous.Metrics.MaxTop };
+            }
+
             _states[scrollId] = next;
             if (next != previous)
             {
@@ -105,12 +114,24 @@ internal sealed class ScrollStateRegistry(ILogger<ScrollStateRegistry>? logger =
         }
     }
 
+    /// <summary>Turns following the end of the content on or off (StickToBottom).</summary>
     public void SetSticky(string scrollId, bool sticky)
     {
         lock (_gate)
         {
-            _states[scrollId] = Get(scrollId) with { Sticky = sticky };
+            var state = Get(scrollId);
+            if (state.FollowEnd == sticky && (!sticky || state.Sticky))
+            {
+                return;
+            }
+
+            _states[scrollId] = state with { Sticky = sticky, FollowEnd = sticky };
             Interlocked.Increment(ref _version);
+        }
+
+        if (sticky)
+        {
+            RequestRepaint();
         }
     }
 
@@ -128,7 +149,7 @@ internal sealed class ScrollStateRegistry(ILogger<ScrollStateRegistry>? logger =
             previous = Get(scrollId);
             var metrics = new ScrollMetrics(Math.Max(0, contentHeight), Math.Max(0, viewportHeight));
             var top = previous.Sticky ? metrics.MaxTop : Math.Clamp(previous.Top, 0, metrics.MaxTop);
-            next = new ScrollState(top, previous.Sticky, metrics);
+            next = previous with { Top = top, Metrics = metrics };
             _states[scrollId] = next;
         }
 

@@ -31,6 +31,16 @@ else if (args.Contains("--layout", StringComparer.OrdinalIgnoreCase))
         app.Services.Configure<ConsoleAppOptions>(options => options.EnableTerminalResizing = true);
     });
 }
+else if (args.Contains("--scrolling", StringComparer.OrdinalIgnoreCase))
+{
+    builder.UseRazorConsole<ScrollingWithOverflow>(configure: app =>
+    {
+        app.Services.Configure<ConsoleAppOptions>(options =>
+        {
+            options.ConsoleLiveDisplayOptions.EnableMouseEvents = true;
+        });
+    });
+}
 else if (args.Contains("--routing", StringComparer.OrdinalIgnoreCase))
 {
     builder.UseRazorConsole<RoutingDemo>();

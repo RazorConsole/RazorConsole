@@ -76,4 +76,4 @@ Resize the terminal window and watch the cards wrap and the columns redistribute
 
 Add a fourth status card and compare `Wrap="FlexWrap.Wrap"` with `FlexWrap.NoWrap` in a narrow terminal.
 
-[← Chapter 4 · Mouse Events](/docs/tutorial/mouse-events) · [Next: Chapter 6 · Routing →](/docs/tutorial/routing)
+[← Chapter 4 · Mouse Events](/docs/tutorial/mouse-events) · [Next: Chapter 6 · Scrolling with Overflow →](/docs/tutorial/scrolling-with-overflow)
