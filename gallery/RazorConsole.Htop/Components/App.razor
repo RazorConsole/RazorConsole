@@ -10,8 +10,7 @@
       data-focus-key="razor-htop"
       data-focus-order="0"
       data-input-managed="true"
-      @onkeydown="HandleKey"
-      @onwheel="HandleWheel">
+      @onkeydown="HandleKey">
     <Meter Label="CPU " Percent="@_snapshot.TotalCpuPercent" Value="@($"{_snapshot.TotalCpuPercent,5:0.0}%")" BarWidth="@BarWidth" />
     <Meter Label="Mem " Percent="@MemoryPercent" Value="@($"{FormatBytes(_snapshot.UsedMemoryBytes)}/{FormatBytes(_snapshot.TotalMemoryBytes)}")" BarWidth="@BarWidth" />
     <Markup Content="@InfoLine" Foreground="Color.Grey70" />
@@ -30,30 +29,17 @@
         <ClickableLabel Label="@HeaderLabel(SortColumn.Time, "TIME+", TimeWidth, true)" Width="TimeWidth" OnClick="@(() => SortBy(SortColumn.Time))" />
     </Flex>
 
-    <Flex Direction="FlexDirection.Row" Height="@PageSize">
-        <Flex Direction="FlexDirection.Column" Width="@ListWidth" Height="@PageSize">
-            @foreach (var row in VisibleRows)
-            {
-                <ProcessRow
-                            Text="@FormatRow(row).PadRight(ListWidth - (row.Key == _selectedKey && row.Detail is null ? 6 : 0))"
-                            Selected="@(row.Key == _selectedKey)"
-                            Foreground="@(row.Detail is not null ? Color.Grey58 : row.IsGroup ? Color.Aqua : Color.Grey85)"
-                            OnClick="@(() => Activate(row))"
-                            OnKill="@(() => KillRow(row))" ShowKill="@(row.Detail is null)" />
-            }
-        </Flex>
-        <Flex Direction="FlexDirection.Column" Width="1" Height="@PageSize">
-            @for (var cell = 0; cell < PageSize; cell++)
-            {
-                var index = cell;
-                var onThumb = IsThumb(index);
-                <Flex Width="1" Height="1" data-focusable="false"
-                      @onmousedown="@((MouseEventArgs e) => BeginScrollbar(index, e))"
-                      @onmousemove="DragScrollbar" @onmouseup="EndScrollbar">
-                    <Markup Content="@(onThumb ? "┃" : "│")" Foreground="@(onThumb ? (_scrollDragging ? Color.Yellow : Color.DeepSkyBlue1) : Color.Grey50)" />
-                </Flex>
-            }
-        </Flex>
+    <Flex Direction="FlexDirection.Column" Width="@(ListWidth + 1)" Height="@PageSize"
+          Overflow="OverflowMode.Scroll" Controller="_scroll" Scrollbar="ListScrollbar">
+        @foreach (var row in _view)
+        {
+            <ProcessRow @key="row.Key"
+                        Text="@FormatRow(row).PadRight(ListWidth - (row.Key == _selectedKey && row.Detail is null ? 6 : 0))"
+                        Selected="@(row.Key == _selectedKey)"
+                        Foreground="@(row.Detail is not null ? Color.Grey58 : row.IsGroup ? Color.Aqua : Color.Grey85)"
+                        OnClick="@(() => Activate(row))"
+                        OnKill="@(() => KillRow(row))" ShowKill="@(row.Detail is null)" />
+        }
     </Flex>
 
     @if (_pendingKill is { } pending)
@@ -113,7 +99,8 @@
     private SortColumn _sortColumn = SortColumn.Cpu;
     private bool _descending = true;
     private string? _selectedKey;
-    private int _offset;
+    private readonly ScrollController _scroll = new();
+    private volatile bool _revealPending;
     private bool _paused;
     private bool _filterMode;
     private string _filter = string.Empty;
@@ -124,7 +111,20 @@
     private int SurfaceWidth => Math.Max(40, Viewport.Width - 1);
     private int PageSize => Math.Max(3, Viewport.Height - ChromeLines);
     private double MemoryPercent => _snapshot.TotalMemoryBytes == 0 ? 0 : 100.0 * _snapshot.UsedMemoryBytes / _snapshot.TotalMemoryBytes;
-    private IEnumerable<Row> VisibleRows => _view.Skip(_offset).Take(PageSize);
+
+    private static readonly ScrollbarSettings ListScrollbar = new(
+        trackChar: '│', thumbChar: '┃',
+        trackColor: Color.Grey50, thumbColor: Color.DeepSkyBlue1,
+        trackFocusedColor: Color.Grey50, thumbFocusedColor: Color.Yellow);
+
+    private IEnumerable<Row> VisibleRows
+    {
+        get
+        {
+            var metrics = _scroll.Metrics;
+            return _view.Skip(metrics.Top).Take(metrics.ViewportHeight > 0 ? metrics.ViewportHeight : PageSize);
+        }
+    }
 
     private string InfoLine =>
         $"Tasks: {_snapshot.Processes.Count}, {_snapshot.ThreadCount} thr | Cores: {Environment.ProcessorCount} | {RuntimeInformation.OSDescription}{(_paused ? " | PAUSED" : string.Empty)}";
@@ -138,6 +138,7 @@
     protected override void OnInitialized()
     {
         Viewport.OnResized += HandleResize;
+        _scroll.MetricsChanged += HandleScrollMetrics;
         Refresh();
         _ = RunAsync(_shutdown.Token);
     }
@@ -186,8 +187,6 @@
         {
             _selectedKey = _view[0].Key;
         }
-
-        ClampOffset();
     }
 
     private int SelectedIndex => _view.FindIndex(r => r.Key == _selectedKey);
@@ -312,7 +311,7 @@
     {
         _grouped = !_grouped;
         _selectedKey = null;
-        _offset = 0;
+        _ = _scroll.ScrollToStartAsync();
         Rebuild();
     }
 
@@ -381,26 +380,33 @@
         Rebuild();
     }
 
-    private void ClampOffset() => _offset = Math.Clamp(_offset, 0, Math.Max(0, _view.Count - PageSize));
-
     private void EnsureSelectionVisible()
     {
         var index = SelectedIndex;
         if (index < 0)
         {
+            _revealPending = false;
             return;
         }
 
-        if (index < _offset)
-        {
-            _offset = index;
-        }
-        else if (index >= _offset + PageSize)
-        {
-            _offset = index - PageSize + 1;
-        }
+        var metrics = _scroll.Metrics;
+        var page = metrics.ViewportHeight > 0 ? metrics.ViewportHeight : PageSize;
+        var top = index < metrics.Top ? index
+            : index >= metrics.Top + page ? index - page + 1
+            : metrics.Top;
+        _ = _scroll.ScrollToAsync(top);
 
-        ClampOffset();
+        // Rows added by this change are not laid out yet, so the offset may be limited to the old content; retry after layout.
+        _revealPending = _scroll.Metrics.Top != top;
+    }
+
+    private void HandleScrollMetrics(ScrollViewMetrics metrics)
+    {
+        if (_revealPending)
+        {
+            _revealPending = false;
+            _ = InvokeAsync(EnsureSelectionVisible);
+        }
     }
 
     private void Select(string key)
@@ -455,12 +461,6 @@
 
         Rebuild();
         EnsureSelectionVisible();
-    }
-
-    private void HandleWheel(WheelEventArgs e)
-    {
-        _offset += e.DeltaY > 0 ? 3 : -3;
-        ClampOffset();
     }
 
     private void TogglePause() => _paused = !_paused;
@@ -586,71 +586,13 @@
                 break;
         }
 
-        _offset = 0;
+        _ = _scroll.ScrollToStartAsync();
         Rebuild();
     }
 
     private void HandleResize()
     {
-        _ = InvokeAsync(() =>
-        {
-            ClampOffset();
-            StateHasChanged();
-        });
-    }
-
-    private int ThumbLength => Math.Max(1, PageSize * PageSize / Math.Max(PageSize, _view.Count));
-    private int MaxOffset => Math.Max(0, _view.Count - PageSize);
-    private int ThumbTop => MaxOffset == 0 ? 0 : (int)Math.Round((double)_offset * (PageSize - ThumbLength) / MaxOffset);
-    private bool IsThumb(int cell) => MaxOffset > 0 && cell >= ThumbTop && cell < ThumbTop + ThumbLength;
-
-    private bool _scrollDragging;
-    private int _scrollStartY;
-    private int _scrollStartOffset;
-
-    private void BeginScrollbar(int cell, MouseEventArgs e)
-    {
-        if (MaxOffset == 0)
-        {
-            return;
-        }
-
-        if (IsThumb(cell))
-        {
-            _scrollDragging = true;
-            _scrollStartY = (int)e.ClientY;
-            _scrollStartOffset = _offset;
-        }
-        else
-        {
-            _offset += cell < ThumbTop ? -PageSize : PageSize;
-            ClampOffset();
-        }
-
-        StateHasChanged();
-    }
-
-    private void DragScrollbar(MouseEventArgs e)
-    {
-        var travel = PageSize - ThumbLength;
-        if (!_scrollDragging || travel <= 0)
-        {
-            return;
-        }
-
-        var offset = _scrollStartOffset + (int)Math.Round((e.ClientY - _scrollStartY) * MaxOffset / travel);
-        offset = Math.Clamp(offset, 0, MaxOffset);
-        if (offset != _offset)
-        {
-            _offset = offset;
-            StateHasChanged();
-        }
-    }
-
-    private void EndScrollbar(MouseEventArgs e)
-    {
-        _scrollDragging = false;
-        StateHasChanged();
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private void BeginResize(MouseEventArgs e)
@@ -728,6 +670,7 @@
     public void Dispose()
     {
         Viewport.OnResized -= HandleResize;
+        _scroll.MetricsChanged -= HandleScrollMetrics;
         _shutdown.Cancel();
         _shutdown.Dispose();
     }
