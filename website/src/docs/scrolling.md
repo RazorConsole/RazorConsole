@@ -23,7 +23,7 @@ The border and title stay fixed; only the content scrolls. The scrollbar takes o
 | `OverflowMode.Hidden`    | Content taller than the container is clipped and cannot scroll.  |
 | `OverflowMode.Scroll`    | Content taller than the container is clipped and scrolls.        |
 
-A scroll container needs a height to scroll in: set `Height`, or `FillHeight` inside a parent that has a bounded height. Without one, it grows to fit its content and there is nothing to scroll. Plain HTML elements scroll too, with the `overflow="scroll"` attribute.
+A scroll container is as tall as its content, up to the height its parent allows, like a CSS `max-height`. The root is limited by the terminal, so a container without a height still scrolls once its content no longer fits. It then takes all the room that is left, and a sibling after it gets none. Set `Height` for a fixed size, or `FillHeight` to take the height the parent gives it. Plain HTML elements scroll too, with the `overflow="scroll"` attribute.
 
 `FlexBox` and `Grid` are backed by Spectre.Console and do not support `Overflow`; wrap them in a `Box` with `Overflow="OverflowMode.Scroll"`.
 
@@ -98,7 +98,7 @@ Each scroll container has a scroll id. Pass `ScrollId` for state that must survi
 | Before                                                  | After                                                              |
 | ------------------------------------------------------- | ------------------------------------------------------------------ |
 | `<ViewHeightScrollable LinesToRender="10">`             | `<Box Height="10" Overflow="OverflowMode.Scroll">`                 |
-| `LinesToRender="0"` (fill)                              | `<Box FillHeight="true" Overflow="OverflowMode.Scroll">` in a parent with a bounded height |
+| `LinesToRender="0"` (fill)                              | `<Box FillHeight="true" Overflow="OverflowMode.Scroll">`                         |
 | `IsScrollbarEmbedded="true"`                            | `Scrollbar` with `Placement = ScrollbarPlacement.Inset` (the default) |
 | `IsScrollbarEmbedded="false"`                           | `Scrollbar` with `Placement = ScrollbarPlacement.Outside`          |
 | `ScrollOffset`, `ScrollOffsetChanged`                   | `ScrollTop`, `ScrollTopChanged`                                    |
