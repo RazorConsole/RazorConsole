@@ -156,4 +156,12 @@ internal static partial class LoggerExtensions
     public static partial void LogEventHandlerFaultObserved(
         this ILogger logger,
         Exception ex);
+
+    [LoggerMessage(
+        EventId = 20,
+        Level = LogLevel.Debug,
+        Message = "More than one scroll container uses the scroll id '{ScrollId}' in the same layout pass; they share one scroll state. Give each container a unique ScrollId.")]
+    public static partial void LogDuplicateScrollId(
+        this ILogger logger,
+        string scrollId);
 }

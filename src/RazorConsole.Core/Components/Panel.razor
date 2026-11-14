@@ -1,6 +1,10 @@
 @namespace RazorConsole.Components
 
 @using Microsoft.AspNetCore.Components
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using ScrollController = RazorConsole.Core.Layout.ScrollController
+@using OverscrollBehavior = RazorConsole.Core.Layout.OverscrollBehavior
+@using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
 @using Spectre.Console
 
 <Box Class="panel"
@@ -14,7 +18,16 @@
     Height="@Height"
     Expand="@Expand"
     FillWidth="@FillWidth"
-    FillHeight="@FillHeight">
+    FillHeight="@FillHeight"
+    Overflow="@Overflow"
+    OverscrollBehavior="@OverscrollBehavior"
+    Focusable="@Focusable"
+    Controller="@Controller"
+    StickToBottom="@StickToBottom"
+    ScrollTop="@ScrollTop"
+    ScrollTopChanged="@ScrollTopChanged"
+    ScrollId="@ScrollId"
+    Scrollbar="@Scrollbar">
     @ChildContent
 </Box>
 
@@ -102,4 +115,58 @@
     /// </summary>
     [Parameter]
     public bool FillHeight { get; set; }
+
+    /// <summary>
+    /// What happens to content taller than the panel. See <see cref="Box.Overflow"/>.
+    /// </summary>
+    [Parameter]
+    public OverflowMode Overflow { get; set; }
+
+    /// <summary>
+    /// Whether scrolling continues in the parent scroll container once this one reaches its limit. See <see cref="Box.OverscrollBehavior"/>.
+    /// </summary>
+    [Parameter]
+    public OverscrollBehavior OverscrollBehavior { get; set; }
+
+    /// <summary>
+    /// Makes the scroll container a Tab stop that scrolls with the arrow keys, PageUp, PageDown, Home and End. See <see cref="Box.Focusable"/>.
+    /// </summary>
+    [Parameter]
+    public bool Focusable { get; set; }
+
+    /// <summary>
+    /// Scrolls this container from code. See <see cref="Box.Controller"/>.
+    /// </summary>
+    [Parameter]
+    public ScrollController? Controller { get; set; }
+
+    /// <summary>
+    /// Keeps the end of the content in view while it grows. See <see cref="Box.StickToBottom"/>.
+    /// </summary>
+    [Parameter]
+    public bool StickToBottom { get; set; }
+
+    /// <summary>
+    /// Scroll offset in rows, applied when its value changes. See <see cref="Box.ScrollTop"/>.
+    /// </summary>
+    [Parameter]
+    public int ScrollTop { get; set; }
+
+    /// <summary>
+    /// Raised when the engine changes the scroll offset.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> ScrollTopChanged { get; set; }
+
+    /// <summary>
+    /// Stable identity of the scroll state. See <see cref="Box.ScrollId"/>.
+    /// </summary>
+    [Parameter]
+    public string? ScrollId { get; set; }
+
+    /// <summary>
+    /// How the scrollbar looks and where it is drawn. See <see cref="Box.Scrollbar"/>.
+    /// </summary>
+    [Parameter]
+    public ScrollbarSettings? Scrollbar { get; set; }
 }

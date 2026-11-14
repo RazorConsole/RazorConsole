@@ -3,8 +3,19 @@
 @using System.Collections.Generic
 @using System.Globalization
 @using Microsoft.AspNetCore.Components
+@using Microsoft.Extensions.DependencyInjection
+@using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using OverscrollBehavior = RazorConsole.Core.Layout.OverscrollBehavior
+@using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
+@using RazorConsole.Core.Utilities
+@using ScrollChangeSource = RazorConsole.Core.Layout.ScrollChangeSource
+@using ScrollController = RazorConsole.Core.Layout.ScrollController
+@using ScrollInputNavigator = RazorConsole.Core.Input.ScrollInputNavigator
+@using ScrollStateRegistry = RazorConsole.Core.Layout.ScrollStateRegistry
 @using RazorConsole.Core.Rendering.ComponentMarkup
 @using Spectre.Console
+@implements IDisposable
+@inject IServiceProvider Services
 
 <div class="@Class"
     @attributes="AdditionalAttributes"
@@ -21,7 +32,20 @@
     data-border-color="@BorderColorAttribute"
     data-border="@BorderAttribute"
     data-horizontal="@HorizontalAttribute"
-    data-vertical="@VerticalAttribute">
+    data-vertical="@VerticalAttribute"
+    data-overflow="@OverflowAttribute"
+    data-overscroll="@OverscrollAttribute"
+    data-focusable="@FocusableAttribute"
+    data-focus-key="@FocusKeyAttribute"
+    data-scroll-id="@ScrollIdAttribute"
+    data-scroll-top="@ScrollTopAttribute"
+    data-scrollbar-placement="@ScrollbarPlacementAttribute"
+    data-scrollbar-visibility="@ScrollbarVisibilityAttribute"
+    data-scrollbar-track-char="@ScrollbarTrackCharAttribute"
+    data-scrollbar-thumb-char="@ScrollbarThumbCharAttribute"
+    data-scrollbar-track-color="@ScrollbarTrackColorAttribute"
+    data-scrollbar-thumb-color="@ScrollbarThumbColorAttribute"
+    data-scrollbar-min-thumb-height="@ScrollbarMinThumbHeightAttribute">
     @ChildContent
 </div>
 
@@ -129,10 +153,183 @@
     public VerticalAlignment? Vertical { get; set; }
 
     /// <summary>
+    /// What happens to content taller than the box, like CSS <c>overflow</c>. With <see cref="OverflowMode.Scroll"/> the content scrolls
+    /// inside the box while the border and title stay fixed; give the box a bounded height (for example <see cref="FillHeight"/>
+    /// inside a bounded parent, or <see cref="Height"/>). Default is <see cref="OverflowMode.Visible"/>.
+    /// </summary>
+    [Parameter]
+    public OverflowMode Overflow { get; set; }
+
+    /// <summary>
+    /// Whether the mouse wheel keeps scrolling the parent scroll container once this one reaches its limit
+    /// (<see cref="Core.Layout.OverscrollBehavior.Auto"/>, the default), or stops here (<see cref="Core.Layout.OverscrollBehavior.Contain"/>).
+    /// </summary>
+    [Parameter]
+    public OverscrollBehavior OverscrollBehavior { get; set; }
+
+    /// <summary>
+    /// Makes a scrolling box a Tab stop. While it has focus, the arrow keys, PageUp, PageDown, Home and End scroll it. Only applies
+    /// with <see cref="OverflowMode.Scroll"/>; by default a scroll container is not focusable, so it adds no Tab stop to existing layouts.
+    /// </summary>
+    [Parameter]
+    public bool Focusable { get; set; }
+
+    /// <summary>
+    /// Scrolls this container from code and reports its position. A controller drives one container at a time.
+    /// </summary>
+    [Parameter]
+    public ScrollController? Controller { get; set; }
+
+    /// <summary>
+    /// Keeps the end of the content in view while it grows, like a log or a chat. Scrolling up releases it,
+    /// and scrolling back to the end follows the content again.
+    /// </summary>
+    [Parameter]
+    public bool StickToBottom { get; set; }
+
+    /// <summary>
+    /// Scroll offset in rows. The engine owns the scroll position, so this is applied only when its value changes
+    /// (semi-controlled): a constant value never resets scrolling the user did. Use <c>@bind-ScrollTop</c> to follow the position.
+    /// </summary>
+    [Parameter]
+    public int ScrollTop { get; set; }
+
+    /// <summary>
+    /// Raised when the engine changes the scroll offset (wheel, scrollbar, clamping after the content shrinks).
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> ScrollTopChanged { get; set; }
+
+    /// <summary>
+    /// Stable identity of the scroll state. Without it the state lives and dies with this component instance.
+    /// </summary>
+    [Parameter]
+    public string? ScrollId { get; set; }
+
+    /// <summary>
+    /// How the scrollbar of a scrolling box looks and where it is drawn. Default is a one-column scrollbar inside the container that shows while the content overflows.
+    /// </summary>
+    [Parameter]
+    public ScrollbarSettings? Scrollbar { get; set; }
+
+    /// <summary>
     /// Additional attributes applied to the emitted box element.
     /// </summary>
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
+
+    private readonly string _instanceScrollId = Guid.NewGuid().ToString("N");
+    private ScrollStateRegistry? _registry;
+    private string? _subscribedScrollId;
+    private int _lastScrollTopParameter;
+    private ScrollController? _attachedController;
+    private bool _lastStickToBottom;
+
+    private string EffectiveScrollId => string.IsNullOrWhiteSpace(ScrollId) ? _instanceScrollId : ScrollId;
+
+    private ScrollbarSettings? ActiveScrollbar => Overflow == OverflowMode.Scroll ? Scrollbar : null;
+
+    private string? ScrollbarPlacementAttribute => ActiveScrollbar?.Placement.ToString().ToLowerInvariant();
+
+    private string? ScrollbarVisibilityAttribute => ActiveScrollbar?.Visibility.ToString().ToLowerInvariant();
+
+    private string? ScrollbarTrackCharAttribute => ActiveScrollbar?.TrackChar.ToString();
+
+    private string? ScrollbarThumbCharAttribute => ActiveScrollbar?.ThumbChar.ToString();
+
+    private string? ScrollbarTrackColorAttribute => ActiveScrollbar is { } bar ? ColorAttribute.Format(bar.TrackColor) : null;
+
+    private string? ScrollbarThumbColorAttribute => ActiveScrollbar is { } bar ? ColorAttribute.Format(bar.ThumbColor) : null;
+
+    private string? ScrollbarMinThumbHeightAttribute => ActiveScrollbar?.MinThumbHeight.ToString(CultureInfo.InvariantCulture);
+
+    private string? OverflowAttribute => Overflow == OverflowMode.Visible ? null : Overflow.ToString().ToLowerInvariant();
+
+    private string? OverscrollAttribute => Overflow == OverflowMode.Scroll && OverscrollBehavior == OverscrollBehavior.Contain ? "contain" : null;
+
+    private string? FocusableAttribute => Overflow == OverflowMode.Scroll && Focusable ? "true" : null;
+
+    private string? FocusKeyAttribute => Overflow == OverflowMode.Scroll && Focusable ? EffectiveScrollId : null;
+
+    private string? ScrollIdAttribute => Overflow == OverflowMode.Scroll ? EffectiveScrollId : null;
+
+    private string? ScrollTopAttribute => Overflow == OverflowMode.Scroll && ScrollTop > 0
+        ? ScrollTop.ToString(CultureInfo.InvariantCulture)
+        : null;
+
+    protected override void OnParametersSet()
+    {
+        if (Overflow != OverflowMode.Scroll)
+        {
+            Unsubscribe();
+            return;
+        }
+
+        var id = EffectiveScrollId;
+        if (_subscribedScrollId != id)
+        {
+            Unsubscribe();
+            _registry = Services.GetService<ScrollStateRegistry>();
+            if (_registry is not null)
+            {
+                _registry.TopChanged += OnEngineTopChanged;
+                _subscribedScrollId = id;
+            }
+        }
+
+        if (ScrollTop != _lastScrollTopParameter)
+        {
+            _lastScrollTopParameter = ScrollTop;
+            _registry?.SetTop(id, ScrollTop, ScrollChangeSource.Parameter);
+        }
+
+        if (StickToBottom != _lastStickToBottom)
+        {
+            _lastStickToBottom = StickToBottom;
+            _registry?.SetSticky(id, StickToBottom);
+        }
+
+        if (!ReferenceEquals(_attachedController, Controller))
+        {
+            _attachedController?.Detach();
+            _attachedController = Controller;
+        }
+
+        if (_registry is not null)
+        {
+            Controller?.Attach(_registry, id, Services.GetService<ScrollInputNavigator>());
+        }
+    }
+
+    private void OnEngineTopChanged(string scrollId, int top)
+    {
+        if (scrollId == _subscribedScrollId && ScrollTopChanged.HasDelegate)
+        {
+            _ = InvokeAsync(() => ScrollTopChanged.InvokeAsync(top));
+        }
+    }
+
+    private void Unsubscribe()
+    {
+        _attachedController?.Detach();
+        _attachedController = null;
+        _lastStickToBottom = false;
+        if (_registry is null)
+        {
+            return;
+        }
+
+        _registry.TopChanged -= OnEngineTopChanged;
+        if (_subscribedScrollId is not null)
+        {
+            _registry.Remove(_subscribedScrollId);
+        }
+
+        _registry = null;
+        _subscribedScrollId = null;
+    }
+
+    public void Dispose() => Unsubscribe();
 
     private string ExpandAttribute => Expand ? "true" : "false";
 

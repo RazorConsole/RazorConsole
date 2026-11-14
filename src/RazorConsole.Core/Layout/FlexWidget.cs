@@ -122,7 +122,7 @@ public sealed class FlexWidget : Widget
         }
 
         width = Width ?? (FillWidth ? constraints.MaxWidth : width);
-        height = Height ?? (FillHeight ? constraints.MaxHeight : height);
+        height = Height ?? (FillHeight ? constraints.ResolveFillHeight(0, height) : height);
 
         return constraints.Constrain(new LayoutSize(width, height));
     }

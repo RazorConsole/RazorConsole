@@ -94,6 +94,12 @@ public readonly record struct BoxConstraints
 
     public int MaxHeight { get; }
 
+    /// <summary>Sentinel <see cref="MaxHeight"/> meaning "no vertical limit", used to measure scrollable content.</summary>
+    public const int UnboundedHeight = int.MaxValue;
+
+    /// <summary>Gets a value indicating whether <see cref="MaxHeight"/> is a real limit rather than <see cref="UnboundedHeight"/>.</summary>
+    public bool HasBoundedHeight => MaxHeight != UnboundedHeight;
+
     public BoxConstraints(int minWidth, int maxWidth, int minHeight, int maxHeight)
     {
         if (minWidth < 0)
@@ -121,6 +127,17 @@ public readonly record struct BoxConstraints
         MinHeight = minHeight;
         MaxHeight = maxHeight;
     }
+
+    /// <summary>Returns the same constraints without an upper height limit.</summary>
+    public BoxConstraints WithUnboundedHeight()
+        => new(MinWidth, MaxWidth, 0, UnboundedHeight);
+
+    /// <summary>
+    /// Resolves the height of a "fill height" element: the available height minus <paramref name="reserved"/>
+    /// when the height is bounded, otherwise <paramref name="contentHeight"/>.
+    /// </summary>
+    public int ResolveFillHeight(int reserved, int contentHeight)
+        => HasBoundedHeight ? Math.Max(0, MaxHeight - reserved) : contentHeight;
 
     public LayoutSize Constrain(LayoutSize size)
         => new(
@@ -156,6 +173,6 @@ public readonly record struct BoxConstraints
             Math.Max(0, MinWidth - horizontal),
             Math.Max(0, MaxWidth - horizontal),
             Math.Max(0, MinHeight - vertical),
-            Math.Max(0, MaxHeight - vertical));
+            HasBoundedHeight ? Math.Max(0, MaxHeight - vertical) : UnboundedHeight);
     }
 }

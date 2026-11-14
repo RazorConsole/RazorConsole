@@ -59,4 +59,38 @@ public sealed class TerminalInputDecoderTests
         decoder.ReadKey().KeyChar.ShouldBe('a');
         decoder.KeyAvailable.ShouldBeFalse();
     }
+
+    [Fact]
+    public void WheelBurst_AtOnePosition_BecomesOneEventPerDirection()
+    {
+        var decoder = new TerminalInputDecoder();
+        decoder.Feed("[<65;5;5M[<65;5;5M[<65;5;5M[<64;5;5M[<64;5;5M", 0);
+
+        decoder.TryReadMouse(out var mouse).ShouldBeTrue();
+        mouse.ShouldBe(new(TerminalMouseKind.Wheel, 4, 4, DeltaY: 9));
+        decoder.TryReadMouse(out var up).ShouldBeTrue();
+        up.DeltaY.ShouldBe(-6);
+        decoder.TryReadMouse(out _).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void WheelBurst_IsSplitByAKeyAMoveOrAnotherPosition()
+    {
+        var decoder = new TerminalInputDecoder();
+        decoder.Feed("[<65;5;5M[<65;6;5M[<65;6;5Mx[<65;6;5M[<35;6;5M[<65;6;5M", 0);
+
+        decoder.TryReadMouse(out var first).ShouldBeTrue();
+        first.DeltaY.ShouldBe(3);
+        first.X.ShouldBe(4);
+        decoder.TryReadMouse(out var second).ShouldBeTrue();
+        second.DeltaY.ShouldBe(6);
+        decoder.TryReadMouse(out _).ShouldBeFalse();
+        decoder.ReadKey().KeyChar.ShouldBe('x');
+        decoder.TryReadMouse(out var third).ShouldBeTrue();
+        third.DeltaY.ShouldBe(3);
+        decoder.TryReadMouse(out var move).ShouldBeTrue();
+        move.Kind.ShouldBe(TerminalMouseKind.Move);
+        decoder.TryReadMouse(out var last).ShouldBeTrue();
+        last.DeltaY.ShouldBe(3);
+    }
 }

@@ -61,7 +61,7 @@ public sealed class StackWidget : Widget
             flowIndex++;
         }
 
-        return constraints.Constrain(new LayoutSize(width, Expand ? constraints.MaxHeight : height));
+        return constraints.Constrain(new LayoutSize(width, Expand ? constraints.ResolveFillHeight(0, height) : height));
     }
 
     protected override void ArrangeCore(LayoutContext context, LayoutRect bounds)

@@ -27,7 +27,59 @@ public sealed class LayoutEngine
 
         finalSize = ExpandToAbsoluteChildren(root, finalSize, constraints.MaxWidth);
 
-        return new LayoutResult(root, root.CreateLayoutBox(), finalSize, renderVersion);
+        return new LayoutResult(root, ApplyClips(root), finalSize, renderVersion);
+    }
+
+    /// <summary>
+    /// Builds the layout box tree and stamps every descendant of a scroll viewport with the viewport's clip.
+    /// Absolutely positioned widgets paint as overlays, so they and their descendants are not clipped.
+    /// </summary>
+    private static LayoutBox ApplyClips(Widget root)
+    {
+        var viewports = new Dictionary<string, LayoutRect>(StringComparer.Ordinal);
+        var absolute = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<Widget>();
+        pending.Push(root);
+        while (pending.Count > 0)
+        {
+            var widget = pending.Pop();
+            if (widget is ScrollViewportWidget viewport)
+            {
+                viewports[viewport.VNodeId] = viewport.ClipBounds;
+            }
+
+            if (widget.IsAbsolutePositioned)
+            {
+                absolute.Add(widget.VNodeId);
+            }
+
+            foreach (var child in widget.Children)
+            {
+                pending.Push(child);
+            }
+        }
+
+        var box = root.CreateLayoutBox();
+        return viewports.Count == 0 ? box : Stamp(box, null, viewports, absolute);
+    }
+
+    private static LayoutBox Stamp(
+        LayoutBox box,
+        LayoutRect? inherited,
+        Dictionary<string, LayoutRect> viewports,
+        HashSet<string> absolute)
+    {
+        var clip = absolute.Contains(box.VNodeId) ? null : inherited;
+        var childClip = viewports.TryGetValue(box.VNodeId, out var viewportBounds)
+            ? clip is { } outer ? outer.Intersect(viewportBounds) : viewportBounds
+            : clip;
+        var children = new LayoutBox[box.Children.Count];
+        for (var i = 0; i < children.Length; i++)
+        {
+            children[i] = Stamp(box.Children[i], childClip, viewports, absolute);
+        }
+
+        return box with { Clip = clip, Children = children };
     }
 
     private static LayoutSize ExpandToAbsoluteChildren(Widget root, LayoutSize size, int maxWidth)

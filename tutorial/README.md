@@ -24,6 +24,7 @@ dotnet run --project tutorial/Tutorial.Runner -- --state-events
 dotnet run --project tutorial/Tutorial.Runner -- --text-input
 dotnet run --project tutorial/Tutorial.Runner -- --mouse-events
 dotnet run --project tutorial/Tutorial.Runner -- --layout
+dotnet run --project tutorial/Tutorial.Runner -- --scrolling
 dotnet run --project tutorial/Tutorial.Runner -- --routing
 dotnet run --project tutorial/Tutorial.Runner -- --async-work
 dotnet run --project tutorial/Tutorial.Runner -- --complete-app

@@ -1,5 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Layout;
+
 namespace RazorConsole.Core.Vdom;
 
 /// <summary>
@@ -23,7 +25,19 @@ public readonly record struct VNodeLayoutInfo(
     int? Width,
     int? Height,
     int ZIndex,
-    bool IsCentered = false);
+    bool IsCentered = false)
+{
+    /// <summary>
+    /// Gets the part of the node's rectangle that is actually visible after clipping by scroll viewports.
+    /// <see langword="null"/> when layout did not compute it. Empty when the node is scrolled out of view.
+    /// </summary>
+    public LayoutRect? VisibleBounds { get; init; }
+
+    /// <summary>
+    /// Gets the scrolling of a scroll container: its viewport, scrollbar track and thumb (both empty when no bar shows); <see langword="null"/> for other nodes.
+    /// </summary>
+    public ScrollLayoutInfo? Scroll { get; init; }
+}
 
 /// <summary>
 /// Provides access to snapshot layout metadata of virtual DOM nodes.

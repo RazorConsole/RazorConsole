@@ -63,3 +63,7 @@ Things to keep in mind:
 - **An exception thrown after an `await`** is reported once, like any rendering error (it shows up in the app's logs and in `razorconsole errors`), and does not stop input.
 - **Default key actions are decided when the handler yields.** RazorConsole moves focus on Tab and activates the focused element on Enter unless a keydown handler marks the key as handled. Like `preventDefault` in a browser, that decision must be made before the handler's first real `await`; marking the key handled later is too late. `TextArea.OnPreviewKey` follows the same rule: only a returned task that is already complete can consume Tab.
 - **Built-in inputs keep their callbacks in order.** `TextInput` delivers `ValueChanged`, `OnInput` and `OnSubmit` one at a time in typing order, even when they are `async`, and `TextArea` clears its text before it awaits `OnSubmit`, so keys typed during a slow submit are kept.
+
+#### Scrolling keys
+
+A scroll container (`Overflow="OverflowMode.Scroll"`) handles `Up`, `Down`, `PageUp`, `PageDown`, `Home` and `End` itself while it has focus; set `Focusable="true"` to make it a Tab stop. `PageUp`, `PageDown`, `Home` and `End` that the focused element does not handle scroll the nearest scroll container around it. See [Scrolling](/blog/scrolling/).

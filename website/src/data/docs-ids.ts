@@ -45,6 +45,11 @@ export const docTopicIds = [
         filePath: "website/src/docs/zindex.md",
     },
     {
+        id: "scrolling",
+        title: "Scrolling",
+        filePath: "website/src/docs/scrolling.md",
+    },
+    {
         id: "keyboard-events",
         title: "Keyboard Events",
         filePath: "website/src/docs/keyboard-events.md",

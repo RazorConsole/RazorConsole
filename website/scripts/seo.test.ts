@@ -97,7 +97,7 @@ test("the .NET TUI comparison blog post has a single H1 and links to registered 
   const allowed = new Set([
     "/components/", "/api/",
     ...docTopicIds.map((topic) => `/blog/${topic.id}/`),
-    ...["hello-world", "state-and-events", "text-input-and-focus", "mouse-events", "widget-layout-and-resize", "routing", "async-work", "complete-app"].map((slug) => `/docs/tutorial/${slug}/`),
+    ...["hello-world", "state-and-events", "text-input-and-focus", "mouse-events", "widget-layout-and-resize", "scrolling-with-overflow", "routing", "async-work", "complete-app"].map((slug) => `/docs/tutorial/${slug}/`),
   ])
   const content = readFileSync(new URL("../src/docs/choosing-dotnet-tui.md", import.meta.url), "utf8")
   assert.equal(content.match(/^# .+/gm)?.length, 1)

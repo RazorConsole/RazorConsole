@@ -53,6 +53,7 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<FocusManager>(sp => new FocusManager(sp.GetService<IFocusEventDispatcher>()));
         services.TryAddSingleton<KeyboardEventManager>();
         services.TryAddSingleton<MouseEventManager>();
+        services.TryAddSingleton<ScrollInputNavigator>();
         services.TryAddSingleton<TerminalInputDispatcher>();
         services.TryAddSingleton<ITerminalActions, TerminalActions>();
         services.TryAddSingleton<ISyntaxLanguageRegistry, ColorCodeLanguageRegistry>();
@@ -63,9 +64,12 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<IConsoleInput, ConsoleInput>();
         services.TryAddSingleton<TerminalMonitor>();
         services.TryAddSingleton<ITerminalViewport>(sp => sp.GetRequiredService<TerminalMonitor>());
-        services.TryAddSingleton<ScrollableLayoutCoordinator>();
+        services.TryAddSingleton<ScrollStateRegistry>();
         services.TryAddSingleton<LayoutEngine>();
-        services.TryAddSingleton<WidgetTranslationContext>();
+        services.TryAddSingleton(sp => new WidgetTranslationContext(
+            sp.GetServices<IWidgetTranslator>(),
+            sp.GetService<SyntaxHighlightingService>(),
+            sp.GetService<ScrollStateRegistry>()));
         services.TryAddSingleton<VNodeIdAccessor>();
         services.TryAddSingleton<IVNodeIdAccessor>(sp => sp.GetRequiredService<VNodeIdAccessor>());
         services.TryAddSingleton<VNodeLayoutAccessor>();

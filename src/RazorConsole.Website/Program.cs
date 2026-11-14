@@ -32,12 +32,6 @@ public partial class Registry
             case "Border":
                 _renderers[instanceID] = new RazorConsoleRenderer<Border_1>(instanceID, cols, rows);
                 break;
-            case "Scrollable":
-                _renderers[instanceID] = new RazorConsoleRenderer<Scrollable_1>(instanceID, cols, rows);
-                break;
-            case "ViewHeightScrollable":
-                _renderers[instanceID] = new RazorConsoleRenderer<ViewHeightScrollable_1>(instanceID, cols, rows);
-                break;
             case "Columns":
                 _renderers[instanceID] = new RazorConsoleRenderer<Columns_1>(instanceID, cols, rows);
                 break;
@@ -121,6 +115,9 @@ public partial class Registry
                 break;
             case "TutorialWidgetLayoutAndResize":
                 _renderers[instanceID] = new RazorConsoleRenderer<WidgetLayoutAndResize>(instanceID, cols, rows);
+                break;
+            case "TutorialScrollingWithOverflow":
+                _renderers[instanceID] = new RazorConsoleRenderer<ScrollingWithOverflow>(instanceID, cols, rows);
                 break;
             case "TutorialRouting":
                 _renderers[instanceID] = new RazorConsoleRenderer<RoutingDemo>(instanceID, cols, rows);
