@@ -34,7 +34,7 @@ public readonly record struct VNodeLayoutInfo(
     public LayoutRect? VisibleBounds { get; init; }
 
     /// <summary>
-    /// Gets the scrollbar of a scroll container that can be clicked and dragged; <see langword="null"/> when the node has none showing.
+    /// Gets the scrolling of a scroll container: its viewport, scrollbar track and thumb (both empty when no bar shows); <see langword="null"/> for other nodes.
     /// </summary>
     public ScrollLayoutInfo? Scroll { get; init; }
 }

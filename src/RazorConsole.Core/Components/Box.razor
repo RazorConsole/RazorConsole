@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Components
 @using Microsoft.Extensions.DependencyInjection
 @using OverflowMode = RazorConsole.Core.Layout.OverflowMode
+@using OverscrollBehavior = RazorConsole.Core.Layout.OverscrollBehavior
 @using ScrollbarSettings = RazorConsole.Core.Rendering.ScrollbarSettings
 @using RazorConsole.Core.Utilities
 @using ScrollChangeSource = RazorConsole.Core.Layout.ScrollChangeSource
@@ -31,6 +32,9 @@
     data-horizontal="@HorizontalAttribute"
     data-vertical="@VerticalAttribute"
     data-overflow="@OverflowAttribute"
+    data-overscroll="@OverscrollAttribute"
+    data-focusable="@FocusableAttribute"
+    data-focus-key="@FocusKeyAttribute"
     data-scroll-id="@ScrollIdAttribute"
     data-scroll-top="@ScrollTopAttribute"
     data-scrollbar-placement="@ScrollbarPlacementAttribute"
@@ -155,6 +159,20 @@
     public OverflowMode Overflow { get; set; }
 
     /// <summary>
+    /// Whether the mouse wheel keeps scrolling the parent scroll container once this one reaches its limit
+    /// (<see cref="Core.Layout.OverscrollBehavior.Auto"/>, the default), or stops here (<see cref="Core.Layout.OverscrollBehavior.Contain"/>).
+    /// </summary>
+    [Parameter]
+    public OverscrollBehavior OverscrollBehavior { get; set; }
+
+    /// <summary>
+    /// Makes a scrolling box a Tab stop. While it has focus, the arrow keys, PageUp, PageDown, Home and End scroll it. Only applies
+    /// with <see cref="OverflowMode.Scroll"/>; by default a scroll container is not focusable, so it adds no Tab stop to existing layouts.
+    /// </summary>
+    [Parameter]
+    public bool Focusable { get; set; }
+
+    /// <summary>
     /// Scroll offset in rows. The engine owns the scroll position, so this is applied only when its value changes
     /// (semi-controlled): a constant value never resets scrolling the user did. Use <c>@bind-ScrollTop</c> to follow the position.
     /// </summary>
@@ -209,6 +227,12 @@
     private string? ScrollbarMinThumbHeightAttribute => ActiveScrollbar?.MinThumbHeight.ToString(CultureInfo.InvariantCulture);
 
     private string? OverflowAttribute => Overflow == OverflowMode.Visible ? null : Overflow.ToString().ToLowerInvariant();
+
+    private string? OverscrollAttribute => Overflow == OverflowMode.Scroll && OverscrollBehavior == OverscrollBehavior.Contain ? "contain" : null;
+
+    private string? FocusableAttribute => Overflow == OverflowMode.Scroll && Focusable ? "true" : null;
+
+    private string? FocusKeyAttribute => Overflow == OverflowMode.Scroll && Focusable ? EffectiveScrollId : null;
 
     private string? ScrollIdAttribute => Overflow == OverflowMode.Scroll ? EffectiveScrollId : null;
 

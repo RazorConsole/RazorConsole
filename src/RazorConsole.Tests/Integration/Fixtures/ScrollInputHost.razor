@@ -1,0 +1,36 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+@using RazorConsole.Core.Layout
+
+@* An outer scroll container holding an inner one and a button below it, for wheel chaining, keys and scroll into view. *@
+<div @onwheel="@(() => Wheels.Add("outer"))" @onwheel:preventDefault="@PreventOuterWheel">
+    <Panel Height="8" Border="@Spectre.Console.BoxBorder.Square" Padding="@(new Spectre.Console.Padding(0, 0, 0, 0))"
+           Overflow="OverflowMode.Scroll" ScrollId="outer" Focusable="@FocusableOuter">
+        <Panel Height="4" Border="@Spectre.Console.BoxBorder.Square" Padding="@(new Spectre.Console.Padding(0, 0, 0, 0))"
+               Overflow="OverflowMode.Scroll" ScrollId="inner"
+               OverscrollBehavior="@(ContainInner ? OverscrollBehavior.Contain : OverscrollBehavior.Auto)">
+            @for (var i = 0; i < 10; i++)
+            {
+                <Markup Content="@($"inner {i}")" />
+            }
+        </Panel>
+        @for (var i = 0; i < 12; i++)
+        {
+            <Markup Content="@($"outer {i}")" />
+        }
+        <TextButton Content="Last" OnClick="@(() => Clicks.Add("last"))" />
+    </Panel>
+</div>
+
+@code {
+    [Parameter] public bool FocusableOuter { get; set; }
+
+    [Parameter] public bool ContainInner { get; set; }
+
+    [Parameter] public bool PreventOuterWheel { get; set; }
+
+    [Parameter] public List<string> Wheels { get; set; } = [];
+
+    [Parameter] public List<string> Clicks { get; set; } = [];
+}

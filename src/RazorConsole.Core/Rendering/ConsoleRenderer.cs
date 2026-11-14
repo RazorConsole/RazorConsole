@@ -48,6 +48,9 @@ internal sealed class ConsoleRenderer(
     private bool _observerNotificationScheduled;
     private RenderSnapshot _lastSnapshot = RenderSnapshot.Empty;
     private long _snapshotSequence;
+    private long _treeVersion;
+    private SnapshotKey? _snapshotKey;
+    private bool _snapshotFailed;
     private bool _disposed;
 
     public override Dispatcher Dispatcher => _dispatcher;
@@ -65,11 +68,28 @@ internal sealed class ConsoleRenderer(
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var snapshot = Dispatcher.CheckAccess()
-            ? CreateSnapshot()
-            : Dispatcher.InvokeAsync(CreateSnapshot).GetAwaiter().GetResult();
+            ? GetCurrentSnapshot()
+            : Dispatcher.InvokeAsync(GetCurrentSnapshot).GetAwaiter().GetResult();
         _lastSnapshot = snapshot;
         return snapshot;
     }
+
+    /// <summary>
+    /// Returns the last snapshot when nothing it depends on has changed: the VDOM, the scroll state set from outside
+    /// layout, and the viewport size. Otherwise builds a new one.
+    /// </summary>
+    private RenderSnapshot GetCurrentSnapshot()
+        => _snapshotKey is not null && _snapshotKey == CreateSnapshotKey()
+            ? _lastSnapshot
+            : CreateSnapshot();
+
+    private SnapshotKey CreateSnapshotKey()
+    {
+        var constraints = CreateViewportConstraints();
+        return new SnapshotKey(_treeVersion, scrollStateRegistry?.Version ?? 0, constraints.MaxWidth, constraints.MaxHeight);
+    }
+
+    private readonly record struct SnapshotKey(long Tree, long Scroll, int Width, int Height);
 
     public Task<RenderSnapshot> MountComponentAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TComponent>(ParameterView parameters, CancellationToken cancellationToken)
         where TComponent : IComponent
@@ -154,6 +174,8 @@ internal sealed class ConsoleRenderer(
     {
         try
         {
+            _treeVersion++;
+
             // Process updated components
             var updatedComponents = batch.UpdatedComponents;
             var updatedComponentsArray = updatedComponents.Array;
@@ -483,7 +505,15 @@ internal sealed class ConsoleRenderer(
     }
 
     private RenderSnapshot CreateSnapshot()
-        => CreateSnapshotCore() with { Sequence = Interlocked.Increment(ref _snapshotSequence) };
+    {
+        // The key is taken before building: a change made while building leaves the key stale, so the next call rebuilds.
+        var key = CreateSnapshotKey();
+        _snapshotFailed = false;
+        var snapshot = CreateSnapshotCore() with { Sequence = Interlocked.Increment(ref _snapshotSequence) };
+        _snapshotKey = _snapshotFailed ? null : key;
+        _lastSnapshot = snapshot;
+        return snapshot;
+    }
 
     private RenderSnapshot CreateSnapshotCore()
     {
@@ -507,6 +537,7 @@ internal sealed class ConsoleRenderer(
         catch (Exception ex)
         {
             _logger.LogErrorCreatingRenderSnapshot(ex);
+            _snapshotFailed = true;
             return RenderSnapshot.Empty;
         }
     }

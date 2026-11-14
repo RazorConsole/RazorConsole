@@ -80,7 +80,11 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
                 }
             }
         }
-        await DispatchAsync(snapshot.Root, target?.ID, name, input, token).ConfigureAwait(false);
+        var dispatched = await DispatchAsync(snapshot.Root, target?.ID, name, input, token).ConfigureAwait(false);
+        if (input.Kind == TerminalMouseKind.Wheel)
+        {
+            ScrollNatively(snapshot.Root, target?.ID, input.DeltaY, dispatched);
+        }
         if (input.Kind == TerminalMouseKind.Up)
         {
             var click = input.Button == 0 && !_moved && hit?.ID == _pressedId && hit is not null;
@@ -187,8 +191,50 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
         return null;
     }
 
-    private async Task DispatchAsync(VNode root, string? id, string name, TerminalMouseEvent input, CancellationToken token)
+    // The wheel scrolls the innermost scroll container under the pointer that can still move in that direction, and chains outward
+    // when it cannot. A handler that stops propagation shields the containers above it; preventDefault disables native scrolling.
+    private void ScrollNatively(VNode root, string? id, int delta, DispatchResult dispatched)
     {
+        if (delta == 0 || dispatched.DefaultPrevented || renderer.ScrollRegistry is not { } registry)
+        {
+            return;
+        }
+
+        foreach (var node in Path(root, id).AsEnumerable().Reverse())
+        {
+            if (layouts.GetLayoutByVNodeIdOrDefault(node.ID)?.Scroll is { ScrollId: { } scrollId })
+            {
+                var state = registry.Get(scrollId);
+                var max = state.Metrics.MaxTop;
+                if (delta > 0 ? state.Top < max : state.Top > 0)
+                {
+                    registry.SetTop(scrollId, Math.Clamp(state.Top + delta, 0, max), ScrollChangeSource.Engine);
+                    return;
+                }
+
+                if (IsContained(node))
+                {
+                    return;
+                }
+            }
+
+            if (node.ID == dispatched.StoppedAt)
+            {
+                return;
+            }
+        }
+    }
+
+    internal static bool IsContained(VNode node)
+        => node.Attributes.TryGetValue("data-overscroll", out var value)
+            && string.Equals(value, "contain", StringComparison.OrdinalIgnoreCase);
+
+    private readonly record struct DispatchResult(string? StoppedAt, bool DefaultPrevented);
+
+    private async Task<DispatchResult> DispatchAsync(VNode root, string? id, string name, TerminalMouseEvent input, CancellationToken token)
+    {
+        string? stoppedAt = null;
+        var prevented = false;
         foreach (var node in FindHandlerPath(root, id, name).Reverse())
         {
             var handler = node.Events.First(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
@@ -205,16 +251,20 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
             args.CtrlKey = input.Modifiers.HasFlag(ConsoleModifiers.Control);
             args.AltKey = input.Modifiers.HasFlag(ConsoleModifiers.Alt);
             await dispatcher.DispatchAsync(handler.HandlerId, args, token).ConfigureAwait(false);
-            if (handler.Options.StopPropagation || StopsPropagation(node, name))
+            prevented |= handler.Options.PreventDefault || HasFlag(node, "preventDefault", name);
+            if (handler.Options.StopPropagation || HasFlag(node, "stopPropagation", name))
             {
+                stoppedAt = node.ID;
                 break;
             }
         }
+
+        return new DispatchResult(stoppedAt, prevented);
     }
 
-    // Razor compiles @onclick:stopPropagation to this attribute rather than an event option.
-    private static bool StopsPropagation(VNode node, string name)
-        => node.Attributes.TryGetValue($"__internal_stopPropagation_{name}", out var value)
+    // Razor compiles @onclick:stopPropagation and :preventDefault to attributes rather than event options.
+    private static bool HasFlag(VNode node, string flag, string name)
+        => node.Attributes.TryGetValue($"__internal_{flag}_{name}", out var value)
             && value is not null
             && !value.Equals("false", StringComparison.OrdinalIgnoreCase);
 
@@ -245,7 +295,7 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
     private static VNode? Find(VNode node, string id)
         => node.ID == id ? node : node.Children.Select(child => Find(child, id)).FirstOrDefault(found => found is not null);
 
-    private static List<VNode> Path(VNode node, string? id)
+    internal static List<VNode> Path(VNode node, string? id)
     {
         if (id is null)
         {
