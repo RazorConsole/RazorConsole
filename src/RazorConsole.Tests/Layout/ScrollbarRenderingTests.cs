@@ -1,0 +1,214 @@
+// Copyright (c) RazorConsole. All rights reserved.
+
+using RazorConsole.Core.Layout;
+using RazorConsole.Core.Rendering;
+using Spectre.Console;
+using Spectre.Console.Rendering;
+
+namespace RazorConsole.Tests.Layout;
+
+public sealed class ScrollbarRenderingTests
+{
+    private static readonly ScrollbarOptions Chars = new(TrackChar: '░', ThumbChar: '█');
+
+    [Fact]
+    public void ThumbFollowsTheOffset()
+    {
+        var box = CreateBox(rows: 6, Chars, top: 3);
+
+        RenderLines(box).ShouldBe(
+        [
+            "┌───┐",
+            "│r3░│",
+            "│r4█│",
+            "│r5█│",
+            "└───┘",
+        ]);
+    }
+
+    [Fact]
+    public void ContentFits_ShowsNoBarWhenAuto()
+    {
+        var box = CreateBox(rows: 2, Chars);
+
+        RenderLines(box).ShouldBe(
+        [
+            "┌──┐",
+            "│r0│",
+            "│r1│",
+            "│  │",
+            "└──┘",
+        ]);
+    }
+
+    [Fact]
+    public void ContentFits_ShowsFullThumbWhenAlways()
+    {
+        var box = CreateBox(rows: 2, Chars with { Visibility = ScrollbarVisibility.Always });
+
+        RenderLines(box).ShouldBe(
+        [
+            "┌───┐",
+            "│r0█│",
+            "│r1█│",
+            "│   │",
+            "└───┘",
+        ]);
+    }
+
+    [Fact]
+    public void Visibility_Never_HidesTheBar()
+    {
+        var box = CreateBox(rows: 6, Chars with { Visibility = ScrollbarVisibility.Never });
+
+        RenderLines(box).ShouldBe(
+        [
+            "┌──┐",
+            "│r0│",
+            "│r1│",
+            "│r2│",
+            "└──┘",
+        ]);
+    }
+
+    [Fact]
+    public void Default_ReservesAColumnInsideTheBoxOnlyWhileOverflowing()
+    {
+        var overflowing = CreateBox(rows: 6, Chars);
+        var fitting = CreateBox(rows: 2, Chars);
+
+        RenderLines(overflowing).ShouldBe(
+        [
+            "┌───┐",
+            "│r0█│",
+            "│r1█│",
+            "│r2░│",
+            "└───┘",
+        ]);
+        RenderLines(fitting).ShouldBe(
+        [
+            "┌──┐",
+            "│r0│",
+            "│r1│",
+            "│  │",
+            "└──┘",
+        ]);
+    }
+
+    [Fact]
+    public void Outside_AddsAColumnRightOfTheBorder()
+    {
+        var box = CreateBox(rows: 6, Chars with { Placement = ScrollbarPlacement.Outside });
+
+        RenderLines(box).ShouldBe(
+        [
+            "┌──┐█",
+            "│r0│█",
+            "│r1│█",
+            "│r2│░",
+            "└──┘░",
+        ]);
+    }
+
+    [Fact]
+    public void Defaults_UseOneHeavyGlyphAndTellThumbFromTrackByColor()
+    {
+        var box = CreateBox(rows: 6, new ScrollbarOptions());
+
+        RenderLines(box).ShouldBe(
+        [
+            "┌───┐",
+            "│r0┃│",
+            "│r1┃│",
+            "│r2┃│",
+            "└───┘",
+        ]);
+        ScrollbarOptions.DefaultTrackStyle.Foreground.ShouldBe(Color.Grey);
+        ScrollbarOptions.DefaultThumbStyle.Foreground.ShouldBe(Color.White);
+        new ScrollbarSettings().TrackChar.ShouldBe('┃');
+        new ScrollbarSettings().ThumbChar.ShouldBe('┃');
+    }
+
+    [Fact]
+    public void PublishesTrackAndThumbForHitTesting()
+    {
+        var registry = new ScrollStateRegistry();
+        var box = CreateBox(rows: 6, Chars, registry: registry, scrollId: "s");
+
+        var result = new LayoutEngine().Layout(box, new BoxConstraints(0, 20, 0, 10));
+        var scroll = result.EnumerateLayoutBoxes().Single(b => b.VNodeId == "box").Scroll;
+
+        scroll.ShouldNotBeNull();
+        scroll.ScrollId.ShouldBe("s");
+        scroll.Viewport.ShouldBe(new LayoutRect(1, 1, 2, 3));
+        scroll.Track.ShouldBe(new LayoutRect(3, 1, 1, 3));
+        scroll.Thumb.ShouldBe(new LayoutRect(3, 1, 1, 2));
+        scroll.ContentHeight.ShouldBe(6);
+        scroll.ViewportHeight.ShouldBe(3);
+        result.EnumerateLayoutInfos().Single(i => i.VNodeId == "box").Scroll.ShouldBe(scroll);
+    }
+
+    [Fact]
+    public void NoBarShowing_PublishesNothing()
+    {
+        var box = CreateBox(rows: 2, Chars, registry: new ScrollStateRegistry(), scrollId: "s");
+
+        var result = new LayoutEngine().Layout(box, new BoxConstraints(0, 20, 0, 10));
+
+        result.EnumerateLayoutBoxes().Single(b => b.VNodeId == "box").Scroll.ShouldBeNull();
+    }
+
+    [Fact]
+    public void ThumbStaysInsideTheTrackWhenTheOffsetIsTooLarge()
+    {
+        var box = CreateBox(rows: 6, Chars, top: 500);
+
+        RenderLines(box).ShouldBe(
+        [
+            "┌───┐",
+            "│r3░│",
+            "│r4█│",
+            "│r5█│",
+            "└───┘",
+        ]);
+    }
+
+    private static BoxWidget CreateBox(
+        int rows,
+        ScrollbarOptions bar,
+        int top = 0,
+        BoxBorderStyle? borderRight = null,
+        ScrollStateRegistry? registry = null,
+        string? scrollId = null)
+    {
+        var content = new StackWidget(
+            "rows",
+            Enumerable.Range(0, rows).Select(i => (Widget)new TextWidget($"row{i}", $"r{i}")).ToArray());
+        var viewport = registry is null
+            ? new ScrollViewportWidget("viewport", content, top)
+            : new ScrollViewportWidget("viewport", content, top, registry, scrollId);
+        if (registry is not null)
+        {
+            registry.SetTop(scrollId!, top, ScrollChangeSource.Parameter);
+        }
+
+        return new BoxWidget("box", viewport, height: 5, border: BoxBorderStyle.Square, borderRight: borderRight)
+        {
+            Scrollbar = bar,
+        };
+    }
+
+    private static string[] RenderLines(Widget widget)
+    {
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 10));
+        var console = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Ansi = AnsiSupport.No,
+            ColorSystem = ColorSystemSupport.NoColors,
+            Out = new AnsiConsoleOutput(TextWriter.Null),
+        });
+        var options = new RenderOptions(console.Profile.Capabilities, new Spectre.Console.Size(40, 25));
+        var text = string.Concat(result.PaintToRenderable().Render(options, 40).Select(s => s.IsLineBreak ? "\n" : s.Text));
+        return text.Split('\n').Select(line => line.TrimEnd()).ToArray();
+    }
+}

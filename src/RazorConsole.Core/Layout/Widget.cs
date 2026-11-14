@@ -231,6 +231,9 @@ public sealed record LayoutBox(
     /// <summary>Gets the clip inherited from the nearest scroll viewport ancestor, or <see langword="null"/> when unclipped.</summary>
     public LayoutRect? Clip { get; init; }
 
+    /// <summary>Gets the scrollbar of a scroll container that can be clicked and dragged, or <see langword="null"/>.</summary>
+    public ScrollLayoutInfo? Scroll { get; init; }
+
     /// <summary>Gets <see cref="Bounds"/> limited by <see cref="Clip"/>; empty when scrolled out of view.</summary>
     public LayoutRect VisibleBounds => Clip is { } clip ? Bounds.Intersect(clip) : Bounds;
 
@@ -247,5 +250,6 @@ public sealed record LayoutBox(
             IsCentered: false)
         {
             VisibleBounds = VisibleBounds,
+            Scroll = Scroll,
         };
 }

@@ -1,10 +1,12 @@
 ﻿@namespace RazorConsole.Components
 @using RazorConsole.Core.Utilities
 @using RazorConsole.Core.Rendering
+@using ScrollChangeSource = RazorConsole.Core.Layout.ScrollChangeSource
+@using ScrollStateRegistry = RazorConsole.Core.Layout.ScrollStateRegistry
 @using Spectre.Console
 
 @implements IDisposable
-@inject ScrollableLayoutCoordinator LayoutCoordinator;
+@inject ScrollStateRegistry ScrollState;
 
 @* Not a Tab stop itself: the wheel handler would otherwise make it focusable; the scrollbar takes focus. *@
 <view-height-scrollable
@@ -26,7 +28,9 @@
              data-thumb-char="@Scrollbar.ThumbChar"
              data-track-color="@ScrollbarTrackColorAttribute"
              data-thumb-color="@ScrollbarThumbColorAttribute"
-             data-min-thumb-height="@Scrollbar.MinThumbHeight">
+             data-min-thumb-height="@Scrollbar.MinThumbHeight"
+             data-scrollbar-placement="@Scrollbar.Placement.ToString().ToLowerInvariant()"
+             data-scrollbar-visibility="@Scrollbar.Visibility.ToString().ToLowerInvariant()">
         </div>
     }
 
@@ -91,9 +95,45 @@
 
     [Parameter] public required RenderFragment<ScrollContext> ChildContent { get; set; }
 
+    // The engine owns the scroll position: this component mirrors it into ScrollOffset, and pushes offsets it computes itself (keys, wheel) back.
+    protected override void OnInitialized()
+        => ScrollState.TopChanged += OnEngineTopChanged;
+
+    protected override void OnParametersSet()
+        => ScrollState.SetTop(_scrollId, ScrollOffset, ScrollChangeSource.Parameter);
+
+    private void OnEngineTopChanged(string scrollId, int top)
+    {
+        if (scrollId != _scrollId || top == ScrollOffset)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(async () =>
+        {
+            ScrollOffset = top;
+            if (ScrollOffsetChanged.HasDelegate)
+            {
+                await ScrollOffsetChanged.InvokeAsync(top);
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    // Layout reports the real limit; until the first layout it is unknown.
+    private int MaxOffset
+    {
+        get
+        {
+            var metrics = ScrollState.Get(_scrollId).Metrics;
+            return metrics.ViewportHeight > 0 ? metrics.MaxTop : int.MaxValue;
+        }
+    }
+
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
-        int maxOffset = LayoutCoordinator.GetMaxOffset(_scrollId);
+        int maxOffset = MaxOffset;
         int newOffset = ScrollOffset;
         int page = Math.Max(1, LinesToRender);
 
@@ -118,6 +158,7 @@
         if (newOffset != ScrollOffset)
         {
             ScrollOffset = newOffset;
+            ScrollState.SetTop(_scrollId, newOffset, ScrollChangeSource.Parameter);
             if (ScrollOffsetChanged.HasDelegate)
                 await ScrollOffsetChanged.InvokeAsync(newOffset);
             StateHasChanged();
@@ -126,10 +167,11 @@
 
     private async Task HandleWheel(WheelEventArgs e)
     {
-        var next = Math.Clamp(ScrollOffset + (int)e.DeltaY, 0, LayoutCoordinator.GetMaxOffset(_scrollId));
+        var next = Math.Clamp(ScrollOffset + (int)e.DeltaY, 0, MaxOffset);
         if (next != ScrollOffset)
         {
             ScrollOffset = next;
+            ScrollState.SetTop(_scrollId, next, ScrollChangeSource.Parameter);
             await ScrollOffsetChanged.InvokeAsync(next);
         }
     }
@@ -152,7 +194,11 @@
         Scrollbar?.OnFocusOutCallback?.Invoke(eventArgs);
     }
 
-    public void Dispose() => LayoutCoordinator.Remove(_scrollId);
+    public void Dispose()
+    {
+        ScrollState.TopChanged -= OnEngineTopChanged;
+        ScrollState.Remove(_scrollId);
+    }
 }
 
 @code{

@@ -16,12 +16,24 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
     private (int X, int Y) _pressedAt;
     private bool _moved;
     private string? _hoverId;
+
+    // The engine handles the scrollbar itself: a press that starts on it is consumed until the button is released.
+    private bool _scrollbarPressed;
+    private ScrollDrag? _scrollDrag;
+
+    private sealed record ScrollDrag(string NodeId, int GrabOffset);
+
     public string LastDispatch { get; private set; } = "No mouse input";
 
     public async Task HandleAsync(TerminalMouseEvent input, CancellationToken token = default)
     {
         var snapshot = renderer.RefreshSnapshot();
         if (snapshot.Root is null)
+        {
+            return;
+        }
+
+        if (HandleScrollbar(snapshot.Root, input))
         {
             return;
         }
@@ -79,6 +91,100 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
                 await DispatchAsync(renderer.RefreshSnapshot().Root!, hit!.ID, "onclick", input, token).ConfigureAwait(false);
             }
         }
+    }
+
+    // Clicks on a scrollbar track page the content; dragging the thumb scrolls it. No Razor handlers are involved,
+    // and the drag keeps its own capture so the pointer can leave the track.
+    private bool HandleScrollbar(VNode root, TerminalMouseEvent input)
+    {
+        if (renderer.ScrollRegistry is not { } registry)
+        {
+            return false;
+        }
+
+        if (_scrollDrag is { } drag)
+        {
+            switch (input.Kind)
+            {
+                case TerminalMouseKind.Move:
+                    // Resolve the geometry again on every move, so a resize or relayout during the drag is followed.
+                    if (layouts.GetLayoutByVNodeIdOrDefault(drag.NodeId)?.Scroll is { ScrollId: { } id } scroll)
+                    {
+                        var thumbTop = input.Y - scroll.Track.Y - drag.GrabOffset;
+                        var top = ScrollbarGeometry.OffsetForThumbTop(
+                            thumbTop, scroll.Track.Height, scroll.Thumb.Height, scroll.ViewportHeight, scroll.ContentHeight);
+                        registry.SetTop(id, top, ScrollChangeSource.Engine);
+                    }
+                    else
+                    {
+                        _scrollDrag = null;
+                    }
+
+                    return true;
+                case TerminalMouseKind.Up:
+                    _scrollDrag = null;
+                    _scrollbarPressed = false;
+                    return true;
+                case TerminalMouseKind.Wheel:
+                    return false;
+                default:
+                    return true;
+            }
+        }
+
+        if (_scrollbarPressed)
+        {
+            if (input.Kind == TerminalMouseKind.Up)
+            {
+                _scrollbarPressed = false;
+            }
+
+            return input.Kind != TerminalMouseKind.Wheel;
+        }
+
+        if (input.Kind != TerminalMouseKind.Down || input.Button != 0)
+        {
+            return false;
+        }
+
+        var point = new LayoutPoint(input.X, input.Y);
+        if (FindScrollbar(root, point) is not { } found || found.Scroll.ScrollId is not { } scrollId)
+        {
+            return false;
+        }
+
+        _scrollbarPressed = true;
+        var info = found.Scroll;
+        if (info.Thumb.Contains(point))
+        {
+            _scrollDrag = new ScrollDrag(found.NodeId, input.Y - info.Thumb.Y);
+            return true;
+        }
+
+        var page = Math.Max(1, info.ViewportHeight);
+        registry.SetTop(scrollId, input.Y < info.Thumb.Y ? info.Top - page : info.Top + page, ScrollChangeSource.Engine);
+        return true;
+    }
+
+    // The innermost scrollbar under the point; the pointer must also be where the container is visible.
+    private (string NodeId, ScrollLayoutInfo Scroll)? FindScrollbar(VNode node, LayoutPoint point)
+    {
+        foreach (var child in node.Children.OrderBy(c => layouts.GetLayoutByVNodeIdOrDefault(c.ID)?.ZIndex ?? 0).Reverse())
+        {
+            if (FindScrollbar(child, point) is { } found)
+            {
+                return found;
+            }
+        }
+
+        if (layouts.GetLayoutByVNodeIdOrDefault(node.ID) is { Scroll: { } scroll } layout
+            && scroll.Track.Contains(point)
+            && (layout.VisibleBounds is not { } visible || visible.Contains(point)))
+        {
+            return (node.ID, scroll);
+        }
+
+        return null;
     }
 
     private async Task DispatchAsync(VNode root, string? id, string name, TerminalMouseEvent input, CancellationToken token)
