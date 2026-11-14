@@ -7,7 +7,7 @@ Make any container scroll, choose a scrollbar style, and scroll with the wheel, 
 ## Learning objectives
 
 - make a container scroll with `Overflow`;
-- understand why a scroll container needs a bounded height;
+- understand what limits the height of a scroll container;
 - choose a scrollbar placement and style;
 - scroll with the wheel, the keyboard, and a `ScrollController`; and
 - keep a growing log pinned to the bottom.
@@ -26,7 +26,7 @@ that holds more lines than it can show:
 </Panel>
 ```
 
-The panel grows to fit all 50 lines. Give it a height and turn scrolling on:
+The panel grows to fit all 50 lines, up to the room its parent gives it. Give it a height and turn scrolling on:
 
 ```razor
 @using RazorConsole.Core.Layout
@@ -51,24 +51,35 @@ The border and title stay where they are and only the content scrolls. `Overflow
 `overflow="scroll"` attribute. `FlexBox` and `Grid` are backed by Spectre.Console and do not support it yet; wrap them in
 a `Box` with `Overflow`.
 
-## 2. A scroll container needs a bounded height
+## 2. What limits the height
 
-This is the most common mistake. A container can only scroll when something limits its height. Without a limit, it
-grows to fit its content, and there is nothing to scroll. There are two ways to bound it:
+A scroll container is like a CSS `max-height`: it is as tall as its content, up to the height its parent allows. It only
+scrolls when the content is taller than that limit. The root of the app is limited by the terminal, so a container
+without a `Height` still scrolls once its content no longer fits on the screen:
+
+```razor
+<Rows>
+    <Markup Content="Header" />
+    <Box Overflow="OverflowMode.Scroll">...</Box>
+</Rows>
+```
+
+Here the box takes all the rows below the header. That is also the catch: the box uses everything that is left, so a
+sibling after it gets no room. To keep a footer on the screen, give the container a size:
 
 ```razor
 @* A fixed height *@
 <Box Height="8" Overflow="OverflowMode.Scroll">...</Box>
 
-@* The height the parent gives it, which must itself be bounded *@
+@* The height the parent gives it, even when the content is shorter *@
 <Rows Height="20">
     <Markup Content="Header" />
     <Box FillHeight="true" Overflow="OverflowMode.Scroll">...</Box>
 </Rows>
 ```
 
-This follows the model from Chapter 5: the parent measures its children and hands them cells. A scroll container is a
-child that measures its content without a height limit and then shows a window of it.
+A container has nothing to scroll only when no parent limits its height at all. This follows the model from Chapter 5: the parent measures its children and hands them cells. A scroll
+container is a child that measures its content without a height limit and then shows a window of it.
 
 ## 3. Style the scrollbar
 
