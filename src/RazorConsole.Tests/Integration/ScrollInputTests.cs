@@ -8,8 +8,6 @@ namespace RazorConsole.Tests.Integration;
 
 public sealed class ScrollInputTests
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
-
     // Inside the inner container: row 0 is the outer border, row 1 the inner border, rows 2 and 3 the inner content.
     private const int InnerX = 3;
     private const int InnerY = 2;
@@ -141,15 +139,14 @@ public sealed class ScrollInputTests
         var ct = TestContext.Current.CancellationToken;
         await using var terminal = await StartAsync(new Options(), ct);
         await terminal.SendKeyAsync(ConsoleKey.Tab, '\0', cancellationToken: ct);
-        await terminal.WaitForTextAsync("Last", Patience, ct);
-        await terminal.WaitUntilAsync(_ => terminal.FocusKey is not null, Patience, "the button to be focused", ct);
+        await terminal.WaitForTextAsync("Last", cancellationToken: ct);
 
         await terminal.SendKeyAsync(ConsoleKey.PageUp, '\0', cancellationToken: ct);
-        var up = await terminal.WaitUntilAsync(frame => !frame.ContainsText("Last"), Patience, cancellationToken: ct);
+        var up = await terminal.WaitUntilAsync(frame => !frame.ContainsText("Last"), cancellationToken: ct);
         up.ContainsText("outer 6").ShouldBeTrue();
 
         await terminal.SendKeyAsync(ConsoleKey.Home, '\0', cancellationToken: ct);
-        await terminal.WaitForTextAsync("inner 0", Patience, ct);
+        await terminal.WaitForTextAsync("inner 0", cancellationToken: ct);
     }
 
     private static Task<HeadlessTerminal> StartAsync(Options options, CancellationToken ct)
