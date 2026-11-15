@@ -112,6 +112,8 @@ public sealed class EventHandlerConcurrencyTests
             }
         }
 
+        var errors = new ErrorCounter(message);
+        IDisposable? subscription = null;
         TaskScheduler.UnobservedTaskException += OnUnobserved;
         try
         {
@@ -125,16 +127,21 @@ public sealed class EventHandlerConcurrencyTests
                 ct))
             {
                 await terminal.WaitForTextAsync("Fail", cancellationToken: ct);
-                var errors = new ErrorCounter(message);
-                using var subscription = terminal.Renderer.Subscribe(errors);
+                subscription = terminal.Renderer.Subscribe(errors);
 
                 await terminal.ClickAsync(1, 0, ct);
 
-                await errors.FirstError.WaitAsync(TimeSpan.FromSeconds(2), ct);
-                await Task.Delay(100, ct);
-                errors.Count.ShouldBe(1);
+                // The click returns before the handler fails, so wait for the renderer to report the failure.
+                await errors.FirstError.WaitAsync(ct);
             }
 
+            // Disposing the terminal disposes the renderer, which completes and removes its observers.
+            // No report can reach the counter after that, so this count is final and needs no settling delay.
+            errors.Count.ShouldBe(1);
+
+            // An unobserved task exception is only raised when the faulted task is finalized. Collecting and
+            // running finalizers here makes that happen now instead of at some later, unpredictable GC.
+            // Without these calls the check below passes even when the dispatch leaves the fault unobserved.
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
@@ -142,6 +149,7 @@ public sealed class EventHandlerConcurrencyTests
         }
         finally
         {
+            subscription?.Dispose();
             TaskScheduler.UnobservedTaskException -= OnUnobserved;
         }
     }
