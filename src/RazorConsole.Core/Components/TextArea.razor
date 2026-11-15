@@ -55,6 +55,11 @@
     [Parameter] public Func<int, Style>? CharacterStyle { get; set; }
     private Style StyleAt(int position) => RowStyle?.Invoke(position) ?? new Style(background: Background);
     [Parameter] public bool FollowOutput { get; set; }
+    /// <summary>
+    /// Called with the buffer's text when Enter submits. The buffer is cleared before this runs, so keys typed
+    /// while an async handler awaits start the next message. To keep the text when submitting fails, set it back
+    /// on <see cref="Buffer"/> in the handler.
+    /// </summary>
     [Parameter] public EventCallback<string> OnSubmit { get; set; }
     [Parameter] public EventCallback<KeyboardEventArgs> OnCommand { get; set; }
     /// <summary>
