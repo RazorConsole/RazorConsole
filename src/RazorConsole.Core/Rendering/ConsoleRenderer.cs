@@ -67,11 +67,11 @@ internal sealed class ConsoleRenderer(
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var snapshot = Dispatcher.CheckAccess()
+        // Not stored here: building a snapshot already records it on the dispatcher, and writing the result back from this
+        // thread could replace a newer snapshot that a render published in the meantime.
+        return Dispatcher.CheckAccess()
             ? GetCurrentSnapshot()
             : Dispatcher.InvokeAsync(GetCurrentSnapshot).GetAwaiter().GetResult();
-        _lastSnapshot = snapshot;
-        return snapshot;
     }
 
     /// <summary>
@@ -119,8 +119,7 @@ internal sealed class ConsoleRenderer(
             {
                 await RenderRootComponentAsync(componentId, parameters).ConfigureAwait(false);
             }).ConfigureAwait(false);
-            _lastSnapshot = await tcs.Task.ConfigureAwait(false);
-            return _lastSnapshot;
+            return await tcs.Task.ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
