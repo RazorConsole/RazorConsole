@@ -349,14 +349,14 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         }
     }
 
-    private async Task TriggerFocusChangedAsync(FocusTarget? previousTarget, FocusTarget target, CancellationToken token)
+    private async Task TriggerFocusChangedAsync(FocusTarget? previousTarget, FocusTarget target, CancellationToken token, bool rendered = false)
     {
         if (token.IsCancellationRequested)
         {
             return;
         }
 
-        FocusChanged?.Invoke(this, new FocusChangedEventArgs(target.Key));
+        FocusChanged?.Invoke(this, new FocusChangedEventArgs(target.Key) { Rendered = rendered });
 
         await DispatchFocusEventsAsync(previousTarget, target, token).ConfigureAwait(false);
     }
@@ -655,7 +655,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             }
             else
             {
-                TriggerFocusChangedAsync(null, pendingFocusTarget, sessionToken).ConfigureAwait(false);
+                TriggerFocusChangedAsync(null, pendingFocusTarget, sessionToken, rendered: true).ConfigureAwait(false);
             }
 
             return;
@@ -672,7 +672,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         }
         else
         {
-            TriggerFocusChangedAsync(null, newFocus, sessionToken).ConfigureAwait(false);
+            TriggerFocusChangedAsync(null, newFocus, sessionToken, rendered: true).ConfigureAwait(false);
         }
     }
 
@@ -815,4 +815,9 @@ public sealed class FocusChangedEventArgs : EventArgs
     /// Gets the focus key associated with the active target.
     /// </summary>
     public string Key { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the key is the one that already had the focus and only its element was rendered again.
+    /// </summary>
+    internal bool Rendered { get; init; }
 }

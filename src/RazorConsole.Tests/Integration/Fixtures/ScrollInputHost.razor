@@ -19,11 +19,14 @@
         {
             <Markup Content="@($"outer {i}")" />
         }
-        <TextButton Content="Last" OnClick="@(() => Clicks.Add("last"))" />
+        @{ var render = _renders; }
+        <TextButton Content="Last" OnClick="@(() => Clicks.Add($"last {render}"))" />
     </Panel>
 </div>
 
 @code {
+    private int _renders;
+
     [Parameter] public bool FocusableOuter { get; set; }
 
     [Parameter] public bool ContainInner { get; set; }
@@ -33,4 +36,13 @@
     [Parameter] public List<string> Wheels { get; set; } = [];
 
     [Parameter] public List<string> Clicks { get; set; } = [];
+
+    // Hands the test a way to render the host again, as app state changing would.
+    [Parameter] public Action<Action>? RegisterRerender { get; set; }
+
+    protected override void OnInitialized() => RegisterRerender?.Invoke(() => InvokeAsync(() =>
+    {
+        _renders++;
+        StateHasChanged();
+    }));
 }

@@ -118,6 +118,12 @@ internal sealed class ScrollInputNavigator
 
     private void OnFocusChanged(object? sender, FocusChangedEventArgs e)
     {
+        // The element was only rendered again: the focus did not move, so the user's scroll position stands.
+        if (e.Rendered)
+        {
+            return;
+        }
+
         if (_focus.TryGetFocusedTarget(out var target) && target is not null && _renderer.RefreshSnapshot().Root is { } root)
         {
             ScrollNodeIntoView(root, target.VNodeId);
