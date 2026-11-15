@@ -3,6 +3,7 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using RazorConsole.Core.Focus;
 using RazorConsole.Core.Input;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Testing;
@@ -82,8 +83,9 @@ public sealed class EventHandlerConcurrencyTests
         terminal.FocusKey.ShouldBe("second");
     }
 
+    // The stale-id retry in FocusManager.DispatchToLatestRenderAsync recognizes a stale id by exactly this fault.
     [Fact]
-    public async Task StaleHandlerId_FaultsTheDispatch_SoFocusedInputCanRetry()
+    public async Task UnknownHandlerId_FaultsTheDispatch_WithEventHandlerIdParam()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var terminal = await HeadlessTerminal.StartAsync<LongRunningHandlerHost>(
@@ -96,6 +98,97 @@ public sealed class EventHandlerConcurrencyTests
             () => dispatcher.DispatchAsync(ulong.MaxValue - 1, new MouseEventArgs(), ct));
 
         ex.ParamName.ShouldBe("eventHandlerId");
+    }
+
+    [Fact]
+    public async Task StaleHandlerId_RetriesOnceAfterTheNextSnapshot_WithTheLatestRendersId()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var terminal = await StartLongRunningHostAsync([], TimeSpan.FromSeconds(5), ct);
+        var focus = terminal.Services.GetRequiredService<FocusManager>();
+        var dispatcher = terminal.Services.GetRequiredService<RendererKeyboardEventDispatcher>();
+        focus.TryGetFocusedTarget(out var target).ShouldBeTrue();
+        var snapshotAtAttempt = new List<long>();
+        var firstAttempt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // The retry timeout is infinite, so the retry can only proceed once a new snapshot arrives.
+        var dispatch = focus.DispatchToLatestRenderAsync(
+            target!,
+            "onclick",
+            handlerId =>
+            {
+                snapshotAtAttempt.Add(focus.SnapshotSequence);
+                if (snapshotAtAttempt.Count == 1)
+                {
+                    firstAttempt.SetResult();
+                    throw new ArgumentException("Stale handler id.", "eventHandlerId");
+                }
+
+                return dispatcher.DispatchAsync(handlerId, new MouseEventArgs(), ct);
+            },
+            Timeout.InfiniteTimeSpan,
+            ct);
+
+        // The app is idle, so nothing renders until this click on Count, after the first attempt failed.
+        await firstAttempt.Task.WaitAsync(ct);
+        await terminal.ClickAsync(1, CountRow, ct);
+        var dispatched = await dispatch.WaitAsync(ct);
+
+        dispatched.ShouldBeTrue();
+        snapshotAtAttempt.Count.ShouldBe(2);
+        snapshotAtAttempt[1].ShouldBeGreaterThan(snapshotAtAttempt[0]);
+
+        // The retried id belongs to the latest render, so the real handler runs.
+        await terminal.WaitForTextAsync("status=working count=1", cancellationToken: ct);
+    }
+
+    [Fact]
+    public async Task StaleHandlerId_StillStaleAfterTheRetry_Faults()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var terminal = await StartLongRunningHostAsync([], TimeSpan.FromSeconds(5), ct);
+        var focus = terminal.Services.GetRequiredService<FocusManager>();
+        focus.TryGetFocusedTarget(out var target).ShouldBeTrue();
+        var attempts = 0;
+
+        // A zero retry timeout: no new snapshot is needed for the retry to happen.
+        var ex = await Should.ThrowAsync<ArgumentException>(() => focus.DispatchToLatestRenderAsync(
+            target!,
+            "onclick",
+            _ =>
+            {
+                attempts++;
+                throw new ArgumentException("Stale handler id.", "eventHandlerId");
+            },
+            TimeSpan.Zero,
+            ct));
+
+        ex.ParamName.ShouldBe("eventHandlerId");
+        attempts.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task OtherArgumentException_IsNotRetried()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var terminal = await StartLongRunningHostAsync([], TimeSpan.FromSeconds(5), ct);
+        var focus = terminal.Services.GetRequiredService<FocusManager>();
+        focus.TryGetFocusedTarget(out var target).ShouldBeTrue();
+        var attempts = 0;
+
+        var ex = await Should.ThrowAsync<ArgumentException>(() => focus.DispatchToLatestRenderAsync(
+            target!,
+            "onclick",
+            _ =>
+            {
+                attempts++;
+                throw new ArgumentException("Something else.", "eventArgs");
+            },
+            TimeSpan.Zero,
+            ct));
+
+        ex.ParamName.ShouldBe("eventArgs");
+        attempts.ShouldBe(1);
     }
 
     [Fact]
