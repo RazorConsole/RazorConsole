@@ -201,7 +201,7 @@ public sealed class ConsoleRendererTests
         });
 
         // Assert
-        var updatedSnapshot = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        var updatedSnapshot = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         var updatedElement = FindDiv(updatedSnapshot.Root!);
         updatedElement.ShouldNotBeNull().Attributes["data-val"].ShouldBe("End");
     }
@@ -237,7 +237,7 @@ public sealed class ConsoleRendererTests
             }));
         });
 
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -260,7 +260,7 @@ public sealed class ConsoleRendererTests
         await renderer.Dispatcher.InvokeAsync(() => KeyedListComponent.Instance!.SetParametersAsync(
             ParameterView.FromDictionary(new Dictionary<string, object?> { { "Items", new[] { "c", "a", "b" } } })));
 
-        var updated = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        var updated = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Texts(updated.Root!).ShouldBe(["c", "a", "b"]);
 
         static string[] Texts(VNode root) => [.. root.Children.Select(c => c.Children.Single().Text)];

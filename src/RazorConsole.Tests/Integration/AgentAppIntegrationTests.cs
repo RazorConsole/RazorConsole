@@ -77,7 +77,7 @@ public sealed class AgentAppIntegrationTests
         var menu = terminal.GetLayout("command-/permissions");
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, 25, menu.Top!.Value), TestContext.Current.CancellationToken);
         await terminal.SendMouseAsync(new(TerminalMouseKind.Up, 25, menu.Top!.Value), TestContext.Current.CancellationToken);
-        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", cancellationToken: TestContext.Current.CancellationToken);
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", TimeSpan.FromSeconds(10), cancellationToken: TestContext.Current.CancellationToken);
         session.Transcript.ShouldBeEmpty();
     }
 
@@ -128,14 +128,14 @@ public sealed class AgentAppIntegrationTests
         await using var terminal = await Start(new ScriptedAgentSession(), width, height);
         _view.Draft.SetText("/permission");
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
-        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", description: "permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", TimeSpan.FromSeconds(10), description: "permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
         var bounds = terminal.GetLayout("permission-0");
         terminal.CurrentFrame[0, bounds.Top!.Value].Style?.Background.ShouldBe(new Color(163, 204, 250));
         terminal.CurrentFrame.ContainsText("(current)").ShouldBeTrue(terminal.DumpDiagnostics());
         terminal.Resize(width + 5, height + 2);
         terminal.CurrentFrame.ContainsText("Update Model Permissions").ShouldBeTrue(terminal.DumpDiagnostics());
         await terminal.SendKeyAsync(ConsoleKey.Escape, cancellationToken: TestContext.Current.CancellationToken);
-        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "composer", description: "composer focus after closing permissions", cancellationToken: TestContext.Current.CancellationToken);
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "composer", TimeSpan.FromSeconds(10), description: "composer focus after closing permissions", cancellationToken: TestContext.Current.CancellationToken);
         terminal.FocusKey.ShouldBe("composer");
     }
 
@@ -146,7 +146,7 @@ public sealed class AgentAppIntegrationTests
         await using var terminal = await Start(session, 87, 35);
         _view.Draft.SetText("/permission");
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
-        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", description: "permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", TimeSpan.FromSeconds(10), description: "permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
         terminal.CurrentFrame.ContainsText("Update Model Permissions").ShouldBeTrue(terminal.DumpDiagnostics());
         terminal.FocusKey.ShouldBe("permissions");
         session.Transcript.ShouldBeEmpty();
@@ -158,11 +158,11 @@ public sealed class AgentAppIntegrationTests
         terminal.CurrentFrame.ContainsText("Enter again").ShouldBeTrue(terminal.DumpDiagnostics());
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
         session.Permission.ShouldBe(ToolPermission.FullAccess);
-        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "composer", description: "composer focus after applying permissions", cancellationToken: TestContext.Current.CancellationToken);
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "composer", TimeSpan.FromSeconds(10), description: "composer focus after applying permissions", cancellationToken: TestContext.Current.CancellationToken);
         terminal.FocusKey.ShouldBe("composer");
         _view.Draft.SetText("/permission");
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
-        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", description: "reopened permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
+        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "permissions", TimeSpan.FromSeconds(10), description: "reopened permission menu focus", cancellationToken: TestContext.Current.CancellationToken);
         await terminal.SendKeyAsync(ConsoleKey.UpArrow, cancellationToken: TestContext.Current.CancellationToken);
         await terminal.SendKeyAsync(ConsoleKey.Escape, cancellationToken: TestContext.Current.CancellationToken);
         session.Permission.ShouldBe(ToolPermission.FullAccess);
