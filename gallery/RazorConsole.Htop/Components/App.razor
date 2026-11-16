@@ -30,7 +30,7 @@
     </Flex>
 
     <Flex Direction="FlexDirection.Column" Width="@(ListWidth + 1)" Height="@PageSize"
-          Overflow="OverflowMode.Scroll" Controller="_scroll" Scrollbar="ListScrollbar">
+          Overflow="OverflowMode.Scroll" Controller="_scroll">
         @foreach (var row in _view)
         {
             <ProcessRow @key="row.Key"
@@ -111,11 +111,6 @@
     private int SurfaceWidth => Math.Max(40, Viewport.Width - 1);
     private int PageSize => Math.Max(3, Viewport.Height - ChromeLines);
     private double MemoryPercent => _snapshot.TotalMemoryBytes == 0 ? 0 : 100.0 * _snapshot.UsedMemoryBytes / _snapshot.TotalMemoryBytes;
-
-    private static readonly ScrollbarSettings ListScrollbar = new(
-        trackChar: '│', thumbChar: '┃',
-        trackColor: Color.Grey50, thumbColor: Color.DeepSkyBlue1,
-        trackFocusedColor: Color.Grey50, thumbFocusedColor: Color.Yellow);
 
     private IEnumerable<Row> VisibleRows
     {
