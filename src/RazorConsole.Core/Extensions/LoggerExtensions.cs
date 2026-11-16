@@ -152,7 +152,7 @@ internal static partial class LoggerExtensions
     [LoggerMessage(
         EventId = 19,
         Level = LogLevel.Debug,
-        Message = "An event handler failed after it started; the renderer has already reported the error.")]
+        Message = "An event handler failed; the renderer has already reported the error.")]
     public static partial void LogEventHandlerFaultObserved(
         this ILogger logger,
         Exception ex);

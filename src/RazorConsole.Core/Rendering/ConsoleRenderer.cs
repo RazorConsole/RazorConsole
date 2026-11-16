@@ -876,9 +876,10 @@ internal sealed class ConsoleRenderer(
 
     /// <summary>
     /// Dispatches an event on the renderer's dispatcher without waiting for the handler to finish.
-    /// The returned task completes once the handler's synchronous part (and any render it queued) has run,
-    /// and faults when the handler id is unknown (<see cref="ArgumentException"/> with
-    /// <c>ParamName == "eventHandlerId"</c>) or the handler throws synchronously.
+    /// The returned task completes once the handler's synchronous part (and any render it queued) has run.
+    /// It faults only when the handler id is unknown (<see cref="ArgumentException"/> with
+    /// <c>ParamName == "eventHandlerId"</c>). A handler that throws, before or after its first <c>await</c>,
+    /// does not fault it: the renderer reports that failure to its observers instead.
     /// </summary>
     internal Task DispatchEventAsync(ulong handlerId, EventArgs eventArgs)
     {
@@ -905,8 +906,8 @@ internal sealed class ConsoleRenderer(
         }
     }
 
-    // An async handler keeps running after dispatch returns. HandleException has already reported its failure
-    // by the time this task faults, so only observe it.
+    // The base dispatch returns a faulted task when the handler throws, whether before or after its first await.
+    // HandleException has already reported the failure by the time this task faults, so only observe it.
     private void ObserveCompletion(Task completion)
     {
         if (!completion.IsCompletedSuccessfully)
