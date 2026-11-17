@@ -1,0 +1,22 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using RazorConsole.Components
+@using RazorConsole.Core.Input
+
+@* An editable TextArea whose OnSubmit awaits, so keys can be typed while it runs. *@
+<Rows>
+    <TextArea Buffer="_buffer" Editable="true" Width="20" Height="1" OnSubmit="SubmitAsync" OnChanged="@(() => { })" />
+    <Markup Content="@($"buffer=<{_buffer.Text}> submitted={string.Join(",", Submitted)}")" />
+</Rows>
+
+@code {
+    private readonly TextSelectionState _buffer = new();
+
+    [Parameter] public List<string> Submitted { get; set; } = [];
+    [Parameter] public TaskCompletionSource SubmitGate { get; set; } = new();
+
+    private async Task SubmitAsync(string text)
+    {
+        await SubmitGate.Task;
+        Submitted.Add(text);
+    }
+}

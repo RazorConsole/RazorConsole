@@ -1,0 +1,57 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+
+@* An awaited long-running click handler, a Cancel button for it, and a counter. *@
+<Rows>
+    <div @key="@("start")" @onclick="StartAsync"><Markup Content="Start" /></div>
+    <div @key="@("cancel")" @onclick="Cancel"><Markup Content="Cancel" /></div>
+    <div @key="@("count")" @onclick="Count"><Markup Content="Count" /></div>
+    <Markup Content="@($"status={_status} count={_count}")" />
+</Rows>
+
+@code {
+    private CancellationTokenSource? _cts;
+    private string _status = "idle";
+    private int _count;
+
+    [Parameter] public TimeSpan WorkDuration { get; set; } = TimeSpan.FromSeconds(5);
+    [Parameter] public List<string> Events { get; set; } = [];
+
+    private async Task StartAsync()
+    {
+        _cts = new CancellationTokenSource();
+        _status = "working";
+        Record("start");
+        try
+        {
+            await Task.Delay(WorkDuration, _cts.Token);
+            _status = "done";
+        }
+        catch (OperationCanceledException)
+        {
+            _status = "cancelled";
+        }
+        Record($"end:{_status}");
+    }
+
+    private void Cancel()
+    {
+        Record("cancel");
+        _cts?.Cancel();
+    }
+
+    private void Count()
+    {
+        _count++;
+        Record("count");
+    }
+
+    private void Record(string name)
+    {
+        lock (Events)
+        {
+            Events.Add(name);
+        }
+    }
+}

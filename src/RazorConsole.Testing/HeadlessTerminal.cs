@@ -23,7 +23,9 @@ namespace RazorConsole.Testing;
 /// </summary>
 /// <remarks>
 /// Input methods and <see cref="Resize(int, int)"/> are serialized: concurrent calls run one at a time.
-/// Every input call captures a frame after the input has been handled.
+/// Every input call returns once the event handlers it raised have started (their code up to the first
+/// <c>await</c> has run), and captures a frame. Like a real terminal, it does not wait for an <c>async</c> handler
+/// to finish: wait for the state you expect with <see cref="WaitUntilAsync"/> or <see cref="WaitForTextAsync"/>.
 /// </remarks>
 public sealed class HeadlessTerminal : IAsyncDisposable
 {

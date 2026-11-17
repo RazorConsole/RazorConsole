@@ -1,0 +1,26 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using RazorConsole.Components
+
+@* A TextInput whose ValueChanged is asynchronous, so typed keystrokes overlap. *@
+<Rows>
+    <TextInput Value="@_text" ValueChanged="OnValueChangedAsync" />
+    <Markup Content="@($"bound=<{_text}>")" />
+</Rows>
+
+@code {
+    private string _text = string.Empty;
+
+    [Parameter] public List<string> Values { get; set; } = [];
+    [Parameter] public bool Normalize { get; set; }
+
+    private async Task OnValueChangedAsync(string value)
+    {
+        lock (Values)
+        {
+            Values.Add(value);
+        }
+
+        await Task.Delay(20);
+        _text = Normalize ? value.ToUpperInvariant() : value;
+    }
+}

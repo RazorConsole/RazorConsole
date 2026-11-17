@@ -1,0 +1,32 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+@using RazorConsole.Core.Input
+
+@* The first element consumes Tab by setting Handled, either before or after its first await. *@
+<Rows>
+    <div @key="@("first")" @onkeydown="OnKeyDownAsync"><Markup Content="first" /></div>
+    <div @key="@("second")" @onkeydown="@(() => { })"><Markup Content="second" /></div>
+</Rows>
+
+@code {
+    [Parameter] public bool AwaitBeforeHandled { get; set; }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Tab")
+        {
+            return;
+        }
+
+        if (AwaitBeforeHandled)
+        {
+            await Task.Delay(50);
+        }
+
+        if (e is TerminalKeyboardEventArgs terminalKey)
+        {
+            terminalKey.Handled = true;
+        }
+    }
+}
