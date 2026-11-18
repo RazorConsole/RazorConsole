@@ -624,6 +624,23 @@ public sealed class FocusManagerTests
     }
 
     [Fact]
+    public async Task FocusAsync_TargetNotYetRendered_SurvivesSnapshotWithoutFocusables()
+    {
+        var manager = new FocusManager();
+        var initial = CreateView(new[] { "first" }, focusedKey: null);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), initial, new VdomDiffService());
+        using var session = manager.BeginSession(context, initial, CancellationToken.None);
+        await session.InitializationTask;
+
+        (await manager.FocusAsync("later", CancellationToken.None)).ShouldBeFalse();
+        PushInitialSnapshot(manager, CreateView(Array.Empty<string>(), focusedKey: null));
+        PushInitialSnapshot(manager, CreateView(new[] { "first", "later" }, focusedKey: null));
+
+        manager.CurrentFocusKey.ShouldBe("later");
+    }
+
+    [Fact]
     public async Task FocusAsync_TargetNotYetRendered_IsCancelledByTabNavigation()
     {
         var manager = new FocusManager();
@@ -679,6 +696,88 @@ public sealed class FocusManagerTests
 
         await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
         manager.CurrentFocusKey.ShouldBe("later");
+    }
+
+    // The order AppHost and HeadlessTerminal start in: mount, begin the session with the mounted view, then subscribe.
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task BeginSession_AppliesFocusRequestForTargetRenderedAfterFirstFrame(bool renderedWhileMounting, bool requestedBeforeSession)
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var host = new LateTargetHost(renderedWhileMounting);
+        var manager = new FocusManager();
+
+        var initialView = ConsoleViewResult.FromSnapshot(
+            await renderer.MountComponentAsync(host, ParameterView.Empty, Xunit.TestContext.Current.CancellationToken));
+        if (!renderedWhileMounting)
+        {
+            await renderer.Dispatcher.InvokeAsync(host.ShowTarget);
+        }
+
+        if (requestedBeforeSession)
+        {
+            await manager.FocusAsync(LateTargetHost.TargetKey, CancellationToken.None);
+        }
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), initialView, new VdomDiffService());
+        using var session = manager.BeginSession(context, initialView, CancellationToken.None);
+        using var subscription = renderer.Subscribe(manager);
+        await session.InitializationTask;
+        if (!requestedBeforeSession)
+        {
+            await manager.FocusAsync(LateTargetHost.TargetKey, CancellationToken.None);
+        }
+
+        await WaitForFocusKeyAsync(manager, LateTargetHost.TargetKey);
+    }
+
+    [Fact]
+    public async Task BeginSession_ManagerReusedWithNewRenderer_FollowsTheNewRenderer()
+    {
+        var manager = new FocusManager();
+        using (var first = TestHelpers.CreateTestRenderer())
+        {
+            await StartAsync(first, new LateTargetHost(showWhileMounting: false), manager, () =>
+            {
+                manager.CurrentFocusKey.ShouldNotBeNull();
+                return Task.CompletedTask;
+            });
+        }
+
+        using var second = TestHelpers.CreateTestRenderer();
+        var host = new LateTargetHost(showWhileMounting: false);
+        await StartAsync(second, host, manager, async () =>
+        {
+            await second.Dispatcher.InvokeAsync(host.ShowTarget);
+            await manager.FocusAsync(LateTargetHost.TargetKey, CancellationToken.None);
+            await WaitForFocusKeyAsync(manager, LateTargetHost.TargetKey);
+        });
+    }
+
+    private static async Task StartAsync(ConsoleRenderer renderer, IComponent host, FocusManager manager, Func<Task> body)
+    {
+        var view = ConsoleViewResult.FromSnapshot(
+            await renderer.MountComponentAsync(host, ParameterView.Empty, Xunit.TestContext.Current.CancellationToken));
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), view, new VdomDiffService());
+        using var session = manager.BeginSession(context, view, CancellationToken.None);
+        using var subscription = renderer.Subscribe(manager);
+        await session.InitializationTask;
+        await body();
+    }
+
+    // Notifications reach observers off the render thread: wait for the expected focus rather than assert at once.
+    private static async Task WaitForFocusKeyAsync(FocusManager manager, string key)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (manager.CurrentFocusKey != key && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10, Xunit.TestContext.Current.CancellationToken);
+        }
+
+        manager.CurrentFocusKey.ShouldBe(key);
     }
 
     [Fact]
@@ -943,6 +1042,47 @@ public sealed class FocusManagerTests
                 builder.OpenComponent<FocusableLeaf>(3);
                 builder.SetKey("test");
                 builder.AddAttribute(4, nameof(FocusableLeaf.Label), "second");
+                builder.CloseComponent();
+            }
+
+            builder.CloseElement();
+        }
+    }
+
+    private sealed class LateTargetHost(bool showWhileMounting) : ComponentBase
+    {
+        public const string TargetKey = "late";
+
+        private bool _showTarget;
+
+        public void ShowTarget()
+        {
+            _showTarget = true;
+            StateHasChanged();
+        }
+
+        protected override async Task OnInitializedAsync()
+        {
+            if (showWhileMounting)
+            {
+                await Task.Yield();
+                _showTarget = true;
+            }
+        }
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+
+            builder.OpenComponent<FocusableLeaf>(1);
+            builder.AddAttribute(2, nameof(FocusableLeaf.Label), "first");
+            builder.CloseComponent();
+
+            if (_showTarget)
+            {
+                builder.OpenComponent<FocusableLeaf>(3);
+                builder.SetKey(TargetKey);
+                builder.AddAttribute(4, nameof(FocusableLeaf.Label), "late");
                 builder.CloseComponent();
             }
 
