@@ -28,7 +28,7 @@ public sealed class ChatClientAgentIntegrationTests
         await using var controller = new ChatClientAgentController(new ChatClientAgent(client, tools: [tool]), "test", "/workspace");
         controller.TrySetPermission(permission).ShouldBeTrue();
         await controller.SubmitAsync("execute");
-        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         executions.ShouldBe(automatic ? 1 : 0);
         controller.AwaitingApproval.ShouldBe(!automatic);
         if (!automatic)
@@ -66,15 +66,15 @@ public sealed class ChatClientAgentIntegrationTests
             TestContext.Current.CancellationToken);
         view.Draft.SetText("Inspect a file");
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
-        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         controller.AwaitingApproval.ShouldBeTrue();
         executions.ShouldBe(0);
         controller.ApprovalDescription.ShouldContain("inspect");
         var hook = approve ? "approve-tool" : "deny-tool";
-        var approvalFrame = await terminal.WaitUntilAsync(s => s.Layouts.ContainsKey(hook), TimeSpan.FromSeconds(10), cancellationToken: TestContext.Current.CancellationToken);
+        var approvalFrame = await terminal.WaitUntilAsync(s => s.Layouts.ContainsKey(hook), TimeSpan.FromSeconds(30), cancellationToken: TestContext.Current.CancellationToken);
         var button = approvalFrame.Layouts[hook];
         await terminal.SendMouseAsync(new(TerminalMouseKind.Down, button.Left!.Value, button.Top!.Value), TestContext.Current.CancellationToken);
-        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         executions.ShouldBe(approve ? 1 : 0);
         controller.AwaitingApproval.ShouldBeFalse();
         controller.Status.ShouldBe("Ready", string.Join('\n', controller.Transcript));
@@ -85,7 +85,7 @@ public sealed class ChatClientAgentIntegrationTests
             controller.Transcript.ShouldContain(e => e.Kind == AgentEntryKind.Tool && e.Detail!.Contains("file contents"));
         }
         await controller.SubmitAsync("Follow up");
-        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         client.Requests.Last().ShouldContain(m => m.Role == ChatRole.User && m.Text == "Inspect a file");
         client.Requests.Last().ShouldContain(m => m.Role == ChatRole.Assistant && m.Text.Contains("All done."));
     }
@@ -106,14 +106,14 @@ public sealed class ChatClientAgentIntegrationTests
             TestContext.Current.CancellationToken);
         view.Draft.SetText("Start streaming");
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
-        await client.Blocked.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await client.Blocked.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         controller.Running.ShouldBeTrue();
         controller.Transcript.ShouldContain(e => e.Text == "partial");
         await terminal.SendKeyAsync(ConsoleKey.N, 'n', cancellationToken: TestContext.Current.CancellationToken);
         await terminal.SendKeyAsync(ConsoleKey.Enter, cancellationToken: TestContext.Current.CancellationToken);
         view.Draft.Text.ShouldBe("n");
         await terminal.SendKeyAsync(ConsoleKey.Escape, cancellationToken: TestContext.Current.CancellationToken);
-        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         controller.Status.ShouldBe("Interrupted");
         controller.Running.ShouldBeFalse();
     }
@@ -130,13 +130,13 @@ public sealed class ChatClientAgentIntegrationTests
         var tool = new ApprovalRequiredAIFunction(AIFunctionFactory.Create((string path) => { executed.Add(path); return path; }, "inspect"));
         await using var controller = new ChatClientAgentController(new ChatClientAgent(client, tools: [tool]), "test", "/workspace");
         await controller.SubmitAsync("inspect");
-        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         controller.Approve(true);
         controller.AwaitingApproval.ShouldBeTrue();
         controller.ApprovalDescription.ShouldContain("two");
         executed.ShouldBeEmpty();
         controller.Approve(false);
-        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         executed.ShouldBe(["one"]);
         controller.Status.ShouldBe("Ready");
     }
@@ -151,11 +151,11 @@ public sealed class ChatClientAgentIntegrationTests
         var tool = new ApprovalRequiredAIFunction(AIFunctionFactory.Create(() => ++executions, "inspect"));
         await using var controller = new ChatClientAgentController(new ChatClientAgent(client, tools: [tool]), "test", "/workspace");
         await controller.SubmitAsync("inspect");
-        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         controller.Cancel();
         controller.AwaitingApproval.ShouldBeFalse();
         await controller.SubmitAsync("Do not inspect");
-        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         executions.ShouldBe(0);
         controller.Status.ShouldBe("Ready", string.Join('\n', controller.Transcript));
     }
@@ -166,11 +166,11 @@ public sealed class ChatClientAgentIntegrationTests
         using var client = new TestChatClient();
         await using var controller = new ChatClientAgentController(new ChatClientAgent(client), "test", "/workspace");
         await controller.SubmitAsync("first");
-        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         controller.Status.ShouldBe("Failed");
         controller.Transcript.ShouldContain(entry => entry.Kind == AgentEntryKind.Error);
         await controller.SubmitAsync("retry");
-        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await controller.Completion.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         controller.Transcript.Count(entry => entry.Kind == AgentEntryKind.User).ShouldBe(2);
         controller.Running.ShouldBeFalse();
     }

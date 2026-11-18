@@ -1,0 +1,19 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+
+@* The click lambda is a new handler id on every render, because it captures a local. *@
+@{ var render = _renders; }
+<div @onclick="@(() => Clicks.Add($"render {render}"))">
+    <Markup Content="@($"clickme {render}")" />
+</div>
+
+@code {
+    private int _renders;
+
+    [Parameter] public List<string> Clicks { get; set; } = [];
+
+    [Parameter] public Action<Action>? Register { get; set; }
+
+    protected override void OnInitialized() => Register?.Invoke(() => InvokeAsync(() => { _renders++; StateHasChanged(); }));
+}

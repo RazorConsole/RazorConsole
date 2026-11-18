@@ -90,7 +90,7 @@ public sealed class GalleryWorkbenchTests
         await using var terminal = await HeadlessTerminal.StartAsync<App>(100, 35, cancellationToken: TestContext.Current.CancellationToken);
         await Click(terminal, "gallery-search");
         await terminal.SendTerminalInputAsync("text", TestContext.Current.CancellationToken);
-        var filtered = await terminal.WaitUntilAsync(s => s.ContainsText("Text Input") && !s.ContainsText("Small Charts"), cancellationToken: TestContext.Current.CancellationToken);
+        var filtered = await terminal.WaitUntilAsync(s => s.ContainsText("Text Input") && !s.ContainsText("Small Charts") && !s.ContainsText("Markdown"), cancellationToken: TestContext.Current.CancellationToken);
         filtered.ContainsText("Text Input").ShouldBeTrue(terminal.DumpDiagnostics());
         filtered.ContainsText("Small Charts").ShouldBeFalse();
         await Click(terminal, "nav-textinput");
