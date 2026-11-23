@@ -1,0 +1,32 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using RazorConsole.Components
+@using Spectre.Console
+
+@if (ColumnSeparators is { } columnSeparators)
+{
+    <SpectreTable Border="TableBorder.Rounded" ColumnSeparators="@columnSeparators">
+        @Rows
+    </SpectreTable>
+}
+else
+{
+    <SpectreTable Border="TableBorder.Rounded">
+        @Rows
+    </SpectreTable>
+}
+
+@code {
+    /// <summary>The table's ColumnSeparators; <see langword="null"/> leaves the parameter unset.</summary>
+    [Parameter]
+    public bool? ColumnSeparators { get; set; }
+
+    private static readonly RenderFragment Rows =
+        @<text>
+            <SpectreTHead>
+                <SpectreTR><SpectreTH>name</SpectreTH><SpectreTH>type</SpectreTH></SpectreTR>
+            </SpectreTHead>
+            <SpectreTBody>
+                <SpectreTR><SpectreTD>row</SpectreTD><SpectreTD>file</SpectreTD></SpectreTR>
+            </SpectreTBody>
+        </text>;
+}
