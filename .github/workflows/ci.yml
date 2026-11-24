@@ -372,7 +372,9 @@ jobs:
     with:
       artifact-name: website-production-${{ github.sha }}
       source-commit: ${{ github.sha }}
-    secrets: inherit
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   deploy-pages:
     name: Deploy to GitHub Pages
