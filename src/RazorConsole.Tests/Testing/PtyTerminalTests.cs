@@ -457,13 +457,7 @@ public sealed class PtyTerminalTests
     [Fact]
     public async Task DisposingOneTerminal_DoesNotAffectTheOthers()
     {
-        // One at a time: starting four pseudoterminals at once is what a loaded runner cannot always answer in time.
-        var terminals = new List<PtyTerminal>();
-        for (var i = 0; i < 4; i++)
-        {
-            terminals.Add(await StartEchoAsync($"d{i}"));
-        }
-
+        var terminals = await Task.WhenAll(Enumerable.Range(0, 4).Select(i => StartEchoAsync($"d{i}")));
         try
         {
             var disposed = terminals[0].DisposeAsync().AsTask();

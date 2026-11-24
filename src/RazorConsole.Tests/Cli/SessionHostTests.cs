@@ -54,7 +54,7 @@ public sealed class SessionHostTests : IAsyncDisposable
     public async Task ConcurrentStarts_ShareOneHost()
     {
         var launcher = Launcher();
-        var connector = new HostConnector(Files, launcher, "1.0.0") { StartTimeout = Patience };
+        var connector = new HostConnector(Files, launcher, "1.0.0");
 
         var clients = await Task.WhenAll(Enumerable.Range(0, 10).Select(_ => Task.Run(() => connector.ConnectOrStartAsync(Token))));
         try
@@ -107,7 +107,7 @@ public sealed class SessionHostTests : IAsyncDisposable
         // The idle countdown runs on this clock, so how long a runner takes to connect cannot decide the outcome.
         var clock = new ManualTimeProvider();
         var launcher = Launcher(IdleTimeout, time: clock);
-        var connector = new HostConnector(Files, launcher, "1.0.0") { StartTimeout = Patience };
+        var connector = new HostConnector(Files, launcher, "1.0.0");
         await (await connector.ConnectOrStartAsync(Token)).DisposeAsync();
         var host = launcher.Hosts.Single();
         await UntilAsync(() => host.ClientCount == 0);

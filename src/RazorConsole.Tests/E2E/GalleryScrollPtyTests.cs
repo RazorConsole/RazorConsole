@@ -48,20 +48,8 @@ public sealed class GalleryScrollPtyTests
 
         // Search stays at a fixed position while the main pane scrolls. Its focused placeholder is a FIFO barrier:
         // all queued wheel events have been handled before this click.
-        // A click can land while the layout is still settling after the resize and the wheel storm, so it is repeated
-        // until the search box takes the focus; the last attempt carries the failure with the screen.
-        for (var attempt = 1; ; attempt++)
-        {
-            await PtyE2E.ClickTextAsync(terminal, "Search");
-            try
-            {
-                await terminal.WaitForTextAsync("Type to search", TimeSpan.FromSeconds(20), ct);
-                break;
-            }
-            catch (RazorConsole.Testing.TerminalTimeoutException) when (attempt < 3)
-            {
-            }
-        }
+        await PtyE2E.ClickTextAsync(terminal, "Search");
+        await terminal.WaitForTextAsync("Type to search", TimeSpan.FromSeconds(60), ct);
         await PtyE2E.SendAsync(terminal, "border");
         await terminal.WaitForTextAsync("border", cancellationToken: ct);
         await PtyE2E.ClickTextAsync(terminal, "Border");

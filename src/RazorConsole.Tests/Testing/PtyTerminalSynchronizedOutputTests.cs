@@ -154,15 +154,15 @@ public sealed class PtyTerminalSynchronizedOutputTests
     [Fact]
     public async Task OutputEndedWhileTheProcessRuns_FailsWithinTheExitStatusWait()
     {
-        // Running out of the wait limit would throw a TerminalTimeoutException instead, so the exception type is the
-        // proof; a wall-clock bound on top of it only measures how loaded the runner is.
         await using var connection = new FakePtyConnection();
         await using var terminal = Start(connection, new ManualTimeProvider());
         connection.CloseOutput();
 
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var exception = await Should.ThrowAsync<InvalidOperationException>(
             terminal.WaitUntilAsync(f => f.ContainsText("never shown"), WaitLimit, "never shown", TestContext.Current.CancellationToken));
         exception.Message.ShouldContain("Process 1: running");
+        stopwatch.Elapsed.ShouldBeLessThan(WaitLimit);
     }
 
     private static PtyTerminal Start(FakePtyConnection connection, TimeProvider clock)

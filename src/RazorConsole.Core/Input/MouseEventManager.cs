@@ -257,7 +257,7 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
             args.ShiftKey = input.Modifiers.HasFlag(ConsoleModifiers.Shift);
             args.CtrlKey = input.Modifiers.HasFlag(ConsoleModifiers.Control);
             args.AltKey = input.Modifiers.HasFlag(ConsoleModifiers.Alt);
-            await DispatchToLatestRenderAsync(node.ID, handler, args, token).ConfigureAwait(false);
+            await dispatcher.DispatchAsync(handler.HandlerId, args, token).ConfigureAwait(false);
             prevented |= handler.Options.PreventDefault || HasFlag(node, "preventDefault", name);
             if (handler.Options.StopPropagation || HasFlag(node, "stopPropagation", name))
             {
@@ -267,28 +267,6 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
         }
 
         return new DispatchResult(stoppedAt, prevented);
-    }
-
-    // The tree the pointer hit was captured from may have re-rendered since, which replaces the handler ids of
-    // lambdas. On a stale id the same node is looked up again in the newest render and dispatched once more.
-    private async Task DispatchToLatestRenderAsync(string nodeId, VNodeEvent handler, MouseEventArgs args, CancellationToken token)
-    {
-        try
-        {
-            await dispatcher.DispatchAsync(handler.HandlerId, args, token).ConfigureAwait(false);
-        }
-        catch (ArgumentException ex) when (ex.ParamName == "eventHandlerId")
-        {
-            var latest = renderer.RefreshSnapshot().Root is { } root ? Find(root, nodeId) : null;
-            var current = latest?.Events.Cast<VNodeEvent?>().FirstOrDefault(e => e!.Value.Name.Equals(handler.Name, StringComparison.OrdinalIgnoreCase));
-            if (current is not { } found || found.HandlerId == handler.HandlerId)
-            {
-                // The node is gone, so there is nothing left to deliver to.
-                return;
-            }
-
-            await dispatcher.DispatchAsync(found.HandlerId, args, token).ConfigureAwait(false);
-        }
     }
 
     // Razor compiles @onclick:stopPropagation and :preventDefault to attributes rather than event options.

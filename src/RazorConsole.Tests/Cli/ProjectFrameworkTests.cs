@@ -74,8 +74,8 @@ public sealed class ProjectFrameworkTests
     {
         // The shell starts a background process that inherits stdout and stderr, then exits: like a build server.
         var shell = OperatingSystem.IsWindows()
-            ? new ProcessStartInfo("cmd.exe") { ArgumentList = { "/c", "start /b ping -n 51 127.0.0.1 & echo built" } }
-            : new ProcessStartInfo("/bin/sh") { ArgumentList = { "-c", "sleep 50 & echo built" } };
+            ? new ProcessStartInfo("cmd.exe") { ArgumentList = { "/c", "start /b ping -n 25 127.0.0.1 & echo built" } }
+            : new ProcessStartInfo("/bin/sh") { ArgumentList = { "-c", "sleep 25 & echo built" } };
         var watch = Stopwatch.StartNew();
 
         var (exitCode, tail) = await PtySession.RunCapturedAsync(shell, TimeSpan.FromMinutes(1), "shell", CancellationToken.None);
