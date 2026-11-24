@@ -101,6 +101,8 @@ or set `RAZORCONSOLE_DIAGNOSTICS=0` (`false`, `off` and `disabled` also work). T
 
 Clicking needs the app to turn on mouse events (`options.ConsoleLiveDisplayOptions.EnableMouseEvents = true`). Without it, press keys instead.
 
+Input commands never wait for an `async` event handler to finish. In a PTY session they return once the input is written to the terminal; in an [attached](#attaching-to-a-running-app) session they return once the app's handlers for that input have started. Either way, a click that starts long-running work returns right away, and a later click on a Cancel button reaches the app while that work is still running, the same as with real keys and clicks. Follow an input command with `wait --text` (or `--idle`) for the state you expect.
+
 ## Sessions and the host
 
 The first command that needs one starts a background **session host**: the same `razorconsole` executable, started as a hidden `__host` verb. The host owns the pseudoterminals, so a session outlives the command that started it. It exits by itself ten minutes after the last session and client are gone. `razorconsole host status` shows it; `razorconsole host stop` stops it and every session in it, which ends the apps it started.

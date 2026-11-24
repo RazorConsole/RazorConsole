@@ -124,7 +124,8 @@ internal sealed class DiagnosticsInputItem(string? data, IReadOnlyList<TerminalM
     public IReadOnlyList<TerminalMouseEvent>? Mouse { get; } = mouse;
 
     /// <summary>
-    /// Completes after the input's handlers have run, or fails when it cannot be delivered.
+    /// Completes once the input's handlers have started (an <c>async</c> handler may still be running),
+    /// or fails when it cannot be delivered.
     /// </summary>
     public Task Completion => _completion.Task;
 

@@ -21,7 +21,7 @@ dotnet run --project gallery/RazorConsole.Htop/RazorConsole.Htop.csproj -f net10
 - Click a row to select it; click a group row to expand or collapse it
 - Click the red `Kill` button shown on the selected row (or `F9 Kill` below) and confirm with `Yes`
 - Drag the `┃` handle at the right edge of the Name header to resize the Name column (keyboard: `[` / `]`)
-- Mouse wheel scrolls the list; footer buttons filter, group, expand/collapse all, kill, pause and quit
+- Mouse wheel scrolls the list, and the scrollbar can be dragged or clicked to page (built-in `Overflow="OverflowMode.Scroll"`); footer buttons filter, group, expand/collapse all, kill, pause and quit
 
 ## Keyboard
 
