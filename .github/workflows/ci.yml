@@ -24,6 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -57,6 +58,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -171,6 +173,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -316,6 +319,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
+          persist-credentials: false
 
       - name: Build and verify website
         uses: ./.github/actions/build-website
@@ -405,6 +409,7 @@ jobs:
         with:
           lfs: true
           fetch-depth: 2
+          persist-credentials: false
 
       - name: Check for source code changes
         id: check-changes
