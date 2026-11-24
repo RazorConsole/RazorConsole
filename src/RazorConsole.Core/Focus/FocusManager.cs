@@ -613,6 +613,14 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
         lock (_sync)
         {
+            // A replay on subscribing can race a delivery and hand over a render that is already out of date: its handler
+            // ids are disposed, and it must neither replace the focus targets nor wake the waiters. Unsequenced snapshots
+            // (sequence 0) are not ordered against the others.
+            if (value.Sequence > 0 && value.Sequence <= _snapshotSequence)
+            {
+                return;
+            }
+
             previousFocusTarget = _currentIndex >= 0 ? _focusTargets[_currentIndex] : null;
             sessionToken = _sessionCts?.Token ?? CancellationToken.None;
 
