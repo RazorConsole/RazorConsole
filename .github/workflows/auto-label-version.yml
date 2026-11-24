@@ -20,7 +20,7 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.4.0
         with:
           # Need full history to access the merged PR files
           fetch-depth: 0

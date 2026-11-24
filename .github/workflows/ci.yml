@@ -21,13 +21,13 @@ jobs:
     name: Verify formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
         with:
           lfs: true
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v4.3.1
         with:
           global-json-file: global.json
           dotnet-version: |
@@ -55,13 +55,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
         with:
           lfs: true
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v4.3.1
         with:
           global-json-file: global.json
           dotnet-version: |
@@ -91,7 +91,7 @@ jobs:
 
       - name: Upload test diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: test-diagnostics-${{ matrix.os }}
           path: artifacts/bin/RazorConsole.Tests/**/TestResults/*.log
@@ -99,7 +99,7 @@ jobs:
           retention-days: 7
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v4.6.0
         with:
           files: ${{ github.workspace }}/**/coverage.cobertura.xml
           fail_ci_if_error: false
@@ -109,7 +109,7 @@ jobs:
 
       - name: Upload RazorConsole.Core build output
         if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: razorconsole-core-release_net10.0
           path: artifacts/bin/RazorConsole.Core/release_net10.0
@@ -170,13 +170,13 @@ jobs:
             archive: tar.gz
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
         with:
           lfs: true
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v4.3.1
         with:
           global-json-file: global.json
           dotnet-version: 10.0.x
@@ -223,7 +223,7 @@ jobs:
           dotnet run scripts/verify-cli-package.cs -- --native "$executable"
 
       - name: Upload Native AOT archives
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: native-aot-${{ matrix.artifact }}
           path: artifacts/native-aot/*.${{ matrix.archive }}
@@ -244,7 +244,7 @@ jobs:
       contents: write
     steps:
       - name: Download Native AOT archives
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.3.0
         with:
           pattern: native-aot-*
           path: artifacts/release
@@ -316,18 +316,18 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
         with:
           lfs: true
           persist-credentials: false
 
       - name: Build and verify website
-        uses: ./.github/actions/build-website
+        uses: $/.github/actions/build-website
         with:
           site-url: https://razorconsole.com
 
       - name: Upload verified website
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: ${{ github.event_name == 'pull_request' && format('website-preview-{0}-{1}', github.event.pull_request.number, github.event.pull_request.head.sha) || format('website-production-{0}', github.sha) }}
           path: website/build/client
@@ -335,11 +335,11 @@ jobs:
 
       - name: Configure GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v5.0.0
 
       - name: Upload GitHub Pages artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v3.0.1
         with:
           path: website/build/client
 
@@ -394,7 +394,7 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v4.0.5
 
   publish-nightly:
     name: Publish nightly build
@@ -405,7 +405,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
         with:
           lfs: true
           fetch-depth: 2
@@ -439,7 +439,7 @@ jobs:
         run: echo "VersionSuffix=$(date -u +'%Y%m%d-%H%M%S')" >> "$GITHUB_ENV"
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v4.3.1
         with:
           global-json-file: global.json
           dotnet-version: |
@@ -462,7 +462,7 @@ jobs:
         run: dotnet test src/RazorConsole.Tests/RazorConsole.Tests.csproj --configuration Release --no-build --framework net11.0 -- --filter-trait "Category=E2E"
         
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v4.6.0
         with:
           files: ${{ github.workspace }}/**/coverage.cobertura.xml
           fail_ci_if_error: false
@@ -479,7 +479,7 @@ jobs:
             -p:SourceRevisionId=${GITHUB_SHA}
 
       - name: Upload NuGet packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: nightly-packages
           path: |
@@ -490,7 +490,7 @@ jobs:
 
       - name: NuGet login (trusted publishing)
         if: steps.check-changes.outputs.source_changed == 'true'
-        uses: NuGet/login@v1
+        uses: NuGet/login@v1.2.0
         id: nuget-login
         with:
           user: ${{ secrets.NUGET_USER }}
