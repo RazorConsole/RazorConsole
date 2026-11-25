@@ -625,7 +625,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
 
             _capturedSequence = renderSnapshot.Sequence;
             var canvas = renderable.PaintToCanvas();
-            var layouts = CollectHookLayouts(renderSnapshot.Root);
+            var layouts = CollectHookLayouts(renderSnapshot);
             var frame = new HeadlessTerminalFrame(
                 Interlocked.Increment(ref _frameNumber),
                 DateTimeOffset.UtcNow,
@@ -651,18 +651,30 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         }
     }
 
-    private Dictionary<string, VNodeLayoutInfo> CollectHookLayouts(VNode root)
+    // The layouts of the snapshot that is painted, so the frame never pairs one render's picture with another's geometry.
+    // The accessor holds the newest layout of all and only stands in when the snapshot carries none.
+    private Dictionary<string, VNodeLayoutInfo> CollectHookLayouts(ConsoleRenderer.RenderSnapshot snapshot)
     {
+        var byNode = snapshot.Layouts?.ToDictionary(layout => layout.VNodeId, StringComparer.Ordinal);
         var layouts = new Dictionary<string, VNodeLayoutInfo>(StringComparer.Ordinal);
         var pending = new Stack<VNode>();
-        pending.Push(root);
+        pending.Push(snapshot.Root!);
         while (pending.TryPop(out var node))
         {
             if (node.Attributes.TryGetValue(IVNodeIdAccessor.HookAttributeName, out var hook)
-                && !string.IsNullOrWhiteSpace(hook)
-                && _layoutAccessor.TryGetLayoutByHookKey(hook, out var layout))
+                && !string.IsNullOrWhiteSpace(hook))
             {
-                layouts[hook] = layout;
+                if (byNode is not null)
+                {
+                    if (byNode.TryGetValue(node.ID, out var own))
+                    {
+                        layouts[hook] = own;
+                    }
+                }
+                else if (_layoutAccessor.TryGetLayoutByHookKey(hook, out var layout))
+                {
+                    layouts[hook] = layout;
+                }
             }
 
             foreach (var child in node.Children)

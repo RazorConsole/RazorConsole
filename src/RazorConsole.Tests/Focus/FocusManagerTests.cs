@@ -738,6 +738,28 @@ public sealed class FocusManagerTests
         manager.CurrentFocusKey.ShouldBe("second");
     }
 
+    [Fact]
+    public void OlderSnapshot_ArrivingAfterANewerOne_IsIgnored()
+    {
+        var manager = new FocusManager(new StaleHandlerDispatcher(staleIds: []));
+        var newer = CreateInputsView(firstIdBase: 10UL);
+        var older = CreateInputsView(firstIdBase: 1UL);
+        older.VdomRoot!.Children[0].SetKey("other");
+        older.VdomRoot.Children[1].SetKey("another");
+
+        PushSnapshot(manager, ToSnapshot(newer, sequence: 5));
+        manager.CurrentFocusKey.ShouldBe("first");
+
+        // A replay racing a delivery can hand over a render that is already out of date.
+        PushSnapshot(manager, ToSnapshot(older, sequence: 4));
+
+        manager.CurrentFocusKey.ShouldBe("first");
+        manager.SnapshotSequence.ShouldBe(5);
+    }
+
+    private static ConsoleRenderer.RenderSnapshot ToSnapshot(ConsoleViewResult view, long sequence)
+        => new ConsoleRenderer.RenderSnapshot(view.VdomRoot, view.Renderable, view.AnimatedRenderables) with { Sequence = sequence };
+
     private static ConsoleViewResult CreateInputsView(ulong firstIdBase)
     {
         var first = VNode.CreateElement("input");

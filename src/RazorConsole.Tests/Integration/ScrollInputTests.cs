@@ -149,6 +149,25 @@ public sealed class ScrollInputTests
         await terminal.WaitForTextAsync("inner 0", cancellationToken: ct);
     }
 
+    [Fact]
+    public async Task ReRenderingTheFocusedButton_DoesNotScrollBackToIt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        Action? rerender = null;
+        await using var terminal = await StartAsync(new Options { RegisterRerender = action => rerender = action }, ct);
+        await terminal.SendKeyAsync(ConsoleKey.Tab, '\0', cancellationToken: ct);
+        await terminal.WaitForTextAsync("Last", cancellationToken: ct);
+        await terminal.SendKeyAsync(ConsoleKey.PageUp, '\0', cancellationToken: ct);
+        await terminal.WaitUntilAsync(frame => !frame.ContainsText("Last"), cancellationToken: ct);
+
+        // The focus is unchanged, so rendering the button again must leave the scroll position alone.
+        rerender!();
+        // A negative result: nothing is expected to show up, so the wait is a fixed delay.
+        await Task.Delay(300, ct);
+
+        terminal.CurrentFrame.ContainsText("Last").ShouldBeFalse(terminal.DumpDiagnostics());
+    }
+
     private static Task<HeadlessTerminal> StartAsync(Options options, CancellationToken ct)
         => HeadlessTerminal.StartAsync<ScrollInputHost>(
             new HeadlessTerminalOptions
@@ -161,6 +180,7 @@ public sealed class ScrollInputTests
                     [nameof(ScrollInputHost.ContainInner)] = options.ContainInner,
                     [nameof(ScrollInputHost.PreventOuterWheel)] = options.PreventOuterWheel,
                     [nameof(ScrollInputHost.Wheels)] = options.Wheels,
+                    [nameof(ScrollInputHost.RegisterRerender)] = options.RegisterRerender,
                 },
             },
             ct);
@@ -174,5 +194,7 @@ public sealed class ScrollInputTests
         public bool PreventOuterWheel { get; init; }
 
         public List<string> Wheels { get; init; } = [];
+
+        public Action<Action>? RegisterRerender { get; init; }
     }
 }
