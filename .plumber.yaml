@@ -1,0 +1,10 @@
+# Plumber configuration. Every control keeps its default, plus one trusted action.
+extends: plumber:default
+
+github:
+  controls:
+    githubActionMustComeFromAuthorizedSources:
+      includePlumberDefaults: true
+      trustedGithubActions:
+        # Creates the draft GitHub release in release.yml.
+        - softprops/action-gh-release
