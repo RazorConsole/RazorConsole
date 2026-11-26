@@ -40,6 +40,7 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
     private DiffRenderable? _current;
     private bool _alternateScreenBufferActive;
     private bool _lastWriteFailed;
+    private bool _lastRefreshedHandlerFailed;
 
     // The newest target that the frame loop has not applied yet.
     private IRenderable? _pendingTarget;
@@ -144,6 +145,34 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
 
     private void WriteFrame()
     {
+        if (!TryWriteCurrentFrame())
+        {
+            return;
+        }
+
+        // Raised outside the write's try, so a failing handler is not reported as a console write failure and does
+        // not touch the write failure state. Its failures are logged once per run, like write failures.
+        try
+        {
+            Refreshed?.Invoke();
+            _lastRefreshedHandlerFailed = false;
+        }
+        catch (Exception ex)
+        {
+            if (!_lastRefreshedHandlerFailed)
+            {
+                _lastRefreshedHandlerFailed = true;
+                LogRefreshedHandlerFailed(_logger, ex);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Applies the pending target and writes the current frame. Returns <see langword="true"/> when a frame was
+    /// written.
+    /// </summary>
+    private bool TryWriteCurrentFrame()
+    {
         try
         {
             var target = Interlocked.Exchange(ref _pendingTarget, null);
@@ -161,7 +190,7 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
 
             if (_current is null)
             {
-                return;
+                return false;
             }
 
             EnterAlternateScreenBufferIfNeeded();
@@ -172,7 +201,7 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
                 LogWriteRecovered(_logger);
             }
 
-            Refreshed?.Invoke();
+            return true;
         }
         catch (Exception ex)
         {
@@ -183,6 +212,8 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
                 _lastWriteFailed = true;
                 LogWriteFailed(_logger, ex);
             }
+
+            return false;
         }
     }
 
@@ -301,4 +332,7 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Writing frames to the console works again.")]
     private static partial void LogWriteRecovered(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A Refreshed handler threw after a frame was written. Later failures are not logged until a handler run succeeds.")]
+    private static partial void LogRefreshedHandlerFailed(ILogger logger, Exception exception);
 }

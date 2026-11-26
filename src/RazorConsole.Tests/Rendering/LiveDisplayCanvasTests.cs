@@ -279,6 +279,52 @@ public sealed class LiveDisplayCanvasTests
     }
 
     [Fact]
+    public async Task RefreshedHandlerError_IsLoggedSeparately_AndDoesNotAffectWriteFailureState()
+    {
+        var writeFails = false;
+        var handlerFails = true;
+        var console = Substitute.For<IAnsiConsole>();
+        console.When(static console => console.Write(Arg.Any<IRenderable>()))
+            .Do(_ =>
+            {
+                if (writeFails)
+                {
+                    throw new IOException("Frame write failed.");
+                }
+            });
+        var logger = new RecordingLogger();
+        await using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console, logger);
+        canvas.Refreshed += () =>
+        {
+            if (handlerFails)
+            {
+                throw new InvalidOperationException("Handler failed.");
+            }
+        };
+
+        // A handler that throws on every frame is logged once, and is not taken for a write failure, so no
+        // "works again" entry follows.
+        canvas.UpdateTarget(new TextRenderable("hello"));
+        await canvas.WhenIdleAsync(Token);
+        for (var i = 0; i < 5; i++)
+        {
+            canvas.Refresh();
+            await canvas.WhenIdleAsync(Token);
+        }
+
+        logger.Entries.Count.ShouldBe(1);
+        logger.Entries[0].Level.ShouldBe(LogLevel.Error);
+        logger.Entries[0].Exception.ShouldBeOfType<InvalidOperationException>();
+
+        // A real write failure while the handler is still failing is still logged.
+        writeFails = true;
+        canvas.Refresh();
+        await canvas.WhenIdleAsync(Token);
+        logger.Entries.Count.ShouldBe(2);
+        logger.Entries[1].Exception.ShouldBeOfType<IOException>();
+    }
+
+    [Fact]
     public async Task Refresh_AfterWriteError_RedrawsEverything()
     {
         var captured = new List<IRenderable>();
