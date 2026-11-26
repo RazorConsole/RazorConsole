@@ -124,7 +124,11 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
             {
                 // Every request counted up to here is served by this frame.
                 var sequence = Interlocked.Read(ref _requestedSequence);
-                if (Volatile.Read(ref _disposeState) == 0)
+
+                // After disposal starts, the channel still holds at most one request. Without the alternate screen
+                // buffer the last frame stays on the terminal after the app exits, so that request is still written.
+                // With it, leaving the buffer restores the screen anyway, so the frame is skipped.
+                if (Volatile.Read(ref _disposeState) == 0 || !_useAlternateScreenBuffer)
                 {
                     WriteFrame();
                 }
@@ -241,7 +245,8 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
 
     /// <summary>
     /// Stops the frame loop, waits for the frame being written, and then leaves the alternate screen buffer, so no
-    /// frame is written after it. Frames requested but not started are dropped.
+    /// frame is written after it. A frame requested but not started is still written without the alternate screen
+    /// buffer, so the terminal keeps the latest frame; with it, that frame is dropped because the screen is restored.
     /// </summary>
     public async ValueTask DisposeAsync()
     {

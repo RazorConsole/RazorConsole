@@ -349,10 +349,53 @@ public sealed class LiveDisplayCanvasTests
         releaseWrite.Set();
         await dispose.WaitAsync(Timeout, Token);
 
-        // The frame in progress finished, the queued refresh was dropped, and the terminal was restored last.
+        // The frame in progress finished, the queued refresh was dropped because leaving the alternate screen restores
+        // the terminal anyway, and the terminal was restored last.
         captured.Count(static item => item is DiffRenderable).ShouldBe(2);
         GetControlCode(captured[^2]).ShouldBe("\u001b[?1003l\u001b[?1006l");
         GetControlCode(captured[^1]).ShouldBe(RM(DECALTSCR));
+    }
+
+    [Fact]
+    public async Task Dispose_WithoutAlternateScreen_WritesTheFrameRequestedBeforeDisposal()
+    {
+        var captured = new List<string>();
+        using var writeStarted = new ManualResetEventSlim();
+        using var releaseWrite = new ManualResetEventSlim(true);
+        var console = Substitute.For<IAnsiConsole>();
+        console.When(static console => console.Write(Arg.Any<IRenderable>()))
+            .Do(call =>
+            {
+                var renderable = call.Arg<IRenderable>();
+                if (renderable is DiffRenderable)
+                {
+                    // Render now, because the DiffRenderable is reused for the next frame.
+                    lock (captured)
+                    {
+                        captured.Add(RenderText(renderable));
+                    }
+
+                    writeStarted.Set();
+                    releaseWrite.Wait(Timeout);
+                }
+            });
+        var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console);
+        canvas.UpdateTarget(new TextRenderable("first"));
+        await canvas.WhenIdleAsync(Token);
+
+        writeStarted.Reset();
+        releaseWrite.Reset();
+        canvas.UpdateTarget(new TextRenderable("second"));
+        writeStarted.Wait(Timeout, Token).ShouldBeTrue();
+        canvas.UpdateTarget(new TextRenderable("last"));
+
+        var dispose = canvas.DisposeAsync().AsTask();
+        releaseWrite.Set();
+        await dispose.WaitAsync(Timeout, Token);
+
+        // The frame queued while "second" was being written is still written, so the terminal shows the latest state.
+        captured.Count.ShouldBe(3);
+        captured[^1].ShouldContain("last");
     }
 
     [Fact]
