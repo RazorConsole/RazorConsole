@@ -83,12 +83,6 @@ jobs:
       - name: E2E tests
         run: dotnet test src/RazorConsole.Tests/RazorConsole.Tests.csproj --configuration Release --no-build --framework net11.0 -- --filter-trait "Category=E2E"
 
-      # dotnet test only prints how many tests failed. Print each failure from the test logs into this attempt's job log,
-      # because a rerun replaces the test diagnostics artifact below.
-      - name: Show failed tests
-        if: failure()
-        run: dotnet run scripts/show-failed-tests.cs
-
       # The tool package is written by the Release build. Check what is in it, install it from that folder alone and run
       # it (doctor starts a real session host and a pseudoterminal session).
       - name: Verify and smoke-test the RazorConsole.Cli tool package
@@ -466,12 +460,7 @@ jobs:
       # Real-terminal tests: one framework, no coverage, so they do not compete with four instrumented test processes.
       - name: E2E tests
         run: dotnet test src/RazorConsole.Tests/RazorConsole.Tests.csproj --configuration Release --no-build --framework net11.0 -- --filter-trait "Category=E2E"
-
-      # dotnet test only prints how many tests failed. Print each failure from the test logs into the job log.
-      - name: Show failed tests
-        if: failure()
-        run: dotnet run scripts/show-failed-tests.cs
-
+        
       - name: Upload coverage reports
         uses: codecov/codecov-action@v4.6.0
         with:
