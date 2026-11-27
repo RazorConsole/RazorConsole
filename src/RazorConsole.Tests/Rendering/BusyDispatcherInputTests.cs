@@ -100,6 +100,8 @@ public sealed class BusyDispatcherInputTests
 
         public void Refresh() => Refreshed?.Invoke();
 
+        public Task WhenIdleAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public event Action? Refreshed;
     }
 }
