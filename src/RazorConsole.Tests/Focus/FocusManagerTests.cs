@@ -887,6 +887,8 @@ public sealed class FocusManagerTests
             Refreshed?.Invoke();
         }
 
+        public Task WhenIdleAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public event Action? Refreshed;
     }
 
