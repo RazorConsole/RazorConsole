@@ -77,22 +77,10 @@ jobs:
         
       # Run the four TFM test modules one after another: in parallel they overload the runner and process-spawning tests time out (#432).
       - name: Test
-        # TEMPORARY experiment for #503: two thread pool workers, to see whether anything still deadlocks. Remove before merging.
-        env:
-          DOTNET_ThreadPool_ForceMinWorkerThreads: "2"
-          DOTNET_ThreadPool_ForceMaxWorkerThreads: "2"
-          # MTP telemetry blocks a thread pool thread on a synchronous wait, which can deadlock with a tiny thread pool.
-          TESTINGPLATFORM_TELEMETRY_OPTOUT: "1"
         run: dotnet test --configuration Release --no-build -p:TestTfmsInParallel=false -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --filter-not-trait "Category=E2E"
 
       # Real-terminal tests: one framework, no coverage, so they do not compete with four instrumented test processes.
       - name: E2E tests
-        # TEMPORARY experiment for #503: two thread pool workers, to see whether anything still deadlocks. Remove before merging.
-        env:
-          DOTNET_ThreadPool_ForceMinWorkerThreads: "2"
-          DOTNET_ThreadPool_ForceMaxWorkerThreads: "2"
-          # MTP telemetry blocks a thread pool thread on a synchronous wait, which can deadlock with a tiny thread pool.
-          TESTINGPLATFORM_TELEMETRY_OPTOUT: "1"
         run: dotnet test src/RazorConsole.Tests/RazorConsole.Tests.csproj --configuration Release --no-build --framework net11.0 -- --filter-trait "Category=E2E"
 
       # The tool package is written by the Release build. Check what is in it, install it from that folder alone and run
