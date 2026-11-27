@@ -87,12 +87,12 @@ public sealed class DiagnosticsHooksTests
         delivered.ViewportHeight.ShouldBe(24);
 
         // Same size: nothing to rebuild.
-        observer.EnsureCurrent();
+        await observer.EnsureCurrentAsync();
         state.LatestFrame.ShouldBeSameAs(delivered);
 
         monitor.Resize(100, 30);
         state.LatestFrame.ShouldBeSameAs(delivered);
-        observer.EnsureCurrent();
+        await observer.EnsureCurrentAsync();
 
         var resized = state.LatestFrame.ShouldNotBeNull();
         resized.ShouldNotBeSameAs(delivered);
@@ -105,7 +105,7 @@ public sealed class DiagnosticsHooksTests
         resized.RenderSequence.ShouldBe(delivered.RenderSequence);
         state.Frames.ShouldBe(1);
 
-        observer.EnsureCurrent();
+        await observer.EnsureCurrentAsync();
         state.LatestFrame.ShouldBeSameAs(resized);
     }
 
@@ -175,13 +175,13 @@ public sealed class DiagnosticsHooksTests
     }
 
     [Fact]
-    public void Observer_WithoutState_SubscribesToNothing()
+    public async Task Observer_WithoutState_SubscribesToNothing()
     {
         using var renderer = CreateRenderer();
         var observer = new DiagnosticsSnapshotObserver(null, renderer);
 
         observer.Start();
-        observer.EnsureCurrent();
+        await observer.EnsureCurrentAsync();
         observer.OnError(new InvalidOperationException("ignored"));
         observer.Dispose();
     }

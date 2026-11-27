@@ -20,6 +20,8 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
     private readonly ConsoleRenderer _renderer;
     private bool _disposed;
     private int _scrollRepaintPending;
+    private readonly Lock _repaintSync = new();
+    private Task _repaints = Task.CompletedTask;
     private ConsoleViewResult? _currentView;
     private readonly IDisposable? _snapshotSubscription;
     private readonly AnimationTicker _animationTicker;
@@ -104,7 +106,7 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
     }
 
     // Scroll state changed outside a Blazor render: relayout and repaint through the same path as a resize.
-    // Requests arriving while one is pending are coalesced, and the work runs off the caller's stack so a request raised during input handling or layout never re-enters the renderer.
+    // Requests arriving while one is pending are coalesced.
     private void HandleScrollRepaintRequested()
     {
         if (_disposed || Interlocked.Exchange(ref _scrollRepaintPending, 1) == 1)
@@ -112,21 +114,46 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
             return;
         }
 
-        _ = Task.Run(() =>
-        {
-            Volatile.Write(ref _scrollRepaintPending, 0);
-            if (!_disposed)
-            {
-                HandleTerminalResize();
-            }
-        });
+        QueueRepaint(() => Volatile.Write(ref _scrollRepaintPending, 0));
     }
 
+    // Raised on the terminal monitor's thread, which does not wait for the repaint, so it never waits for a busy dispatcher.
     private void HandleTerminalResize()
+        => QueueRepaint();
+
+    // Repaints run one at a time in request order, each with the snapshot current when it starts, so an earlier repaint
+    // never replaces the frame of a later one. WhenIdleAsync waits for the last one queued. Each runs on the thread pool,
+    // off the requester's stack, so a request raised during input handling or layout never re-enters the renderer.
+    private void QueueRepaint(Action? starting = null)
+    {
+        lock (_repaintSync)
+        {
+            var previous = _repaints;
+            _repaints = Task.Run(async () =>
+            {
+                try
+                {
+                    await previous.ConfigureAwait(false);
+                }
+                catch
+                {
+                    // That repaint's own failure was reported to whoever waited for it; this one still runs.
+                }
+
+                starting?.Invoke();
+                if (!_disposed)
+                {
+                    await RepaintAsync().ConfigureAwait(false);
+                }
+            });
+        }
+    }
+
+    private async Task RepaintAsync()
     {
         try
         {
-            var snapshot = _renderer.RefreshSnapshot();
+            var snapshot = await _renderer.RefreshSnapshotAsync().ConfigureAwait(false);
             var view = ConsoleViewResult.FromSnapshot(snapshot);
             lock (_sync)
             {
@@ -142,10 +169,20 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
     }
 
     /// <summary>
-    /// Returns a task that completes once the frames requested so far have been written to the console.
+    /// Returns a task that completes once the frames requested so far, including the repaints queued for terminal
+    /// resizes and scroll changes, have been written to the console.
     /// </summary>
-    public Task WhenIdleAsync(CancellationToken cancellationToken = default)
-        => _canvas.WhenIdleAsync(cancellationToken);
+    public async Task WhenIdleAsync(CancellationToken cancellationToken = default)
+    {
+        Task repaints;
+        lock (_repaintSync)
+        {
+            repaints = _repaints;
+        }
+
+        await repaints.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _canvas.WhenIdleAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public void Dispose()
     {

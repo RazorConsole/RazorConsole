@@ -88,7 +88,7 @@ public sealed class GallerySampleTests
             await terminal.SendTerminalInputAsync(string.Concat(Enumerable.Repeat(packet, 20)) + "\u001b[12;40R", timeout.Token);
             if (batch == 9)
             {
-                terminal.Resize(80, 24);
+                await terminal.ResizeAsync(80, 24, timeout.Token);
             }
         }
         // Scroll back to the toolbar after the burst, then use mouse and keyboard.
@@ -160,7 +160,7 @@ public sealed class GallerySampleTests
         terminal.CurrentFrame.ContainsText("Ctrl+C quit").ShouldBeTrue();
         await Click(terminal, $"{route}-code");
         await terminal.WaitUntilAsync(s => s.ContainsText(" ● Code") && s.ContainsText(code), cancellationToken: TestContext.Current.CancellationToken);
-        terminal.Resize(100, 35);
+        await terminal.ResizeAsync(100, 35, TestContext.Current.CancellationToken);
         await terminal.WaitUntilAsync(s => s.Width == 100 && s.ContainsText(code), cancellationToken: TestContext.Current.CancellationToken);
         await Click(terminal, $"{route}-preview");
         // Tab from Preview to Code; Enter must work without a mouse click.

@@ -40,7 +40,7 @@ public sealed class GalleryWorkbenchTests
         terminal.GetLayout("gallery-sidebar").Width.ShouldBe(19);
         await terminal.SendKeyAsync(ConsoleKey.Home, cancellationToken: token);
         terminal.GetLayout("gallery-sidebar").Width.ShouldBe(25);
-        terminal.Resize(50, 24);
+        await terminal.ResizeAsync(50, 24, token);
         await terminal.WaitUntilAsync(s => s.Layouts.TryGetValue("gallery-sidebar", out var box) && box.Width == 17, cancellationToken: token);
         terminal.GetLayout("gallery-main").Width.ShouldBe(30);
         terminal.CurrentFrame.ContainsText("Preview").ShouldBeTrue();
@@ -96,7 +96,7 @@ public sealed class GalleryWorkbenchTests
         await Click(terminal, "nav-textinput");
         await terminal.WaitUntilAsync(s => s.ContainsText("TextInput.razor"), cancellationToken: TestContext.Current.CancellationToken);
         terminal.CurrentFrame.ContainsText("TextInput.razor").ShouldBeTrue(terminal.DumpDiagnostics());
-        terminal.Resize(80, 24);
+        await terminal.ResizeAsync(80, 24, TestContext.Current.CancellationToken);
         await terminal.WaitUntilAsync(s => s.Width == 80 && s.ContainsText("Ctrl+C quit"), cancellationToken: TestContext.Current.CancellationToken);
         terminal.CurrentFrame.ContainsText("RazorConsole").ShouldBeTrue();
         terminal.CurrentFrame.ContainsText("Ctrl+C quit").ShouldBeTrue(terminal.DumpDiagnostics());

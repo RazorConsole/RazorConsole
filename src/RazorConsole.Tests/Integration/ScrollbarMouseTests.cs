@@ -78,7 +78,7 @@ public sealed class ScrollbarMouseTests
         await terminal.WaitForTextAsync("line 0", cancellationToken: ct);
 
         await terminal.SendMouseAsync(new TerminalMouseEvent(TerminalMouseKind.Down, BarX, 1, Button: 0), ct);
-        terminal.Resize(30, 12);
+        await terminal.ResizeAsync(30, 12, ct);
         await terminal.SendMouseAsync(new TerminalMouseEvent(TerminalMouseKind.Move, BarX, 5, Button: 0), ct);
 
         // The track is now 10 rows and the thumb 5; the thumb top is 4, which is 8 of the 10 scrollable rows.

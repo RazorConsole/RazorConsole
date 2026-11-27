@@ -14,6 +14,9 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <!-- Print each failed test's message and stack trace in the dotnet test output, not only the count. A CI rerun
+         replaces the test diagnostics artifact, so the job log must name the failures itself. -->
+    <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
   </PropertyGroup>
 
   <!-- SDK 11 rc.3 Native AOT publish fails with MSB3030 looking for the XML doc file in the artifacts output dir. A native executable has no use for it. -->

@@ -125,7 +125,7 @@ public sealed class ScrollController
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(target);
         var (_, _, navigator) = Snapshot();
-        return Task.FromResult(navigator?.ScrollIntoView(target) == true);
+        return navigator?.ScrollIntoViewAsync(target) ?? Task.FromResult(false);
     }
 
     internal void Attach(ScrollStateRegistry registry, string scrollId, ScrollInputNavigator? navigator)

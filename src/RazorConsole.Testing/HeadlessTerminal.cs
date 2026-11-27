@@ -23,7 +23,7 @@ namespace RazorConsole.Testing;
 /// Send keyboard, mouse, and raw terminal input, resize the terminal, and inspect the rendered frames.
 /// </summary>
 /// <remarks>
-/// Input methods and <see cref="Resize(int, int)"/> are serialized: concurrent calls run one at a time.
+/// Input methods and <see cref="ResizeAsync"/> are serialized: concurrent calls run one at a time.
 /// Every input call returns once the event handlers it raised have started (their code up to the first
 /// <c>await</c> has run), and captures a frame. Like a real terminal, it does not wait for an <c>async</c> handler
 /// to finish: wait for the state you expect with <see cref="WaitUntilAsync"/> or <see cref="WaitForTextAsync"/>.
@@ -320,7 +320,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
             async token =>
             {
                 await _mouseEventManager.HandleAsync(new TerminalMouseEvent(TerminalMouseKind.Down, x, y), token).ConfigureAwait(false);
-                Capture(_renderer.RefreshSnapshot());
+                Capture(await _renderer.RefreshSnapshotAsync().ConfigureAwait(false));
                 await _mouseEventManager.HandleAsync(new TerminalMouseEvent(TerminalMouseKind.Up, x, y), token).ConfigureAwait(false);
             },
             cancellationToken);
@@ -342,29 +342,23 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     /// </summary>
     /// <param name="width">The new width in columns.</param>
     /// <param name="height">The new height in rows.</param>
-    public void Resize(int width, int height)
+    /// <param name="cancellationToken">A token that cancels the resize while it waits for an earlier input call.</param>
+    public Task ResizeAsync(int width, int height, CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
-        ThrowIfDisposed();
-
-        _inputGate.Wait();
-        try
-        {
-            ThrowIfDisposed();
-            if (_ansiConsole is not null)
+        return RunInputAsync(
+            _ =>
             {
-                _ansiConsole.Profile.Width = width;
-                _ansiConsole.Profile.Height = height;
-            }
-            _terminalMonitor.Resize(width, height);
-            _liveContext?.WhenIdleAsync().GetAwaiter().GetResult();
-            Capture(_renderer.RefreshSnapshot());
-        }
-        finally
-        {
-            _inputGate.Release();
-        }
+                if (_ansiConsole is not null)
+                {
+                    _ansiConsole.Profile.Width = width;
+                    _ansiConsole.Profile.Height = height;
+                }
+                _terminalMonitor.Resize(width, height);
+                return Task.CompletedTask;
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -545,7 +539,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         _focusSession = _focusManager.BeginSession(_liveContext, view, _shutdown.Token);
         await _focusSession.InitializationTask.ConfigureAwait(false);
         await _liveContext.WhenIdleAsync(cancellationToken).ConfigureAwait(false);
-        Capture(_renderer.RefreshSnapshot());
+        Capture(await _renderer.RefreshSnapshotAsync().ConfigureAwait(false));
 
         // Scroll state changed by the engine (not by a Blazor render or by input sent through this terminal) repaints the host; capture it like one.
         if (_renderer.ScrollRegistry is { } scrollRegistry)
@@ -565,7 +559,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
                 {
                     if (!_disposed)
                     {
-                        Capture(_renderer.RefreshSnapshot());
+                        Capture(await _renderer.RefreshSnapshotAsync().ConfigureAwait(false));
                     }
                 }
                 finally
@@ -593,7 +587,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
                 await _liveContext.WhenIdleAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            Capture(_renderer.RefreshSnapshot());
+            Capture(await _renderer.RefreshSnapshotAsync().ConfigureAwait(false));
         }
         finally
         {

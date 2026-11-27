@@ -61,7 +61,7 @@ public sealed class WidgetLayoutIntegrationTests
             cancellationToken: TestContext.Current.CancellationToken);
         var before = terminal.CurrentFrame;
 
-        terminal.Resize(30, 8);
+        await terminal.ResizeAsync(30, 8, TestContext.Current.CancellationToken);
         var after = terminal.CurrentFrame;
 
         before.GetLayout("content").ShouldMatch(new LayoutRect(12, 0, 28, 5));

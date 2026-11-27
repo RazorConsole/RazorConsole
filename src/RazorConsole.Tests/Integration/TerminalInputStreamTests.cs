@@ -45,7 +45,7 @@ public sealed class TerminalInputStreamTests
         await using var terminal = await StartAsync(events);
         await terminal.SendTerminalInputAsync("\u001b[<65;25;2M", TestContext.Current.CancellationToken);
         events.ShouldBeEmpty();
-        terminal.Resize(30, 4);
+        await terminal.ResizeAsync(30, 4, TestContext.Current.CancellationToken);
         await terminal.SendTerminalInputAsync("\u001b[<65;25;2M", TestContext.Current.CancellationToken);
         events.ShouldHaveSingleItem().ShouldBeOfType<WheelEventArgs>();
     }

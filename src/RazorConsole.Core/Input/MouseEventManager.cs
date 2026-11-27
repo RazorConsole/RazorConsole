@@ -27,7 +27,7 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
 
     public async Task HandleAsync(TerminalMouseEvent input, CancellationToken token = default)
     {
-        var snapshot = renderer.RefreshSnapshot();
+        var snapshot = await renderer.RefreshSnapshotAsync().ConfigureAwait(false);
         if (snapshot.Root is null)
         {
             return;
@@ -92,7 +92,8 @@ internal sealed class MouseEventManager(ConsoleRenderer renderer, IVNodeLayoutAc
             _pressedId = null;
             if (click)
             {
-                await DispatchAsync(renderer.RefreshSnapshot().Root!, hit!.ID, "onclick", input, token).ConfigureAwait(false);
+                var current = await renderer.RefreshSnapshotAsync().ConfigureAwait(false);
+                await DispatchAsync(current.Root!, hit!.ID, "onclick", input, token).ConfigureAwait(false);
             }
         }
     }

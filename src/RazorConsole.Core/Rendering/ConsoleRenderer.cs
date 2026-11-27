@@ -63,6 +63,11 @@ internal sealed class ConsoleRenderer(
     /// <summary>Gets the engine-owned scroll state, or <see langword="null"/> when the host did not register one.</summary>
     internal ScrollStateRegistry? ScrollRegistry => scrollStateRegistry;
 
+    /// <summary>
+    /// Returns the current snapshot, built on the dispatcher. Off the dispatcher this blocks the calling thread until the
+    /// dispatcher is free, and the dispatcher runs its work on the thread pool: callers on thread pool threads that block
+    /// here at the same time can leave it no thread to run on. Code that can await uses <see cref="RefreshSnapshotAsync"/>.
+    /// </summary>
     internal RenderSnapshot RefreshSnapshot()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -72,6 +77,18 @@ internal sealed class ConsoleRenderer(
         return Dispatcher.CheckAccess()
             ? GetCurrentSnapshot()
             : Dispatcher.InvokeAsync(GetCurrentSnapshot).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Returns the current snapshot, built on the dispatcher, without blocking the calling thread while the dispatcher is busy.
+    /// </summary>
+    internal Task<RenderSnapshot> RefreshSnapshotAsync()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        return Dispatcher.CheckAccess()
+            ? Task.FromResult(GetCurrentSnapshot())
+            : Dispatcher.InvokeAsync(GetCurrentSnapshot);
     }
 
     /// <summary>

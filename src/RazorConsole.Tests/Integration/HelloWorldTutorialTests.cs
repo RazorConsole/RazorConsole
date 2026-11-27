@@ -61,7 +61,7 @@ public sealed class HelloWorldTutorialTests
             12,
             cancellationToken: TestContext.Current.CancellationToken);
 
-        terminal.Resize(42, 10);
+        await terminal.ResizeAsync(42, 10, TestContext.Current.CancellationToken);
 
         terminal.CurrentFrame.Width.ShouldBe(42);
         terminal.CurrentFrame.Height.ShouldBe(10);
