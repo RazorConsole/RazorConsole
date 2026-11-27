@@ -164,4 +164,13 @@ internal static partial class LoggerExtensions
     public static partial void LogDuplicateScrollId(
         this ILogger logger,
         string scrollId);
+
+    [LoggerMessage(
+        EventId = 21,
+        Level = LogLevel.Error,
+        Message = "Scrolling the focused element {NodeId} into view failed.")]
+    public static partial void LogErrorScrollingFocusIntoView(
+        this ILogger logger,
+        Exception ex,
+        string nodeId);
 }
