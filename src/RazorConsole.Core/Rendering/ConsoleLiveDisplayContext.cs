@@ -20,6 +20,7 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
     private readonly ConsoleRenderer _renderer;
     private bool _disposed;
     private int _scrollRepaintPending;
+    private Task _resizeRepaint = Task.CompletedTask;
     private ConsoleViewResult? _currentView;
     private readonly IDisposable? _snapshotSubscription;
     private readonly AnimationTicker _animationTicker;
@@ -122,9 +123,10 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
         });
     }
 
-    // Raised on the terminal monitor's thread. Not awaited there, so that thread never waits for a busy dispatcher.
+    // Raised on the terminal monitor's thread. Not awaited there, so that thread never waits for a busy dispatcher;
+    // WhenIdleAsync waits for it instead. RepaintAsync does not throw.
     private void HandleTerminalResize()
-        => _ = RepaintAsync();
+        => Volatile.Write(ref _resizeRepaint, RepaintAsync());
 
     private async Task RepaintAsync()
     {
@@ -146,10 +148,14 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
     }
 
     /// <summary>
-    /// Returns a task that completes once the frames requested so far have been written to the console.
+    /// Returns a task that completes once the frames requested so far, including the repaint for the last terminal
+    /// resize, have been written to the console.
     /// </summary>
-    public Task WhenIdleAsync(CancellationToken cancellationToken = default)
-        => _canvas.WhenIdleAsync(cancellationToken);
+    public async Task WhenIdleAsync(CancellationToken cancellationToken = default)
+    {
+        await Volatile.Read(ref _resizeRepaint).WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _canvas.WhenIdleAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public void Dispose()
     {
