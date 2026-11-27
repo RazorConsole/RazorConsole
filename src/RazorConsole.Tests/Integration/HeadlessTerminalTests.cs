@@ -136,6 +136,43 @@ public sealed class HeadlessTerminalTests
     }
 
     [Fact]
+    public async Task WaitUntilAsync_Timeout_ReportsWhetherTheDispatcherOrThePoolIsStuck()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var terminal = await StartKeySurfaceAsync([]);
+
+        var idle = await Should.ThrowAsync<TerminalTimeoutException>(
+            () => terminal.WaitUntilAsync(_ => false, TimeSpan.FromMilliseconds(50), "an impossible state", ct));
+        idle.Diagnostics.ShouldContain("Thread pool: ");
+        idle.Diagnostics.ShouldMatch(@"Scheduling probe: thread pool ran after \d+ ms, dispatcher ran after \d+ ms");
+
+        // Dispatcher work that never finishes: the pool still runs work, the dispatcher does not.
+        using var release = new ManualResetEventSlim();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        // An idle dispatcher runs InvokeAsync work inline on the caller, so block from a thread of our own:
+        // a thread pool thread would take one of the threads the probe measures.
+        var blocker = new Thread(() => terminal.Renderer.Dispatcher.InvokeAsync(() =>
+        {
+            entered.SetResult();
+            release.Wait(ct);
+        }))
+        { IsBackground = true };
+        blocker.Start();
+        try
+        {
+            await entered.Task.WaitAsync(ct);
+            var stuck = await Should.ThrowAsync<TerminalTimeoutException>(
+                () => terminal.WaitUntilAsync(_ => false, TimeSpan.FromMilliseconds(50), "an impossible state", ct));
+            stuck.Diagnostics.ShouldMatch(@"Scheduling probe: thread pool ran after \d+ ms, dispatcher did not run within 1000 ms");
+        }
+        finally
+        {
+            release.Set();
+            blocker.Join();
+        }
+    }
+
+    [Fact]
     public async Task WaitForTextAsync_ReturnsMatchingFrame_OrThrowsOnTimeout()
     {
         await using var terminal = await StartKeySurfaceAsync([]);
