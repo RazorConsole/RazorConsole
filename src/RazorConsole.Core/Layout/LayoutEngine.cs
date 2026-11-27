@@ -1,5 +1,6 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
+using RazorConsole.Core.Rendering;
 using Spectre.Console.Rendering;
 
 namespace RazorConsole.Core.Layout;
@@ -128,8 +129,14 @@ public sealed record LayoutResult(Widget Root, LayoutBox RootBox, LayoutSize Siz
         return result;
     }
 
+    /// <summary>
+    /// Returns a Spectre.Console renderable that paints the widgets again every time it is rendered.
+    /// </summary>
     public IRenderable PaintToRenderable()
-        => new WidgetCanvasRenderable(Root, Size);
+        => new FrameSourceRenderable(new WidgetFrameSource(Root, Size));
+
+    internal FrameSource ToFrameSource()
+        => new WidgetFrameSource(Root, Size);
 
     private static void AppendLayoutBoxes(LayoutBox box, List<LayoutBox> result)
     {
@@ -148,4 +155,20 @@ public sealed record LayoutResult(Widget Root, LayoutBox RootBox, LayoutSize Siz
             AppendLayoutParentIds(child, box.VNodeId, result);
         }
     }
+}
+
+/// <summary>
+/// Adapts a <see cref="WidgetFrameSource"/> to Spectre.Console for <see cref="LayoutResult.PaintToRenderable"/>. It goes
+/// with the other public <see cref="IRenderable"/> APIs, which are removed before 1.0.
+/// </summary>
+internal sealed class FrameSourceRenderable(WidgetFrameSource source) : IRenderable
+{
+    public Measurement Measure(RenderOptions options, int maxWidth)
+    {
+        var width = Math.Min(source.Size.Width, Math.Max(0, maxWidth));
+        return new Measurement(width, width);
+    }
+
+    public IEnumerable<Segment> Render(RenderOptions options, int maxWidth)
+        => source.Paint().RenderSegments(maxWidth);
 }

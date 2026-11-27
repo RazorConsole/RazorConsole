@@ -102,7 +102,7 @@ public sealed class FocusManagerTests
         var view = ConsoleViewResult.Create(
             "interactive",
             root,
-            new FakeRenderable("interactive"),
+            TestFrames.Of(new FakeRenderable("interactive")),
             Array.Empty<IAnimatedConsoleRenderable>());
 
         using var context = ConsoleLiveDisplayContext.CreateForTesting(
@@ -144,7 +144,7 @@ public sealed class FocusManagerTests
         var view = ConsoleViewResult.Create(
             "focus",
             root,
-            new FakeRenderable("focus"),
+            TestFrames.Of(new FakeRenderable("focus")),
             Array.Empty<IAnimatedConsoleRenderable>());
 
         using var context = ConsoleLiveDisplayContext.CreateForTesting(
@@ -232,7 +232,7 @@ public sealed class FocusManagerTests
         var view = ConsoleViewResult.Create(
             "focus",
             root,
-            new FakeRenderable("focus"),
+            TestFrames.Of(new FakeRenderable("focus")),
             Array.Empty<IAnimatedConsoleRenderable>());
 
         using var context = ConsoleLiveDisplayContext.CreateForTesting(
@@ -260,12 +260,12 @@ public sealed class FocusManagerTests
         var updatedView = ConsoleViewResult.Create(
             "focus",
             updatedRoot,
-            new FakeRenderable("focus"),
+            TestFrames.Of(new FakeRenderable("focus")),
             Array.Empty<IAnimatedConsoleRenderable>());
 
         var snapshot = new ConsoleRenderer.RenderSnapshot(
             updatedView.VdomRoot!,
-            updatedView.Renderable,
+            updatedView.Source,
             updatedView.AnimatedRenderables);
 
         ((IObserver<ConsoleRenderer.RenderSnapshot>)manager).OnNext(snapshot);
@@ -312,7 +312,7 @@ public sealed class FocusManagerTests
         var emptyView = CreateView(Array.Empty<string>(), focusedKey: null);
         var snapshot = new ConsoleRenderer.RenderSnapshot(
             emptyView.VdomRoot!,
-            emptyView.Renderable,
+            emptyView.Source,
             emptyView.AnimatedRenderables);
 
         ((IObserver<ConsoleRenderer.RenderSnapshot>)manager).OnNext(snapshot);
@@ -328,7 +328,7 @@ public sealed class FocusManagerTests
         var manager = new FocusManager();
         var view = CreateView(["first"], focusedKey: null);
         var observer = (IObserver<ConsoleRenderer.RenderSnapshot>)manager;
-        var snapshot = new ConsoleRenderer.RenderSnapshot(view.VdomRoot!, view.Renderable, view.AnimatedRenderables);
+        var snapshot = new ConsoleRenderer.RenderSnapshot(view.VdomRoot!, view.Source, view.AnimatedRenderables);
         var token = TestContext.Current.CancellationToken;
 
         manager.SnapshotSequence.ShouldBe(0);
@@ -388,7 +388,7 @@ public sealed class FocusManagerTests
         var view = ConsoleViewResult.Create(
             "focus-order",
             root,
-            new FakeRenderable("focus-order"),
+            TestFrames.Of(new FakeRenderable("focus-order")),
             Array.Empty<IAnimatedConsoleRenderable>());
 
         using var context = ConsoleLiveDisplayContext.CreateForTesting(
@@ -456,7 +456,7 @@ public sealed class FocusManagerTests
         var view = ConsoleViewResult.Create(
             "focus-order",
             root,
-            new FakeRenderable("focus-order"),
+            TestFrames.Of(new FakeRenderable("focus-order")),
             Array.Empty<IAnimatedConsoleRenderable>());
 
         using var context = ConsoleLiveDisplayContext.CreateForTesting(
@@ -496,11 +496,11 @@ public sealed class FocusManagerTests
         var host = new KeyedConditionalHost();
 
         var initialSnapshot = await renderer.MountComponentAsync(host, ParameterView.Empty, CancellationToken.None);
-        var initialRenderable = initialSnapshot.Renderable.ShouldNotBeNull();
+        var initialSource = initialSnapshot.Source.ShouldNotBeNull();
         var initialView = ConsoleViewResult.Create(
             "repro307-initial",
             initialSnapshot.Root!,
-            initialRenderable,
+            initialSource,
             initialSnapshot.AnimatedRenderables);
 
         var manager = new FocusManager();
@@ -758,7 +758,7 @@ public sealed class FocusManagerTests
     }
 
     private static ConsoleRenderer.RenderSnapshot ToSnapshot(ConsoleViewResult view, long sequence)
-        => new ConsoleRenderer.RenderSnapshot(view.VdomRoot, view.Renderable, view.AnimatedRenderables) with { Sequence = sequence };
+        => new ConsoleRenderer.RenderSnapshot(view.VdomRoot, view.Source, view.AnimatedRenderables) with { Sequence = sequence };
 
     private static ConsoleViewResult CreateInputsView(ulong firstIdBase)
     {
@@ -777,7 +777,7 @@ public sealed class FocusManagerTests
         var root = VNode.CreateElement("div");
         root.AddChild(first);
         root.AddChild(second);
-        return ConsoleViewResult.Create("focus", root, new FakeRenderable("focus"), Array.Empty<IAnimatedConsoleRenderable>());
+        return ConsoleViewResult.Create("focus", root, TestFrames.Of(new FakeRenderable("focus")), Array.Empty<IAnimatedConsoleRenderable>());
     }
 
     private sealed class StaleHandlerDispatcher(IReadOnlyCollection<ulong> staleIds) : IFocusEventDispatcher
@@ -807,7 +807,7 @@ public sealed class FocusManagerTests
             return;
         }
 
-        var snapshot = new ConsoleRenderer.RenderSnapshot(view.VdomRoot, view.Renderable, view.AnimatedRenderables);
+        var snapshot = new ConsoleRenderer.RenderSnapshot(view.VdomRoot, view.Source, view.AnimatedRenderables);
         ((IObserver<ConsoleRenderer.RenderSnapshot>)manager).OnNext(snapshot);
     }
 
@@ -872,13 +872,13 @@ public sealed class FocusManagerTests
         }
 
         var html = focusedKey ?? "none";
-        var renderable = new FakeRenderable(html);
-        return ConsoleViewResult.Create(html, root, renderable, Array.Empty<IAnimatedConsoleRenderable>());
+        var source = TestFrames.Of(new FakeRenderable(html));
+        return ConsoleViewResult.Create(html, root, source, Array.Empty<IAnimatedConsoleRenderable>());
     }
 
     private sealed class TestCanvas : ConsoleLiveDisplayContext.ILiveDisplayCanvas
     {
-        public void UpdateTarget(IRenderable? renderable)
+        public void UpdateTarget(FrameSource? source)
         {
         }
 

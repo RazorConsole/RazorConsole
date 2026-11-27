@@ -19,7 +19,7 @@ VNode tree
   -> Widget tree
   -> LayoutEngine.Measure/Arrange with viewport constraints
   -> LayoutBox tree + VNodeLayoutInfo snapshots
-  -> TerminalCanvas / WidgetCanvasRenderable
+  -> WidgetFrameSource, painted by the frame loop into a TerminalFrame (TerminalCanvas)
   -> DiffRenderable / terminal output
 ```
 

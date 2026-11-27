@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Vdom;
-using Spectre.Console.Rendering;
 
 namespace RazorConsole.Core.Rendering;
 
@@ -63,7 +62,7 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
     /// <returns><see langword="true"/> when the view was updated; otherwise <see langword="false"/>.</returns>
     public bool UpdateView(ConsoleViewResult view)
     {
-        if (view is null || view.Renderable is null)
+        if (view is null || view.Source is null)
         {
             throw new ArgumentNullException(nameof(view));
         }
@@ -80,7 +79,7 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
                 || _diffService.HasChanges(previousRoot, currentRoot);
             if (updated)
             {
-                _canvas.UpdateTarget(view.Renderable);
+                _canvas.UpdateTarget(view.Source);
             }
 
             _currentView = view;
@@ -90,12 +89,12 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
     }
 
     /// <summary>
-    /// Replaces the live display target with a custom renderable.
+    /// Replaces the live display target with a custom source.
     /// </summary>
-    /// <param name="renderable">The renderable to display.</param>
-    public void UpdateRenderable(IRenderable? renderable)
+    /// <param name="source">The source to display.</param>
+    public void UpdateSource(FrameSource? source)
     {
-        _canvas.UpdateTarget(renderable);
+        _canvas.UpdateTarget(source);
         lock (_sync)
         {
             _currentView = null;
@@ -130,7 +129,7 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
             var view = ConsoleViewResult.FromSnapshot(snapshot);
             lock (_sync)
             {
-                _canvas.UpdateTarget(view.Renderable);
+                _canvas.UpdateTarget(view.Source);
                 _currentView = view;
                 UpdateAnimations(view.AnimatedRenderables);
             }
@@ -249,9 +248,9 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
     internal interface ILiveDisplayCanvas
     {
         /// <summary>
-        /// Requests a frame showing <paramref name="renderable"/>. Must not block or throw for write errors.
+        /// Requests a frame painted from <paramref name="source"/>. Must not block or throw for write errors.
         /// </summary>
-        void UpdateTarget(IRenderable? renderable);
+        void UpdateTarget(FrameSource? source);
 
         /// <summary>
         /// Requests a frame of the current target, best effort. Must not block or throw: a refresh that arrives while

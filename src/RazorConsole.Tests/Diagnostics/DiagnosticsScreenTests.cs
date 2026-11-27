@@ -9,7 +9,6 @@ using RazorConsole.Core.Focus;
 using RazorConsole.Core.Layout;
 using RazorConsole.Core.Rendering;
 using Spectre.Console;
-using Spectre.Console.Rendering;
 
 namespace RazorConsole.Tests.Diagnostics;
 
@@ -95,8 +94,8 @@ public sealed class DiagnosticsScreenTests
         var state = new DiagnosticsState();
         var queries = new DiagnosticsAppQueries(state, new FocusManager(), new ConsoleNavigationManager());
 
-        // Before the first frame, and for a frame whose renderable is not a widget canvas (nothing mounted).
-        foreach (var publish in new Action[] { () => { }, () => state.PublishFrame(null, null, null), () => state.PublishFrame(null, null, null, new Text("legacy")) })
+        // Before the first frame, and for a frame with nothing to paint (nothing mounted).
+        foreach (var publish in new Action[] { () => { }, () => state.PublishFrame(null, null, null) })
         {
             publish();
 
@@ -188,10 +187,10 @@ internal sealed class DrawWidget(int width, int height, Action<TerminalCanvas>? 
 
     public int Paints => Volatile.Read(ref _paints);
 
-    public IRenderable ToRenderable()
-        => new LayoutEngine().Layout(this, new BoxConstraints(0, width, 0, height)).PaintToRenderable();
+    public FrameSource ToFrameSource()
+        => new LayoutEngine().Layout(this, new BoxConstraints(0, width, 0, height)).ToFrameSource();
 
-    public DiagnosticsFrame Publish(DiagnosticsState state) => state.PublishFrame(null, null, null, ToRenderable());
+    public DiagnosticsFrame Publish(DiagnosticsState state) => state.PublishFrame(null, null, null, ToFrameSource());
 
     protected override LayoutSize MeasureCore(LayoutContext context, BoxConstraints constraints) => new(width, height);
 

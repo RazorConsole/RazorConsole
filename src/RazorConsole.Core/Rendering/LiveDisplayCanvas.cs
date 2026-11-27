@@ -6,7 +6,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering;
 using Spectre.Console;
-using Spectre.Console.Rendering;
 using static RazorConsole.Core.Utilities.AnsiSequences;
 
 namespace RazorConsole.Core;
@@ -17,8 +16,12 @@ namespace RazorConsole.Core;
 /// <remarks>
 /// <see cref="UpdateTarget"/> and <see cref="Refresh"/> only request a frame: they never block and never throw for
 /// write errors. Requests go into a channel with room for one item, so requests made while a frame is being written
-/// are merged into the next frame, and the latest target wins. The frame loop is the only code that writes to the
-/// console, and it logs write errors.
+/// are merged into the next frame, and the latest target wins. The frame loop is the only code that paints and writes
+/// to the console, and it logs write errors.
+/// <para>
+/// Every frame is painted from the current <see cref="FrameSource"/> into a <see cref="TerminalFrame"/> before it is
+/// written, so a refresh without a new target paints the same source again and shows its current state.
+/// </para>
 /// </remarks>
 internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiveDisplayCanvas, IAsyncDisposable, IDisposable
 {
@@ -37,13 +40,15 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
     private readonly Task _frameLoop;
 
     // Owned by the frame loop.
+    private FrameSource? _source;
+    private TerminalFrame? _lastFrame;
     private DiffRenderable? _current;
     private bool _alternateScreenBufferActive;
     private bool _lastWriteFailed;
     private bool _lastRefreshedHandlerFailed;
 
     // The newest target that the frame loop has not applied yet.
-    private IRenderable? _pendingTarget;
+    private FrameSource? _pendingTarget;
 
     // Frame requests made so far, and the requests the frame loop has finished (written or failed).
     private long _requestedSequence;
@@ -65,16 +70,21 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
     public event Action? Refreshed;
 
     /// <summary>
-    /// Requests a frame showing <paramref name="renderable"/>. A <see langword="null"/> target is ignored.
+    /// The frame the frame loop wrote last, or <see langword="null"/> before the first frame was written.
     /// </summary>
-    public void UpdateTarget(IRenderable? renderable)
+    internal TerminalFrame? LastFrame => Volatile.Read(ref _lastFrame);
+
+    /// <summary>
+    /// Requests a frame painted from <paramref name="source"/>. A <see langword="null"/> source is ignored.
+    /// </summary>
+    public void UpdateTarget(FrameSource? source)
     {
-        if (renderable is null)
+        if (source is null)
         {
             return;
         }
 
-        Volatile.Write(ref _pendingTarget, renderable);
+        Volatile.Write(ref _pendingTarget, source);
         RequestFrame();
     }
 
@@ -131,7 +141,7 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
                 // With it, leaving the buffer restores the screen anyway, so the frame is skipped.
                 if (Volatile.Read(ref _disposeState) == 0 || !_useAlternateScreenBuffer)
                 {
-                    WriteFrame();
+                    WriteFrame(sequence);
                 }
 
                 CompleteWaiters(sequence);
@@ -143,9 +153,9 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
         }
     }
 
-    private void WriteFrame()
+    private void WriteFrame(long sequence)
     {
-        if (!TryWriteCurrentFrame())
+        if (!TryWriteCurrentFrame(sequence))
         {
             return;
         }
@@ -168,33 +178,40 @@ internal sealed partial class LiveDisplayCanvas : ConsoleLiveDisplayContext.ILiv
     }
 
     /// <summary>
-    /// Applies the pending target and writes the current frame. Returns <see langword="true"/> when a frame was
-    /// written.
+    /// Applies the pending target, paints a frame from it and writes that frame. Returns <see langword="true"/> when a
+    /// frame was written.
     /// </summary>
-    private bool TryWriteCurrentFrame()
+    private bool TryWriteCurrentFrame(long sequence)
     {
         try
         {
             var target = Interlocked.Exchange(ref _pendingTarget, null);
             if (target is not null)
             {
-                if (_current is null)
-                {
-                    _current = new DiffRenderable(target, hideCursor: _options.HideCursor);
-                }
-                else
-                {
-                    _current.UpdateRenderable(target);
-                }
+                _source = target;
             }
 
-            if (_current is null)
+            if (_source is null)
             {
                 return false;
             }
 
+            // Painted inside the try, like the write: a source that fails to paint is reported and retried with the
+            // next frame, the same as a failed write.
+            var frame = new TerminalFrame(sequence, _source.Paint());
+            var renderable = frame.Canvas.ToRenderable();
+            if (_current is null)
+            {
+                _current = new DiffRenderable(renderable, hideCursor: _options.HideCursor);
+            }
+            else
+            {
+                _current.UpdateRenderable(renderable);
+            }
+
             EnterAlternateScreenBufferIfNeeded();
             WriteCurrent();
+            Volatile.Write(ref _lastFrame, frame);
             if (_lastWriteFailed)
             {
                 _lastWriteFailed = false;

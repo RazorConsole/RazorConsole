@@ -92,12 +92,12 @@ public sealed class AnimationTickerTests
     }
 
     [Fact]
-    public void LiveDisplayContext_UpdateRenderableStopsAnimations()
+    public void LiveDisplayContext_UpdateSourceStopsAnimations()
     {
         var view = CreateView("spinner", [new FakeAnimation(TimeSpan.FromSeconds(10))]);
         using var context = ConsoleLiveDisplayContext.CreateForTesting(new NoopCanvas(), view, new VdomDiffService());
 
-        context.UpdateRenderable(new Text("custom"));
+        context.UpdateSource(TestFrames.Of(new Text("custom")));
 
         context.AnimationInterval.ShouldBeNull();
     }
@@ -106,7 +106,7 @@ public sealed class AnimationTickerTests
     {
         var root = VNode.CreateElement("div");
         root.AddChild(VNode.CreateText(text));
-        return ConsoleViewResult.Create(text, root, new Text(text), animations);
+        return ConsoleViewResult.Create(text, root, TestFrames.Of(new Text(text)), animations);
     }
 
     private sealed class FakeAnimation(TimeSpan interval) : IAnimatedConsoleRenderable
@@ -123,7 +123,7 @@ public sealed class AnimationTickerTests
 
     private sealed class NoopCanvas : ConsoleLiveDisplayContext.ILiveDisplayCanvas
     {
-        public void UpdateTarget(IRenderable? renderable)
+        public void UpdateTarget(FrameSource? source)
         {
         }
 

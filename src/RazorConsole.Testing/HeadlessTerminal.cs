@@ -10,11 +10,9 @@ using RazorConsole.Core;
 using RazorConsole.Core.Controllers;
 using RazorConsole.Core.Focus;
 using RazorConsole.Core.Input;
-using RazorConsole.Core.Layout;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
-using Spectre.Console.Rendering;
 
 namespace RazorConsole.Testing;
 
@@ -625,7 +623,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
 
     internal void Capture(ConsoleRenderer.RenderSnapshot renderSnapshot)
     {
-        if (renderSnapshot.Renderable is not WidgetCanvasRenderable renderable || renderSnapshot.Root is null)
+        if (renderSnapshot.Source is not { } source || renderSnapshot.Root is null)
         {
             return;
         }
@@ -641,7 +639,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
             }
 
             _capturedSequence = renderSnapshot.Sequence;
-            var canvas = renderable.PaintToCanvas();
+            var canvas = source.Paint();
             var layouts = CollectHookLayouts(renderSnapshot);
             var frame = new HeadlessTerminalFrame(
                 Interlocked.Increment(ref _frameNumber),
@@ -736,7 +734,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     {
         public event Action? Refreshed;
 
-        public void UpdateTarget(IRenderable? renderable)
+        public void UpdateTarget(FrameSource? source)
         {
         }
 

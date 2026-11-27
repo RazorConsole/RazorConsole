@@ -3,7 +3,6 @@
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Vdom;
-using Spectre.Console.Rendering;
 
 namespace RazorConsole.Core.Controllers;
 
@@ -14,12 +13,12 @@ internal sealed class ConsoleViewResult
 {
     private ConsoleViewResult(
         string html,
-        IRenderable renderable,
+        FrameSource source,
         IReadOnlyCollection<IAnimatedConsoleRenderable> animatedRenderables,
         VNode? vdomRoot)
     {
         Html = html ?? string.Empty;
-        Renderable = renderable ?? throw new ArgumentNullException(nameof(renderable));
+        Source = source ?? throw new ArgumentNullException(nameof(source));
         AnimatedRenderables = animatedRenderables ?? Array.Empty<IAnimatedConsoleRenderable>();
         VdomRoot = vdomRoot;
     }
@@ -30,9 +29,9 @@ internal sealed class ConsoleViewResult
     public string Html { get; }
 
     /// <summary>
-    /// Gets the Spectre.Console renderable representation of the rendered view.
+    /// Gets the laid-out view that the frame loop paints.
     /// </summary>
-    public IRenderable Renderable { get; }
+    public FrameSource Source { get; }
 
     /// <summary>
     /// Gets animated renderables that require live display refreshes.
@@ -47,19 +46,19 @@ internal sealed class ConsoleViewResult
     internal static ConsoleViewResult Create(
         string html,
         VNode? vdomRoot,
-        IRenderable renderable,
+        FrameSource source,
         IReadOnlyCollection<IAnimatedConsoleRenderable> animatedRenderables)
-        => new(html, renderable, animatedRenderables, vdomRoot);
+        => new(html, source, animatedRenderables, vdomRoot);
 
     internal static ConsoleViewResult FromSnapshot(
         ConsoleRenderer.RenderSnapshot snapshot)
     {
-        if (snapshot.Renderable is null)
+        if (snapshot.Source is null)
         {
-            throw new InvalidOperationException("Unable to create a view result because the renderable was not provided.");
+            throw new InvalidOperationException("Unable to create a view result because the snapshot has nothing to paint.");
         }
 
         var html = VdomHtmlSerializer.Serialize(snapshot.Root);
-        return Create(html, snapshot.Root, snapshot.Renderable, snapshot.AnimatedRenderables);
+        return Create(html, snapshot.Root, snapshot.Source, snapshot.AnimatedRenderables);
     }
 }
