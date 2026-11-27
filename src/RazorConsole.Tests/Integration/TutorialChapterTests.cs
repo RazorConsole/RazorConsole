@@ -71,7 +71,7 @@ public sealed class TutorialChapterTests
     public async Task WidgetLayoutAndResize_ReflowsAtNarrowWidth()
     {
         await using var terminal = await Start<WidgetLayoutAndResize>(80, 28);
-        terminal.Resize(44, 32);
+        await terminal.ResizeAsync(44, 32, TestContext.Current.CancellationToken);
 
         terminal.CurrentFrame.Width.ShouldBe(44);
         terminal.CurrentFrame.ContainsText("Build").ShouldBeTrue();

@@ -80,13 +80,13 @@ await terminal.WaitForTextAsync("cancelled", cancellationToken: ct);
 - `PasteAsync`: text the way a terminal pastes it. Each run of text reaches the focused input as a single `oninput` event.
 - `SendMouseAsync` and `ClickAsync`: mouse events in zero-based cell coordinates.
 - `SendTerminalInputAsync`: raw input such as `"\u001b[A"` (Up), decoded the way input from a real terminal is.
-- `Resize`: changes the terminal size and captures a frame at the new size.
+- `ResizeAsync`: changes the terminal size and captures a frame at the new size.
 
 ```csharp
 await terminal.TypeAsync("hello", ct);
 await terminal.ClickAsync(4, 2, ct);
 await terminal.SendMouseAsync(new TerminalMouseEvent(TerminalMouseKind.Wheel, 10, 5, DeltaY: 3), ct);
-terminal.Resize(100, 30);
+await terminal.ResizeAsync(100, 30, ct);
 ```
 
 `TypeAsync` and `PasteAsync` reject text that contains ESC; send escape sequences with `SendTerminalInputAsync`.
@@ -219,7 +219,7 @@ A frame is captured after each chunk of output. While the application holds a sy
 
 ## Running terminals in parallel
 
-Each `HeadlessTerminal` and `PtyTerminal` has its own services or process, terminal and frames, so tests that use them can run in parallel. One terminal instance is also safe to use from several threads: input calls and `Resize` run one at a time.
+Each `HeadlessTerminal` and `PtyTerminal` has its own services or process, terminal and frames, so tests that use them can run in parallel. One terminal instance is also safe to use from several threads: input calls and resizes run one at a time.
 
 `PtyTerminal` tests start processes and take longer. Tag them, and run them as a separate step:
 

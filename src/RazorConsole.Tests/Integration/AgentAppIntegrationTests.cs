@@ -25,7 +25,7 @@ public sealed class AgentAppIntegrationTests
         await terminal.SendMouseAsync(new(TerminalMouseKind.Up, x + 4, y), TestContext.Current.CancellationToken);
         _view.Display.Selection.ShouldBe("read");
         var wide = _view.Display.Text;
-        terminal.Resize(40, 40);
+        await terminal.ResizeAsync(40, 40, TestContext.Current.CancellationToken);
         await terminal.WaitUntilAsync(_ => _view.Display.Text != wide, description: "table reflow at 40 columns", cancellationToken: TestContext.Current.CancellationToken);
         _view.Display.Text.ShouldNotContain("|");
         _view.Display.Text.Split('\n').ShouldAllBe(line => TextSelectionState.CellWidth(line) <= 40);
@@ -132,7 +132,7 @@ public sealed class AgentAppIntegrationTests
         var bounds = terminal.GetLayout("permission-0");
         terminal.CurrentFrame[0, bounds.Top!.Value].Style?.Background.ShouldBe(new Color(163, 204, 250));
         terminal.CurrentFrame.ContainsText("(current)").ShouldBeTrue(terminal.DumpDiagnostics());
-        terminal.Resize(width + 5, height + 2);
+        await terminal.ResizeAsync(width + 5, height + 2, TestContext.Current.CancellationToken);
         terminal.CurrentFrame.ContainsText("Update Model Permissions").ShouldBeTrue(terminal.DumpDiagnostics());
         await terminal.SendKeyAsync(ConsoleKey.Escape, cancellationToken: TestContext.Current.CancellationToken);
         await terminal.WaitUntilAsync(_ => terminal.FocusKey == "composer", description: "composer focus after closing permissions", cancellationToken: TestContext.Current.CancellationToken);
@@ -241,7 +241,7 @@ public sealed class AgentAppIntegrationTests
         (composer.Top!.Value + composer.Height!.Value).ShouldBeLessThanOrEqualTo(height - 2);
         terminal.GetLayout("footer").Top.ShouldBe(height - 1, terminal.DumpDiagnostics());
         terminal.FocusKey.ShouldBe("composer");
-        terminal.Resize(width - 5, height - 2);
+        await terminal.ResizeAsync(width - 5, height - 2, TestContext.Current.CancellationToken);
         terminal.GetLayout("footer").Top.ShouldBe(height - 3, terminal.DumpDiagnostics());
     }
 
