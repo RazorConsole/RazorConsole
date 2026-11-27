@@ -136,6 +136,19 @@ public sealed class HeadlessTerminalTests
     }
 
     [Fact]
+    public async Task WaitUntilAsync_PredicateOnStateOutsideTheFrame_IsCheckedBetweenFrames()
+    {
+        await using var terminal = await StartKeySurfaceAsync([]);
+        var ready = false;
+
+        var waiting = terminal.WaitUntilAsync(_ => Volatile.Read(ref ready), TimeSpan.FromSeconds(5), "the flag", TestContext.Current.CancellationToken);
+        Volatile.Write(ref ready, true);
+
+        // No frame is captured after the flag is set, so only the check between frames can see it.
+        await waiting;
+    }
+
+    [Fact]
     public async Task WaitForTextAsync_ReturnsMatchingFrame_OrThrowsOnTimeout()
     {
         await using var terminal = await StartKeySurfaceAsync([]);

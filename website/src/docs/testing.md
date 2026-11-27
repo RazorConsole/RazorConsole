@@ -104,6 +104,8 @@ Wait for something only the new state shows. A short text such as a single digit
 
 Both return the first frame that matches. The default timeout is 2 seconds; pass `timeout` to change it.
 
+The predicate is checked against each frame as it is captured, so the wait succeeds when a frame captured within the timeout matches, even if the test's own code resumes late on a busy machine. Write the predicate against the frame it is given (its text, cells, layouts and `FocusKey`). A predicate that reads other state, such as a list the app adds to, is also checked every 100 ms.
+
 A frame (`CurrentFrame`, or the last 50 distinct frames in `Frames`) is immutable:
 
 - `ScreenText`, `GetLine(row)` and `ContainsText(text)` give the plain text;
