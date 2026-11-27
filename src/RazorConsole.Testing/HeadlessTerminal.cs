@@ -32,8 +32,6 @@ public sealed class HeadlessTerminal : IAsyncDisposable
 {
     private const int MaximumFrameHistory = 50;
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(2);
-    // Only spent after a wait has already timed out.
-    private static readonly TimeSpan SchedulingProbeTimeout = TimeSpan.FromSeconds(1);
 
     private readonly object _sync = new();
     private readonly object _captureSync = new();
@@ -428,8 +426,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
             await Task.Delay(10, cancellationToken).ConfigureAwait(false);
         }
 
-        var scheduling = await ProbeSchedulingAsync().ConfigureAwait(false);
-        var diagnostics = $"{DumpDiagnostics()}{Environment.NewLine}{scheduling}";
+        var diagnostics = DumpDiagnostics();
         throw new TerminalTimeoutException(
             $"Timed out after {limit} waiting for {description ?? "the requested terminal state"}.{Environment.NewLine}{diagnostics}",
             diagnostics);
@@ -483,45 +480,6 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         }
 
         return builder.ToString().TrimEnd();
-    }
-
-    // Says why the screen stopped changing when a wait times out. The renderer's dispatcher runs its work on the
-    // thread pool, so a starved pool and a stuck dispatcher both freeze the frames:
-    // - pool slow, dispatcher slow: the pool is starved (by this process, not necessarily the app);
-    // - pool fast, dispatcher does not run: dispatcher work is blocked, a framework bug;
-    // - both fast: nothing is queued, so the render that never came was never scheduled, also a framework bug.
-    private async Task<string> ProbeSchedulingAsync()
-    {
-        // Read before probing, which adds work items of its own.
-        ThreadPool.GetMinThreads(out var minWorkers, out _);
-        var poolState = $"Thread pool: {ThreadPool.ThreadCount} threads (min {minWorkers}), {ThreadPool.PendingWorkItemCount} pending work items";
-
-        var pool = MeasureAsync(() =>
-        {
-            var ran = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            ThreadPool.UnsafeQueueUserWorkItem(static state => ((TaskCompletionSource)state!).TrySetResult(), ran);
-            return ran.Task;
-        });
-        var dispatcher = MeasureAsync(() => _renderer.Dispatcher.InvokeAsync(static () => { }));
-        return $"{poolState}{Environment.NewLine}Scheduling probe: thread pool {await pool.ConfigureAwait(false)}, dispatcher {await dispatcher.ConfigureAwait(false)}";
-
-        static async Task<string> MeasureAsync(Func<Task> start)
-        {
-            var stopwatch = Stopwatch.StartNew();
-            try
-            {
-                await start().WaitAsync(SchedulingProbeTimeout).ConfigureAwait(false);
-                return $"ran after {stopwatch.ElapsedMilliseconds} ms";
-            }
-            catch (TimeoutException)
-            {
-                return $"did not run within {SchedulingProbeTimeout.TotalMilliseconds} ms";
-            }
-            catch (Exception ex)
-            {
-                return $"failed: {ex.GetType().Name}: {ex.Message}";
-            }
-        }
     }
 
     /// <summary>
