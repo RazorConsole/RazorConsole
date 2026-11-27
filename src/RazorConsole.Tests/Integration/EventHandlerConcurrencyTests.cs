@@ -351,7 +351,7 @@ public sealed class EventHandlerConcurrencyTests
                 Parameters = new Dictionary<string, object?> { [nameof(HandledKeyHost.AwaitBeforeHandled)] = awaitBeforeHandled },
             },
             ct);
-        await terminal.WaitUntilAsync(_ => terminal.FocusKey == "first", cancellationToken: ct);
+        await terminal.WaitUntilAsync(frame => frame.FocusKey == "first", cancellationToken: ct);
         return terminal;
     }
 

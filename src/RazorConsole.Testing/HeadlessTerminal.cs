@@ -33,6 +33,9 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     private const int MaximumFrameHistory = 50;
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(2);
 
+    // How often a wait also checks its predicate between frames, for predicates that read state a frame does not carry.
+    private static readonly TimeSpan BetweenFramesCheckInterval = TimeSpan.FromMilliseconds(100);
+
     private readonly object _sync = new();
     private readonly object _captureSync = new();
     private readonly SemaphoreSlim _inputGate = new(1, 1);
@@ -47,6 +50,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     private readonly TerminalInputDispatcher _terminalInputDispatcher;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly List<HeadlessTerminalFrame> _frames = [];
+    private readonly List<FrameWaiter> _waiters = [];
     private readonly AnsiOutputWriter? _ansiOutput;
     private readonly IAnsiConsole? _ansiConsole;
     private IDisposable? _snapshotSubscription;
@@ -385,8 +389,15 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         => _layoutAccessor.TryGetLayoutByHookKey(hookKey, out layout);
 
     /// <summary>
-    /// Waits until the current frame satisfies <paramref name="predicate"/>.
+    /// Waits until a frame satisfies <paramref name="predicate"/>.
     /// </summary>
+    /// <remarks>
+    /// The predicate is checked against the current frame, and then against each frame as it is captured, on the
+    /// thread that captures it. The wait succeeds when a frame captured before the timeout satisfies it, even when the
+    /// waiting code itself resumes later. A predicate that reads state the frame does not carry (the app's own fields,
+    /// for example) is also checked every 100 ms against the latest frame; prefer the frame's own data, such as
+    /// <see cref="HeadlessTerminalFrame.FocusKey"/>.
+    /// </remarks>
     /// <param name="predicate">The condition to wait for.</param>
     /// <param name="timeout">The maximum time to wait. Defaults to 2 seconds.</param>
     /// <param name="description">A description of the awaited state, used in the timeout message.</param>
@@ -404,32 +415,56 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         ThrowIfDisposed();
 
         var limit = timeout ?? DefaultTimeout;
-        var stopwatch = Stopwatch.StartNew();
-        while (stopwatch.Elapsed < limit)
+        var deadline = Stopwatch.GetTimestamp() + (long)(limit.TotalSeconds * Stopwatch.Frequency);
+        var waiter = new FrameWaiter(predicate);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            Exception? observerError;
-            HeadlessTerminalFrame? frame;
-            lock (_sync)
+            lock (_captureSync)
             {
-                observerError = _observerError;
-                frame = _frames.Count > 0 ? _frames[^1] : null;
+                ThrowIfRenderingFailed();
+                if (!waiter.TryMatch(LatestFrame()))
+                {
+                    _waiters.Add(waiter);
+                }
             }
 
-            if (observerError is not null)
+            while (!waiter.Matched.IsCompleted && Stopwatch.GetTimestamp() < deadline)
             {
-                throw new InvalidOperationException(
-                    $"Rendering failed while waiting for terminal state.{Environment.NewLine}{DumpDiagnostics()}",
-                    observerError);
+                var remaining = Stopwatch.GetElapsedTime(Stopwatch.GetTimestamp(), deadline);
+                try
+                {
+                    await waiter.Matched
+                        .WaitAsync(remaining < BetweenFramesCheckInterval ? remaining : BetweenFramesCheckInterval, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    lock (_captureSync)
+                    {
+                        ThrowIfRenderingFailed();
+                        waiter.TryMatch(LatestFrame());
+                    }
+                }
             }
 
-            if (frame is not null && predicate(frame))
+            // Judged by when the frame was checked, not when this code resumed: a busy thread pool can resume it late.
+            if (waiter.Matched.IsFaulted || (waiter.Matched.IsCompleted && waiter.MatchedAt <= deadline))
             {
-                return frame;
+                return await waiter.Matched.ConfigureAwait(false);
             }
-
-            await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+        }
+        catch (RenderingFailedException ex)
+        {
+            throw new InvalidOperationException(
+                $"Rendering failed while waiting for terminal state.{Environment.NewLine}{DumpDiagnostics()}",
+                ex.InnerException);
+        }
+        finally
+        {
+            lock (_captureSync)
+            {
+                _waiters.Remove(waiter);
+            }
         }
 
         var diagnostics = DumpDiagnostics();
@@ -506,6 +541,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         }
 
         _focusSession?.Dispose();
+        _focusManager.FocusChanged -= OnFocusChanged;
         _focusSubscription?.Dispose();
         _snapshotSubscription?.Dispose();
         if (_liveContext is not null)
@@ -553,9 +589,19 @@ public sealed class HeadlessTerminal : IAsyncDisposable
             _scrollRegistry = scrollRegistry;
             scrollRegistry.RepaintRequested += OnScrollRepaintRequested;
         }
+
+        // A focus change that renders nothing still changes the frame's FocusKey; capture it like a render.
+        _focusManager.FocusChanged += OnFocusChanged;
     }
 
+    private void OnFocusChanged(object? sender, FocusChangedEventArgs e)
+        => CaptureInBackground();
+
     private void OnScrollRepaintRequested()
+        => CaptureInBackground();
+
+    // After any input in progress, which captures its own frame.
+    private void CaptureInBackground()
         => _ = Task.Run(async () =>
         {
             try
@@ -654,16 +700,49 @@ public sealed class HeadlessTerminal : IAsyncDisposable
 
             lock (_sync)
             {
-                if (_frames.Count > 0 && IsEquivalent(_frames[^1], frame))
+                if (_frames.Count == 0 || !IsEquivalent(_frames[^1], frame))
                 {
-                    return;
+                    _frames.Add(frame);
+                    if (_frames.Count > MaximumFrameHistory)
+                    {
+                        _frames.RemoveAt(0);
+                    }
                 }
+            }
 
-                _frames.Add(frame);
-                if (_frames.Count > MaximumFrameHistory)
-                {
-                    _frames.RemoveAt(0);
-                }
+            // Checked here, as the frame arrives, so a wait does not depend on when its own code resumes.
+            CheckWaiters();
+        }
+    }
+
+    // Call with _captureSync held.
+    private void CheckWaiters()
+    {
+        if (_waiters.Count == 0)
+        {
+            return;
+        }
+
+        var frame = LatestFrame();
+        _waiters.RemoveAll(waiter => waiter.TryMatch(frame));
+    }
+
+    private HeadlessTerminalFrame? LatestFrame()
+    {
+        lock (_sync)
+        {
+            return _frames.Count > 0 ? _frames[^1] : null;
+        }
+    }
+
+    // Call with _captureSync held.
+    private void ThrowIfRenderingFailed()
+    {
+        lock (_sync)
+        {
+            if (_observerError is not null)
+            {
+                throw new RenderingFailedException(_observerError);
             }
         }
     }
@@ -722,9 +801,19 @@ public sealed class HeadlessTerminal : IAsyncDisposable
 
         public void OnError(Exception error)
         {
-            lock (terminal._sync)
+            lock (terminal._captureSync)
             {
-                terminal._observerError = error;
+                lock (terminal._sync)
+                {
+                    terminal._observerError = error;
+                }
+
+                foreach (var waiter in terminal._waiters)
+                {
+                    waiter.Fail(new RenderingFailedException(error));
+                }
+
+                terminal._waiters.Clear();
             }
         }
 
@@ -744,6 +833,46 @@ public sealed class HeadlessTerminal : IAsyncDisposable
 
         public Task WhenIdleAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
+
+    // A pending WaitUntilAsync. TryMatch and Fail are called with _captureSync held.
+    private sealed class FrameWaiter(Func<HeadlessTerminalFrame, bool> predicate)
+    {
+        private readonly TaskCompletionSource<HeadlessTerminalFrame> _matched = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<HeadlessTerminalFrame> Matched => _matched.Task;
+
+        // When the predicate was first satisfied, as a Stopwatch timestamp.
+        public long MatchedAt { get; private set; }
+
+        public bool TryMatch(HeadlessTerminalFrame? frame)
+        {
+            if (frame is null || _matched.Task.IsCompleted)
+            {
+                return _matched.Task.IsCompleted;
+            }
+
+            try
+            {
+                if (!predicate(frame))
+                {
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _matched.TrySetException(ex);
+                return true;
+            }
+
+            MatchedAt = Stopwatch.GetTimestamp();
+            _matched.TrySetResult(frame);
+            return true;
+        }
+
+        public void Fail(Exception exception) => _matched.TrySetException(exception);
+    }
+
+    private sealed class RenderingFailedException(Exception inner) : Exception(inner.Message, inner);
 
     private sealed class AnsiOutputWriter : TextWriter
     {
