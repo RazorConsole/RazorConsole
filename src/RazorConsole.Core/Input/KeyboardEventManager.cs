@@ -253,7 +253,7 @@ internal sealed class KeyboardEventManager
         }
 
         // Keys nobody handled scroll the nearest scroll container of the focused element.
-        if (_scroll?.TryScroll(initialTarget.VNodeId, keyInfo.Key) == true)
+        if (_scroll is not null && await _scroll.TryScrollAsync(initialTarget.VNodeId, keyInfo.Key).ConfigureAwait(false))
         {
             await DispatchKeyboardEventAsync(initialTarget, "onkeyup", keyInfo, token).ConfigureAwait(false);
             return;

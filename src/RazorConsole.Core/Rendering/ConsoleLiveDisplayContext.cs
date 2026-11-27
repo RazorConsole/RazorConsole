@@ -112,21 +112,25 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
             return;
         }
 
-        _ = Task.Run(() =>
+        _ = Task.Run(async () =>
         {
             Volatile.Write(ref _scrollRepaintPending, 0);
             if (!_disposed)
             {
-                HandleTerminalResize();
+                await RepaintAsync().ConfigureAwait(false);
             }
         });
     }
 
+    // Raised on the terminal monitor's thread. Not awaited there, so that thread never waits for a busy dispatcher.
     private void HandleTerminalResize()
+        => _ = RepaintAsync();
+
+    private async Task RepaintAsync()
     {
         try
         {
-            var snapshot = _renderer.RefreshSnapshot();
+            var snapshot = await _renderer.RefreshSnapshotAsync().ConfigureAwait(false);
             var view = ConsoleViewResult.FromSnapshot(snapshot);
             lock (_sync)
             {

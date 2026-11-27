@@ -321,7 +321,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
             async token =>
             {
                 await _mouseEventManager.HandleAsync(new TerminalMouseEvent(TerminalMouseKind.Down, x, y), token).ConfigureAwait(false);
-                Capture(_renderer.RefreshSnapshot());
+                Capture(await _renderer.RefreshSnapshotAsync().ConfigureAwait(false));
                 await _mouseEventManager.HandleAsync(new TerminalMouseEvent(TerminalMouseKind.Up, x, y), token).ConfigureAwait(false);
             },
             cancellationToken);
@@ -577,7 +577,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         _focusSubscription = _renderer.Subscribe(_focusManager);
         _focusSession = _focusManager.BeginSession(_liveContext, view, _shutdown.Token);
         await _focusSession.InitializationTask.ConfigureAwait(false);
-        Capture(_renderer.RefreshSnapshot());
+        Capture(await _renderer.RefreshSnapshotAsync().ConfigureAwait(false));
 
         // Scroll state changed by the engine (not by a Blazor render or by input sent through this terminal) repaints the host; capture it like one.
         if (_renderer.ScrollRegistry is { } scrollRegistry)
@@ -597,7 +597,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
                 {
                     if (!_disposed)
                     {
-                        Capture(_renderer.RefreshSnapshot());
+                        Capture(await _renderer.RefreshSnapshotAsync().ConfigureAwait(false));
                     }
                 }
                 finally
@@ -618,7 +618,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         {
             ThrowIfDisposed();
             await input(cancellationToken).ConfigureAwait(false);
-            Capture(_renderer.RefreshSnapshot());
+            Capture(await _renderer.RefreshSnapshotAsync().ConfigureAwait(false));
         }
         finally
         {

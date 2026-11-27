@@ -30,9 +30,10 @@ internal sealed class ScrollInputNavigator
     /// The arrow keys only apply to a focused container itself, because inside it they belong to the focused control.
     /// </summary>
     /// <returns><see langword="true"/> when something scrolled.</returns>
-    public bool TryScroll(string focusedNodeId, ConsoleKey key)
+    public async Task<bool> TryScrollAsync(string focusedNodeId, ConsoleKey key)
     {
-        if (_renderer.ScrollRegistry is not { } registry || _renderer.RefreshSnapshot().Root is not { } root)
+        if (_renderer.ScrollRegistry is not { } registry
+            || (await _renderer.RefreshSnapshotAsync().ConfigureAwait(false)).Root is not { } root)
         {
             return false;
         }
@@ -84,9 +85,9 @@ internal sealed class ScrollInputNavigator
     /// </summary>
     /// <param name="target">The element's <c>data-vnode-hook</c>, <c>data-focus-key</c> or key.</param>
     /// <returns><see langword="true"/> when the element exists.</returns>
-    public bool ScrollIntoView(string target)
+    public async Task<bool> ScrollIntoViewAsync(string target)
     {
-        if (_renderer.RefreshSnapshot().Root is not { } root || Find(root, target) is not { } node)
+        if ((await _renderer.RefreshSnapshotAsync().ConfigureAwait(false)).Root is not { } root || Find(root, target) is not { } node)
         {
             return false;
         }
@@ -124,9 +125,27 @@ internal sealed class ScrollInputNavigator
             return;
         }
 
-        if (_focus.TryGetFocusedTarget(out var target) && target is not null && _renderer.RefreshSnapshot().Root is { } root)
+        // The focus moves on the input loop, a thread pool thread: waiting there for a busy dispatcher can starve the
+        // pool that the dispatcher itself runs on. Queue the scroll on the dispatcher instead. A render or snapshot
+        // requested after this focus change is queued behind it, so it already shows the scrolled position.
+        _ = ScrollFocusedIntoViewAsync();
+    }
+
+    private async Task ScrollFocusedIntoViewAsync()
+    {
+        try
         {
-            ScrollNodeIntoView(root, target.VNodeId);
+            await _renderer.Dispatcher.InvokeAsync(() =>
+            {
+                if (_focus.TryGetFocusedTarget(out var target) && target is not null && _renderer.RefreshSnapshot().Root is { } root)
+                {
+                    ScrollNodeIntoView(root, target.VNodeId);
+                }
+            }).ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The app shut down after the focus moved.
         }
     }
 

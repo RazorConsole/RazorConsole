@@ -439,9 +439,9 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         {
             frame = await WaitForFocusToCatchUpAsync(cancellationToken).ConfigureAwait(false);
         }
-        else if (message.Method == DiagnosticsAppMethods.Screen)
+        else if (message.Method == DiagnosticsAppMethods.Screen && _observer is not null)
         {
-            _observer?.EnsureCurrent();
+            await _observer.EnsureCurrentAsync().ConfigureAwait(false);
         }
 
         return Dispatch(message, id, frame);
@@ -458,7 +458,10 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
     private async Task<DiagnosticsFrame?> WaitForFocusToCatchUpAsync(CancellationToken cancellationToken)
     {
         // After a resize the latest frame still has the old layout and canvas.
-        _observer?.EnsureCurrent();
+        if (_observer is not null)
+        {
+            await _observer.EnsureCurrentAsync().ConfigureAwait(false);
+        }
         var frame = _state!.LatestFrame;
         if (frame is { RenderSequence: > 0 })
         {

@@ -22,7 +22,7 @@ namespace RazorConsole.Core.Diagnostics;
 /// </para>
 /// <para>
 /// A resize repaints the display from a snapshot that is not delivered to observers. Instead of listening for it,
-/// <see cref="EnsureCurrent"/> compares the latest frame's terminal size with the current one on a request, and only
+/// <see cref="EnsureCurrentAsync"/> compares the latest frame's terminal size with the current one on a request, and only
 /// when they differ builds a new snapshot and publishes that as a frame.
 /// </para>
 /// </remarks>
@@ -139,7 +139,7 @@ internal sealed partial class DiagnosticsSnapshotObserver(
     /// sequence: focus keys do not change with the size. A failure here is logged, and the request is answered from
     /// the latest frame: diagnostics never take the request, or the app, down.
     /// </remarks>
-    public void EnsureCurrent()
+    public async Task EnsureCurrentAsync()
     {
         if (state is null || viewport is null || state.LatestFrame is not { } latest
             || (latest.ViewportWidth == viewport.Width && latest.ViewportHeight == viewport.Height))
@@ -153,7 +153,7 @@ internal sealed partial class DiagnosticsSnapshotObserver(
         try
         {
             // Not under the lock: building the snapshot waits for the renderer's dispatcher.
-            var snapshot = renderer.RefreshSnapshot();
+            var snapshot = await renderer.RefreshSnapshotAsync().ConfigureAwait(false);
             lock (_sync)
             {
                 if (snapshot.Sequence >= _latestSnapshotSequence && (snapshot.Root is not null || _hasRenderedFrame))
