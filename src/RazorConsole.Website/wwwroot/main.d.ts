@@ -6,14 +6,6 @@ export interface WasmExports {
 		HandleTerminalInput: (elementId: string, data: string) => Promise<void>;
 		UnregisterComponent: (elementId: string) => Promise<void>;
 		RegisterComponent: (instanceId: string, componentId: string, cols: number, rows: number) => Promise<void>;
-		HandleKeyboardEvent: (
-			componentName: string,
-			xtermKey: string,
-			domKey: string,
-			ctrlKey: boolean,
-			altKey: boolean,
-			shiftKey: boolean
-		) => Promise<void>;
 		HandleResize: (
 			componentName: string,
 			cols: number,

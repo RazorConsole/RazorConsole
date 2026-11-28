@@ -6,8 +6,6 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using RazorConsole.Core.Diagnostics;
-using RazorConsole.Core.Diagnostics.Protocol;
 using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Focus;
 using RazorConsole.Core.Rendering;
@@ -69,167 +67,27 @@ internal sealed class RendererKeyboardEventDispatcher : IKeyboardEventDispatcher
 
 internal sealed class KeyboardEventManager
 {
-    private const int MaxPasteBatchSize = 1000;
-
     private readonly FocusManager _focusManager;
     // A key must not be lost: wait longer than focus events do for the render that replaced its handler.
     private static readonly TimeSpan StaleHandlerRetryTimeout = TimeSpan.FromSeconds(1);
     private readonly IKeyboardEventDispatcher _dispatcher;
-    private readonly IConsoleInput _console;
     private readonly ILogger<KeyboardEventManager> _logger;
     private readonly ConcurrentDictionary<string, StringBuilder> _buffers = new(StringComparer.Ordinal);
     private volatile string? _activeFocusKey;
-    private readonly MouseEventManager? _mouse;
-    private readonly ConsoleAppOptions? _options;
     private readonly ScrollInputNavigator? _scroll;
-    private TerminalInputDispatcher? _injectedInputDispatcher;
 
     public KeyboardEventManager(
         FocusManager focusManager,
         IKeyboardEventDispatcher dispatcher,
-        IConsoleInput console,
         ILogger<KeyboardEventManager>? logger = null,
-        MouseEventManager? mouse = null,
-        ConsoleAppOptions? options = null,
         ScrollInputNavigator? scroll = null)
     {
         _scroll = scroll;
         _focusManager = focusManager;
         _dispatcher = dispatcher;
-        _console = console;
         _logger = logger ?? NullLogger<KeyboardEventManager>.Instance;
-        _mouse = mouse;
-        _options = options;
 
         _focusManager.FocusChanged += OnFocusChanged;
-    }
-
-    /// <summary>
-    /// Input injected by the diagnostics endpoint, drained by <see cref="RunAsync"/> between real inputs.
-    /// Set before <see cref="RunAsync"/> starts, and only when diagnostics are enabled.
-    /// </summary>
-    internal DiagnosticsInputQueue? InjectedInput { get; set; }
-
-    public async Task RunAsync(CancellationToken token)
-    {
-        var injected = InjectedInput;
-        while (!token.IsCancellationRequested)
-        {
-            try
-            {
-                if (injected is not null && injected.TryDequeue(out var item))
-                {
-                    await DispatchInjectedAsync(item, token).ConfigureAwait(false);
-                    continue;
-                }
-                if (_mouse is not null && _console.TryReadMouse(out var mouse))
-                {
-                    await _mouse.HandleAsync(mouse, token).ConfigureAwait(false);
-                    continue;
-                }
-                if (!_console.KeyAvailable)
-                {
-                    if (injected is null)
-                    {
-                        await Task.Delay(50, token).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        // Wakes early for injected input.
-                        await injected.WaitAsync(50, token).ConfigureAwait(false);
-                    }
-                    continue;
-                }
-
-                var keyInfo = _console.ReadKey(intercept: true);
-
-                if (!_console.DecodesTerminalSequences && _mouse is not null && _options?.ConsoleLiveDisplayOptions.EnableMouseEvents == true
-                    && (keyInfo.KeyChar == '\u001b' || (keyInfo.KeyChar == '[' && keyInfo.Modifiers.HasFlag(ConsoleModifiers.Alt))))
-                {
-                    await ReadEscapeAsync(keyInfo, token).ConfigureAwait(false);
-                    continue;
-                }
-
-                // Check if this is a text input character and if more keys are available (paste operation)
-                if (ShouldBatchInput(keyInfo) && _console.KeyAvailable && !IsManagedFocus())
-                {
-                    await HandleBatchedTextInputAsync(keyInfo, token).ConfigureAwait(false);
-                }
-                else
-                {
-                    await HandleKeyAsync(keyInfo, token).ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (InvalidOperationException)
-            {
-                break;
-            }
-            catch (IOException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogTransientKeyboardInputFailure(ex);
-                try
-                {
-                    await Task.Delay(200, token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-            }
-        }
-
-        injected?.Close();
-    }
-
-    private async Task DispatchInjectedAsync(DiagnosticsInputItem item, CancellationToken token)
-    {
-        if (!item.TryStart())
-        {
-            // Withdrawn by the endpoint while waiting.
-            return;
-        }
-
-        try
-        {
-            if (item.Data is not null)
-            {
-                _injectedInputDispatcher ??= new TerminalInputDispatcher(this, _mouse);
-                await _injectedInputDispatcher.HandleAsync(item.Data, token, endOfInput: true).ConfigureAwait(false);
-            }
-
-            if (item.Mouse is not null)
-            {
-                if (_mouse is null)
-                {
-                    throw DiagnosticsInputQueue.Unavailable(DiagnosticsUnavailableReasons.MouseDisabled);
-                }
-
-                foreach (var mouse in item.Mouse)
-                {
-                    await _mouse.HandleAsync(mouse, token).ConfigureAwait(false);
-                }
-            }
-
-            item.Complete();
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
-            item.Fail(DiagnosticsInputQueue.Unavailable());
-            throw;
-        }
-        catch (Exception ex)
-        {
-            // Injected input never ends the loop; the endpoint reports the failure to its client.
-            item.Fail(ex);
-        }
     }
 
     internal async Task HandleKeyAsync(ConsoleKeyInfo keyInfo, CancellationToken token)
@@ -278,48 +136,6 @@ internal sealed class KeyboardEventManager
         }
 
         await DispatchKeyboardEventAsync(initialTarget, "onkeyup", keyInfo, token).ConfigureAwait(false);
-    }
-
-    private async Task ReadEscapeAsync(ConsoleKeyInfo first, CancellationToken token)
-    {
-        var pending = new List<ConsoleKeyInfo> { first };
-        var sequence = first.KeyChar == '[' ? "\u001b[" : "\u001b";
-        var deadline = Environment.TickCount64 + 100;
-        while (Environment.TickCount64 < deadline && sequence.Length < 64)
-        {
-            if (!_console.KeyAvailable)
-            {
-                await Task.Delay(1, token).ConfigureAwait(false);
-                continue;
-            }
-            var next = _console.ReadKey(true);
-            pending.Add(next);
-            sequence += next.KeyChar;
-            if (!"\u001b[<".StartsWith(sequence, StringComparison.Ordinal) && !sequence.StartsWith("\u001b[<", StringComparison.Ordinal))
-            {
-                break;
-            }
-
-            if (sequence.Length > 3 && next.KeyChar is 'M' or 'm')
-            {
-                if (SgrMouseParser.TryParse(sequence, out var mouse))
-                {
-                    await _mouse!.HandleAsync(mouse, token).ConfigureAwait(false);
-                }
-
-                return;
-            }
-        }
-        // Never insert a partial mouse packet into the focused text input.
-        if (sequence.StartsWith("\u001b[<", StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        foreach (var key in pending)
-        {
-            await HandleKeyAsync(key, token).ConfigureAwait(false);
-        }
     }
 
     private async Task HandleTabAsync(ConsoleKeyInfo keyInfo, CancellationToken token)
@@ -540,37 +356,54 @@ internal sealed class KeyboardEventManager
         return !char.IsControl(keyInfo.KeyChar) && keyInfo.KeyChar != '\0';
     }
 
-    internal static bool ShouldBatchInput(ConsoleKeyInfo keyInfo)
-    {
-        // Only batch regular text input characters, not special keys
-        return (!char.IsControl(keyInfo.KeyChar) && keyInfo.KeyChar != '\0') || keyInfo.Key == ConsoleKey.Backspace;
-    }
+    internal static bool ShouldBatchInput(ConsoleKeyInfo keyInfo) => TerminalInputEvents.IsBatchable(keyInfo);
 
     internal bool IsManagedFocus()
         => _focusManager.TryGetFocusedTarget(out var target) && target is not null
             && target.Attributes.TryGetValue("data-input-managed", out var managed) && managed == "true";
 
-    internal async Task HandleBatchedTextInputAsync(ConsoleKeyInfo firstKey, CancellationToken token)
+    /// <summary>
+    /// Handles keys that arrived together (see <see cref="KeyBatchInputEvent"/>), the way the console input loop always
+    /// has: unless the focused element manages its input, a run of printable keys and Backspace is applied as one
+    /// <c>oninput</c>, a key that is neither ends the run and is handled as a key press, and the keys after it are
+    /// handled the same way. A run of one key is a key press.
+    /// </summary>
+    internal async Task HandleKeyBatchAsync(IReadOnlyList<ConsoleKeyInfo> keys, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        var index = 0;
+        while (index < keys.Count)
+        {
+            var key = keys[index++];
+            if (ShouldBatchInput(key) && index < keys.Count && !IsManagedFocus())
+            {
+                index = await HandleTextRunAsync(key, keys, index, token).ConfigureAwait(false);
+            }
+            else
+            {
+                await HandleKeyAsync(key, token).ConfigureAwait(false);
+            }
+        }
+    }
+
+    // Applies firstKey and the printable keys after it as one oninput. Returns the index of the first key not handled.
+    private async Task<int> HandleTextRunAsync(ConsoleKeyInfo firstKey, IReadOnlyList<ConsoleKeyInfo> keys, int index, CancellationToken token)
     {
         if (!_focusManager.TryGetFocusedTarget(out var target) || target is null)
         {
-            return;
+            return index;
         }
 
-        // Apply the first key to the buffer (discard intermediate value, we'll get final value later)
+        // Apply each key to the buffer (intermediate values are discarded; the final value is dispatched).
         TryApplyKeyToBuffer(target, firstKey, out _);
-
-        // Batch subsequent keys that are immediately available (paste operation)
-        int batchCount = 1;
-
-        while (_console.KeyAvailable && batchCount < MaxPasteBatchSize)
+        var batchCount = 1;
+        while (index < keys.Count && batchCount < TerminalInputEvents.MaxBatchSize)
         {
-            var nextKey = _console.ReadKey(intercept: true);
+            var nextKey = keys[index++];
 
-            // If we encounter a special key (Enter, Tab, etc.), stop batching and handle it normally
+            // A special key (Enter, Tab, etc.) ends the run: dispatch the text so far, then handle the key normally.
             if (!ShouldBatchInput(nextKey))
             {
-                // Dispatch oninput with current accumulated value
                 var currentValue = GetCurrentValue(target);
                 if (target.Events.TryGetEvent("oninput", out var inputEvent))
                 {
@@ -578,12 +411,10 @@ internal sealed class KeyboardEventManager
                     await DispatchAsync(target, inputEvent, args, token).ConfigureAwait(false);
                 }
 
-                // Handle the special key normally (Enter, Tab, etc.)
                 await HandleKeyAsync(nextKey, token).ConfigureAwait(false);
-                return;
+                return index;
             }
 
-            // Apply key to buffer (discard intermediate value, we'll get final value later)
             TryApplyKeyToBuffer(target, nextKey, out _);
             batchCount++;
         }
@@ -595,6 +426,8 @@ internal sealed class KeyboardEventManager
             var finalArgs = new ChangeEventArgs { Value = finalValue };
             await DispatchAsync(target, finalInputEvent, finalArgs, token).ConfigureAwait(false);
         }
+
+        return index;
     }
 
     private void OnFocusChanged(object? sender, FocusChangedEventArgs e)

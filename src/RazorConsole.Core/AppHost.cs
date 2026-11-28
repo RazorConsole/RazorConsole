@@ -86,7 +86,8 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
     ConsoleAppOptions options,
     ConsoleRenderer consoleRenderer,
     FocusManager focusManager,
-    KeyboardEventManager keyboardEventManager,
+    InputRouter inputRouter,
+    ConsoleTerminalInput consoleInput,
     TerminalMonitor terminalMonitor,
     ILoggerFactory loggerFactory,
     IEnumerable<ITerminalFrameObserver>? frameObservers = null) : BackgroundService where TComponent : IComponent
@@ -139,7 +140,7 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
         using var _ = consoleRenderer.Subscribe(focusManager);
         using var focusSession = focusManager.BeginSession(liveContext, initialView, token);
         await focusSession.InitializationTask.ConfigureAwait(false);
-        var keyListenerTask = keyboardEventManager.RunAsync(token);
+        var inputTask = inputRouter.RunAsync(consoleInput, token);
         if (options.EnableTerminalResizing)
         {
             terminalMonitor.Start(token);

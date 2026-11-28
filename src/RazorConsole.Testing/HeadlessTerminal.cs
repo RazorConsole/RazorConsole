@@ -37,14 +37,14 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     private readonly SemaphoreSlim _inputGate = new(1, 1);
     private readonly ServiceProvider _services;
     private readonly TerminalMonitor _terminalMonitor;
-    private readonly HeadlessConsoleInput _consoleInput = new();
     private readonly ConsoleRenderer _renderer;
     private readonly VNodeLayoutAccessor _layoutAccessor;
     private readonly FocusManager _focusManager;
-    private readonly KeyboardEventManager _keyboardEventManager;
     private readonly MouseEventManager _mouseEventManager;
-    private readonly TerminalInputDispatcher _terminalInputDispatcher;
+    private readonly InputRouter _input;
+    private readonly TerminalInputDecoder _terminalInputDecoder = new();
     private readonly CancellationTokenSource _shutdown = new();
+    private Task _inputLoop = Task.CompletedTask;
     private readonly List<HeadlessTerminalFrame> _frames = [];
     private readonly AnsiOutputWriter? _ansiOutput;
     private readonly IAnsiConsole? _ansiConsole;
@@ -64,7 +64,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
 
         var services = new ServiceCollection();
         services.AddSingleton(_terminalMonitor);
-        services.AddSingleton<IConsoleInput>(_consoleInput);
+        services.AddSingleton<IConsoleInput>(new HeadlessConsoleInput());
         services.AddRazorConsoleServices();
         options.ConfigureServices?.Invoke(services);
         services.Configure<ConsoleAppOptions>(appOptions =>
@@ -76,9 +76,8 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         _renderer = _services.GetRequiredService<ConsoleRenderer>();
         _layoutAccessor = _services.GetRequiredService<VNodeLayoutAccessor>();
         _focusManager = _services.GetRequiredService<FocusManager>();
-        _keyboardEventManager = _services.GetRequiredService<KeyboardEventManager>();
         _mouseEventManager = _services.GetRequiredService<MouseEventManager>();
-        _terminalInputDispatcher = _services.GetRequiredService<TerminalInputDispatcher>();
+        _input = _services.GetRequiredService<InputRouter>();
 
         if (options.CaptureAnsiOutput)
         {
@@ -214,7 +213,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     /// <param name="key">The key, including its character and modifiers.</param>
     /// <param name="cancellationToken">A token that cancels the input.</param>
     public Task SendKeyAsync(ConsoleKeyInfo key, CancellationToken cancellationToken = default)
-        => RunInputAsync(token => _keyboardEventManager.HandleKeyAsync(key, token), cancellationToken);
+        => RunInputAsync(token => DispatchAsync([new KeyInputEvent(key)], token), cancellationToken);
 
     /// <summary>
     /// Sends one key press to the focused element.
@@ -249,13 +248,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     {
         var keys = DecodeText(text);
         return RunInputAsync(
-            async token =>
-            {
-                foreach (var key in keys)
-                {
-                    await _keyboardEventManager.HandleKeyAsync(key, token).ConfigureAwait(false);
-                }
-            },
+            token => DispatchAsync(keys.Select(static key => (TerminalInputEvent)new KeyInputEvent(key)).ToArray(), token),
             cancellationToken);
     }
 
@@ -271,32 +264,9 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     public Task PasteAsync(string text, CancellationToken cancellationToken = default)
     {
         var keys = DecodeText(text);
-        return RunInputAsync(
-            async token =>
-            {
-                _consoleInput.Enqueue(keys);
-                try
-                {
-                    // The same batching decision as KeyboardEventManager.RunAsync.
-                    while (_consoleInput.KeyAvailable)
-                    {
-                        var key = _consoleInput.ReadKey(intercept: true);
-                        if (KeyboardEventManager.ShouldBatchInput(key) && _consoleInput.KeyAvailable && !_keyboardEventManager.IsManagedFocus())
-                        {
-                            await _keyboardEventManager.HandleBatchedTextInputAsync(key, token).ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            await _keyboardEventManager.HandleKeyAsync(key, token).ConfigureAwait(false);
-                        }
-                    }
-                }
-                finally
-                {
-                    _consoleInput.Clear();
-                }
-            },
-            cancellationToken);
+
+        // All the keys at once, as a real console reads a paste.
+        return RunInputAsync(token => DispatchAsync([new KeyBatchInputEvent(keys)], token), cancellationToken);
     }
 
     /// <summary>
@@ -305,7 +275,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     /// <param name="input">The mouse event, in zero-based terminal-cell coordinates.</param>
     /// <param name="cancellationToken">A token that cancels the input.</param>
     public Task SendMouseAsync(TerminalMouseEvent input, CancellationToken cancellationToken = default)
-        => RunInputAsync(token => _mouseEventManager.HandleAsync(input, token), cancellationToken);
+        => RunInputAsync(token => DispatchAsync([new MouseInputEvent(input)], token), cancellationToken);
 
     /// <summary>
     /// Clicks the left mouse button at a cell: a press followed by a release,
@@ -318,9 +288,9 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         => RunInputAsync(
             async token =>
             {
-                await _mouseEventManager.HandleAsync(new TerminalMouseEvent(TerminalMouseKind.Down, x, y), token).ConfigureAwait(false);
+                await DispatchAsync([new MouseInputEvent(new TerminalMouseEvent(TerminalMouseKind.Down, x, y))], token).ConfigureAwait(false);
                 await PresentLatestAsync(token).ConfigureAwait(false);
-                await _mouseEventManager.HandleAsync(new TerminalMouseEvent(TerminalMouseKind.Up, x, y), token).ConfigureAwait(false);
+                await DispatchAsync([new MouseInputEvent(new TerminalMouseEvent(TerminalMouseKind.Up, x, y))], token).ConfigureAwait(false);
             },
             cancellationToken);
 
@@ -333,7 +303,11 @@ public sealed class HeadlessTerminal : IAsyncDisposable
     public Task SendTerminalInputAsync(string data, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
-        return RunInputAsync(token => _terminalInputDispatcher.HandleAsync(data, token), cancellationToken);
+
+        // One decoder for the whole stream: an escape sequence split across calls is still decoded.
+        return RunInputAsync(
+            token => DispatchAsync(TerminalInputEvents.Decode(_terminalInputDecoder, data, endOfInput: false), token),
+            cancellationToken);
     }
 
     /// <summary>
@@ -503,6 +477,14 @@ public sealed class HeadlessTerminal : IAsyncDisposable
             _scrollRegistry.RepaintRequested -= OnScrollRepaintRequested;
         }
 
+        try
+        {
+            await _inputLoop.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
         _focusSession?.Dispose();
         _focusSubscription?.Dispose();
         _snapshotSubscription?.Dispose();
@@ -545,6 +527,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         _focusSubscription = _renderer.Subscribe(_focusManager);
         _focusSession = _focusManager.BeginSession(_liveContext, view, _shutdown.Token);
         await _focusSession.InitializationTask.ConfigureAwait(false);
+        _inputLoop = _input.RunAsync(input: null, _shutdown.Token);
         await PresentLatestAsync(cancellationToken).ConfigureAwait(false);
 
         // Scroll state changed by the engine (not by a Blazor render or by input sent through this terminal) repaints the host; capture it like one.
@@ -614,6 +597,22 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         }
 
         return keys;
+    }
+
+    // Hands events to the app's input router, behind any input already waiting, and waits until their handlers started.
+    // A cancelled wait withdraws them if the router has not started them yet.
+    private async Task DispatchAsync(IReadOnlyList<TerminalInputEvent> events, CancellationToken cancellationToken)
+    {
+        var submission = _input.Submit(events);
+        try
+        {
+            await submission.Completion.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            submission.TryCancel();
+            throw;
+        }
     }
 
     // Presents the latest render, even when its tree did not change (a focus move, a scroll, a resize), and waits until

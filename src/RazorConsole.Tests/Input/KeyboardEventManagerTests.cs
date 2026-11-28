@@ -308,12 +308,11 @@ public class KeyboardEventManagerTests
     }
 
     [Fact]
-    public async Task HandleBatchedTextInput_MultipleCharacters_TriggersSingleOninputEvent()
+    public async Task HandleKeyBatch_MultipleCharacters_TriggersSingleOninputEvent()
     {
-        // This test verifies that when multiple keys are available (simulating paste),
-        // HandleBatchedTextInputAsync batches them into a single oninput event,
+        // This test verifies that when multiple keys arrive together (simulating paste),
+        // HandleKeyBatchAsync batches them into a single oninput event,
         // reducing render cycles from N to 1.
-        var mockConsole = Substitute.For<IConsoleInput>();
         var keys = new Queue<ConsoleKeyInfo>();
         foreach (var ch in "hello")
         {
@@ -321,11 +320,8 @@ public class KeyboardEventManagerTests
             var consoleKey = key >= 'A' && key <= 'Z' ? (ConsoleKey)key : ConsoleKey.A;
             keys.Enqueue(new ConsoleKeyInfo(ch, consoleKey, false, false, false));
         }
-        mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
-        mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
 
         await using var harness = await KeyboardHarness.CreateAsync(
-            mockConsole,
             new FocusElementSpec(
                 key: "input",
                 value: string.Empty,
@@ -335,11 +331,8 @@ public class KeyboardEventManagerTests
                 }));
 
         // Read the first key (which triggers batching since more keys are available)
-        var firstKey = mockConsole.ReadKey(intercept: true);
-
-        // Manually invoke HandleBatchedTextInputAsync to test batching logic
-        // In real usage, RunAsync detects KeyAvailable and calls this automatically
-        await harness.Manager.HandleBatchedTextInputAsync(firstKey, CancellationToken.None);
+        // Keys that arrived together, as the console input posts a paste.
+        await harness.Manager.HandleKeyBatchAsync(keys.ToArray(), CancellationToken.None);
 
         // Should have exactly 1 oninput event (batched all 5 characters)
         harness.Dispatcher.Events.ShouldHaveSingleItem();
@@ -351,21 +344,17 @@ public class KeyboardEventManagerTests
     }
 
     [Fact]
-    public async Task HandleBatchedTextInput_LargePaste_TriggersSingleEvent()
+    public async Task HandleKeyBatch_LargePaste_TriggersSingleEvent()
     {
         // Test batching with a large paste operation (100 characters)
-        var mockConsole = Substitute.For<IConsoleInput>();
         var largeText = new string('a', 100);
         var keys = new Queue<ConsoleKeyInfo>();
         foreach (var ch in largeText)
         {
             keys.Enqueue(new ConsoleKeyInfo(ch, ConsoleKey.A, false, false, false));
         }
-        mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
-        mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
 
         await using var harness = await KeyboardHarness.CreateAsync(
-            mockConsole,
             new FocusElementSpec(
                 key: "input",
                 value: string.Empty,
@@ -374,8 +363,7 @@ public class KeyboardEventManagerTests
                     ["oninput"] = 500,
                 }));
 
-        var firstKey = mockConsole.ReadKey(intercept: true);
-        await harness.Manager.HandleBatchedTextInputAsync(firstKey, CancellationToken.None);
+        await harness.Manager.HandleKeyBatchAsync(keys.ToArray(), CancellationToken.None);
 
         // Should have exactly 1 oninput event (batched all 100 characters)
         harness.Dispatcher.Events.ShouldHaveSingleItem();
@@ -387,10 +375,9 @@ public class KeyboardEventManagerTests
     }
 
     [Fact]
-    public async Task HandleBatchedTextInput_PasteWithEnter_StopsBatchingAndHandlesEnter()
+    public async Task HandleKeyBatch_PasteWithEnter_StopsBatchingAndHandlesEnter()
     {
         // Test that batching stops when a special key (Enter) is encountered
-        var mockConsole = Substitute.For<IConsoleInput>();
         var keys = new Queue<ConsoleKeyInfo>();
         foreach (var ch in "hello")
         {
@@ -399,11 +386,8 @@ public class KeyboardEventManagerTests
             keys.Enqueue(new ConsoleKeyInfo(ch, consoleKey, false, false, false));
         }
         keys.Enqueue(new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false));
-        mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
-        mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
 
         await using var harness = await KeyboardHarness.CreateAsync(
-            mockConsole,
             new FocusElementSpec(
                 key: "input",
                 value: string.Empty,
@@ -414,8 +398,7 @@ public class KeyboardEventManagerTests
                     ["onchange"] = 602,
                 }));
 
-        var firstKey = mockConsole.ReadKey(intercept: true);
-        await harness.Manager.HandleBatchedTextInputAsync(firstKey, CancellationToken.None);
+        await harness.Manager.HandleKeyBatchAsync(keys.ToArray(), CancellationToken.None);
 
         // Should have:
         // 1. One oninput event for "hello"
@@ -436,10 +419,9 @@ public class KeyboardEventManagerTests
     }
 
     [Fact]
-    public async Task HandleBatchedTextInput_WithBackspaces_AccumulatesCorrectly()
+    public async Task HandleKeyBatch_WithBackspaces_AccumulatesCorrectly()
     {
         // Test batching with backspaces mixed in
-        var mockConsole = Substitute.For<IConsoleInput>();
         var keys = new Queue<ConsoleKeyInfo>();
         foreach (var ch in "hello")
         {
@@ -455,11 +437,8 @@ public class KeyboardEventManagerTests
             var consoleKey = key >= 'A' && key <= 'Z' ? (ConsoleKey)key : ConsoleKey.A;
             keys.Enqueue(new ConsoleKeyInfo(ch, consoleKey, false, false, false));
         }
-        mockConsole.KeyAvailable.Returns(_ => keys.Count > 0);
-        mockConsole.ReadKey(Arg.Any<bool>()).Returns(_ => keys.Dequeue());
 
         await using var harness = await KeyboardHarness.CreateAsync(
-            mockConsole,
             new FocusElementSpec(
                 key: "input",
                 value: string.Empty,
@@ -468,8 +447,7 @@ public class KeyboardEventManagerTests
                     ["oninput"] = 700,
                 }));
 
-        var firstKey = mockConsole.ReadKey(intercept: true);
-        await harness.Manager.HandleBatchedTextInputAsync(firstKey, CancellationToken.None);
+        await harness.Manager.HandleKeyBatchAsync(keys.ToArray(), CancellationToken.None);
 
         // Should have exactly 1 oninput event with final accumulated value
         harness.Dispatcher.Events.ShouldHaveSingleItem();
@@ -481,15 +459,15 @@ public class KeyboardEventManagerTests
     }
 
     [Fact(Timeout = 30_000)]
-    public async Task RunAsync_DispatchesInjectedInputThroughTheKeyHandlersBeforeCompleting()
+    public async Task Router_DispatchesInjectedInputThroughTheKeyHandlersBeforeCompleting()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var harness = await KeyboardHarness.CreateAsync(
             new FocusElementSpec("input", value: string.Empty, events: new Dictionary<string, ulong> { ["onkeydown"] = 7, ["oninput"] = 8 }));
-        var queue = new DiagnosticsInputQueue();
-        harness.Manager.InjectedInput = queue;
+        var router = new InputRouter(harness.Manager);
+        var queue = new DiagnosticsInputQueue(router);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var loop = harness.Manager.RunAsync(stop.Token);
+        var loop = router.RunAsync(input: null, stop.Token);
 
         // A trailing Escape is a key press at once: injected data is complete.
         await queue.Enqueue("x\u001b", null).Completion.WaitAsync(ct);
@@ -502,15 +480,15 @@ public class KeyboardEventManagerTests
     }
 
     [Fact(Timeout = 30_000)]
-    public async Task RunAsync_FailsInjectedMouseWithoutAMouseManagerAndKeepsRunning()
+    public async Task Router_FailsInjectedMouseWithoutAMouseManagerAndKeepsRunning()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var harness = await KeyboardHarness.CreateAsync(
             new FocusElementSpec("input", value: string.Empty, events: new Dictionary<string, ulong> { ["onkeydown"] = 7 }));
-        var queue = new DiagnosticsInputQueue();
-        harness.Manager.InjectedInput = queue;
+        var router = new InputRouter(harness.Manager);
+        var queue = new DiagnosticsInputQueue(router);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var loop = harness.Manager.RunAsync(stop.Token);
+        var loop = router.RunAsync(input: null, stop.Token);
 
         var mouse = queue.Enqueue(null, [new TerminalMouseEvent(TerminalMouseKind.Down, 1, 1, 0, 0, 0)]);
         var failure = await Should.ThrowAsync<DiagnosticsProtocolException>(() => mouse.Completion.WaitAsync(ct));
@@ -524,24 +502,62 @@ public class KeyboardEventManagerTests
     }
 
     [Fact(Timeout = 30_000)]
-    public async Task RunAsync_SkipsWithdrawnInputAndFailsWhatWaitsWhenItEnds()
+    public async Task Router_SkipsWithdrawnInputAndFailsWhatWaitsWhenItEnds()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var harness = await KeyboardHarness.CreateAsync(
             new FocusElementSpec("input", value: string.Empty, events: new Dictionary<string, ulong> { ["onkeydown"] = 7 }));
-        var queue = new DiagnosticsInputQueue();
-        harness.Manager.InjectedInput = queue;
+        var router = new InputRouter(harness.Manager);
+        var queue = new DiagnosticsInputQueue(router);
         var withdrawn = queue.Enqueue("a", null);
         withdrawn.TryCancel().ShouldBeTrue();
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var loop = harness.Manager.RunAsync(stop.Token);
+        var loop = router.RunAsync(input: null, stop.Token);
 
         await queue.Enqueue("b", null).Completion.WaitAsync(ct);
         harness.Dispatcher.Events.Where(e => e.HandlerId == 7).Select(e => ((KeyboardEventArgs)e.Args).Key).ShouldBe(["b"]);
 
         await stop.CancelAsync();
         await loop;
-        Should.Throw<DiagnosticsProtocolException>(() => queue.Enqueue("c", null)).Code.ShouldBe(DiagnosticsErrorCodes.InputUnavailable);
+        (await Should.ThrowAsync<DiagnosticsProtocolException>(() => queue.Enqueue("c", null).Completion))
+            .Code.ShouldBe(DiagnosticsErrorCodes.InputUnavailable);
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task Router_DispatchesTerminalInputAndSubmissionsInTheOrderTheyArrived()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec("input", value: string.Empty, events: new Dictionary<string, ulong> { ["onkeydown"] = 7 }));
+        var router = new InputRouter(harness.Manager);
+        var input = new PostingInput();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var loop = router.RunAsync(input, stop.Token);
+        await input.Started.WaitAsync(ct);
+
+        input.Post(new KeyInputEvent(new ConsoleKeyInfo('a', ConsoleKey.A, false, false, false)));
+        await router.Submit([new KeyInputEvent(new ConsoleKeyInfo('b', ConsoleKey.B, false, false, false))]).Completion.WaitAsync(ct);
+
+        harness.Dispatcher.Events.Where(e => e.HandlerId == 7).Select(e => ((KeyboardEventArgs)e.Args).Key).ShouldBe(["a", "b"]);
+        await stop.CancelAsync();
+        await loop;
+    }
+
+    private sealed class PostingInput : ITerminalInput
+    {
+        private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private Action<TerminalInputEvent>? _post;
+
+        public Task Started => _started.Task;
+
+        public void Post(TerminalInputEvent inputEvent) => _post!(inputEvent);
+
+        public async Task RunAsync(Action<TerminalInputEvent> post, CancellationToken cancellationToken)
+        {
+            _post = post;
+            _started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private sealed class KeyboardHarness : IAsyncDisposable
@@ -576,18 +592,6 @@ public class KeyboardEventManagerTests
 
         public static async Task<KeyboardHarness> CreateAsync(params FocusElementSpec[] elements)
         {
-            return await CreateAsync(console: null, elements).ConfigureAwait(false);
-        }
-
-        public static async Task<KeyboardHarness> CreateAsync(IConsoleInput? console, params FocusElementSpec[] elements)
-        {
-            if (console is null)
-            {
-                var defaultMock = Substitute.For<IConsoleInput>();
-                defaultMock.KeyAvailable.Returns(false);
-                console = defaultMock;
-            }
-
             if (elements is null || elements.Length == 0)
             {
                 throw new ArgumentException("At least one focus element is required.", nameof(elements));
@@ -595,7 +599,7 @@ public class KeyboardEventManagerTests
 
             var focusManager = new FocusManager();
             var dispatcher = new TestKeyboardEventDispatcher();
-            var manager = new KeyboardEventManager(focusManager, dispatcher, console, NullLogger<KeyboardEventManager>.Instance);
+            var manager = new KeyboardEventManager(focusManager, dispatcher, NullLogger<KeyboardEventManager>.Instance);
 
             var services = new ServiceCollection().BuildServiceProvider();
             var renderer = TestHelpers.CreateTestRenderer(services);

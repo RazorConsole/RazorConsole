@@ -18,7 +18,6 @@ namespace RazorConsole.Website;
 internal interface IRazorConsoleRenderer : IAsyncDisposable
 {
     Task HandleTerminalInputAsync(string data);
-    Task HandleKeyboardEventAsync(string xtermKey, string domKey, bool ctrlKey, bool altKey, bool shiftKey);
     void HandleResize(int cols, int rows);
     event Action<string>? SnapshotRendered;
 }
@@ -32,8 +31,12 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
     private IServiceProvider? _serviceProvider;
     private ConsoleRenderer? _consoleRenderer;
     private XTermTerminal? _terminal;
-    private KeyboardEventManager? _keyboardEventManager;
-    private TerminalInputDispatcher? _terminalInput;
+    private InputRouter? _input;
+    private Task _inputLoop = Task.CompletedTask;
+    private readonly CancellationTokenSource _shutdown = new();
+
+    // One decoder for the terminal's input stream: an escape sequence split across onData chunks is still decoded.
+    private readonly TerminalInputDecoder _decoder = new();
     private TerminalMonitor? _terminalMonitor;
     private ConsoleLiveDisplayContext? _liveContext;
     private FocusManager.FocusSession? _focusSession;
@@ -81,8 +84,7 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
 
         _serviceProvider = services.BuildServiceProvider();
         _consoleRenderer = _serviceProvider.GetRequiredService<ConsoleRenderer>();
-        _keyboardEventManager = _serviceProvider.GetRequiredService<KeyboardEventManager>();
-        _terminalInput = _serviceProvider.GetRequiredService<TerminalInputDispatcher>();
+        _input = _serviceProvider.GetRequiredService<InputRouter>();
         var focusManager = _serviceProvider.GetRequiredService<FocusManager>();
         var options = _serviceProvider.GetRequiredService<IOptions<ConsoleAppOptions>>().Value;
 
@@ -113,6 +115,7 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         var focusSession = focusManager.BeginSession(consoleLiveDisplayContext, initialView, CancellationToken.None);
         _focusSession = focusSession;
         await focusSession.InitializationTask.ConfigureAwait(false);
+        _inputLoop = _input.RunAsync(input: null, _shutdown.Token);
     }
 
     /// <summary>
@@ -156,32 +159,20 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         return sw.ToString();
     }
 
-    /// <summary>
-    /// Processes a keyboard event from the browser.
-    /// </summary>
-    public async Task HandleKeyboardEventAsync(string xtermKey, string domKey, bool ctrlKey, bool altKey, bool shiftKey)
-    {
-        await EnsureInitializedAsync().ConfigureAwait(false);
-
-        if (_keyboardEventManager is null)
-        {
-            return;
-        }
-
-        var keyInfo = ParseKeyFromBrowser(xtermKey, domKey, ctrlKey, altKey, shiftKey);
-        Console.WriteLine($"Parsed ConsoleKeyInfo: KeyChar='{keyInfo.KeyChar}', Key={keyInfo.Key}, Modifiers={keyInfo.Modifiers}");
-        await _keyboardEventManager.HandleKeyAsync(keyInfo, CancellationToken.None).ConfigureAwait(false);
-    }
-
     public async Task HandleTerminalInputAsync(string data)
     {
         await EnsureInitializedAsync().ConfigureAwait(false);
         await _inputGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (!_disposed)
+            if (!_disposed && _input is not null)
             {
-                await _terminalInput!.HandleAsync(data).ConfigureAwait(false);
+                // xterm.js sends an empty string after an idle interval, which resolves a standalone Escape.
+                var events = TerminalInputEvents.Decode(_decoder, data, endOfInput: false);
+                if (events.Count > 0)
+                {
+                    await _input.Submit(events).Completion.ConfigureAwait(false);
+                }
             }
         }
         finally
@@ -201,6 +192,8 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         await _inputGate.WaitAsync().ConfigureAwait(false);
         try
         {
+            await _shutdown.CancelAsync().ConfigureAwait(false);
+            await _inputLoop.ConfigureAwait(false);
             _focusSession?.Dispose();
             _focusSubscription?.Dispose();
             // Async: on the single-threaded browser runtime, a blocking dispose would wait on the frame loop forever.
@@ -219,146 +212,6 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         {
             _inputGate.Release();
         }
-    }
-
-    private static ConsoleKeyInfo ParseKeyFromBrowser(string xtermKey, string domKey, bool ctrlKey, bool altKey, bool shiftKey)
-    {
-        var modifiers = ConsoleModifiers.None;
-        if (ctrlKey)
-        {
-            modifiers |= ConsoleModifiers.Control;
-        }
-        if (altKey)
-        {
-            modifiers |= ConsoleModifiers.Alt;
-        }
-        if (shiftKey)
-        {
-            modifiers |= ConsoleModifiers.Shift;
-        }
-
-        // Use domKey for key identification (cleaner names like "Enter", "Tab", etc.)
-        var consoleKey = domKey switch
-        {
-            // Navigation keys
-            "Enter" => ConsoleKey.Enter,
-            "Tab" => ConsoleKey.Tab,
-            "Backspace" => ConsoleKey.Backspace,
-            "Escape" => ConsoleKey.Escape,
-            "ArrowUp" => ConsoleKey.UpArrow,
-            "ArrowDown" => ConsoleKey.DownArrow,
-            "ArrowLeft" => ConsoleKey.LeftArrow,
-            "ArrowRight" => ConsoleKey.RightArrow,
-
-            // Additional navigation and editing keys
-            "Home" => ConsoleKey.Home,
-            "End" => ConsoleKey.End,
-            "PageUp" => ConsoleKey.PageUp,
-            "PageDown" => ConsoleKey.PageDown,
-            "Insert" => ConsoleKey.Insert,
-            "Delete" => ConsoleKey.Delete,
-
-            // Function keys (F1-F12)
-            "F1" => ConsoleKey.F1,
-            "F2" => ConsoleKey.F2,
-            "F3" => ConsoleKey.F3,
-            "F4" => ConsoleKey.F4,
-            "F5" => ConsoleKey.F5,
-            "F6" => ConsoleKey.F6,
-            "F7" => ConsoleKey.F7,
-            "F8" => ConsoleKey.F8,
-            "F9" => ConsoleKey.F9,
-            "F10" => ConsoleKey.F10,
-            "F11" => ConsoleKey.F11,
-            "F12" => ConsoleKey.F12,
-
-            // Modifier keys (standalone)
-            "Shift" => ConsoleKey.None,
-            "Control" => ConsoleKey.None,
-            "Alt" => ConsoleKey.None,
-            "Meta" => ConsoleKey.None,
-
-            // Lock keys
-            "CapsLock" => ConsoleKey.None,
-            "NumLock" => ConsoleKey.None,
-            "ScrollLock" => ConsoleKey.None,
-
-            // Other special keys
-            // "ContextMenu" maps to Applications key (right-click menu key on Windows keyboards)
-            "ContextMenu" => ConsoleKey.Applications,
-            "Pause" => ConsoleKey.Pause,
-            "PrintScreen" => ConsoleKey.PrintScreen,
-
-            // Clear key (Numpad 5 when NumLock is off)
-            "Clear" => ConsoleKey.Clear,
-
-            _ when domKey.Length == 1 => ParseSingleChar(domKey[0]),
-            _ => ConsoleKey.None
-        };
-
-        // Use xtermKey for the actual character (better for printable characters)
-        // For special keys, xtermKey contains escape sequences, so use domKey mapping
-        var keyChar = domKey switch
-        {
-            "Enter" => '\r',
-            "Tab" => '\t',
-            "Backspace" => '\b',
-            "Escape" => '\x1b',
-            "Delete" => '\x7f',
-            _ when xtermKey.Length == 1 => xtermKey[0],
-            _ => '\0'
-        };
-
-        // Handle control key combinations for letters (Ctrl+A through Ctrl+Z)
-        // When Ctrl is pressed with a letter, xterm sends the corresponding control character
-        // (ASCII 1-26). We override the consoleKey and keyChar here because the switch above
-        // cannot properly identify the letter from a control character.
-        if (ctrlKey && !altKey && xtermKey.Length == 1)
-        {
-            var c = xtermKey[0];
-            if (c >= '\x01' && c <= '\x1a')
-            {
-                // Control character: Ctrl+A = 0x01, ..., Ctrl+Z = 0x1A
-                consoleKey = ConsoleKey.A + (c - '\x01');
-                keyChar = c;
-            }
-        }
-
-        return new ConsoleKeyInfo(keyChar, consoleKey, shiftKey, altKey, ctrlKey);
-    }
-
-    private static ConsoleKey ParseSingleChar(char c)
-    {
-        return c switch
-        {
-            // Letters
-            >= 'a' and <= 'z' => ConsoleKey.A + (c - 'a'),
-            >= 'A' and <= 'Z' => ConsoleKey.A + (c - 'A'),
-
-            // Digit row keys
-            >= '0' and <= '9' => ConsoleKey.D0 + (c - '0'),
-
-            // Spacebar
-            ' ' => ConsoleKey.Spacebar,
-
-            // Punctuation and symbol keys (common US keyboard layout)
-            '-' or '_' => ConsoleKey.OemMinus,
-            '=' or '+' => ConsoleKey.OemPlus,
-            '[' or '{' => ConsoleKey.Oem4,
-            ']' or '}' => ConsoleKey.Oem6,
-            '\\' or '|' => ConsoleKey.Oem5,
-            ';' or ':' => ConsoleKey.Oem1,
-            '\'' or '"' => ConsoleKey.Oem7,
-            ',' or '<' => ConsoleKey.OemComma,
-            '.' or '>' => ConsoleKey.OemPeriod,
-            '/' or '?' => ConsoleKey.Oem2,
-            '`' or '~' => ConsoleKey.Oem3,
-
-            // Math operators (from numpad or Shift combinations)
-            '*' => ConsoleKey.Multiply,
-
-            _ => ConsoleKey.None
-        };
     }
 
     /// <summary>

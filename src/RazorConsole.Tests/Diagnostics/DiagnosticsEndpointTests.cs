@@ -421,7 +421,7 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         using var subscription = renderer.Subscribe(focus);
         await DiagnosticsHooksTests.MountAsync<FormComponent>(renderer, state, ct);
         var dispatcher = new RecordingDispatcher();
-        var keyboard = new KeyboardEventManager(focus, dispatcher, IdleConsole());
+        var keyboard = new InputRouter(new KeyboardEventManager(focus, dispatcher));
         var service = await StartAsync(state, focus, keyboard: keyboard);
         StartInputLoop(keyboard);
         var client = await ConnectAsync(service, ct);
@@ -467,7 +467,7 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         options.ConsoleLiveDisplayOptions.EnableMouseEvents = true;
         var dispatcher = new RecordingDispatcher();
         var mouse = new MouseEventManager(renderer, provider.GetRequiredService<VNodeLayoutAccessor>(), dispatcher, focus);
-        var keyboard = new KeyboardEventManager(focus, dispatcher, IdleConsole(), mouse: mouse, options: options);
+        var keyboard = new InputRouter(new KeyboardEventManager(focus, dispatcher), mouse);
         var service = await StartAsync(state, focus, keyboard: keyboard, options: options);
         StartInputLoop(keyboard);
         var client = await ConnectAsync(service, ct);
@@ -491,7 +491,7 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         using var subscription = renderer.Subscribe(focus);
         await DiagnosticsHooksTests.MountAsync<FormComponent>(renderer, state, ct);
         var dispatcher = new RecordingDispatcher { Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously) };
-        var keyboard = new KeyboardEventManager(focus, dispatcher, IdleConsole());
+        var keyboard = new InputRouter(new KeyboardEventManager(focus, dispatcher));
         var service = await StartAsync(state, focus, keyboard: keyboard);
         var client = await ConnectAsync(service, ct);
         await HelloAsync(client, ct);
@@ -696,7 +696,7 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         RecordingLogger? logger = null,
         string? stateDirectory = null,
         Func<string, DiagnosticsListener>? listen = null,
-        KeyboardEventManager? keyboard = null,
+        InputRouter? keyboard = null,
         ConsoleAppOptions? options = null,
         ConsoleRenderer? renderer = null)
     {
@@ -715,10 +715,10 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
     }
 
     // Runs the app's input loop until the test ends.
-    private void StartInputLoop(KeyboardEventManager keyboard)
+    private void StartInputLoop(InputRouter input)
     {
         var stop = new CancellationTokenSource();
-        var loop = keyboard.RunAsync(stop.Token);
+        var loop = input.RunAsync(input: null, stop.Token);
         _disposables.Add(new AsyncDisposable(async () =>
         {
             await stop.CancelAsync();
@@ -727,12 +727,6 @@ public sealed class DiagnosticsEndpointTests : IAsyncDisposable
         }));
     }
 
-    private static IConsoleInput IdleConsole()
-    {
-        var console = Substitute.For<IConsoleInput>();
-        console.KeyAvailable.Returns(false);
-        return console;
-    }
 
     private Task<DiagnosticsMessage> InputAsync(DiagnosticsConnection client, InputParams parameters, CancellationToken ct)
         => CallAsync(client, DiagnosticsAppMethods.Input, parameters, DiagnosticsJsonContext.Default.InputParams, ct);
