@@ -72,6 +72,8 @@ public sealed class TerminalCanvas
     public void ApplyBackground(LayoutRect rect, Color background, Color? foreground = null)
     {
         var clipped = rect.Intersect(ClipBounds).Intersect(new LayoutRect(0, 0, Width, Height));
+        var cellBackground = SpectreCellStyle.ToCellColor(background);
+        CellColor? cellForeground = foreground is { } color ? SpectreCellStyle.ToCellColor(color) : null;
         for (var y = clipped.Y; y < clipped.Bottom; y++)
         {
             for (var x = clipped.X; x < clipped.Right; x++)
@@ -79,7 +81,7 @@ public sealed class TerminalCanvas
                 var cell = _cells[y, x];
                 _cells[y, x] = cell with
                 {
-                    Style = new Style(foreground ?? cell.Style?.Foreground, background, cell.Style?.Decoration),
+                    CellStyle = new CellStyle(cellForeground ?? cell.CellStyle.Foreground, cellBackground, cell.CellStyle.Decoration),
                 };
             }
         }
@@ -137,6 +139,7 @@ public sealed class TerminalCanvas
 
         var cursor = x;
         var written = 0;
+        var cellStyle = SpectreCellStyle.ToCellStyle(style);
         var elements = StringInfo.GetTextElementEnumerator(text);
         while (elements.MoveNext())
         {
@@ -158,10 +161,10 @@ public sealed class TerminalCanvas
 
             if (cursor >= Math.Max(0, clip.X))
             {
-                _cells[y, cursor] = new TerminalCell(element, style, link);
+                _cells[y, cursor] = new TerminalCell(element, cellStyle, link);
                 for (var continuation = 1; continuation < cells; continuation++)
                 {
-                    _cells[y, cursor + continuation] = new TerminalCell(string.Empty, style, link);
+                    _cells[y, cursor + continuation] = new TerminalCell(string.Empty, cellStyle, link);
                 }
             }
 
@@ -214,7 +217,7 @@ public sealed class TerminalCanvas
         for (var x = 0; x < width; x++)
         {
             var cell = _cells[y, x];
-            if (cell.Style != run.Style || cell.Link != run.Link)
+            if (cell.CellStyle != run.CellStyle || cell.Link != run.Link)
             {
                 yield return CreateSegment(builder.ToString(), run);
                 builder.Clear();
@@ -231,7 +234,7 @@ public sealed class TerminalCanvas
     }
 
     private static Segment CreateSegment(string text, TerminalCell run)
-        => new(text, run.Style ?? Style.Plain, run.Link is null ? null : new Link(run.Link));
+        => new(text, SpectreCellStyle.ToSpectreStyle(run.CellStyle) ?? Style.Plain, run.Link is null ? null : new Link(run.Link));
 
     private void ThrowIfOutOfRange(int x, int y)
     {
