@@ -41,7 +41,7 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
     private IDisposable? _focusSubscription;
     private bool _disposed;
     private readonly SemaphoreSlim _inputGate = new(1, 1);
-    private LiveDisplayCanvas? _canvas;
+    private FramePresenter? _canvas;
     private Task? _initializationTask;
     public event Action<string>? SnapshotRendered;
 
@@ -104,10 +104,9 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         var initialView = ConsoleViewResult.FromSnapshot(snapshot);
         var terminalMonitor = _serviceProvider.GetRequiredService<TerminalMonitor>();
         _terminalMonitor = terminalMonitor;
-        _canvas = new LiveDisplayCanvas(
-            options.ConsoleLiveDisplayOptions,
-            _ansiConsole,
-            _serviceProvider.GetService<ILoggerFactory>()?.CreateLogger<LiveDisplayCanvas>());
+        _canvas = new FramePresenter(
+            new AnsiTerminal(options.ConsoleLiveDisplayOptions, _ansiConsole),
+            _serviceProvider.GetService<ILoggerFactory>()?.CreateLogger<FramePresenter>());
 
         // Subscribe to Refreshed BEFORE creating the context, so we catch the initial render.
         // The canvas raises it on its frame loop, right after each frame was written to _sw.

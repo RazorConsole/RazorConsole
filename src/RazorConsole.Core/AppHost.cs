@@ -125,10 +125,12 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
             AnsiConsole.Clear();
         }
 
-        // Disposed last: it waits for the frame being written before it leaves the alternate screen buffer and
-        // turns mouse mode off, so a late frame cannot land on the main screen.
+        // Disposed last: it waits for the frame being presented before the terminal leaves the alternate screen
+        // buffer and turns mouse mode off, so a late frame cannot land on the main screen.
         await using var liveContext = new ConsoleLiveDisplayContext(
-            new LiveDisplayCanvas(options.ConsoleLiveDisplayOptions, AnsiConsole.Console, loggerFactory.CreateLogger<LiveDisplayCanvas>()),
+            new FramePresenter(
+                new AnsiTerminal(options.ConsoleLiveDisplayOptions, AnsiConsole.Console),
+                loggerFactory.CreateLogger<FramePresenter>()),
             consoleRenderer,
             terminalMonitor,
             null);

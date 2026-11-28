@@ -531,10 +531,9 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         var view = ConsoleViewResult.FromSnapshot(renderSnapshot);
         _liveContext = new ConsoleLiveDisplayContext(
             _ansiConsole is not null
-                ? new LiveDisplayCanvas(
-                    new ConsoleLiveDisplayOptions { EnableMouseEvents = true },
-                    _ansiConsole,
-                    _services.GetService<ILoggerFactory>()?.CreateLogger<LiveDisplayCanvas>())
+                ? new FramePresenter(
+                    new AnsiTerminal(new ConsoleLiveDisplayOptions { EnableMouseEvents = true }, _ansiConsole),
+                    _services.GetService<ILoggerFactory>()?.CreateLogger<FramePresenter>())
                 : new NoopLiveDisplayCanvas(),
             _renderer,
             _terminalMonitor,
