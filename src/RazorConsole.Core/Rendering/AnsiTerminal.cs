@@ -1,6 +1,5 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
-using RazorConsole.Core.Renderables;
 using Spectre.Console;
 using static RazorConsole.Core.Utilities.AnsiSequences;
 
@@ -11,14 +10,15 @@ namespace RazorConsole.Core.Rendering;
 /// </summary>
 /// <remarks>
 /// It enters the alternate screen buffer (and mouse reporting) with the first frame and leaves it when disposed. Frames
-/// are written through <see cref="DiffRenderable"/>, which writes only the lines that changed since the last frame.
+/// are encoded by <see cref="AnsiFrameEncoder"/>, which writes only the cells that changed since the last frame, for the
+/// console's size, color system and hyperlink support.
 /// </remarks>
 internal sealed class AnsiTerminal : ITerminal
 {
     private readonly ConsoleLiveDisplayOptions _options;
     private readonly IAnsiConsole _ansiConsole;
     private readonly bool _useAlternateScreenBuffer;
-    private DiffRenderable? _current;
+    private readonly AnsiFrameEncoder _encoder;
     private bool _alternateScreenBufferActive;
 
     public AnsiTerminal(ConsoleLiveDisplayOptions options, IAnsiConsole ansiConsole)
@@ -26,6 +26,7 @@ internal sealed class AnsiTerminal : ITerminal
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _ansiConsole = ansiConsole ?? throw new ArgumentNullException(nameof(ansiConsole));
         _useAlternateScreenBuffer = options.UseAlternateScreenBuffer || options.EnableMouseEvents;
+        _encoder = new AnsiFrameEncoder(hideCursor: options.HideCursor);
     }
 
     /// <summary>
@@ -38,18 +39,15 @@ internal sealed class AnsiTerminal : ITerminal
     {
         ArgumentNullException.ThrowIfNull(frame);
 
-        var renderable = frame.Canvas.ToRenderable();
-        if (_current is null)
-        {
-            _current = new DiffRenderable(renderable, hideCursor: _options.HideCursor);
-        }
-        else
-        {
-            _current.UpdateRenderable(renderable);
-        }
+        var profile = _ansiConsole.Profile;
+        var text = _encoder.Encode(
+            frame,
+            profile.Width,
+            profile.Height,
+            new AnsiOutputCapabilities(profile.Capabilities.ColorSystem, profile.Capabilities.Links));
 
         EnterAlternateScreenBufferIfNeeded();
-        WriteCurrent();
+        WriteFrame(text);
         return ValueTask.CompletedTask;
     }
 
@@ -62,7 +60,7 @@ internal sealed class AnsiTerminal : ITerminal
         return ValueTask.CompletedTask;
     }
 
-    private void WriteCurrent()
+    private void WriteFrame(string text)
     {
         try
         {
@@ -73,7 +71,7 @@ internal sealed class AnsiTerminal : ITerminal
                     _ansiConsole.Write(new ControlCode(SM(SynchronizedOutput)));
                 }
 
-                _ansiConsole.Write(_current!);
+                _ansiConsole.Write(new ControlCode(text));
             }
             finally
             {
@@ -86,7 +84,7 @@ internal sealed class AnsiTerminal : ITerminal
         catch
         {
             // Part of the frame may have reached the terminal: redraw everything with the next frame.
-            _current?.Invalidate();
+            _encoder.Invalidate();
             throw;
         }
     }

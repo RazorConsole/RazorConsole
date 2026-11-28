@@ -20,7 +20,7 @@ VNode tree
   -> LayoutEngine.Measure/Arrange with viewport constraints
   -> LayoutBox tree + VNodeLayoutInfo snapshots
   -> WidgetFrameSource, painted by the frame loop into a TerminalFrame (TerminalCanvas)
-  -> DiffRenderable / terminal output
+  -> AnsiFrameEncoder / terminal output
 ```
 
 Viewport size comes from `TerminalMonitor` through `ConsoleRenderer.CreateViewportConstraints()`:
@@ -307,7 +307,7 @@ Full-height, full-width layouts exercise terminal edge cases:
 
 - Emitting a final newline after the last terminal row can scroll row 0 off-screen.
 - Writing to the bottom-right cell with terminal auto-wrap enabled can also scroll.
-- `DiffRenderable` should avoid final `NEL()` and temporarily disable auto-wrap while painting full frames, then restore auto-wrap afterward.
+- `AnsiFrameEncoder` avoids a final `NEL()` and disables auto-wrap while writing a frame, then restores it afterward.
 
 These are rendering concerns, but they matter for layout examples because full-screen boxes often draw into the terminal's last row and last column.
 
