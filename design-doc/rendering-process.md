@@ -161,7 +161,7 @@ Translators run for every node that becomes a widget, including children of buil
 `LayoutEngine.Layout` measures the widget tree against the viewport constraints, arranges every widget into a `LayoutRect`, and grows the document to fit absolute-positioned widgets. The resulting `LayoutResult` provides:
 
 - the layout box of every node, which feeds `IVNodeLayoutAccessor`, focus and mouse hit-testing, and the diagnostics endpoint;
-- `ToFrameSource()`, a `FrameSource` that the render snapshot carries instead of a Spectre `IRenderable`. The frame loop in `LiveDisplayCanvas` paints the current source into a `TerminalFrame` (a `TerminalCanvas` of cells) for every frame it writes, so animations and scrolling repaint the same source without a new render.
+- `ToFrameSource()`, a `FrameSource` that the render snapshot carries instead of a Spectre `IRenderable`. The frame loop in `FramePresenter` paints the current source into a `TerminalFrame` (a `TerminalCanvas` of cells) for every frame and presents it to an `ITerminal` backend, so animations and scrolling repaint the same source without a new render. `AnsiTerminal`, the console backend, writes frames as ANSI through `DiffRenderable` and owns the alternate screen buffer and mouse mode.
 
 `SpectreWidget` leaves render their Spectre.Console renderable at the width they were given and copy the resulting segments into the canvas cells, so Spectre-backed content takes part in layout like any other widget.
 
@@ -172,25 +172,26 @@ sequenceDiagram
     participant Renderer as ConsoleRenderer
     participant LiveDisplay as ConsoleLiveDisplayContext
     participant DiffService as VdomDiffService
-    participant Canvas as LiveDisplayCanvas
-    participant Terminal as Terminal
+    participant Presenter as FramePresenter
+    participant Terminal as AnsiTerminal
 
     Renderer->>LiveDisplay: OnNext(snapshot)
     alt First frame
-        LiveDisplay->>Canvas: UpdateTarget(frame)
+        LiveDisplay->>Presenter: UpdateTarget(frame)
     else Later frame
         LiveDisplay->>DiffService: Diff(previousRoot, currentRoot)
         alt Tree changed
-            LiveDisplay->>Canvas: UpdateTarget(frame)
+            LiveDisplay->>Presenter: UpdateTarget(frame)
         else No change
             LiveDisplay->>LiveDisplay: Skip redraw
         end
     end
-    Canvas->>Canvas: Paint the source into a TerminalFrame
-    Canvas->>Terminal: Write the lines that changed
+    Presenter->>Presenter: Paint the source into a TerminalFrame
+    Presenter->>Terminal: PresentAsync(frame)
+    Terminal->>Terminal: Write the lines that changed
 ```
 
-A terminal resize refreshes the snapshot through the same path, so the frame is laid out again at the new size. The painted `TerminalFrame` is the first step of issue #425: later steps move writing to the terminal behind a backend abstraction, so terminal, headless and diagnostics backends consume the same frames.
+A terminal resize refreshes the snapshot through the same path, so the frame is laid out again at the new size. This is part of issue #425: later steps move headless testing, diagnostics and the browser host onto `ITerminal` backends and frame observers, so they consume the same frames.
 
 ## Event Handling and Re-render
 

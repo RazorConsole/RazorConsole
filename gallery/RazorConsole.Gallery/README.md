@@ -60,7 +60,7 @@ additional tests cover presets/properties, Reset, real input, Select and modal f
 
 For output-path regression tests, opt in to
 `HeadlessTerminalOptions.CaptureAnsiOutput`. This replaces the no-op canvas with
-real `LiveDisplayCanvas`/`DiffRenderable` execution and captures the terminal output
+real `FramePresenter`/`AnsiTerminal`/`DiffRenderable` execution and captures the terminal output
 in `AnsiOutput`. The transport remains
 in-memory: it cannot reproduce OS stdin ownership or a missing terminal reply.
 `WheelBurst_WithRealDiffOutput_ResizeAndInput_RemainsResponsive` combines raw SGR

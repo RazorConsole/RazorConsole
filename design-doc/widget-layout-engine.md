@@ -228,7 +228,7 @@ public sealed class TerminalCanvas
 
 The first implementation can expose `ToRenderable()` as a custom Spectre `Renderable` that yields pre-computed `Segment`s. Spectre then only writes rows/segments; it does not decide layout.
 
-Later, `LiveDisplayCanvas` can diff `TerminalCanvas` frames directly and bypass part of `DiffRenderable`.
+Later, `AnsiTerminal` can diff `TerminalFrame`s directly and bypass part of `DiffRenderable`.
 
 ## Scroll Containers
 
