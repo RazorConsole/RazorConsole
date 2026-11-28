@@ -138,6 +138,38 @@ public sealed class DiagnosticsScreenTests
     }
 
     [Fact]
+    public void Frame_ReadsTheCellsTheDisplayPresented_WithoutPaintingAgain()
+    {
+        var state = new DiagnosticsState();
+        var widget = new DrawWidget(4, 1);
+        var source = widget.ToFrameSource();
+        var frame = state.PublishFrame(null, null, null, source);
+
+        // The display paints the source once and presents it.
+        var presented = new TerminalFrame(1, source, source.Paint());
+        new DiagnosticsFrameObserver(state).OnFramePresented(presented);
+
+        frame.PaintCanvas().ShouldBeSameAs(presented.Canvas);
+        widget.Paints.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Frame_PaintsItsOwnCanvas_WhenTheDisplayPresentedAnotherSource()
+    {
+        var state = new DiagnosticsState();
+        var shown = new DrawWidget(4, 1);
+        var shownSource = shown.ToFrameSource();
+        new DiagnosticsFrameObserver(state).OnFramePresented(new TerminalFrame(1, shownSource, shownSource.Paint()));
+        var widget = new DrawWidget(4, 1);
+        var frame = widget.Publish(state);
+
+        frame.PaintCanvas().ShouldNotBeNull();
+
+        widget.Paints.ShouldBe(1);
+        shown.Paints.ShouldBe(1);
+    }
+
+    [Fact]
     public void Frame_PaintsOnceWhenRequestsAskForItConcurrently()
     {
         const int Requests = 16;

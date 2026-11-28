@@ -88,7 +88,8 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
     FocusManager focusManager,
     KeyboardEventManager keyboardEventManager,
     TerminalMonitor terminalMonitor,
-    ILoggerFactory loggerFactory) : BackgroundService where TComponent : IComponent
+    ILoggerFactory loggerFactory,
+    IEnumerable<ITerminalFrameObserver>? frameObservers = null) : BackgroundService where TComponent : IComponent
 {
     private readonly SemaphoreSlim _renderSemaphore = new(1, 1);
 
@@ -130,7 +131,8 @@ internal class ComponentService<[DynamicallyAccessedMembers(DynamicallyAccessedM
         await using var liveContext = new ConsoleLiveDisplayContext(
             new FramePresenter(
                 new AnsiTerminal(options.ConsoleLiveDisplayOptions, AnsiConsole.Console),
-                loggerFactory.CreateLogger<FramePresenter>()),
+                loggerFactory.CreateLogger<FramePresenter>(),
+                frameObservers),
             consoleRenderer,
             terminalMonitor,
             null);

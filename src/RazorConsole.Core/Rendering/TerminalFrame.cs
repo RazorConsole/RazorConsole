@@ -12,9 +12,10 @@ namespace RazorConsole.Core.Rendering;
 /// </remarks>
 internal sealed class TerminalFrame
 {
-    public TerminalFrame(long sequence, TerminalCanvas canvas)
+    public TerminalFrame(long sequence, FrameSource source, TerminalCanvas canvas)
     {
         Sequence = sequence;
+        Source = source ?? throw new ArgumentNullException(nameof(source));
         Canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
     }
 
@@ -29,6 +30,12 @@ internal sealed class TerminalFrame
     public int Height => Canvas.Height;
 
     public TerminalCell this[int x, int y] => Canvas[x, y];
+
+    /// <summary>
+    /// The source this frame was painted from, with the render it belongs to. Repaints of the same source (animations,
+    /// scrolling) share it.
+    /// </summary>
+    internal FrameSource Source { get; }
 
     /// <summary>The painted cells.</summary>
     internal TerminalCanvas Canvas { get; }

@@ -228,6 +228,28 @@ public sealed class FramePresenterTests
     }
 
     [Fact]
+    public async Task Observers_GetEveryPresentedFrame_EvenWhenOneOfThemThrows()
+    {
+        var logger = new RecordingLogger();
+        var seen = new List<TerminalFrame>();
+        await using var presenter = new FramePresenter(
+            new RecordingTerminal(),
+            logger,
+            [new DelegateObserver(_ => throw new InvalidOperationException("observer failed")), new DelegateObserver(seen.Add)]);
+        var source = new CountingSource();
+
+        presenter.UpdateTarget(source);
+        await presenter.WhenIdleAsync(Token);
+        presenter.Refresh();
+        await presenter.WhenIdleAsync(Token);
+
+        seen.Count.ShouldBe(2);
+        seen[0].Source.ShouldBeSameAs(source);
+        seen[1].ShouldBeSameAs(presenter.LastFrame);
+        logger.Entries.Count(entry => entry.Level == LogLevel.Error).ShouldBe(1);
+    }
+
+    [Fact]
     public async Task UpdateTarget_LatestTargetWins()
     {
         var captured = new List<IRenderable>();
@@ -551,6 +573,11 @@ public sealed class FramePresenterTests
                 _entries.Add((logLevel, exception));
             }
         }
+    }
+
+    private sealed class DelegateObserver(Action<TerminalFrame> onFrame) : ITerminalFrameObserver
+    {
+        public void OnFramePresented(TerminalFrame frame) => onFrame(frame);
     }
 
     private sealed class RecordingTerminal : ITerminal

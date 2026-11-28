@@ -22,6 +22,7 @@ namespace RazorConsole.Core.Rendering;
 internal sealed partial class FramePresenter : ConsoleLiveDisplayContext.ILiveDisplayCanvas, IAsyncDisposable, IDisposable
 {
     private readonly ITerminal _terminal;
+    private readonly ITerminalFrameObserver[] _observers;
     private readonly ILogger _logger;
     private readonly Channel<bool> _frames = Channel.CreateBounded<bool>(new BoundedChannelOptions(1)
     {
@@ -38,6 +39,7 @@ internal sealed partial class FramePresenter : ConsoleLiveDisplayContext.ILiveDi
     private TerminalFrame? _lastFrame;
     private bool _lastPresentFailed;
     private bool _lastRefreshedHandlerFailed;
+    private bool _lastObserverFailed;
 
     // The newest target that the frame loop has not applied yet.
     private FrameSource? _pendingTarget;
@@ -48,12 +50,13 @@ internal sealed partial class FramePresenter : ConsoleLiveDisplayContext.ILiveDi
     private int _disposeState;
 
     /// <summary>
-    /// Starts a frame loop that presents to <paramref name="terminal"/>. The presenter owns the terminal and disposes
-    /// it when it is disposed.
+    /// Starts a frame loop that presents to <paramref name="terminal"/> and hands every presented frame to
+    /// <paramref name="observers"/>. The presenter owns the terminal and disposes it when it is disposed.
     /// </summary>
-    public FramePresenter(ITerminal terminal, ILogger? logger = null)
+    public FramePresenter(ITerminal terminal, ILogger? logger = null, IEnumerable<ITerminalFrameObserver>? observers = null)
     {
         _terminal = terminal ?? throw new ArgumentNullException(nameof(terminal));
+        _observers = observers?.ToArray() ?? [];
         _logger = logger ?? NullLogger.Instance;
         _frameLoop = Task.Run(FrameLoopAsync);
     }
@@ -148,10 +151,12 @@ internal sealed partial class FramePresenter : ConsoleLiveDisplayContext.ILiveDi
 
     private async Task PresentFrameAsync(long sequence)
     {
-        if (!await TryPresentCurrentFrameAsync(sequence).ConfigureAwait(false))
+        if (await TryPresentCurrentFrameAsync(sequence).ConfigureAwait(false) is not { } frame)
         {
             return;
         }
+
+        NotifyObservers(frame);
 
         // Raised outside the presentation's try, so a failing handler is not reported as a presentation failure and
         // does not touch its failure state. Its failures are logged once per run, like presentation failures.
@@ -171,10 +176,10 @@ internal sealed partial class FramePresenter : ConsoleLiveDisplayContext.ILiveDi
     }
 
     /// <summary>
-    /// Applies the pending target, paints a frame from it and presents that frame. Returns <see langword="true"/> when
-    /// a frame was presented.
+    /// Applies the pending target, paints a frame from it and presents that frame. Returns the frame when it was
+    /// presented.
     /// </summary>
-    private async ValueTask<bool> TryPresentCurrentFrameAsync(long sequence)
+    private async ValueTask<TerminalFrame?> TryPresentCurrentFrameAsync(long sequence)
     {
         try
         {
@@ -186,12 +191,12 @@ internal sealed partial class FramePresenter : ConsoleLiveDisplayContext.ILiveDi
 
             if (_source is null)
             {
-                return false;
+                return null;
             }
 
             // Painted inside the try, like the presentation: a source that fails to paint is reported and retried with
             // the next frame, the same as a failed presentation.
-            var frame = new TerminalFrame(sequence, _source.Paint());
+            var frame = new TerminalFrame(sequence, _source, _source.Paint());
             await _terminal.PresentAsync(frame).ConfigureAwait(false);
             Volatile.Write(ref _lastFrame, frame);
             if (_lastPresentFailed)
@@ -200,7 +205,7 @@ internal sealed partial class FramePresenter : ConsoleLiveDisplayContext.ILiveDi
                 LogPresentRecovered(_logger);
             }
 
-            return true;
+            return frame;
         }
         catch (Exception ex)
         {
@@ -212,7 +217,35 @@ internal sealed partial class FramePresenter : ConsoleLiveDisplayContext.ILiveDi
                 LogPresentFailed(_logger, ex);
             }
 
-            return false;
+            return null;
+        }
+    }
+
+    // Outside the presentation's try, like the Refreshed handlers: an observer failure is not a presentation failure.
+    // Every observer sees every frame even when one of them throws; failures are logged once per run.
+    private void NotifyObservers(TerminalFrame frame)
+    {
+        var failed = false;
+        foreach (var observer in _observers)
+        {
+            try
+            {
+                observer.OnFramePresented(frame);
+            }
+            catch (Exception ex)
+            {
+                failed = true;
+                if (!_lastObserverFailed)
+                {
+                    _lastObserverFailed = true;
+                    LogObserverFailed(_logger, ex);
+                }
+            }
+        }
+
+        if (!failed)
+        {
+            _lastObserverFailed = false;
         }
     }
 
@@ -273,6 +306,9 @@ internal sealed partial class FramePresenter : ConsoleLiveDisplayContext.ILiveDi
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Presenting frames to the terminal works again.")]
     private static partial void LogPresentRecovered(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A frame observer threw after a frame was presented. Later failures are not logged until every observer succeeds.")]
+    private static partial void LogObserverFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "A Refreshed handler threw after a frame was presented. Later failures are not logged until a handler run succeeds.")]
     private static partial void LogRefreshedHandlerFailed(ILogger logger, Exception exception);

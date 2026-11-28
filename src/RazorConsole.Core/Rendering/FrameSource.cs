@@ -1,6 +1,7 @@
 // Copyright (c) RazorConsole. All rights reserved.
 
 using RazorConsole.Core.Layout;
+using RazorConsole.Core.Vdom;
 
 namespace RazorConsole.Core.Rendering;
 
@@ -13,6 +14,18 @@ namespace RazorConsole.Core.Rendering;
 /// </remarks>
 internal abstract class FrameSource
 {
+    /// <summary>
+    /// The sequence of the render snapshot this source was laid out for, or 0 when it does not come from a render (as
+    /// in tests). A higher value is a later render.
+    /// </summary>
+    public long RenderSequence { get; init; }
+
+    /// <summary>The tree this source was laid out from, or <see langword="null"/> when it does not come from a render.</summary>
+    public VNode? Root { get; init; }
+
+    /// <summary>The layout of every node of <see cref="Root"/>, or <see langword="null"/> when it does not come from a render.</summary>
+    public IReadOnlyCollection<VNodeLayoutInfo>? Layouts { get; init; }
+
     /// <summary>Paints the view into a new canvas.</summary>
     public abstract TerminalCanvas Paint();
 }

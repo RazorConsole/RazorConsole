@@ -507,13 +507,14 @@ internal sealed class ConsoleRenderer(
         // The key is taken before building: a change made while building leaves the key stale, so the next call rebuilds.
         var key = CreateSnapshotKey();
         _snapshotFailed = false;
-        var snapshot = CreateSnapshotCore() with { Sequence = Interlocked.Increment(ref _snapshotSequence) };
+        var sequence = Interlocked.Increment(ref _snapshotSequence);
+        var snapshot = CreateSnapshotCore(sequence) with { Sequence = sequence };
         _snapshotKey = _snapshotFailed ? null : key;
         _lastSnapshot = snapshot;
         return snapshot;
     }
 
-    private RenderSnapshot CreateSnapshotCore()
+    private RenderSnapshot CreateSnapshotCore(long sequence)
     {
         try
         {
@@ -530,7 +531,7 @@ internal sealed class ConsoleRenderer(
                 return RenderSnapshot.Empty;
             }
 
-            return CreateWidgetLayoutSnapshot(rootNode);
+            return CreateWidgetLayoutSnapshot(rootNode, sequence);
         }
         catch (Exception ex)
         {
@@ -540,16 +541,21 @@ internal sealed class ConsoleRenderer(
         }
     }
 
-    private RenderSnapshot CreateWidgetLayoutSnapshot(VNode rootNode)
+    private RenderSnapshot CreateWidgetLayoutSnapshot(VNode rootNode, long sequence)
     {
         _widgetTranslationContext.ClearAnimatedRenderables();
         scrollStateRegistry?.BeginLayoutPass();
 
         var widgetRoot = _widgetTranslationContext.Translate(rootNode);
         var layoutResult = _layoutEngine.Layout(widgetRoot, CreateViewportConstraints());
-        var source = layoutResult.ToFrameSource();
         var layouts = layoutResult.EnumerateLayoutInfos();
         var layoutParents = layoutResult.EnumerateLayoutParentIds();
+        var source = new WidgetFrameSource(layoutResult.Root, layoutResult.Size)
+        {
+            RenderSequence = sequence,
+            Root = rootNode,
+            Layouts = layouts,
+        };
 
         UpdateSnapshotAccessors(rootNode, layouts, layoutParents);
 

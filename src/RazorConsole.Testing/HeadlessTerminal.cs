@@ -13,6 +13,7 @@ using RazorConsole.Core.Input;
 using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Vdom;
 using Spectre.Console;
+using PresentedFrame = RazorConsole.Core.Rendering.TerminalFrame;
 
 namespace RazorConsole.Testing;
 
@@ -318,7 +319,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
             async token =>
             {
                 await _mouseEventManager.HandleAsync(new TerminalMouseEvent(TerminalMouseKind.Down, x, y), token).ConfigureAwait(false);
-                Capture(_renderer.RefreshSnapshot());
+                await PresentLatestAsync(token).ConfigureAwait(false);
                 await _mouseEventManager.HandleAsync(new TerminalMouseEvent(TerminalMouseKind.Up, x, y), token).ConfigureAwait(false);
             },
             cancellationToken);
@@ -356,8 +357,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
                 _ansiConsole.Profile.Height = height;
             }
             _terminalMonitor.Resize(width, height);
-            _liveContext?.WhenIdleAsync().GetAwaiter().GetResult();
-            Capture(_renderer.RefreshSnapshot());
+            PresentLatestAsync(CancellationToken.None).GetAwaiter().GetResult();
         }
         finally
         {
@@ -526,23 +526,26 @@ public sealed class HeadlessTerminal : IAsyncDisposable
             ? ParameterView.Empty
             : ParameterView.FromDictionary(new Dictionary<string, object?>(parameters, StringComparer.Ordinal));
         var renderSnapshot = await _renderer.MountComponentAsync<TComponent>(parameterView, cancellationToken).ConfigureAwait(false);
-        Capture(renderSnapshot);
 
+        // Frames are recorded by the backend as the presenter presents them, so this terminal sees exactly the frames
+        // an ANSI terminal would be sent, painted once.
         var view = ConsoleViewResult.FromSnapshot(renderSnapshot);
         _liveContext = new ConsoleLiveDisplayContext(
-            _ansiConsole is not null
-                ? new FramePresenter(
-                    new AnsiTerminal(new ConsoleLiveDisplayOptions { EnableMouseEvents = true }, _ansiConsole),
-                    _services.GetService<ILoggerFactory>()?.CreateLogger<FramePresenter>())
-                : new NoopLiveDisplayCanvas(),
+            new FramePresenter(
+                new HeadlessBackend(
+                    this,
+                    _ansiConsole is not null
+                        ? new AnsiTerminal(new ConsoleLiveDisplayOptions { EnableMouseEvents = true }, _ansiConsole)
+                        : null),
+                _services.GetService<ILoggerFactory>()?.CreateLogger<FramePresenter>()),
             _renderer,
             _terminalMonitor,
             view);
+        _liveContext.Present(renderSnapshot);
         _focusSubscription = _renderer.Subscribe(_focusManager);
         _focusSession = _focusManager.BeginSession(_liveContext, view, _shutdown.Token);
         await _focusSession.InitializationTask.ConfigureAwait(false);
-        await _liveContext.WhenIdleAsync(cancellationToken).ConfigureAwait(false);
-        Capture(_renderer.RefreshSnapshot());
+        await PresentLatestAsync(cancellationToken).ConfigureAwait(false);
 
         // Scroll state changed by the engine (not by a Blazor render or by input sent through this terminal) repaints the host; capture it like one.
         if (_renderer.ScrollRegistry is { } scrollRegistry)
@@ -562,7 +565,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
                 {
                     if (!_disposed)
                     {
-                        Capture(_renderer.RefreshSnapshot());
+                        await PresentLatestAsync(CancellationToken.None).ConfigureAwait(false);
                     }
                 }
                 finally
@@ -583,14 +586,7 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         {
             ThrowIfDisposed();
             await input(cancellationToken).ConfigureAwait(false);
-
-            // Frames are written by the canvas frame loop; wait for it so AnsiOutput includes this input.
-            if (_liveContext is not null)
-            {
-                await _liveContext.WhenIdleAsync(cancellationToken).ConfigureAwait(false);
-            }
-
-            Capture(_renderer.RefreshSnapshot());
+            await PresentLatestAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -620,30 +616,56 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         return keys;
     }
 
-    internal void Capture(ConsoleRenderer.RenderSnapshot renderSnapshot)
+    // Presents the latest render, even when its tree did not change (a focus move, a scroll, a resize), and waits until
+    // the presenter presented it, so the frame and AnsiOutput include everything the caller did.
+    private async Task PresentLatestAsync(CancellationToken cancellationToken)
     {
-        if (renderSnapshot.Source is not { } source || renderSnapshot.Root is null)
+        if (_liveContext is null)
         {
             return;
         }
 
-        // Render notifications (thread pool) and input (caller) both capture. Capture one at a time and
-        // skip a snapshot older than one already captured, so a late capture of an earlier render never
-        // becomes the current frame.
+        _liveContext.Present(_renderer.RefreshSnapshot());
+        await _liveContext.WhenIdleAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Presents <paramref name="renderSnapshot"/> and waits for it. A snapshot from an earlier render than the frame on
+    /// screen is ignored, so a late render notification never replaces a later frame.
+    /// </summary>
+    internal void Capture(ConsoleRenderer.RenderSnapshot renderSnapshot)
+    {
+        if (_liveContext is null)
+        {
+            return;
+        }
+
+        _liveContext.Present(renderSnapshot);
+        _liveContext.WhenIdleAsync().GetAwaiter().GetResult();
+    }
+
+    // Called on the presenter's frame loop for every presented frame.
+    private void Record(PresentedFrame presented)
+    {
+        if (presented.Source.Root is not { } root)
+        {
+            return;
+        }
+
+        // The presenter never goes back to an earlier render, but a frame is still never recorded over a later one.
         lock (_captureSync)
         {
-            if (renderSnapshot.Sequence < _capturedSequence)
+            if (presented.Source.RenderSequence < _capturedSequence)
             {
                 return;
             }
 
-            _capturedSequence = renderSnapshot.Sequence;
-            var canvas = source.Paint();
-            var layouts = CollectHookLayouts(renderSnapshot);
+            _capturedSequence = presented.Source.RenderSequence;
+            var layouts = CollectHookLayouts(root, presented.Source.Layouts);
             var frame = new HeadlessTerminalFrame(
                 Interlocked.Increment(ref _frameNumber),
                 DateTimeOffset.UtcNow,
-                canvas,
+                presented.Canvas,
                 _terminalMonitor.Width,
                 _terminalMonitor.Height,
                 FocusKey,
@@ -665,14 +687,14 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         }
     }
 
-    // The layouts of the snapshot that is painted, so the frame never pairs one render's picture with another's geometry.
-    // The accessor holds the newest layout of all and only stands in when the snapshot carries none.
-    private Dictionary<string, VNodeLayoutInfo> CollectHookLayouts(ConsoleRenderer.RenderSnapshot snapshot)
+    // The layouts of the render that is painted, so the frame never pairs one render's picture with another's geometry.
+    // The accessor holds the newest layout of all and only stands in when the render carries none.
+    private Dictionary<string, VNodeLayoutInfo> CollectHookLayouts(VNode root, IReadOnlyCollection<VNodeLayoutInfo>? renderLayouts)
     {
-        var byNode = snapshot.Layouts?.ToDictionary(layout => layout.VNodeId, StringComparer.Ordinal);
+        var byNode = renderLayouts?.ToDictionary(layout => layout.VNodeId, StringComparer.Ordinal);
         var layouts = new Dictionary<string, VNodeLayoutInfo>(StringComparer.Ordinal);
         var pending = new Stack<VNode>();
-        pending.Push(snapshot.Root!);
+        pending.Push(root);
         while (pending.TryPop(out var node))
         {
             if (node.Attributes.TryGetValue(IVNodeIdAccessor.HookAttributeName, out var hook)
@@ -725,21 +747,36 @@ public sealed class HeadlessTerminal : IAsyncDisposable
             }
         }
 
+        // Every render is presented, even one whose tree did not change, so a frame records a focus move it carries.
         public void OnNext(ConsoleRenderer.RenderSnapshot value)
-            => terminal.Capture(value);
+            => terminal._liveContext?.Present(value);
     }
 
-    private sealed class NoopLiveDisplayCanvas : ConsoleLiveDisplayContext.ILiveDisplayCanvas
+    /// <summary>
+    /// The terminal backend of a headless terminal: it records every presented frame, and writes it as ANSI too when
+    /// <see cref="HeadlessTerminalOptions.CaptureAnsiOutput"/> is set.
+    /// </summary>
+    private sealed class HeadlessBackend(HeadlessTerminal terminal, ITerminal? ansi) : ITerminal
     {
-        public event Action? Refreshed;
+        public bool KeepsLastFrameAfterDispose => ansi?.KeepsLastFrameAfterDispose ?? true;
 
-        public void UpdateTarget(FrameSource? source)
+        public async ValueTask PresentAsync(PresentedFrame frame, CancellationToken cancellationToken = default)
         {
+            try
+            {
+                if (ansi is not null)
+                {
+                    await ansi.PresentAsync(frame, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                // Recorded even when the ANSI write failed: the frame is what the app showed.
+                terminal.Record(frame);
+            }
         }
 
-        public void Refresh() => Refreshed?.Invoke();
-
-        public Task WhenIdleAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ansi?.DisposeAsync() ?? ValueTask.CompletedTask;
     }
 
     private sealed class AnsiOutputWriter : TextWriter

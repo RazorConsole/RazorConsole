@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using RazorConsole.Core.Rendering;
 
 namespace RazorConsole.Core.Diagnostics;
 
@@ -33,6 +34,7 @@ internal static class DiagnosticsServiceCollectionExtensions
         // Before the endpoint, which reads what the observer publishes.
         services.TryAddSingleton<DiagnosticsSnapshotObserver>();
         services.AddHostedService(sp => sp.GetRequiredService<DiagnosticsSnapshotObserver>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITerminalFrameObserver, DiagnosticsFrameObserver>());
         services.AddHostedService<DiagnosticsEndpointService>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, DiagnosticsLoggerProvider>());
         services.Configure<LoggerFilterOptions>(options =>
