@@ -132,18 +132,6 @@ public partial class Registry
     }
 
     [JSExport]
-    [SupportedOSPlatform("browser")]
-    public static async Task HandleKeyboardEvent(string elementID, string xtermKey, string domKey, bool ctrlKey, bool altKey, bool shiftKey)
-    {
-        if (!_renderers.TryGetValue(elementID, out var renderer))
-        {
-            return;
-        }
-        await renderer.HandleKeyboardEventAsync(xtermKey, domKey, ctrlKey, altKey, shiftKey)
-            .ConfigureAwait(false);
-    }
-
-    [JSExport]
     public static async Task HandleTerminalInput(string elementID, string data)
     {
         if (_renderers.TryGetValue(elementID, out var renderer))

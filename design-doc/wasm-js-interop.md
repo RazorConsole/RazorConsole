@@ -45,14 +45,15 @@ sequenceDiagram
     Pipeline->>ConsoleRenderer: Create RenderSnapshot
     ConsoleRenderer->>Renderer: Initial render complete
 
-    Note over User,Display: Keyboard Event Flow
-    User->>XTerm: Press key
-    XTerm->>Interop: onKey event
-    Interop->>MainJS: handleKeyboardEvent(...)
+    Note over User,Display: Input Flow
+    User->>XTerm: Type, paste or use the mouse
+    XTerm->>Interop: onData(data) (VT input)
+    Interop->>MainJS: handleTerminalInput(elementId, data)
     MainJS->>Bridge: Call WASM export
-    Bridge->>Program: HandleKeyboardEvent(...)
-    Program->>Renderer: HandleKeyboardEventAsync(...)
-    Renderer->>ConsoleRenderer: Process keyboard event
+    Bridge->>Program: HandleTerminalInput(elementId, data)
+    Program->>Renderer: HandleTerminalInputAsync(data)
+    Renderer->>Renderer: TerminalInputDecoder → input events
+    Renderer->>ConsoleRenderer: InputRouter dispatches keys and mouse
     ConsoleRenderer->>Component: Dispatch event
     Component->>Component: State change
     Component->>Pipeline: Re-render
@@ -68,7 +69,7 @@ sequenceDiagram
     Interop->>XTerm: terminal.write(text)
     XTerm->>Display: Render ANSI sequences
 
-    Note right of Bridge: Bi-directional communication:<br/>- JS → WASM: Keyboard events, registration<br/>- WASM → JS: ANSI output, terminal commands
+    Note right of Bridge: Bi-directional communication:<br/>- JS → WASM: VT input, resize, registration<br/>- WASM → JS: ANSI output, terminal commands
 
     Note right of Pipeline: Rendering pipeline:<br/>1. VNode tree from component<br/>2. Widget translation, layout and paint into terminal cells<br/>3. Spectre.Console writes the cells as ANSI<br/>4. ANSI sent back to browser
 ```
@@ -227,103 +228,35 @@ private async Task InitializeAsync()
 
 ## Event Handling Flow
 
-### 4. Keyboard Event Registration
+### 4. Input Registration
 
-After component registration, keyboard event listeners are attached:
+After component registration, `attachKeyListener` subscribes to the terminal's `onData` (keys, pastes and SGR mouse reports, as VT input) and `onResize`, and forwards them in order:
 
 ```typescript
-// XTermPreview.tsx - Event listener setup
-attachKeyListener(elementId, {
-    invokeMethodAsync: async (methodName: string, ...args: unknown[]) => {
-        await handleKeyboardEvent(...(args as [string, string, string, boolean, boolean, boolean]))
-        return null
-    }
-});
+// xtermConsole.ts
+const subscription = attachTerminalInput(
+  terminal,
+  data => helper.invokeMethodAsync("HandleTerminalInput", elementId, data),
+  (cols, rows) => helper.invokeMethodAsync("HandleResize", elementId, cols, rows),
+)
 ```
 
-The JavaScript side sets up xterm.js event handlers:
+`attachTerminalInput` also sends an empty string after 75 ms without input, so a standalone Escape is resolved.
 
-```javascript
-// xterm-interop.js - Keyboard event binding
-export function attachKeyListener(elementId, helper) {
-    const terminal = getExistingTerminal(elementId);
-    keyHandlers.get(elementId)?.dispose();
-    
-    const subscription = terminal.onKey(event => {
-        void helper.invokeMethodAsync('HandleKeyboardEvent', 
-            elementId, 
-            event.key,           // xterm key 
-            event.domEvent.key,  // DOM key
-            event.domEvent.ctrlKey, 
-            event.domEvent.altKey, 
-            event.domEvent.shiftKey
-        );
-    });
-    
-    keyHandlers.set(elementId, subscription);
-}
-```
+### 5. Input Processing
 
-### 5. Keyboard Event Processing
-
-When a user presses a key in the terminal, the event flows through multiple layers:
-
-```javascript
-// main.js - Event forwarding to WASM
-export async function handleKeyboardEvent(componentName, xtermKey, domKey, ctrlKey, altKey, shiftKey) {
-    const exports = await exportsPromise;
-    return exports.Registry.HandleKeyboardEvent(componentName, xtermKey, domKey, ctrlKey, altKey, shiftKey);
-}
-```
-
-The .NET side processes the keyboard event:
+`Registry.HandleTerminalInput` hands the data to the component's `RazorConsoleRenderer`, which decodes it with one `TerminalInputDecoder` per terminal (an escape sequence split across chunks is still decoded) and submits the resulting key and mouse events to the app's `InputRouter`, the same router a console app's input goes through:
 
 ```csharp
-// Program.cs - Keyboard event handling
-[JSExport]
-public static async Task HandleKeyboardEvent(string elementID, string xtermKey, string domKey, bool ctrlKey, bool altKey, bool shiftKey)
+// RazorConsoleRenderer.cs
+var events = TerminalInputEvents.Decode(_decoder, data, endOfInput: false);
+if (events.Count > 0)
 {
-    if (!_renderers.TryGetValue(elementID, out var renderer))
-        return;
-        
-    await renderer.HandleKeyboardEventAsync(xtermKey, domKey, ctrlKey, altKey, shiftKey);
+    await _input.Submit(events).Completion.ConfigureAwait(false);
 }
 ```
 
-Key parsing and processing in the renderer:
-
-```csharp
-// RazorConsoleRenderer.cs - Key event processing
-public async Task HandleKeyboardEventAsync(string xtermKey, string domKey, bool ctrlKey, bool altKey, bool shiftKey)
-{
-    var keyInfo = ParseKeyFromBrowser(xtermKey, domKey, ctrlKey, altKey, shiftKey);
-    await _keyboardEventManager.HandleKeyAsync(keyInfo, CancellationToken.None);
-}
-
-private static ConsoleKeyInfo ParseKeyFromBrowser(string xtermKey, string domKey, bool ctrlKey, bool altKey, bool shiftKey)
-{
-    var consoleKey = domKey switch
-    {
-        "Enter" => ConsoleKey.Enter,
-        "Tab" => ConsoleKey.Tab,
-        "Backspace" => ConsoleKey.Backspace,
-        "ArrowUp" => ConsoleKey.UpArrow,
-        // ... other mappings
-        _ when domKey.Length == 1 => ParseSingleChar(domKey[0]),
-        _ => ConsoleKey.None
-    };
-    
-    var keyChar = domKey switch
-    {
-        "Enter" => '\r',
-        "Tab" => '\t',
-        _ when xtermKey.Length == 1 => xtermKey[0],
-        _ => '\0'
-    };
-    
-    return new ConsoleKeyInfo(keyChar, consoleKey, shiftKey, altKey, ctrlKey);
-}
-```
+The call returns once the events' handlers have started. Decoded keys are pressed one by one; unlike console input, keys from one chunk are not grouped into a paste.
 
 ## Rendering Pipeline
 

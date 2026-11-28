@@ -200,13 +200,15 @@ Every presented `TerminalFrame` carries its `FrameSource`, which records the ren
 ```mermaid
 sequenceDiagram
     participant User as User Input
+    participant Router as InputRouter
     participant KbdMgr as KeyboardEventManager
     participant Focus as FocusManager
     participant Renderer as ConsoleRenderer
     participant Component as Component
     participant Callback as EventCallback
 
-    User->>KbdMgr: HandleKeyAsync(keyInfo)
+    User->>Router: Input event (console, browser, diagnostics, headless)
+    Router->>KbdMgr: HandleKeyAsync(keyInfo)
     KbdMgr->>Focus: GetCurrentFocus()
     Focus->>Focus: Get focus snapshot
     Focus->>KbdMgr: Focus target + handlers
@@ -228,4 +230,6 @@ sequenceDiagram
     Renderer->>Renderer: UpdateDisplayAsync()
     Note right of Renderer: Re-render cycle starts
 ```
+
+All input reaches the app through `InputRouter`, one event at a time and in arrival order. A console app's `ConsoleTerminalInput` reads the console and posts key, key batch and mouse events; keys that are available together (a paste) form one `KeyBatchInputEvent`, applied to a focused input as one `oninput`. The diagnostics endpoint, `HeadlessTerminal` and the browser host `Submit` events to the same router and wait until their handlers have started. Mouse events go to `MouseEventManager`.
 

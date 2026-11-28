@@ -198,24 +198,6 @@ export async function registerComponent(
 }
 
 /**
- * Forwards a keyboard event from xterm.js to the RazorConsole renderer.
- * Calls into C# WASM: Registry.HandleKeyboardEvent(componentName, xtermKey, domKey, ctrlKey, altKey, shiftKey)
- * @param componentName - The name of the component receiving the event
- * @param xtermKey - The key as reported by xterm.js
- * @param domKey - The key as reported by the DOM event
- * @param ctrlKey - Whether Ctrl was held
- * @param altKey - Whether Alt was held
- * @param shiftKey - Whether Shift was held
- */
-export async function handleKeyboardEvent(
-  componentName: string, xtermKey: string, domKey: string, 
-  ctrlKey: boolean, altKey: boolean, shiftKey: boolean
-): Promise<void> {
-  const exports = await getWasmExports()
-  return exports.Registry.HandleKeyboardEvent(componentName, xtermKey, domKey, ctrlKey, altKey, shiftKey)
-}
-
-/**
  * Forwards a resize event from xterm.js to the RazorConsole renderer.
  * Calls into C# WASM: Registry.HandleResize(componentName, cols, rows)
  * @param componentName - The name of the component receiving the resize event

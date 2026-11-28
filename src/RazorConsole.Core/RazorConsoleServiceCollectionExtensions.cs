@@ -54,7 +54,8 @@ public static class RazorConsoleServiceCollectionExtensions
         services.TryAddSingleton<KeyboardEventManager>();
         services.TryAddSingleton<MouseEventManager>();
         services.TryAddSingleton<ScrollInputNavigator>();
-        services.TryAddSingleton<TerminalInputDispatcher>();
+        services.TryAddSingleton<InputRouter>();
+        services.TryAddSingleton<ConsoleTerminalInput>();
         services.TryAddSingleton<ITerminalActions, TerminalActions>();
         services.TryAddSingleton<ISyntaxLanguageRegistry, ColorCodeLanguageRegistry>();
         services.TryAddSingleton<ISyntaxThemeRegistry, SyntaxThemeRegistry>();

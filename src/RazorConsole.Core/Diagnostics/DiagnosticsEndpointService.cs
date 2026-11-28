@@ -35,7 +35,7 @@ namespace RazorConsole.Core.Diagnostics;
 /// an endpoint. Requests on one connection are answered in order; every request must follow a successful hello.
 /// </para>
 /// <para>
-/// Injected input goes through a <see cref="DiagnosticsInputQueue"/> that the app's input loop drains, and is
+/// Injected input goes through a <see cref="DiagnosticsInputQueue"/> to the app's <see cref="Input.InputRouter"/>, and is
 /// answered once its event handlers have started (their synchronous part and the render it queued).
 /// Like real input, it does not wait for an <c>async</c> handler to finish.
 /// </para>
@@ -92,7 +92,7 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         ConsoleAppOptions options,
         ILogger<DiagnosticsEndpointService> logger,
         DiagnosticsEndpointSettings? settings = null,
-        KeyboardEventManager? keyboard = null,
+        InputRouter? input = null,
         ConsoleRenderer? renderer = null,
         DiagnosticsSnapshotObserver? observer = null)
     {
@@ -106,11 +106,10 @@ internal sealed partial class DiagnosticsEndpointService : IHostedService, IAsyn
         _logger = logger;
         _settings = settings ?? new DiagnosticsEndpointSettings();
 
-        // Hosted services are all created before any starts, so the input loop sees the queue from its first pass.
-        if (state is not null && keyboard is not null)
+        // Injected input goes to the app's input router, behind input already waiting.
+        if (state is not null && input is not null)
         {
-            _input = new DiagnosticsInputQueue();
-            keyboard.InjectedInput = _input;
+            _input = new DiagnosticsInputQueue(input);
         }
     }
 
