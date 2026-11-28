@@ -31,8 +31,7 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
     private readonly int _initialRows;
     private IServiceProvider? _serviceProvider;
     private ConsoleRenderer? _consoleRenderer;
-    private IAnsiConsole? _ansiConsole;
-    private readonly StringWriter _sw = new StringWriter();
+    private XTermTerminal? _terminal;
     private KeyboardEventManager? _keyboardEventManager;
     private TerminalInputDispatcher? _terminalInput;
     private TerminalMonitor? _terminalMonitor;
@@ -87,40 +86,23 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
         var focusManager = _serviceProvider.GetRequiredService<FocusManager>();
         var options = _serviceProvider.GetRequiredService<IOptions<ConsoleAppOptions>>().Value;
 
-        _ansiConsole = AnsiConsole.Create(new AnsiConsoleSettings
-        {
-            Ansi = AnsiSupport.Yes,
-            ColorSystem = ColorSystemSupport.TrueColor,
-            Out = new AnsiConsoleOutput(_sw)
-        });
-
-        _ansiConsole.Profile.Capabilities.Unicode = true;
-
-        _ansiConsole.Profile.Width = _initialCols;
-        _ansiConsole.Profile.Height = _initialRows;
         var snapshot = await _consoleRenderer.MountComponentAsync<TComponent>(ParameterView.Empty, default).ConfigureAwait(false);
         _focusSubscription = _consoleRenderer.Subscribe(focusManager);
 
         var initialView = ConsoleViewResult.FromSnapshot(snapshot);
         var terminalMonitor = _serviceProvider.GetRequiredService<TerminalMonitor>();
         _terminalMonitor = terminalMonitor;
+        // Every presented frame is written to the component's xterm.js terminal as ANSI.
+        _terminal = new XTermTerminal(
+            options.ConsoleLiveDisplayOptions,
+            _componentId,
+            _initialCols,
+            _initialRows,
+            text => SnapshotRendered?.Invoke(text),
+            () => _disposed);
         _canvas = new FramePresenter(
-            new AnsiTerminal(options.ConsoleLiveDisplayOptions, _ansiConsole),
+            _terminal,
             _serviceProvider.GetService<ILoggerFactory>()?.CreateLogger<FramePresenter>());
-
-        // Subscribe to Refreshed BEFORE creating the context, so we catch the initial render.
-        // The canvas raises it on its frame loop, right after each frame was written to _sw.
-        _canvas.Refreshed += () =>
-        {
-            if (_disposed)
-            {
-                return;
-            }
-            var output = _sw.ToString();
-            SnapshotRendered?.Invoke(output);
-            XTermInterop.WriteToTerminal(_componentId, output);
-            _sw.GetStringBuilder().Clear();
-        };
 
         // Pass null for initialView to the context. This forces the context to treat the
         // canvas as empty/dirty and perform an initial render of the snapshot.
@@ -232,7 +214,6 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
             {
                 await services.DisposeAsync().ConfigureAwait(false);
             }
-            _sw.Dispose();
         }
         finally
         {
@@ -385,14 +366,13 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
     /// </summary>
     public void HandleResize(int cols, int rows)
     {
-        if (_disposed || _ansiConsole is null || _canvas is null || cols < 1 || rows < 1)
+        if (_disposed || _terminal is null || _canvas is null || cols < 1 || rows < 1)
         {
             return;
         }
 
-        // Update the console profile dimensions
-        _ansiConsole.Profile.Width = cols;
-        _ansiConsole.Profile.Height = rows;
+        // The terminal lays out its ANSI for the new size; the monitor lays the app out again.
+        _terminal.Resize(cols, rows);
         _terminalMonitor?.Resize(cols, rows);
 
         // Trigger a refresh to re-render with the new dimensions
