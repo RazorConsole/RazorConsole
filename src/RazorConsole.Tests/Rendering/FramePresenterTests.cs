@@ -2,7 +2,6 @@
 
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core.Layout;
-using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering;
 using Spectre.Console;
 using Spectre.Console.Rendering;
@@ -30,7 +29,7 @@ public sealed class FramePresenterTests
         captured.Count.ShouldBe(5);
         GetControlCode(captured[0]).ShouldBe(SM(DECALTSCR));
         GetControlCode(captured[1]).ShouldBe("\u001b[?1003h\u001b[?1006h");
-        captured[2].ShouldBeOfType<DiffRenderable>();
+        captured[2].ShouldSatisfyAllConditions(static frame => IsFrame(frame).ShouldBeTrue());
         GetControlCode(captured[3]).ShouldBe("\u001b[?1003l\u001b[?1006l");
         GetControlCode(captured[4]).ShouldBe(RM(DECALTSCR));
     }
@@ -46,7 +45,7 @@ public sealed class FramePresenterTests
         await canvas.WhenIdleAsync(Token);
 
         captured.Count.ShouldBe(1);
-        captured[0].ShouldBeOfType<DiffRenderable>();
+        captured[0].ShouldSatisfyAllConditions(static frame => IsFrame(frame).ShouldBeTrue());
     }
 
     [Fact]
@@ -71,7 +70,7 @@ public sealed class FramePresenterTests
         for (var index = 0; index < captured.Count; index += 3)
         {
             GetControlCode(captured[index]).ShouldBe("\u001b[?2026h");
-            captured[index + 1].ShouldBeOfType<DiffRenderable>();
+            captured[index + 1].ShouldSatisfyAllConditions(static frame => IsFrame(frame).ShouldBeTrue());
             GetControlCode(captured[index + 2]).ShouldBe("\u001b[?2026l");
         }
     }
@@ -82,7 +81,7 @@ public sealed class FramePresenterTests
         var captured = new List<IRenderable>();
         var console = CreateConsole(captured);
         var fail = true;
-        console.When(static console => console.Write(Arg.Any<DiffRenderable>()))
+        console.When(static console => console.Write(Arg.Is<IRenderable>(static renderable => IsFrame(renderable))))
             .Do(call =>
             {
                 if (fail)
@@ -140,7 +139,8 @@ public sealed class FramePresenterTests
             output.Split("\u001b[?2026l").Length.ShouldBe(2);
             for (var y = 0; y < width; y++)
             {
-                output.ShouldContain(CUP(y + 1, 1));
+                // Every row of the shape is addressed inside the frame (from the first column that changed).
+                output.ShouldContain($"\u001b[{y + 1};");
             }
         }
     }
@@ -159,7 +159,7 @@ public sealed class FramePresenterTests
         var writes = 0;
         using var writeStarted = new ManualResetEventSlim();
         using var releaseWrite = new ManualResetEventSlim(true);
-        var console = Substitute.For<IAnsiConsole>();
+        var console = SubstituteConsole();
         console.When(static console => console.Write(Arg.Any<IRenderable>()))
             .Do(_ =>
             {
@@ -255,11 +255,11 @@ public sealed class FramePresenterTests
         var captured = new List<IRenderable>();
         using var writeStarted = new ManualResetEventSlim();
         using var releaseWrite = new ManualResetEventSlim();
-        var console = Substitute.For<IAnsiConsole>();
+        var console = SubstituteConsole();
         console.When(static console => console.Write(Arg.Any<IRenderable>()))
             .Do(call =>
             {
-                // Render now: the canvas reuses one DiffRenderable for every frame.
+                // The frame's text, as written.
                 lock (captured)
                 {
                     captured.Add(call.Arg<IRenderable>());
@@ -300,7 +300,7 @@ public sealed class FramePresenterTests
     public async Task WriteErrors_NeverReachCallers_AndAreLoggedOncePerRunOfFailures()
     {
         var fail = true;
-        var console = Substitute.For<IAnsiConsole>();
+        var console = SubstituteConsole();
         console.When(static console => console.Write(Arg.Any<IRenderable>()))
             .Do(_ =>
             {
@@ -339,7 +339,7 @@ public sealed class FramePresenterTests
     {
         var writeFails = false;
         var handlerFails = true;
-        var console = Substitute.For<IAnsiConsole>();
+        var console = SubstituteConsole();
         console.When(static console => console.Write(Arg.Any<IRenderable>()))
             .Do(_ =>
             {
@@ -385,7 +385,7 @@ public sealed class FramePresenterTests
     {
         var captured = new List<IRenderable>();
         var fail = false;
-        var console = Substitute.For<IAnsiConsole>();
+        var console = SubstituteConsole();
         console.When(static console => console.Write(Arg.Any<IRenderable>()))
             .Do(call =>
             {
@@ -418,7 +418,7 @@ public sealed class FramePresenterTests
         var captured = new List<IRenderable>();
         using var writeStarted = new ManualResetEventSlim();
         using var releaseWrite = new ManualResetEventSlim(true);
-        var console = Substitute.For<IAnsiConsole>();
+        var console = SubstituteConsole();
         console.When(static console => console.Write(Arg.Any<IRenderable>()))
             .Do(call =>
             {
@@ -428,7 +428,7 @@ public sealed class FramePresenterTests
                     captured.Add(renderable);
                 }
 
-                if (renderable is DiffRenderable)
+                if (IsFrame(renderable))
                 {
                     writeStarted.Set();
                     releaseWrite.Wait(Timeout);
@@ -453,7 +453,7 @@ public sealed class FramePresenterTests
 
         // The frame in progress finished, the queued refresh was dropped because leaving the alternate screen restores
         // the terminal anyway, and the terminal was restored last.
-        captured.Count(static item => item is DiffRenderable).ShouldBe(2);
+        captured.Count(static item => IsFrame(item)).ShouldBe(2);
         GetControlCode(captured[^2]).ShouldBe("\u001b[?1003l\u001b[?1006l");
         GetControlCode(captured[^1]).ShouldBe(RM(DECALTSCR));
     }
@@ -464,14 +464,14 @@ public sealed class FramePresenterTests
         var captured = new List<string>();
         using var writeStarted = new ManualResetEventSlim();
         using var releaseWrite = new ManualResetEventSlim(true);
-        var console = Substitute.For<IAnsiConsole>();
+        var console = SubstituteConsole();
         console.When(static console => console.Write(Arg.Any<IRenderable>()))
             .Do(call =>
             {
                 var renderable = call.Arg<IRenderable>();
-                if (renderable is DiffRenderable)
+                if (IsFrame(renderable))
                 {
-                    // Render now, because the DiffRenderable is reused for the next frame.
+                    // The frame's text, as written.
                     lock (captured)
                     {
                         captured.Add(RenderText(renderable));
@@ -517,9 +517,28 @@ public sealed class FramePresenterTests
         captured.Count.ShouldBe(count);
     }
 
-    private static IAnsiConsole CreateConsole(List<IRenderable> captured)
+    private static IAnsiConsole SubstituteConsole()
     {
         var console = Substitute.For<IAnsiConsole>();
+        var profile = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Ansi = AnsiSupport.Yes,
+            ColorSystem = ColorSystemSupport.NoColors,
+            Out = new AnsiConsoleOutput(TextWriter.Null),
+        }).Profile;
+        profile.Width = 80;
+        profile.Height = 25;
+        console.Profile.Returns(profile);
+        return console;
+    }
+
+    // A frame is the control code an AnsiTerminal writes for it: it starts by hiding the cursor and turning autowrap off.
+    private static bool IsFrame(IRenderable renderable)
+        => renderable is ControlCode && RenderText(renderable).StartsWith(RM(DECTCEM) + RM(DECAWM), StringComparison.Ordinal);
+
+    private static IAnsiConsole CreateConsole(List<IRenderable> captured)
+    {
+        var console = SubstituteConsole();
         console.When(static console => console.Write(Arg.Any<IRenderable>()))
             .Do(call => captured.Add(call.Arg<IRenderable>()));
         return console;
