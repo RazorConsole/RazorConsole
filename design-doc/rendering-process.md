@@ -191,7 +191,9 @@ sequenceDiagram
     Terminal->>Terminal: Write the lines that changed
 ```
 
-A terminal resize refreshes the snapshot through the same path, so the frame is laid out again at the new size. This is part of issue #425: later steps move headless testing, diagnostics and the browser host onto `ITerminal` backends and frame observers, so they consume the same frames.
+A terminal resize refreshes the snapshot through the same path, so the frame is laid out again at the new size. Render notifications and refreshed snapshots can arrive out of order, so the live display context never replaces a view with one from an earlier render (`FrameSource.RenderSequence`).
+
+Every presented `TerminalFrame` carries its `FrameSource`, which records the render it belongs to (sequence, tree and layout). `ITerminalFrameObserver`s get each frame after the terminal presented it: diagnostics records it and reads the presented cells instead of painting the widgets again, and only paints a frame itself when the display has not presented that source. `HeadlessTerminal` is a backend too: it records the frames the presenter presents (writing them as ANSI as well when `CaptureAnsiOutput` is set), and presents the latest render after each input so a frame records changes the tree does not show, such as a focus move.
 
 ## Event Handling and Re-render
 

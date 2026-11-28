@@ -45,6 +45,12 @@ internal static class TestFrames
     /// </summary>
     public static FrameSource Of(IRenderable renderable) => new RenderableFrameSource(renderable);
 
+    /// <summary>
+    /// The same, as if it was laid out for the render with sequence <paramref name="renderSequence"/>.
+    /// </summary>
+    public static FrameSource Of(IRenderable renderable, long renderSequence)
+        => new RenderableFrameSource(renderable) { RenderSequence = renderSequence };
+
     private static RenderOptions CreateOptions()
     {
         var console = AnsiConsole.Create(new AnsiConsoleSettings

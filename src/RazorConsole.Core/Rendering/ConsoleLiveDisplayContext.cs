@@ -69,6 +69,11 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
 
         lock (_sync)
         {
+            if (IsOlderThanCurrent_NoLock(view))
+            {
+                return false;
+            }
+
             var previous = _currentView;
             var previousRoot = previous?.VdomRoot;
             var currentRoot = view.VdomRoot;
@@ -125,20 +130,47 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IAsyncDisposable,
     {
         try
         {
-            var snapshot = _renderer.RefreshSnapshot();
-            var view = ConsoleViewResult.FromSnapshot(snapshot);
-            lock (_sync)
-            {
-                _canvas.UpdateTarget(view.Source);
-                _currentView = view;
-                UpdateAnimations(view.AnimatedRenderables);
-            }
+            Present(_renderer.RefreshSnapshot());
         }
         catch
         {
             _canvas.Refresh();
         }
     }
+
+    /// <summary>
+    /// Shows <paramref name="snapshot"/> even when its tree is the same as the current view's, for a change that the tree
+    /// does not show: a resize, a scroll, or a focus move that a frame must record. A snapshot from an earlier render
+    /// than the current view is ignored, as is one with nothing to paint.
+    /// </summary>
+    internal void Present(ConsoleRenderer.RenderSnapshot snapshot)
+    {
+        if (snapshot.Source is null)
+        {
+            return;
+        }
+
+        var view = ConsoleViewResult.FromSnapshot(snapshot);
+        lock (_sync)
+        {
+            if (IsOlderThanCurrent_NoLock(view))
+            {
+                return;
+            }
+
+            _canvas.UpdateTarget(view.Source);
+            _currentView = view;
+            UpdateAnimations(view.AnimatedRenderables);
+        }
+    }
+
+    // Render notifications and refreshed snapshots (resize, scroll, headless captures) reach this context on different
+    // threads, so an earlier render can arrive after a later one; it must never replace it. A source that does not
+    // come from a render (sequence 0) is always taken.
+    private bool IsOlderThanCurrent_NoLock(ConsoleViewResult view)
+        => view.Source.RenderSequence > 0
+            && _currentView is { } current
+            && view.Source.RenderSequence < current.Source.RenderSequence;
 
     /// <summary>
     /// Returns a task that completes once the frames requested so far have been written to the console.

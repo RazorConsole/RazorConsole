@@ -14,7 +14,7 @@ namespace RazorConsole.Core.Diagnostics;
 /// <remarks>
 /// It exists only when diagnostics are enabled (see <see cref="DiagnosticsActivation"/>). Otherwise it is never
 /// registered or created. The renderer knows nothing about it: <see cref="DiagnosticsSnapshotObserver"/> fills it from
-/// the renderer's snapshots.
+/// the renderer's snapshots, and <see cref="DiagnosticsFrameObserver"/> records the frames the display presents.
 /// </remarks>
 internal sealed class DiagnosticsState
 {
@@ -24,6 +24,7 @@ internal sealed class DiagnosticsState
     private readonly long _startedTimestamp = Stopwatch.GetTimestamp();
     private readonly ConditionalWeakTable<Exception, object?> _recordedErrors = [];
     private DiagnosticsFrame? _latestFrame;
+    private TerminalFrame? _presentedFrame;
     private long _frameSequence;
     private long _deliveredFrames;
 
@@ -47,6 +48,12 @@ internal sealed class DiagnosticsState
     public DiagnosticsFrame? LatestFrame => Volatile.Read(ref _latestFrame);
 
     /// <summary>
+    /// Records the frame the display presented last, so a request reads the display's own cells instead of painting
+    /// the widgets again.
+    /// </summary>
+    public void RecordPresentedFrame(TerminalFrame frame) => Volatile.Write(ref _presentedFrame, frame);
+
+    /// <summary>
     /// Publishes the tree and layout of one frame with a single reference swap, so readers never mix two frames.
     /// </summary>
     /// <remarks>A snapshot's tree and layout collections are fresh per snapshot and never changed later.</remarks>
@@ -60,10 +67,20 @@ internal sealed class DiagnosticsState
         int viewportHeight = 0)
     {
         var frame = new DiagnosticsFrame(
-            Interlocked.Increment(ref _frameSequence), root, layouts, layoutParents, renderSequence, source, viewportWidth, viewportHeight);
+            Interlocked.Increment(ref _frameSequence), root, layouts, layoutParents, renderSequence, source, viewportWidth, viewportHeight)
+        {
+            PresentedCanvas = PresentedCanvasFor,
+        };
         Volatile.Write(ref _latestFrame, frame);
         return frame;
     }
+
+    // The cells the display presented last for this source, or null when its latest frame came from another source (or
+    // none was presented yet).
+    private TerminalCanvas? PresentedCanvasFor(FrameSource source)
+        => Volatile.Read(ref _presentedFrame) is { } presented && ReferenceEquals(presented.Source, source)
+            ? presented.Canvas
+            : null;
 
     /// <summary>
     /// Records an error once. The renderer rethrows from its exception handler, so the same exception can reach it
@@ -114,15 +131,24 @@ internal sealed record DiagnosticsFrame(
         LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <summary>
-    /// Paints the frame on first use and returns the same canvas afterwards, whichever thread asks. It is
+    /// Looks up the cells the display presented last for <see cref="Source"/>, or <see langword="null"/> when it has not
+    /// presented that source. Set by <see cref="DiagnosticsState.PublishFrame"/>.
+    /// </summary>
+    internal Func<FrameSource, TerminalCanvas?>? PresentedCanvas { get; init; }
+
+    /// <summary>
+    /// Returns the frame's cells: the ones the display presented last for this frame's source, or, when the display has
+    /// not presented it, a canvas painted on first use and returned afterwards, whichever thread asks. It is
     /// <see langword="null"/> when nothing is mounted.
     /// </summary>
     /// <remarks>
-    /// This is a second paint of the frame's widgets, on the caller's thread: the display paints the same tree on its
-    /// own, and widgets only read their state while painting. A frame that the display dropped can still be the one
-    /// reported here; the PTY screen stays the source of truth for what the terminal shows.
+    /// The display presents a frame shortly after its snapshot is published, and only when the tree changed or a repaint
+    /// was requested, so a request can arrive before the display presented this source, or for a source it never
+    /// presents. Only then are the widgets painted here, on the caller's thread; widgets only read their state while
+    /// painting. The PTY screen stays the source of truth for what the terminal shows.
     /// </remarks>
-    public TerminalCanvas? PaintCanvas() => _canvas.Value;
+    public TerminalCanvas? PaintCanvas()
+        => Source is { } source && PresentedCanvas?.Invoke(source) is { } presented ? presented : _canvas.Value;
 }
 
 /// <summary>
