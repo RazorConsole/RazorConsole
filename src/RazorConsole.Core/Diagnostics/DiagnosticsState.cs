@@ -3,8 +3,8 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using RazorConsole.Core.Layout;
+using RazorConsole.Core.Rendering;
 using RazorConsole.Core.Vdom;
-using Spectre.Console.Rendering;
 
 namespace RazorConsole.Core.Diagnostics;
 
@@ -54,13 +54,13 @@ internal sealed class DiagnosticsState
         VNode? root,
         IReadOnlyCollection<VNodeLayoutInfo>? layouts,
         IReadOnlyDictionary<string, string?>? layoutParents,
-        IRenderable? renderable = null,
+        FrameSource? source = null,
         long renderSequence = 0,
         int viewportWidth = 0,
         int viewportHeight = 0)
     {
         var frame = new DiagnosticsFrame(
-            Interlocked.Increment(ref _frameSequence), root, layouts, layoutParents, renderSequence, renderable, viewportWidth, viewportHeight);
+            Interlocked.Increment(ref _frameSequence), root, layouts, layoutParents, renderSequence, source, viewportWidth, viewportHeight);
         Volatile.Write(ref _latestFrame, frame);
         return frame;
     }
@@ -96,7 +96,7 @@ internal sealed class DiagnosticsState
 /// The render snapshot sequence observers must have processed to match this frame, or 0 when there is nothing to wait for.
 /// Observers get snapshots asynchronously, so a frame can be published before the focus manager has seen it.
 /// </param>
-/// <param name="Renderable">What the display paints for this frame, or <see langword="null"/> when nothing is mounted.</param>
+/// <param name="Source">What the display paints for this frame, or <see langword="null"/> when nothing is mounted.</param>
 /// <param name="ViewportWidth">The terminal width when the frame was published, to tell whether a resize made it stale.</param>
 /// <param name="ViewportHeight">The terminal height when the frame was published.</param>
 internal sealed record DiagnosticsFrame(
@@ -105,12 +105,12 @@ internal sealed record DiagnosticsFrame(
     IReadOnlyCollection<VNodeLayoutInfo>? Layouts,
     IReadOnlyDictionary<string, string?>? LayoutParents,
     long RenderSequence = 0,
-    IRenderable? Renderable = null,
+    FrameSource? Source = null,
     int ViewportWidth = 0,
     int ViewportHeight = 0)
 {
     private readonly Lazy<TerminalCanvas?> _canvas = new(
-        () => Renderable is WidgetCanvasRenderable widgets ? widgets.PaintToCanvas() : null,
+        () => Source?.Paint(),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <summary>

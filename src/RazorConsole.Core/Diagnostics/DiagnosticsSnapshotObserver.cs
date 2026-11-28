@@ -192,7 +192,7 @@ internal sealed partial class DiagnosticsSnapshotObserver(
             snapshot.Root,
             snapshot.Layouts,
             snapshot.LayoutParents,
-            snapshot.Renderable,
+            snapshot.Source,
             renderSequence,
             width,
             height);

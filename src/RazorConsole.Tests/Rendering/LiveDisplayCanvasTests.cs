@@ -2,6 +2,7 @@
 
 using Microsoft.Extensions.Logging;
 using RazorConsole.Core;
+using RazorConsole.Core.Layout;
 using RazorConsole.Core.Renderables;
 using RazorConsole.Core.Rendering;
 using Spectre.Console;
@@ -25,7 +26,7 @@ public sealed class LiveDisplayCanvasTests
             new ConsoleLiveDisplayOptions { EnableMouseEvents = true },
             ansiConsole);
 
-        canvas.UpdateTarget(new TextRenderable("hello"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("hello")));
         await canvas.WhenIdleAsync(Token);
         await canvas.DisposeAsync();
 
@@ -44,7 +45,7 @@ public sealed class LiveDisplayCanvasTests
         var ansiConsole = CreateConsole(captured);
         await using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, ansiConsole);
 
-        canvas.UpdateTarget(new TextRenderable("hello"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("hello")));
         await canvas.WhenIdleAsync(Token);
 
         captured.Count.ShouldBe(1);
@@ -62,9 +63,9 @@ public sealed class LiveDisplayCanvasTests
             EnableSynchronizedUpdates = true,
         }, console);
 
-        canvas.UpdateTarget(new TextRenderable("first"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("first")));
         await canvas.WhenIdleAsync(Token);
-        canvas.UpdateTarget(new TextRenderable("second"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("second")));
         await canvas.WhenIdleAsync(Token);
         canvas.Refresh();
         await canvas.WhenIdleAsync(Token);
@@ -98,7 +99,7 @@ public sealed class LiveDisplayCanvasTests
             EnableSynchronizedUpdates = true,
         }, console);
 
-        Should.NotThrow(() => canvas.UpdateTarget(new TextRenderable("hello")));
+        Should.NotThrow(() => canvas.UpdateTarget(TestFrames.Of(new TextRenderable("hello"))));
         await canvas.WhenIdleAsync(Token);
         GetControlCode(captured[^1]).ShouldBe("\u001b[?2026l");
 
@@ -133,7 +134,7 @@ public sealed class LiveDisplayCanvasTests
         {
             writer.GetStringBuilder().Clear();
             var row = new string(' ', step) + new string('#', 8);
-            canvas.UpdateTarget(new Rows(Enumerable.Range(0, width).Select(_ => new Text(row))));
+            canvas.UpdateTarget(TestFrames.Of(new Rows(Enumerable.Range(0, width).Select(_ => new Text(row)))));
             await canvas.WhenIdleAsync(Token);
             var output = writer.ToString();
             output.ShouldStartWith("\u001b[?2026h");
@@ -170,7 +171,7 @@ public sealed class LiveDisplayCanvasTests
                 releaseWrite.Wait(Timeout);
             });
         await using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console);
-        canvas.UpdateTarget(new TextRenderable("hello"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("hello")));
         await canvas.WhenIdleAsync(Token);
         writes.ShouldBe(1);
 
@@ -183,7 +184,7 @@ public sealed class LiveDisplayCanvasTests
         for (var i = 0; i < 20; i++)
         {
             canvas.Refresh();
-            canvas.UpdateTarget(new TextRenderable($"update {i}"));
+            canvas.UpdateTarget(TestFrames.Of(new TextRenderable($"update {i}")));
         }
 
         writes.ShouldBe(2);
@@ -191,6 +192,27 @@ public sealed class LiveDisplayCanvasTests
         await canvas.WhenIdleAsync(Token).WaitAsync(Timeout, Token);
 
         writes.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task Refresh_PaintsANewFrameFromTheCurrentSource()
+    {
+        var source = new CountingSource();
+        await using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, CreateConsole([]));
+
+        canvas.UpdateTarget(source);
+        await canvas.WhenIdleAsync(Token);
+        var first = canvas.LastFrame.ShouldNotBeNull();
+        first[0, 0].Text.ShouldBe("1");
+
+        // No new target: the frame loop paints the same source again, which is how animations advance.
+        canvas.Refresh();
+        await canvas.WhenIdleAsync(Token);
+        var second = canvas.LastFrame.ShouldNotBeNull();
+        second.ShouldNotBeSameAs(first);
+        second[0, 0].Text.ShouldBe("2");
+        second.Sequence.ShouldBeGreaterThan(first.Sequence);
+        first[0, 0].Text.ShouldBe("1");
     }
 
     [Fact]
@@ -214,10 +236,10 @@ public sealed class LiveDisplayCanvasTests
             });
         await using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console);
 
-        canvas.UpdateTarget(new TextRenderable("first"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("first")));
         writeStarted.Wait(Timeout, Token).ShouldBeTrue();
-        canvas.UpdateTarget(new TextRenderable("second"));
-        canvas.UpdateTarget(new TextRenderable("third"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("second")));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("third")));
         releaseWrite.Set();
         await canvas.WhenIdleAsync(Token).WaitAsync(Timeout, Token);
 
@@ -256,7 +278,7 @@ public sealed class LiveDisplayCanvasTests
         var logger = new RecordingLogger();
         await using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console, logger);
 
-        Should.NotThrow(() => canvas.UpdateTarget(new TextRenderable("hello")));
+        Should.NotThrow(() => canvas.UpdateTarget(TestFrames.Of(new TextRenderable("hello"))));
         await canvas.WhenIdleAsync(Token);
         for (var i = 0; i < 5; i++)
         {
@@ -304,7 +326,7 @@ public sealed class LiveDisplayCanvasTests
 
         // A handler that throws on every frame is logged once, and is not taken for a write failure, so no
         // "works again" entry follows.
-        canvas.UpdateTarget(new TextRenderable("hello"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("hello")));
         await canvas.WhenIdleAsync(Token);
         for (var i = 0; i < 5; i++)
         {
@@ -341,7 +363,7 @@ public sealed class LiveDisplayCanvasTests
                 captured.Add(call.Arg<IRenderable>());
             });
         await using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console);
-        canvas.UpdateTarget(new TextRenderable("hello"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("hello")));
         await canvas.WhenIdleAsync(Token);
 
         fail = true;
@@ -379,7 +401,7 @@ public sealed class LiveDisplayCanvasTests
                 }
             });
         var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { EnableMouseEvents = true }, console);
-        canvas.UpdateTarget(new TextRenderable("first"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("first")));
         await canvas.WhenIdleAsync(Token);
 
         writeStarted.Reset();
@@ -426,14 +448,14 @@ public sealed class LiveDisplayCanvasTests
                 }
             });
         var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console);
-        canvas.UpdateTarget(new TextRenderable("first"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("first")));
         await canvas.WhenIdleAsync(Token);
 
         writeStarted.Reset();
         releaseWrite.Reset();
-        canvas.UpdateTarget(new TextRenderable("second"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("second")));
         writeStarted.Wait(Timeout, Token).ShouldBeTrue();
-        canvas.UpdateTarget(new TextRenderable("last"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("last")));
 
         var dispose = canvas.DisposeAsync().AsTask();
         releaseWrite.Set();
@@ -449,12 +471,12 @@ public sealed class LiveDisplayCanvasTests
     {
         var captured = new List<IRenderable>();
         var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, CreateConsole(captured));
-        canvas.UpdateTarget(new TextRenderable("hello"));
+        canvas.UpdateTarget(TestFrames.Of(new TextRenderable("hello")));
         await canvas.WhenIdleAsync(Token);
         await canvas.DisposeAsync();
         var count = captured.Count;
 
-        Should.NotThrow(() => canvas.UpdateTarget(new TextRenderable("late")));
+        Should.NotThrow(() => canvas.UpdateTarget(TestFrames.Of(new TextRenderable("late"))));
         Should.NotThrow(canvas.Refresh);
         await canvas.WhenIdleAsync(Token).WaitAsync(Timeout, Token);
 
@@ -516,6 +538,18 @@ public sealed class LiveDisplayCanvasTests
             {
                 _entries.Add((logLevel, exception));
             }
+        }
+    }
+
+    private sealed class CountingSource : FrameSource
+    {
+        private int _paints;
+
+        public override TerminalCanvas Paint()
+        {
+            var canvas = new TerminalCanvas(4, 1);
+            canvas.Write(0, 0, (++_paints).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return canvas;
         }
     }
 

@@ -37,7 +37,7 @@ public sealed class DiagnosticsHooksTests
         frame.Layouts.ShouldBeSameAs(snapshot.Layouts);
         frame.Layouts.ShouldNotBeNull().ShouldContain(layout => layout.VNodeId == frame.Root!.ID);
         frame.LayoutParents.ShouldBeSameAs(snapshot.LayoutParents);
-        frame.Renderable.ShouldBeSameAs(snapshot.Renderable);
+        frame.Source.ShouldBeSameAs(snapshot.Source);
         state.Frames.ShouldBe(1);
     }
 

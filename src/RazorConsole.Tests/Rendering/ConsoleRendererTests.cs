@@ -48,7 +48,7 @@ public sealed class ConsoleRendererTests
         var snapshot = await renderer.MountComponentAsync<SimpleComponent>(ParameterView.Empty, CancellationToken.None);
 
         snapshot.Root.ShouldNotBeNull();
-        snapshot.Renderable.ShouldNotBeNull();
+        snapshot.Source.ShouldNotBeNull();
     }
 
 #if NET9_0_OR_GREATER
@@ -72,8 +72,8 @@ public sealed class ConsoleRendererTests
         var snapshot = await renderer.MountComponentAsync<SimpleComponent>(ParameterView.Empty, CancellationToken.None);
 
         snapshot.Root.ShouldNotBeNull();
-        snapshot.Renderable.ShouldNotBeNull();
-        RenderToText(snapshot.Renderable!, maxWidth: 20).ShouldBe("Simple");
+        snapshot.Source.ShouldNotBeNull();
+        RenderToText(snapshot.Source!.Paint().ToRenderable(), maxWidth: 20).ShouldBe("Simple");
     }
 
     [Fact]
@@ -83,9 +83,9 @@ public sealed class ConsoleRendererTests
 
         var snapshot = await renderer.MountComponentAsync<SpinnerComponent>(ParameterView.Empty, CancellationToken.None);
 
-        snapshot.Renderable.ShouldNotBeNull();
+        snapshot.Source.ShouldNotBeNull();
         snapshot.AnimatedRenderables.Count.ShouldBe(1);
-        RenderToText(snapshot.Renderable!, maxWidth: 20).ShouldContain("Loading");
+        RenderToText(snapshot.Source!.Paint().ToRenderable(), maxWidth: 20).ShouldContain("Loading");
     }
 
     [Fact]

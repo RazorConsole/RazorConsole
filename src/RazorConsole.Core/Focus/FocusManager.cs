@@ -175,7 +175,7 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
             {
                 var snapshot = new ConsoleRenderer.RenderSnapshot(
                     initialView.VdomRoot,
-                    initialView.Renderable,
+                    initialView.Source,
                     initialView.AnimatedRenderables);
 
                 initialFocus = UpdateFocusTargets(snapshot);

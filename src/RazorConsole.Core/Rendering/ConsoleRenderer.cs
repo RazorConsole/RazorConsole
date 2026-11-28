@@ -12,7 +12,6 @@ using RazorConsole.Core.Extensions;
 using RazorConsole.Core.Layout;
 using RazorConsole.Core.Rendering.ComponentMarkup;
 using RazorConsole.Core.Vdom;
-using Spectre.Console.Rendering;
 
 namespace RazorConsole.Core.Rendering;
 
@@ -548,13 +547,13 @@ internal sealed class ConsoleRenderer(
 
         var widgetRoot = _widgetTranslationContext.Translate(rootNode);
         var layoutResult = _layoutEngine.Layout(widgetRoot, CreateViewportConstraints());
-        var renderable = layoutResult.PaintToRenderable();
+        var source = layoutResult.ToFrameSource();
         var layouts = layoutResult.EnumerateLayoutInfos();
         var layoutParents = layoutResult.EnumerateLayoutParentIds();
 
         UpdateSnapshotAccessors(rootNode, layouts, layoutParents);
 
-        return new RenderSnapshot(rootNode, renderable, _widgetTranslationContext.AnimatedRenderables.ToArray())
+        return new RenderSnapshot(rootNode, source, _widgetTranslationContext.AnimatedRenderables.ToArray())
         {
             Layouts = layouts,
             LayoutParents = layoutParents,
@@ -780,7 +779,7 @@ internal sealed class ConsoleRenderer(
         return value.ToString() ?? string.Empty;
     }
 
-    public readonly record struct RenderSnapshot(VNode? Root, IRenderable? Renderable, IReadOnlyCollection<IAnimatedConsoleRenderable> AnimatedRenderables)
+    public readonly record struct RenderSnapshot(VNode? Root, FrameSource? Source, IReadOnlyCollection<IAnimatedConsoleRenderable> AnimatedRenderables)
     {
         public static RenderSnapshot Empty { get; } = new(null, null, Array.Empty<IAnimatedConsoleRenderable>());
 

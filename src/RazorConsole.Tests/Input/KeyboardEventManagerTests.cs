@@ -607,7 +607,7 @@ public class KeyboardEventManagerTests
             var session = focusManager.BeginSession(context, view, CancellationToken.None);
             if (view.VdomRoot is not null)
             {
-                var snapshot = new ConsoleRenderer.RenderSnapshot(view.VdomRoot, view.Renderable, view.AnimatedRenderables);
+                var snapshot = new ConsoleRenderer.RenderSnapshot(view.VdomRoot, view.Source, view.AnimatedRenderables);
                 ((IObserver<ConsoleRenderer.RenderSnapshot>)focusManager).OnNext(snapshot);
             }
             await session.InitializationTask.ConfigureAwait(false);
@@ -622,7 +622,7 @@ public class KeyboardEventManagerTests
             if (view.VdomRoot is not null)
             {
                 ((IObserver<ConsoleRenderer.RenderSnapshot>)FocusManager).OnNext(
-                    new ConsoleRenderer.RenderSnapshot(view.VdomRoot, view.Renderable, view.AnimatedRenderables));
+                    new ConsoleRenderer.RenderSnapshot(view.VdomRoot, view.Source, view.AnimatedRenderables));
             }
         }
 
@@ -658,7 +658,7 @@ public class KeyboardEventManagerTests
             return ConsoleViewResult.Create(
                 html: "<div></div>",
                 vdomRoot: root,
-                renderable: new FakeRenderable(),
+                source: TestFrames.Of(new FakeRenderable()),
                 animatedRenderables: Array.Empty<IAnimatedConsoleRenderable>());
         }
     }
@@ -783,7 +783,7 @@ public class KeyboardEventManagerTests
 
     private sealed class NoopCanvas : ConsoleLiveDisplayContext.ILiveDisplayCanvas
     {
-        public void UpdateTarget(IRenderable? renderable)
+        public void UpdateTarget(FrameSource? source)
         {
         }
 

@@ -19,7 +19,7 @@ public sealed class SnapshotReuseTests
 
         first.Sequence.ShouldBe(mounted.Sequence);
         second.Sequence.ShouldBe(first.Sequence);
-        second.Renderable.ShouldBeSameAs(first.Renderable);
+        second.Source.ShouldBeSameAs(first.Source);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public sealed class SnapshotReuseTests
         var again = renderer.RefreshSnapshot();
 
         again.Sequence.ShouldBe(first.Sequence);
-        again.Renderable.ShouldBeSameAs(first.Renderable);
+        again.Source.ShouldBeSameAs(first.Source);
     }
 
     private sealed class TextComponent : ComponentBase

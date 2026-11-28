@@ -236,6 +236,18 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void LayoutResult_FrameSource_RepaintsSpectreWidgetOnEveryPaint()
+    {
+        var widget = new SpectreWidget("animated", new CountingRenderable());
+        var engine = new LayoutEngine();
+
+        var source = engine.Layout(widget, new BoxConstraints(0, 20, 0, 5)).ToFrameSource();
+
+        source.Paint()[0, 0].Text.ShouldBe("1");
+        source.Paint()[0, 0].Text.ShouldBe("2");
+    }
+
+    [Fact]
     public void WidgetTranslationContext_TranslatesTextInputAsVisualComposition()
     {
         var node = VNode.CreateElement("div");

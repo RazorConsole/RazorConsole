@@ -161,7 +161,7 @@ Translators run for every node that becomes a widget, including children of buil
 `LayoutEngine.Layout` measures the widget tree against the viewport constraints, arranges every widget into a `LayoutRect`, and grows the document to fit absolute-positioned widgets. The resulting `LayoutResult` provides:
 
 - the layout box of every node, which feeds `IVNodeLayoutAccessor`, focus and mouse hit-testing, and the diagnostics endpoint;
-- `PaintToRenderable()`, which paints the widgets into a `TerminalCanvas` when the frame is written.
+- `ToFrameSource()`, a `FrameSource` that the render snapshot carries instead of a Spectre `IRenderable`. The frame loop in `LiveDisplayCanvas` paints the current source into a `TerminalFrame` (a `TerminalCanvas` of cells) for every frame it writes, so animations and scrolling repaint the same source without a new render.
 
 `SpectreWidget` leaves render their Spectre.Console renderable at the width they were given and copy the resulting segments into the canvas cells, so Spectre-backed content takes part in layout like any other widget.
 
@@ -186,10 +186,11 @@ sequenceDiagram
             LiveDisplay->>LiveDisplay: Skip redraw
         end
     end
+    Canvas->>Canvas: Paint the source into a TerminalFrame
     Canvas->>Terminal: Write the lines that changed
 ```
 
-A terminal resize refreshes the snapshot through the same path, so the frame is laid out again at the new size. Issue #425 plans to make the painted cell grid the pipeline's official output, with terminal, headless and diagnostics backends consuming the same frames.
+A terminal resize refreshes the snapshot through the same path, so the frame is laid out again at the new size. The painted `TerminalFrame` is the first step of issue #425: later steps move writing to the terminal behind a backend abstraction, so terminal, headless and diagnostics backends consume the same frames.
 
 ## Event Handling and Re-render
 

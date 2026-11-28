@@ -163,7 +163,7 @@ internal class RazorConsoleRenderer<[DynamicallyAccessedMembers(DynamicallyAcces
 
         try
         {
-            console.Write(snapshot.Renderable!);
+            console.Write(snapshot.Source!.Paint().ToRenderable());
         }
         catch (Exception ex)
         {
